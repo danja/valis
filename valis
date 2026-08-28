@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# valis - launch the standalone build, preferring Release over Debug.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+for d in build-release/Release build/Debug build/Release; do
+  APP="$ROOT_DIR/${d%%/*}/valis_plugin_artefacts/${d##*/}/Standalone/Valis"
+  [[ -x "$APP" ]] && exec "$APP" "$@"
+done
+
+echo "Valis is not built. Run ./build.sh first." >&2
+exit 1

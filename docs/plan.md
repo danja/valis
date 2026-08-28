@@ -196,12 +196,14 @@ This is the single most important thing to get right in M6; retrofitting it is p
 
 Each is independently verifiable and leaves the build green. `docs/plan.md` gets an inline status annotation per milestone as it completes — the plan doubles as the progress tracker, the convention used in `transmission/docs/plan.md`.
 
-### M0 — Build skeleton
+### M0 — Build skeleton *(complete)*
 Root `CMakeLists.txt` with `option(VALIS_BUILD_TESTS ON)`, `option(VALIS_WITH_MCP ON)`, `option(VALIS_WITH_CLAP OFF)`; the dependency-free-default + feature-gated-options pattern from `/home/danny/github/transmission/native/CMakeLists.txt`. `juce_add_plugin` with `FORMATS Standalone VST3 LV2`, an explicit `PLUGIN_CODE` (JUCE randomises it per configure otherwise, and hosts lose the plugin), `LV2URI "urn:valis:valis"` (must match `https?://.*|urn:.*` or configure fatal-errors), and **`EDITOR_WANTS_KEYBOARD_FOCUS TRUE`** — without it hosts swallow every keystroke aimed at the Turtle editor. `project()` must list `C` among its languages or JUCE refuses to configure. `build.sh` + `valis` launcher.
 
 *serd/sord gotcha:* both build with **meson**, not CMake, so `FetchContent` + `add_subdirectory` will not work. `cmake/FindOrFetchSerd.cmake` tries `pkg_check_modules(serd-0 sord-0)` first — `sudo apt install libserd-dev libsord-dev` is the fast path — and otherwise fetches `serd v0.32.10` / `sord v0.16.8` and compiles them with a hand-written `add_library(... STATIC)` over their `src/*.c`. Both vendor their own zix, so no third fetch.
 
 *Acceptance:* `./build.sh` green; an empty plugin loads in `extras/AudioPluginHost` (build JUCE with `-DJUCE_BUILD_EXTRAS=ON`) and is listed by `lv2ls`.
+
+*Done:* all three formats build warning-free; `lv2ls`/`lv2info` resolve `urn:valis:valis`; the 64 parameter slots appear in the generated `dsp.ttl` as `lv2:Parameter` + `patch:writable` (JUCE 9 uses the LV2 patch/parameters extension, not ControlPorts). serd/sord are fetched and compiled by `cmake/FindOrFetchSerd.cmake`. Note: JUCE bundles its own serd/sord/lilv for LV2 *hosting* — `JUCE_PLUGINHOST_LV2=0` keeps two copies out of one binary.
 
 ### M1 — RDF layer
 `Vocabulary.h` as frozen IRI string constants (the `transmission/src/rdf/Vocabulary.js` approach — plain constants, no namespace-builder machinery). `TurtleStore` wraps `SordWorld`/`SordModel` with RAII, parses via `serd_reader`, and — critically — **captures serd's line/column on error** so the editor can put a marker in the gutter. `TurtleWriter` serialises back via `serd_writer` with a stable prefix table.
