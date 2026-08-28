@@ -85,9 +85,10 @@ names. `val:Network` is declared as the seam for future component-level subcircu
 
 ## Status
 
-**M0 (build skeleton) and M1 (RDF layer) are complete and verified. M2 through M11 are
-not started.** The plugin currently passes audio through unchanged: nothing connects the
-RDF layer to the engine yet, and there is no DSP, no MCP server and no editing.
+**M0 (build skeleton), M1 (RDF layer) and M2 (ontology, model, compiler) are complete
+and verified. M3 through M11 are not started.** The plugin currently passes audio through
+unchanged: a circuit can be parsed, validated and ordered, but there is no DSP behind the
+element types yet, and no MCP server and no editing.
 
 What M0 delivers:
 
@@ -108,6 +109,19 @@ What M1 adds:
 - Parse errors carry serd's line and column, so the Turtle view can mark the gutter in
   M7: a missing `.` reports as `4:0: missing ';' or '.'`.
 - The test parses every file under `vocabs/`, so a bad ontology edit fails the build.
+
+What M2 adds:
+
+- `Ontology` loads the 24 implementable element classes from `vocabs/valis.ttl` at
+  runtime, with their ports, ranges and units.
+- `CircuitModel` resolves a circuit's elements, arcs and parameter bindings against it.
+- `CircuitCompiler` validates and topologically orders, reporting every problem it finds
+  with the element or arc at fault named: unknown or abstract class, unknown port, wrong
+  direction, audio/control rate mismatch, duplicate or dangling arc, silent fan-in onto a
+  non-Mixer input, wrong output count, and a feedback loop with no `val:UnitDelay` —
+  printed as the path round the loop.
+- [`examples/skream.ttl`](examples/skream.ttl) compiles clean: 13 nodes, both filter taps
+  in use, and the gate's sidechain resolved as a control arc.
 
 ## Development
 

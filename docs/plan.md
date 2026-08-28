@@ -217,12 +217,16 @@ Root `CMakeLists.txt` with `option(VALIS_BUILD_TESTS ON)`, `option(VALIS_WITH_MC
 ### M1.5 — Control-rate arcs *(vocabulary done, compiler pending)*
 An arc may end on an `lv2:ControlPort`, carrying one value per block, with modulation depth as a property of the arc (`val:depth`) rather than of either endpoint — the same source can drive two destinations by different amounts. Without this Valis is a static effects chain: no LFO can reach a cutoff and no sidechain is expressible. Forced by the Skream circuit, where the feedback gate is opened by an envelope follower on the *input*.
 
-### M2 — Ontology, model, compiler
+### M2 — Ontology, model, compiler *(complete)*
 `vocabs/valis.ttl` is written. `CircuitModel` is the immutable in-memory picture (elements, ports, arcs, param bindings). `CircuitCompiler` validates and lowers it to `CompiledCircuit` — a flat, fully preallocated, topologically ordered POD structure that the engine consumes. Validation must reject, with a useful message pointing at a node: unknown element class, unknown port symbol, dangling arc endpoint, duplicate arc, type-mismatched arc (audio↔control), and cycles without an explicit `val:UnitDelay`.
 
 *Acceptance:* valid / invalid / cycle cases each covered by a test, per the `transmission/AGENTS.md` rule that tests cover "valid, invalid, and failure cases". Plus the ontology↔registry set-equality test described above.
 
-### M3 — DSP elements and registry
+*Done:* `Ontology` loads 24 implementable classes from `vocabs/valis.ttl`, resolving `owl:equivalentClass` aliases and rejecting a class that declares `val:implementation` with no ports or duplicate port symbols. `CircuitModel` resolves elements, arcs and parameter bindings against it, with control values falling back to `lv2:default`. `CircuitCompiler` validates and topologically orders, reporting *every* problem rather than the first, each named against the offending element or arc: unknown/abstract class, unknown port, wrong direction, audio↔control rate mismatch, duplicate arc, dangling endpoint, an arc declared but not listed in `val:arc`, silent fan-in onto a non-Mixer input, wrong `val:Output` count, and a feedback loop with no `val:UnitDelay` — the last printed as the path round the loop. A unit delay's outgoing edge is cut before cycle detection, since it reads the previous block. The topological frontier is sorted by id so the order is reproducible for golden-output tests.
+
+The registry direction of the set-equality test lands with `ElementRegistry` in M3. `examples/skream.ttl` compiles clean: 13 nodes, 1 control link, both filter taps in use, 7 parameter bindings resolving to real control inputs.
+
+### M3 — DSP elements and registry *(next)*
 `DspElement` abstract base, deliberately modelled on `transmission/native/include/transmission/AudioProcessor.h` — virtual methods with **default implementations that degrade gracefully** rather than abort. `ElementRegistry` maps class IRI → factory.
 
 Reuse from `juce_dsp` rather than reimplementing: `StateVariableTPTFilter` and `FirstOrderTPTFilter` (the topology-preserving transforms are the VA-correct ones), `LadderFilter` (already a nonlinear Moog ladder), `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `BallisticsFilter`, and `FastMathApproximations` for cheap `tanh`. MVP element set: `Oscillator`, `Noise`, `OnePole`, `StateVariable`, `Ladder`, `UnitDelay`, `Tanh`, `HardClip`, `Fold`, `Diode`, `DiodePair`, `Triode`, `Gain`, `Mixer`, `Envelope`, `Input`, `Output`.

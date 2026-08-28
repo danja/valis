@@ -89,9 +89,9 @@ public:
     void registerPrefix(std::string_view prefix, std::string_view uri);
 
     // -- node construction ------------------------------------------------
-    Node uri(std::string_view iri);
-    Node blank(std::string_view id);
-    Node literal(std::string_view text, std::string_view datatypeIri = {});
+    Node uri(std::string_view iri) const;
+    Node blank(std::string_view id) const;
+    Node literal(std::string_view text, std::string_view datatypeIri = {}) const;
 
     // -- queries ----------------------------------------------------------
     /// The single object of (subject, predicate), or an invalid Node. When more

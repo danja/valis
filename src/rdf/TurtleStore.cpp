@@ -277,19 +277,19 @@ std::string TurtleStore::serialise() const
 // would leak. Creation is rare and off the audio thread, so we accept the leak
 // of unused nodes rather than complicate Node with ownership.
 
-Node TurtleStore::uri(std::string_view iri)
+Node TurtleStore::uri(std::string_view iri) const
 {
     const std::string s(iri);
     return Node{reinterpret_cast<const SordNodeImpl*>(sord_new_uri(sw(worldPtr), u8(s)))};
 }
 
-Node TurtleStore::blank(std::string_view id)
+Node TurtleStore::blank(std::string_view id) const
 {
     const std::string s(id);
     return Node{reinterpret_cast<const SordNodeImpl*>(sord_new_blank(sw(worldPtr), u8(s)))};
 }
 
-Node TurtleStore::literal(std::string_view text, std::string_view datatypeIri)
+Node TurtleStore::literal(std::string_view text, std::string_view datatypeIri) const
 {
     const std::string s(text);
     SordNode* dt = nullptr;
