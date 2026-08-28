@@ -27,7 +27,8 @@ endif()
 # Links juce_dsp but no GUI module, so every test is a plain console binary.
 # --------------------------------------------------------------------------
 add_library(valis_core STATIC
-  src/rdf/Vocabulary.cpp)
+  src/rdf/Vocabulary.cpp
+  src/rdf/TurtleStore.cpp)
 
 target_include_directories(valis_core
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -48,7 +49,7 @@ target_compile_definitions(valis_core PUBLIC
   # would link two copies of serd into one binary. Valis hosts nothing, so keep
   # it off; if it is ever needed, drop our serd and use JUCE's.
   JUCE_PLUGINHOST_LV2=0
-  VALIS_ONTOLOGY_DIR="${CMAKE_CURRENT_SOURCE_DIR}/ontology"
+  VALIS_VOCABS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vocabs"
   VALIS_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples")
 
 # --------------------------------------------------------------------------

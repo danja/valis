@@ -1,0 +1,162 @@
+# examples/skream.ttl
+#
+# The Massive "scream" filter as a Valis circuit. See docs/skream.md for what
+# this is and why it is the project's proof of concept.
+#
+# Topology, after /home/danny/github/Scream src/plugin.c:
+#
+#   in ─[gain]─▶(+)─[tanh]─[svf lp]─┬─[dry/wet]─▶ out
+#                ▲                  │
+#                └─[z⁻¹]─[gate]◀─[tanh]─[svf2 hp]─[fb gain]
+#                          ▲
+#                          └── envelope of the input
+#
+# The feedback path is what screams. The gate is driven by an envelope of the
+# INPUT, not of the loop, so the howl stops between notes instead of
+# self-oscillating forever.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:skream#> .
+
+:skream a val:Circuit ;
+    rdfs:label "Skream" ;
+    rdfs:comment "2010-era growl. Feedback saturation around a state variable filter." ;
+    val:element :in , :inGain , :loop , :sat1 , :svf , :fbGain , :hpf , :sat2 ,
+                :gate , :env , :z , :mix , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 , :a9 , :a10 , :a11 ,
+            :a12 , :a13 , :m1 , :m2 .
+
+################################################################
+# Elements                                                     #
+################################################################
+
+:in  a val:Input .
+:out a val:Output .
+
+# An effect cannot know its input level, so the drive is explicit rather than
+# auto-gained. This is the same reasoning Scream gives for its input gain.
+:inGain a val:Gain ; rdfs:label "Input Gain" ; val:gain 0.0 .
+
+:loop a val:Mixer ;
+    rdfs:comment "Sums the dry input with the returning feedback." .
+
+# ADAA2 rather than oversampling: cheaper, and cleaner for a memoryless curve.
+:sat1 a val:Tanh ;
+    rdfs:label "Drive" ;
+    val:gain 2.0 ;
+    val:antialiasing val:ADAA2 .
+
+:svf a val:StateVariable ;
+    rdfs:label "Scream Filter" ;
+    val:cutoff 800.0 ;
+    val:resonance 4.0 .
+
+# A second filter instance in the return path. Its corner decides which part of
+# the spectrum howls, and it is separate from :svf because it carries its own
+# state - Scream keeps s.lp and s.hp apart for the same reason.
+:hpf a val:StateVariable ;
+    rdfs:label "Feedback Tone" ;
+    val:cutoff 300.0 ;
+    val:resonance 2.0 .
+
+:fbGain a val:Gain ;
+    rdfs:label "Feedback" ;
+    val:gain -6.0 .
+
+:sat2 a val:Tanh ;
+    val:gain 1.5 ;
+    val:antialiasing val:ADAA2 .
+
+:gate a val:Expander ;
+    rdfs:label "Feedback Gate" ;
+    val:threshold -60.0 ;
+    val:ratio 2.0 .
+
+:env a val:EnvelopeFollower ;
+    val:attack 1.0 ;
+    val:release 100.0 ;
+    val:mode 0.0 .
+
+# Breaks the cycle. Without this the compiler rejects the circuit by name.
+:z a val:UnitDelay .
+
+:mix a val:DryWet ; val:mix 1.0 .
+
+################################################################
+# Forward path                                                 #
+################################################################
+
+:a1  a val:Arc ; val:from [ val:node :in     ; val:port "out" ] ;
+                 val:to   [ val:node :inGain ; val:port "in"  ] .
+:a2  a val:Arc ; val:from [ val:node :inGain ; val:port "out" ] ;
+                 val:to   [ val:node :loop   ; val:port "in"  ] .
+:a3  a val:Arc ; val:from [ val:node :loop   ; val:port "out" ] ;
+                 val:to   [ val:node :sat1   ; val:port "in"  ] .
+:a4  a val:Arc ; val:from [ val:node :sat1   ; val:port "out" ] ;
+                 val:to   [ val:node :svf    ; val:port "in"  ] .
+:a5  a val:Arc ; val:from [ val:node :svf    ; val:port "lp"  ] ;
+                 val:to   [ val:node :mix    ; val:port "wet" ] .
+:a6  a val:Arc ; val:from [ val:node :inGain ; val:port "out" ] ;
+                 val:to   [ val:node :mix    ; val:port "dry" ] .
+:a7  a val:Arc ; val:from [ val:node :mix    ; val:port "out" ] ;
+                 val:to   [ val:node :out    ; val:port "in"  ] .
+
+################################################################
+# Feedback path                                                #
+################################################################
+
+:a8  a val:Arc ; val:from [ val:node :svf    ; val:port "lp"  ] ;
+                 val:to   [ val:node :fbGain ; val:port "in"  ] .
+:a9  a val:Arc ; val:from [ val:node :fbGain ; val:port "out" ] ;
+                 val:to   [ val:node :hpf    ; val:port "in"  ] .
+:a10 a val:Arc ; val:from [ val:node :hpf    ; val:port "hp"  ] ;
+                 val:to   [ val:node :sat2   ; val:port "in"  ] .
+:a11 a val:Arc ; val:from [ val:node :sat2   ; val:port "out" ] ;
+                 val:to   [ val:node :gate   ; val:port "in"  ] .
+:a12 a val:Arc ; val:from [ val:node :gate   ; val:port "out" ] ;
+                 val:to   [ val:node :z      ; val:port "in"  ] .
+:a13 a val:Arc ; val:from [ val:node :z      ; val:port "out" ] ;
+                 val:to   [ val:node :loop   ; val:port "in"  ] .
+
+################################################################
+# Control arcs                                                 #
+################################################################
+
+# The sidechain is a visible arc, not a hidden coupling inside the gate. :m1
+# carries audio into the detector; :m2 is the control arc out of it.
+:m1 a val:Arc ;
+    val:from [ val:node :in   ; val:port "out"    ] ;
+    val:to   [ val:node :env  ; val:port "in"     ] .
+
+:m2 a val:Arc ;
+    val:from [ val:node :env  ; val:port "out"    ] ;
+    val:to   [ val:node :gate ; val:port "amount" ] ;
+    val:depth 1.0 .
+
+################################################################
+# Host parameter bindings                                      #
+################################################################
+
+:p0 a val:Param ; val:slot 0 ; val:target :svf ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+
+:p1 a val:Param ; val:slot 1 ; val:target :svf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :sat1 ; val:property val:gain ;
+    lv2:name "Scream" ; lv2:symbol "scream" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :fbGain ; val:property val:gain ;
+    lv2:name "Feedback" ; lv2:symbol "feedback" ; units:unit units:db .
+
+:p6 a val:Param ; val:slot 6 ; val:target :hpf ; val:property val:cutoff ;
+    lv2:name "Feedback Tone" ; lv2:symbol "fbtone" ; units:unit units:hz .
+
+:p4 a val:Param ; val:slot 4 ; val:target :inGain ; val:property val:gain ;
+    lv2:name "Input Gain" ; lv2:symbol "input" ; units:unit units:db .
+
+:p5 a val:Param ; val:slot 5 ; val:target :mix ; val:property val:mix ;
+    lv2:name "Mix" ; lv2:symbol "mix" .

@@ -7,6 +7,11 @@
 
 namespace valis::vocab {
 
+std::string valTerm(std::string_view localName)
+{
+    return std::string(VAL) + std::string(localName);
+}
+
 std::string shortName(std::string_view iri)
 {
     const auto slash = iri.find_last_of('/');

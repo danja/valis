@@ -1,0 +1,550 @@
+# vocabs/valis.ttl
+#
+# The Valis vocabulary. Loaded at runtime by ElementRegistry, not merely
+# documentation: a unit test asserts that the set of classes carrying
+# val:implementation here and the set of factories registered in C++ are equal
+# in both directions, so drift is a test failure rather than a surprise.
+#
+# Port and control-range description reuses lv2: and units: rather than
+# inventing terms. See vocabs/lv2/ for the copies this file is written against.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+
+<http://purl.org/stuff/valis/>
+    a owl:Ontology ;
+    rdfs:label "Valis" ;
+    rdfs:comment "Virtual analog circuits described in RDF." .
+
+################################################################
+# Properties                                                   #
+################################################################
+
+val:implementation a rdf:Property ;
+    rdfs:label "implementation" ;
+    rdfs:domain rdfs:Class ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The ElementRegistry key that constructs this class. A key,
+not a file path: C++ has no dynamic import. A class without this property is
+abstract and cannot be instantiated.""" .
+
+val:linear a rdf:Property ;
+    rdfs:label "linear" ;
+    rdfs:range xsd:boolean ;
+    rdfs:comment """Whether the element is linear. A property, not a class:
+val:Ladder is a nonlinear val:Filter, so linearity is orthogonal to the
+Filter/Transfer split.""" .
+
+val:element a rdf:Property ; rdfs:domain val:Circuit ; rdfs:range val:Element ;
+    rdfs:comment "Relates a circuit to an element it contains." .
+val:arc a rdf:Property ; rdfs:domain val:Circuit ; rdfs:range val:Arc ;
+    rdfs:comment "Relates a circuit to an arc it contains." .
+
+val:from a rdf:Property ; rdfs:domain val:Arc ; rdfs:range val:Endpoint .
+val:to   a rdf:Property ; rdfs:domain val:Arc ; rdfs:range val:Endpoint .
+val:node a rdf:Property ; rdfs:domain val:Endpoint ; rdfs:range val:Element .
+val:port a rdf:Property ; rdfs:domain val:Endpoint ; rdfs:range xsd:string ;
+    rdfs:comment "The lv2:symbol of the port at this end of the arc." .
+
+val:depth a rdf:Property ; rdfs:domain val:Arc ; rdfs:range xsd:double ;
+    rdfs:comment """Modulation depth, for an arc ending on an lv2:ControlPort.
+Depth is a property of the connection, not of either endpoint: the same source
+may drive two destinations by different amounts. Ignored on audio arcs.""" .
+
+val:antialiasing a rdf:Property ; rdfs:domain val:Transfer ; rdfs:range val:AntiAliasing ;
+    rdfs:comment """How a memoryless nonlinearity suppresses the harmonics it
+generates above Nyquist. Antiderivative anti-aliasing is cheaper and cleaner
+than oversampling for this case.""" .
+
+val:slot a rdf:Property ; rdfs:domain val:Param ; rdfs:range xsd:integer ;
+    rdfs:comment """Which of the plugin's fixed parameter slots this binding
+drives. The list is fixed at construction because VST3, LV2 and CLAP all
+require a static parameter list.""" .
+val:target   a rdf:Property ; rdfs:domain val:Param ; rdfs:range val:Element .
+val:property a rdf:Property ; rdfs:domain val:Param ; rdfs:range rdf:Property .
+
+# Editor metadata. Kept in a separate graph from execution metadata: moving a
+# node must never invalidate the compiled circuit.
+val:x a rdf:Property ; rdfs:range xsd:double .
+val:y a rdf:Property ; rdfs:range xsd:double .
+
+################################################################
+# Anti-aliasing strategies                                     #
+################################################################
+
+val:AntiAliasing a rdfs:Class ;
+    rdfs:label "AntiAliasing" ;
+    rdfs:comment "A strategy for suppressing the aliasing a nonlinearity creates." .
+
+val:None a val:AntiAliasing ; rdfs:label "none" ;
+    rdfs:comment "Process at the host rate. Cheapest, and audibly aliased when driven." .
+
+val:ADAA1 a val:AntiAliasing ; rdfs:label "ADAA1" ;
+    rdfs:comment "First-order antiderivative anti-aliasing." .
+
+val:ADAA2 a val:AntiAliasing ; rdfs:label "ADAA2" ;
+    rdfs:comment """Second-order antiderivative anti-aliasing. Must be evaluated
+in double precision: the second antiderivative of tanh overflows in float.""" .
+
+val:Oversample2x a val:AntiAliasing ; rdfs:label "2x oversampling" .
+val:Oversample4x a val:AntiAliasing ; rdfs:label "4x oversampling" .
+
+################################################################
+# Structural classes                                           #
+################################################################
+
+val:Circuit a rdfs:Class ;
+    rdfs:label "Circuit" ;
+    rdfs:comment "A graph of elements joined by arcs." .
+
+val:Arc a rdfs:Class ;
+    rdfs:label "Arc" ;
+    rdfs:comment """A directed connection between two endpoints. Topology is
+modelled with explicit arcs, never as an rdf:List, so the graph is a faithful
+picture of the dataflow.""" .
+
+val:Endpoint a rdfs:Class ;
+    rdfs:label "Endpoint" ;
+    rdfs:comment "One end of an arc: an element and one of its ports." .
+
+val:Param a rdfs:Class ;
+    rdfs:label "Param" ;
+    rdfs:comment "Binds a host parameter slot to an element's property." .
+
+################################################################
+# Element taxonomy                                             #
+#                                                              #
+# The Filter/Transfer split is memory vs. no memory. Linearity #
+# is a separate property: a ladder filter has memory and is    #
+# nonlinear.                                                   #
+################################################################
+
+val:Element a rdfs:Class ;
+    rdfs:label "Element" ;
+    rdfs:comment "A processing block in a circuit. Abstract." .
+
+val:Source a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Source" ;
+    rdfs:comment "An element that generates signal with no audio input. Abstract." .
+
+val:Filter a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Filter" ;
+    rdfs:comment "An element with memory: y = f(x, state). Abstract." .
+
+val:Transfer a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Transfer" ;
+    rdfs:comment """A memoryless transfer function: y = f(x). Abstract.
+Named for what it is rather than what it lacks; see val:NonLinear.""" .
+
+val:NonLinear owl:equivalentClass val:Transfer ;
+    rdfs:label "NonLinear" ;
+    rdfs:comment """Accepted as a synonym for val:Transfer so Turtle written
+against either name resolves to the same implementation.""" .
+
+val:Network a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Network" ;
+    rdfs:comment """A subcircuit solved as a network rather than as a block.
+Declared but not implemented: this is the seam for future component-level
+(nodal-analysis) work. Instantiating one is a compile error today.""" .
+
+################################################################
+# Sources                                                      #
+################################################################
+
+val:Oscillator a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Oscillator" ;
+    val:implementation "Oscillator" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 3.0 ;
+        rdfs:comment "0 sine, 1 saw, 2 square, 3 triangle" ] .
+
+val:Noise a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Noise" ;
+    val:implementation "Noise" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "colour" ;
+        lv2:name "Colour" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "0 white, 1 pink" ] .
+
+################################################################
+# Filters                                                      #
+################################################################
+
+val:OnePole a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "OnePole" ;
+    val:implementation "OnePole" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "cutoff" ;
+        lv2:name "Cutoff" ; lv2:default 1000.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mode" ;
+        lv2:name "Mode" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 2.0 ;
+        rdfs:comment "0 lowpass, 1 highpass, 2 allpass" ] .
+
+val:StateVariable a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "StateVariable" ;
+    rdfs:comment """Topology-preserving transform SVF in the Cytomic
+mixing-coefficient form. All three responses are available at once, so one
+filter can feed a forward path from lp and a feedback path from hp.""" ;
+    val:implementation "StateVariable" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "lp" ; lv2:name "Lowpass" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "bp" ; lv2:name "Bandpass" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "hp" ; lv2:name "Highpass" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "cutoff" ;
+        lv2:name "Cutoff" ; lv2:default 1000.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "resonance" ;
+        lv2:name "Resonance" ; lv2:default 0.7071 ;
+        lv2:minimum 0.05 ; lv2:maximum 20.0 ] .
+
+val:Ladder a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Ladder" ;
+    rdfs:comment "Moog-style ladder. Has memory and is nonlinear." ;
+    val:implementation "Ladder" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "cutoff" ;
+        lv2:name "Cutoff" ; lv2:default 1000.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "resonance" ;
+        lv2:name "Resonance" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "drive" ;
+        lv2:name "Drive" ; lv2:default 1.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 20.0 ] .
+
+val:UnitDelay a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "UnitDelay" ;
+    rdfs:comment """A one-sample delay. Required to break a cycle: the compiler
+rejects any feedback loop that does not pass through one.""" ;
+    val:implementation "UnitDelay" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] .
+
+################################################################
+# Transfer functions                                           #
+#                                                              #
+# Fine-grained device models live here. A val:Diode is a real   #
+# Shockley-equation diode with physical parameters, not a       #
+# relabelled tanh, so a clipper built from one behaves like the #
+# circuit it names.                                             #
+################################################################
+
+val:Tanh a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "Tanh" ;
+    rdfs:comment "Symmetric saturation, y = tanh(gain * x)." ;
+    val:implementation "Tanh" ;
+    val:linear false ;
+    val:antialiasing val:ADAA2 ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 1.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 100.0 ] .
+
+val:HardClip a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "HardClip" ;
+    val:implementation "HardClip" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "threshold" ;
+        lv2:name "Threshold" ; lv2:default 1.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 2.0 ] .
+
+val:Fold a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "Fold" ;
+    rdfs:comment "Wavefolder." ;
+    val:implementation "Fold" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 1.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 20.0 ] .
+
+val:Diode a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "Diode" ;
+    rdfs:comment """A single junction diode, Shockley equation:
+i = Is * (exp(v / (n * Vt)) - 1). Defaults are a 1N4148 signal diode at room
+temperature. Conducts in one direction only, so it clips asymmetrically.""" ;
+    val:implementation "Diode" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "saturationCurrent" ;
+        lv2:name "Is" ; lv2:default 2.52e-9 ;
+        lv2:minimum 1e-15 ; lv2:maximum 1e-3 ;
+        units:unit [ a units:Unit ; units:symbol "A" ; units:render "%.3g A" ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "emissionCoefficient" ;
+        lv2:name "n" ; lv2:default 1.752 ;
+        lv2:minimum 1.0 ; lv2:maximum 2.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "thermalVoltage" ;
+        lv2:name "Vt" ; lv2:default 0.02585 ;
+        lv2:minimum 0.02 ; lv2:maximum 0.03 ;
+        units:unit [ a units:Unit ; units:symbol "V" ; units:render "%.4f V" ] ] .
+
+val:DiodePair a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "DiodePair" ;
+    rdfs:comment """Two diodes in antiparallel, the classic soft clipper. Uses
+the same Shockley parameters as val:Diode but clips symmetrically.""" ;
+    val:implementation "DiodePair" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "saturationCurrent" ;
+        lv2:name "Is" ; lv2:default 2.52e-9 ;
+        lv2:minimum 1e-15 ; lv2:maximum 1e-3 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "emissionCoefficient" ;
+        lv2:name "n" ; lv2:default 1.752 ;
+        lv2:minimum 1.0 ; lv2:maximum 2.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "seriesResistance" ;
+        lv2:name "Rs" ; lv2:default 1000.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 1e6 ;
+        units:unit [ a units:Unit ; units:symbol "ohm" ; units:render "%.0f R" ] ] .
+
+val:Triode a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "Triode" ;
+    rdfs:comment """A triode valve stage, Koren-style. Asymmetric, with grid
+conduction on positive excursions. Defaults approximate a 12AX7.""" ;
+    val:implementation "Triode" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mu" ;
+        lv2:name "mu" ; lv2:default 100.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 250.0 ;
+        rdfs:comment "Amplification factor" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bias" ;
+        lv2:name "Bias" ; lv2:default -1.5 ;
+        lv2:minimum -10.0 ; lv2:maximum 0.0 ;
+        units:unit [ a units:Unit ; units:symbol "V" ; units:render "%.2f V" ] ] .
+
+################################################################
+# Utility                                                      #
+################################################################
+
+val:Gain a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Gain" ;
+    val:implementation "Gain" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 0.0 ;
+        lv2:minimum -60.0 ; lv2:maximum 24.0 ; units:unit units:db ] .
+
+val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Mixer" ;
+    rdfs:comment "Sums its inputs. Several arcs may target the same input port." ;
+    val:implementation "Mixer" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] .
+
+val:Envelope a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Envelope" ;
+    val:implementation "Envelope" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
+        lv2:name "Attack" ; lv2:default 10.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "decay" ;
+        lv2:name "Decay" ; lv2:default 200.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "sustain" ;
+        lv2:name "Sustain" ; lv2:default 0.7 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
+        lv2:name "Release" ; lv2:default 300.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:ms ] .
+
+val:Input a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Input" ;
+    rdfs:comment "The plugin's audio input." ;
+    val:implementation "Input" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] .
+
+val:Output a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Output" ;
+    rdfs:comment "The plugin's audio output. A circuit needs exactly one." ;
+    val:implementation "Output" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] .
+
+################################################################
+# Saturators from the Scream reference                         #
+#                                                              #
+# Algebraic soft clippers, cheap and well behaved. See          #
+# docs/skream.md.                                              #
+################################################################
+
+val:SinArcTan a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "SinArcTan" ;
+    rdfs:comment "y = x / sqrt(x^2 + 1). Soft, symmetric, never quite reaches +/-1." ;
+    val:implementation "SinArcTan" ;
+    val:linear false ;
+    val:antialiasing val:ADAA1 ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 1.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 100.0 ] .
+
+val:SoftSine a rdfs:Class ; rdfs:subClassOf val:Transfer ;
+    rdfs:label "SoftSine" ;
+    rdfs:comment "y = x / (|x| + 1). Softer knee than SinArcTan." ;
+    val:implementation "SoftSine" ;
+    val:linear false ;
+    val:antialiasing val:ADAA1 ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 1.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 100.0 ] .
+
+################################################################
+# Dynamics                                                     #
+#                                                              #
+# Detector and gain-computer are separate elements so the      #
+# sidechain is visible in the graph rather than hidden inside   #
+# a compressor. Scream gates its feedback path from an envelope #
+# of the input, which only works if that arc is drawable.       #
+################################################################
+
+val:EnvelopeFollower a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "EnvelopeFollower" ;
+    rdfs:comment "Peak or RMS detection with independent attack and release." ;
+    val:implementation "EnvelopeFollower" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
+        lv2:name "Attack" ; lv2:default 1.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 1000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
+        lv2:name "Release" ; lv2:default 100.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mode" ;
+        lv2:name "Mode" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "0 peak, 1 RMS" ] .
+
+val:Expander a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Expander" ;
+    rdfs:comment """Hard-knee downward expander, used as a gate. Its amount port
+takes a control arc from an EnvelopeFollower, so the sidechain source is
+explicit.""" ;
+    val:implementation "Expander" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amount" ;
+        lv2:name "Amount" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Detector level driving the gain computer." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "threshold" ;
+        lv2:name "Threshold" ; lv2:default -60.0 ;
+        lv2:minimum -140.0 ; lv2:maximum 0.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio" ;
+        lv2:name "Ratio" ; lv2:default 2.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 20.0 ] .
+
+val:Compressor a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Compressor" ;
+    rdfs:comment """Giannoulis, Massberg and Reiss soft-knee compressor. Setting
+upward above zero adds the upward stage that gives an OTT-style sound.""" ;
+    val:implementation "Compressor" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "threshold" ;
+        lv2:name "Threshold" ; lv2:default -6.0 ;
+        lv2:minimum -60.0 ; lv2:maximum 0.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio" ;
+        lv2:name "Ratio" ; lv2:default 4.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 40.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "knee" ;
+        lv2:name "Knee" ; lv2:default 6.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
+        lv2:name "Attack" ; lv2:default 5.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 500.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
+        lv2:name "Release" ; lv2:default 100.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "upward" ;
+        lv2:name "Upward" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:LFO a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "LFO" ;
+    rdfs:comment "Control-rate oscillator. Its output drives control arcs." ;
+    val:implementation "LFO" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "rate" ;
+        lv2:name "Rate" ; lv2:default 2.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 100.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 4.0 ;
+        rdfs:comment "0 sine, 1 triangle, 2 saw, 3 square, 4 sample-and-hold" ] .
+
+val:DryWet a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "DryWet" ;
+    rdfs:comment "Crossfades a processed signal against the untouched one." ;
+    val:implementation "DryWet" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "dry" ; lv2:name "Dry" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "wet" ; lv2:name "Wet" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .

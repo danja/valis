@@ -98,8 +98,10 @@ AGENTS.md                   conventions + the real-time rules
 cmake/
   FindOrFetchSerd.cmake     pkg-config first, FetchContent fallback
   FindOrFetchClap.cmake     clap-juce-extensions, behind VALIS_WITH_CLAP
-ontology/
+vocabs/
   valis.ttl                 THE vocabulary — loaded at runtime, not just docs
+  lv2/                      vendored copies of the LV2 vocabularies we reuse
+  w3c/                      rdf, rdfs, owl schemas
 examples/
   *.ttl                     example circuits, doubling as test fixtures
 include/valis/              public headers for valis_core
@@ -127,7 +129,7 @@ Namespace `http://purl.org/stuff/valis/`, prefix `val:`, **trailing slash** — 
 
 Two lessons from the reference projects shape this:
 
-1. **The ontology is loaded at runtime, not just documented.** In `transmissions`, `docs/.../vocabs/transmissions.ttl` declares `trn:implementation "src/processors/fs/FileReader.js"` for every class — but nothing loads it, and its paths have since gone stale while a hand-written 25-branch factory chain does the real work. Valis loads `ontology/valis.ttl` at startup and drives element construction from it. C++ has no dynamic import, so `val:implementation` holds a **registry key**, not a path — and a unit test asserts that the set of classes declared in the ontology and the set of factories registered in `ElementRegistry` are equal in both directions. Drift becomes a test failure.
+1. **The ontology is loaded at runtime, not just documented.** In `transmissions`, `docs/.../vocabs/transmissions.ttl` declares `trn:implementation "src/processors/fs/FileReader.js"` for every class — but nothing loads it, and its paths have since gone stale while a hand-written 25-branch factory chain does the real work. Valis loads `vocabs/valis.ttl` at startup and drives element construction from it. C++ has no dynamic import, so `val:implementation` holds a **registry key**, not a path — and a unit test asserts that the set of classes declared in the ontology and the set of factories registered in `ElementRegistry` are equal in both directions. Drift becomes a test failure.
 
 2. **Explicit arcs with named ports, not an `rdf:List` pipe.** `transmissions` encodes order as `:pipe (:p10 :p20)`, which cannot express a DAG — its `Fork`/`Choice` branching lives in procedural code and message flags, so the graph is not a faithful picture of the dataflow, and its visual editor has to topologically re-derive the list on export. Valis models edges directly.
 
@@ -137,7 +139,7 @@ Two lessons from the reference projects shape this:
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 
-# ---- ontology/valis.ttl (excerpt) ----
+# ---- vocabs/valis.ttl (excerpt) ----
 val:Element a rdfs:Class ; rdfs:comment "A processing block in a circuit." .
 
 val:Filter a rdfs:Class ; rdfs:subClassOf val:Element ;
@@ -205,20 +207,29 @@ Root `CMakeLists.txt` with `option(VALIS_BUILD_TESTS ON)`, `option(VALIS_WITH_MC
 
 *Done:* all three formats build warning-free; `lv2ls`/`lv2info` resolve `urn:valis:valis`; the 64 parameter slots appear in the generated `dsp.ttl` as `lv2:Parameter` + `patch:writable` (JUCE 9 uses the LV2 patch/parameters extension, not ControlPorts). serd/sord are fetched and compiled by `cmake/FindOrFetchSerd.cmake`. Note: JUCE bundles its own serd/sord/lilv for LV2 *hosting* — `JUCE_PLUGINHOST_LV2=0` keeps two copies out of one binary.
 
-### M1 — RDF layer
+### M1 — RDF layer *(complete)*
 `Vocabulary.h` as frozen IRI string constants (the `transmission/src/rdf/Vocabulary.js` approach — plain constants, no namespace-builder machinery). `TurtleStore` wraps `SordWorld`/`SordModel` with RAII, parses via `serd_reader`, and — critically — **captures serd's line/column on error** so the editor can put a marker in the gutter. `TurtleWriter` serialises back via `serd_writer` with a stable prefix table.
 
 *Acceptance:* round-trip tests on `examples/*.ttl`; malformed Turtle yields a diagnostic with correct line and column.
 
+*Done:* `TurtleStore` wraps sord with RAII and move semantics; `parse`/`parseFile`/`serialise` round-trip; queries are `object`/`objects`/`subjects`/`subjectsOfType`/`contains`/`forEachProperty`, with `add`/`remove` for graph edits. Terms compare with `sord_node_equals`. Errors carry serd's line/col (`4:0: missing ';' or '.'`). `vocab::valTerm("cutoff")` builds a `val:` IRI from a local name — the dynamic-property path uses it constantly. The test parses every file in `vocabs/`, so a bad ontology edit fails the build.
+
+### M1.5 — Control-rate arcs *(vocabulary done, compiler pending)*
+An arc may end on an `lv2:ControlPort`, carrying one value per block, with modulation depth as a property of the arc (`val:depth`) rather than of either endpoint — the same source can drive two destinations by different amounts. Without this Valis is a static effects chain: no LFO can reach a cutoff and no sidechain is expressible. Forced by the Skream circuit, where the feedback gate is opened by an envelope follower on the *input*.
+
 ### M2 — Ontology, model, compiler
-`ontology/valis.ttl`. `CircuitModel` is the immutable in-memory picture (elements, ports, arcs, param bindings). `CircuitCompiler` validates and lowers it to `CompiledCircuit` — a flat, fully preallocated, topologically ordered POD structure that the engine consumes. Validation must reject, with a useful message pointing at a node: unknown element class, unknown port symbol, dangling arc endpoint, duplicate arc, type-mismatched arc (audio↔control), and cycles without an explicit `val:UnitDelay`.
+`vocabs/valis.ttl` is written. `CircuitModel` is the immutable in-memory picture (elements, ports, arcs, param bindings). `CircuitCompiler` validates and lowers it to `CompiledCircuit` — a flat, fully preallocated, topologically ordered POD structure that the engine consumes. Validation must reject, with a useful message pointing at a node: unknown element class, unknown port symbol, dangling arc endpoint, duplicate arc, type-mismatched arc (audio↔control), and cycles without an explicit `val:UnitDelay`.
 
 *Acceptance:* valid / invalid / cycle cases each covered by a test, per the `transmission/AGENTS.md` rule that tests cover "valid, invalid, and failure cases". Plus the ontology↔registry set-equality test described above.
 
 ### M3 — DSP elements and registry
 `DspElement` abstract base, deliberately modelled on `transmission/native/include/transmission/AudioProcessor.h` — virtual methods with **default implementations that degrade gracefully** rather than abort. `ElementRegistry` maps class IRI → factory.
 
-Reuse from `juce_dsp` rather than reimplementing: `StateVariableTPTFilter` and `FirstOrderTPTFilter` (the topology-preserving transforms are the VA-correct ones), `LadderFilter` (already a nonlinear Moog ladder), `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `BallisticsFilter`, and `FastMathApproximations` for cheap `tanh`. MVP element set: `Oscillator`, `Noise`, `Filter` (OnePole / StateVariable / Ladder), `Transfer` (Tanh / HardClip / Fold / Diode), `Gain`, `Mixer`, `Envelope`, `UnitDelay`, `Input`, `Output`.
+Reuse from `juce_dsp` rather than reimplementing: `StateVariableTPTFilter` and `FirstOrderTPTFilter` (the topology-preserving transforms are the VA-correct ones), `LadderFilter` (already a nonlinear Moog ladder), `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `BallisticsFilter`, and `FastMathApproximations` for cheap `tanh`. MVP element set: `Oscillator`, `Noise`, `OnePole`, `StateVariable`, `Ladder`, `UnitDelay`, `Tanh`, `HardClip`, `Fold`, `Diode`, `DiodePair`, `Triode`, `Gain`, `Mixer`, `Envelope`, `Input`, `Output`.
+
+Skream adds `SinArcTan`, `SoftSine`, `EnvelopeFollower`, `Expander`, `Compressor`, `LFO` and `DryWet`; `StateVariable` exposes `lp`/`bp`/`hp` as separate output ports rather than a numeric mode, matching the Cytomic mixing-coefficient form. `val:antialiasing` selects `ADAA1`/`ADAA2`/`Oversample2x`/`Oversample4x`/`None` per transfer element — ADAA2 must be evaluated in double precision, since the second antiderivative of tanh overflows in float.
+
+**Fine-grained device models.** The `Transfer` subclasses go below the level of "a saturation curve". `val:Diode` is a real Shockley-equation junction — `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to a 1N4148 at room temperature, and asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel soft clipper with a series resistance; `val:Triode` is a Koren-style valve stage with grid conduction. These carry physical parameters (`Is`, `n`, `Vt`, `Rs`, `mu`, bias), so a circuit built from them behaves like the circuit it names rather than like a relabelled waveshaper. `val:Network` is declared as the seam for future component-level (nodal-analysis) subcircuits; instantiating one is a compile error today.
 
 *Acceptance:* per-element offline determinism tests — fixed input buffer in, golden output out.
 
@@ -272,7 +283,7 @@ New files, so the list is a construction order rather than a change set. The one
 
 | File | Why it matters |
 |---|---|
-| `ontology/valis.ttl` | The contract between Turtle, the registry and the UI palette. Runtime-loaded, so it cannot drift silently |
+| `vocabs/valis.ttl` | The contract between Turtle, the registry and the UI palette. Runtime-loaded, so it cannot drift silently |
 | `src/rdf/Vocabulary.h` | Single source of IRI truth. One namespace, trailing slash, decided once |
 | `src/compiler/CompiledCircuit.h` | The RT boundary object. Must be POD, flat, preallocated, and contain nothing that allocates |
 | `src/engine/ValisEngine.cpp` | Where the swap protocol lives. The one place a real-time bug will hide |
@@ -321,5 +332,11 @@ curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
   "params":{"name":"setTurtle","arguments":{"turtle":"..."}}}'
 ```
+
+### The proof of concept
+
+[`docs/skream.md`](skream.md) specifies the MVP's acceptance demo: the Massive "scream" filter, expressed as `examples/skream.ttl` rather than as ported DSP. It was chosen because it is small — thirteen elements, ~150 lines of Turtle — and because it exercises precisely what is easy to get wrong: a nonlinearity inside a feedback loop, a filter tapped at two outputs at once, antiderivative anti-aliasing, and a gate driven by a control arc from elsewhere in the circuit. The reference implementation is `/home/danny/github/Scream`, itself built on Zavalishin ch. 6, the Cytomic TPT SVF, Chowdhury's ADAA and the Giannoulis compressor — published technique, not code to copy.
+
+It also makes the project's argument concretely: Scream carries five abandoned saturators commented out in its inner loop, and choosing between them means editing C and rebuilding. In Valis that is one word in a Turtle file with the audio running, and a preset can differ in topology rather than only in values.
 
 **Acceptance for the MVP as a whole:** load `examples/basic.ttl` in the standalone app, hear it; edit the cutoff in the Turtle view and hear it change; see the same circuit rendered in the graph view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure — bad Turtle, unknown element, cycle — surface a located, recoverable error instead of silence or a crash.

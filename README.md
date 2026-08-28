@@ -1,6 +1,6 @@
 # Valis
 
-**Virtual Analog LLM Intelligent Simulation.**
+**Virtual Analog LLM Integrated System**
 
 Valis is a DAW plugin — Standalone, VST3, LV2 and CLAP — that builds virtual-analog
 circuits from RDF/Turtle descriptions. The same circuit is presented through three
@@ -56,9 +56,9 @@ terms.
 :main a val:Circuit ; val:element :osc , :vcf , :drive , :out ;
       val:arc :a1 , :a2 , :a3 .
 
-:osc   a val:Oscillator ; val:wave "saw" .
+:osc   a val:Oscillator ; val:frequency 440.0 ; val:shape 1.0 .   # 1 = saw
 :vcf   a val:Ladder ; val:cutoff 800.0 ; val:resonance 0.7 .
-:drive a val:Tanh   ; val:gain 4.0 .
+:drive a val:DiodePair ; val:seriesResistance 2200.0 .
 :out   a val:Output .
 
 :a1 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
@@ -69,15 +69,25 @@ terms.
     lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
 ```
 
-`ontology/valis.ttl` declares the element classes and is loaded at runtime, not merely
-documented: a test asserts that the ontology's class set and the DSP registry's factory
-set match in both directions.
+[`vocabs/valis.ttl`](vocabs/valis.ttl) declares the element classes and is loaded at
+runtime, not merely documented: a test asserts that the ontology's class set and the DSP
+registry's factory set match in both directions. The vocabularies it is written against
+are vendored beside it — [`vocabs/lv2/`](vocabs/lv2) holds the LV2 1.18.10 ontologies
+(core, units, atom, patch, parameters, port-groups) and [`vocabs/w3c/`](vocabs/w3c) holds
+rdf, rdfs and owl.
+
+Element classes go finer-grained than "a saturation curve" where it earns its keep.
+`val:Diode` is a Shockley-equation junction — `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to
+a 1N4148, asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel
+soft clipper with a series resistance, and `val:Triode` a Koren-style valve stage. They
+carry real device parameters, so a circuit built from them behaves like the circuit it
+names. `val:Network` is declared as the seam for future component-level subcircuits.
 
 ## Status
 
-**M0 — build skeleton — is complete and verified. M1 through M11 are not started.**
-The plugin currently passes audio through unchanged; there is no DSP, no RDF parsing,
-no MCP server and no editing yet.
+**M0 (build skeleton) and M1 (RDF layer) are complete and verified. M2 through M11 are
+not started.** The plugin currently passes audio through unchanged: nothing connects the
+RDF layer to the engine yet, and there is no DSP, no MCP server and no editing.
 
 What M0 delivers:
 
@@ -87,8 +97,17 @@ What M0 delivers:
 - 64 host-visible parameter slots appear in the generated `dsp.ttl` as `lv2:Parameter`
   with `patch:writable`. They are inert until M6 binds them to element properties.
 - The editor opens with the three tabs — Turtle, Graph, Knobs — as placeholders.
-- serd and sord are resolved by `cmake/FindOrFetchSerd.cmake` and `valis_core` links
-  them; nothing parses RDF yet.
+- serd and sord are resolved by `cmake/FindOrFetchSerd.cmake` and linked into
+  `valis_core`.
+
+What M1 adds:
+
+- `TurtleStore` — an RAII wrapper over sord's quad store with serd parsing and
+  serialisation. Queries are `object`/`objects`/`subjects`/`subjectsOfType`/`contains`/
+  `forEachProperty`, with `add`/`remove` for graph edits. Terms compare by value.
+- Parse errors carry serd's line and column, so the Turtle view can mark the gutter in
+  M7: a missing `.` reports as `4:0: missing ';' or '.'`.
+- The test parses every file under `vocabs/`, so a bad ontology edit fails the build.
 
 ## Development
 
@@ -150,8 +169,15 @@ LV2_PATH="$PWD/build/valis_plugin_artefacts/Debug/LV2" lv2ls
 LV2_PATH="$PWD/build/valis_plugin_artefacts/Debug/LV2" lv2info urn:valis:valis
 ```
 
-`lv2info` lists the 64 `urn:valis:valis#p00`…`p63` parameters. Use
-`build-release/valis_plugin_artefacts/Release/LV2` for the release bundle.
+`lv2info` reports the plugin's ports, but not its parameters: JUCE 9 exposes plugin
+parameters through the LV2 patch extension rather than as control ports, and `lv2info`
+does not walk those. To see the 64 slots, read the generated manifest directly:
+
+```sh
+grep -A5 'plug:p00' build/valis_plugin_artefacts/Debug/LV2/Valis.lv2/dsp.ttl
+```
+
+Use `build-release/valis_plugin_artefacts/Release/LV2` for the release bundle.
 
 ## Requirements
 

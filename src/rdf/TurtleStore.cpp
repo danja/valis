@@ -335,19 +335,14 @@ std::vector<Node> TurtleStore::objects(const Node& subject, std::string_view pre
     const std::string p(predicate);
     auto* pred = sord_new_uri(sw(worldPtr), u8(p));
 
-    for (auto* iter = sord_search(sm(modelPtr), sn(subject.raw()), pred, nullptr, nullptr);
-         iter != nullptr && ! sord_iter_end(iter);
-         sord_iter_next(iter))
+    auto* iter = sord_search(sm(modelPtr), sn(subject.raw()), pred, nullptr, nullptr);
+    while (iter != nullptr && ! sord_iter_end(iter))
     {
         result.emplace_back(reinterpret_cast<const SordNodeImpl*>(
             sord_iter_get_node(iter, SORD_OBJECT)));
-
-        if (sord_iter_end(iter))
-        {
-            sord_iter_free(iter);
-            break;
-        }
+        sord_iter_next(iter);
     }
+    sord_iter_free(iter);
 
     sord_node_free(sw(worldPtr), pred);
     return result;

@@ -98,6 +98,11 @@ namespace val {
 
 #undef VALIS_TERM
 
+/// Builds a `val:` term IRI from its local name. The dynamic property lookup
+/// path uses this constantly, since `val:cutoff` and the name "cutoff" are the
+/// same thing. Inverse of shortName() for terms in our own namespace.
+std::string valTerm(std::string_view localName);
+
 /// The local part of an IRI - everything after the last '/' or '#'.
 /// `val:cutoff` and the C++ property name "cutoff" are thereby the same thing.
 std::string shortName(std::string_view iri);

@@ -4,7 +4,8 @@
 # the list below; no framework, no registration boilerplate.
 
 set(VALIS_TESTS
-  rdf/VocabularyTest.cpp)
+  rdf/VocabularyTest.cpp
+  rdf/TurtleStoreTest.cpp)
 
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})
