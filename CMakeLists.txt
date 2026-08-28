@@ -31,7 +31,13 @@ add_library(valis_core STATIC
   src/rdf/TurtleStore.cpp
   src/model/Ontology.cpp
   src/model/CircuitModel.cpp
-  src/compiler/CircuitCompiler.cpp)
+  src/compiler/CircuitCompiler.cpp
+  src/dsp/ElementRegistry.cpp
+  src/dsp/elements/Sources.cpp
+  src/dsp/elements/Filters.cpp
+  src/dsp/elements/Transfers.cpp
+  src/dsp/elements/Dynamics.cpp
+  src/dsp/elements/Utility.cpp)
 
 target_include_directories(valis_core
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include

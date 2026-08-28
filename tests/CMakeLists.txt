@@ -7,7 +7,9 @@ set(VALIS_TESTS
   rdf/VocabularyTest.cpp
   rdf/TurtleStoreTest.cpp
   model/OntologyTest.cpp
-  compiler/CircuitCompilerTest.cpp)
+  compiler/CircuitCompilerTest.cpp
+  dsp/ElementRegistryTest.cpp
+  dsp/ElementBehaviourTest.cpp)
 
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})

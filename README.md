@@ -85,10 +85,10 @@ names. `val:Network` is declared as the seam for future component-level subcircu
 
 ## Status
 
-**M0 (build skeleton), M1 (RDF layer) and M2 (ontology, model, compiler) are complete
-and verified. M3 through M11 are not started.** The plugin currently passes audio through
-unchanged: a circuit can be parsed, validated and ordered, but there is no DSP behind the
-element types yet, and no MCP server and no editing.
+**M0 (build skeleton), M1 (RDF layer), M2 (ontology, model, compiler) and M3 (DSP
+elements) are complete and verified. M4 through M11 are not started.** The plugin still
+passes audio through unchanged: a circuit can be parsed, validated, ordered and its
+elements constructed, but the engine that runs them is M4.
 
 What M0 delivers:
 
@@ -122,6 +122,17 @@ What M2 adds:
   printed as the path round the loop.
 - [`examples/skream.ttl`](examples/skream.ttl) compiles clean: 13 nodes, both filter taps
   in use, and the gate's sidechain resolved as a control arc.
+
+What M3 adds:
+
+- All 24 elements, with the ontology and the registry asserted equal as sets in both
+  directions — a class with no factory, or a factory with no class, fails the build.
+- Antiderivative anti-aliasing, measured rather than claimed: on a 5 kHz sine driven at
+  8×, ADAA1 cuts alias energy 4.2× and ADAA2 cuts it 16.4×. ADAA2's one-sample delay is
+  reported through `latencyInSamples()`.
+- Physical device models. `val:Diode` clips its positive half at +0.58 V and passes the
+  negative half intact; `val:DiodePair` is symmetric. `val:StateVariable` is the Cytomic
+  TPT form with lp, bp and hp taken from one state.
 
 ## Development
 

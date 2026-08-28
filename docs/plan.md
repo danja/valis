@@ -226,7 +226,7 @@ An arc may end on an `lv2:ControlPort`, carrying one value per block, with modul
 
 The registry direction of the set-equality test lands with `ElementRegistry` in M3. `examples/skream.ttl` compiles clean: 13 nodes, 1 control link, both filter taps in use, 7 parameter bindings resolving to real control inputs.
 
-### M3 — DSP elements and registry *(next)*
+### M3 — DSP elements and registry *(complete)*
 `DspElement` abstract base, deliberately modelled on `transmission/native/include/transmission/AudioProcessor.h` — virtual methods with **default implementations that degrade gracefully** rather than abort. `ElementRegistry` maps class IRI → factory.
 
 Reuse from `juce_dsp` rather than reimplementing: `StateVariableTPTFilter` and `FirstOrderTPTFilter` (the topology-preserving transforms are the VA-correct ones), `LadderFilter` (already a nonlinear Moog ladder), `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `BallisticsFilter`, and `FastMathApproximations` for cheap `tanh`. MVP element set: `Oscillator`, `Noise`, `OnePole`, `StateVariable`, `Ladder`, `UnitDelay`, `Tanh`, `HardClip`, `Fold`, `Diode`, `DiodePair`, `Triode`, `Gain`, `Mixer`, `Envelope`, `Input`, `Output`.
@@ -236,6 +236,20 @@ Skream adds `SinArcTan`, `SoftSine`, `EnvelopeFollower`, `Expander`, `Compressor
 **Fine-grained device models.** The `Transfer` subclasses go below the level of "a saturation curve". `val:Diode` is a real Shockley-equation junction — `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to a 1N4148 at room temperature, and asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel soft clipper with a series resistance; `val:Triode` is a Koren-style valve stage with grid conduction. These carry physical parameters (`Is`, `n`, `Vt`, `Rs`, `mu`, bias), so a circuit built from them behaves like the circuit it names rather than like a relabelled waveshaper. `val:Network` is declared as the seam for future component-level (nodal-analysis) subcircuits; instantiating one is a compile error today.
 
 *Acceptance:* per-element offline determinism tests — fixed input buffer in, golden output out.
+
+*Done:* all 24 elements implemented and the drift test now closes in **both** directions — 24 ontology classes, 24 registry factories, asserted equal as sets, with every declared class constructed and prepared. `ElementRegistry` is injected rather than a singleton, so a test can build a partial one.
+
+Anti-aliasing is real and measured, not asserted. `src/dsp/Adaa.h` implements first- and second-order antiderivative anti-aliasing, with the dilogarithm ADAA2 tanh needs — Landen's identity on [-1,0] and the inversion formula below it, since the argument `-exp(-2x)` runs to large negative values. Verified against an independent implementation, and every antiderivative checked by numerical differentiation back to its integrand. On a 5 kHz sine driven at 8×, measured alias energy at the four fold-back bins:
+
+| strategy | alias energy | reduction |
+|---|---|---|
+| none | 4.81e5 | — |
+| ADAA1 | 1.15e5 | 4.2× |
+| ADAA2 | 2.94e4 | 16.4× |
+
+ADAA also delays — measured at exactly one sample for second order and half a sample for first. `latencyInSamples()` reports the whole sample; the half is left as sub-sample phase error rather than rounded up.
+
+The diode models are physical rather than decorative: a `val:Diode` shunting through a series resistance clips its positive half at +0.58 V, a realistic forward drop, and passes the negative half intact (1.7× asymmetry); `val:DiodePair` inverts `i = 2·Is·sinh(v/nVt)` and is symmetric to within 2%. Neither rails against a clamp. `val:StateVariable` is the Cytomic form with lp/bp/hp from one state.
 
 ### M4 — Engine and the real-time boundary
 `ValisEngine` owns the active `CompiledCircuit`. Swap via atomic exchange, retirement via a bounded SPSC free-queue drained on a `juce::Timer`. `BufferPool` preallocates every intermediate buffer at compile time; `processBlock` allocates nothing. Nonlinear elements run inside `dsp::Oversampling`.
