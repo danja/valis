@@ -12,6 +12,9 @@ namespace valis {
 
 std::string Diagnostic::toString() const
 {
+    if (line > 0)
+        return std::to_string(line) + ":" + std::to_string(col) + ": " + message;
+
     if (subject.empty())
         return message;
 
@@ -136,7 +139,13 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
                 return;
 
             if (instance.type->findProperty(local) == nullptr)
+            {
+                // Not a control port, so it configures the element rather than
+                // driving it: val:antialiasing and the like.
+                if (object.isUri() || object.isLiteral())
+                    instance.options[local] = std::string(object.string());
                 return;
+            }
 
             if (auto value = object.asDouble())
                 instance.properties[local] = *value;

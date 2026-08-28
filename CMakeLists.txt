@@ -18,6 +18,10 @@ set(VALIS_JUCE_DIR "/home/danny/github/JUCE" CACHE PATH "Path to the JUCE checko
 
 include(FindOrFetchSerd)
 
+if(VALIS_WITH_MCP)
+  include(FindOrFetchHttplib)
+endif()
+
 if(NOT TARGET juce::juce_core)
   add_subdirectory(${VALIS_JUCE_DIR} ${CMAKE_BINARY_DIR}/JUCE EXCLUDE_FROM_ALL)
 endif()
@@ -37,7 +41,9 @@ add_library(valis_core STATIC
   src/dsp/elements/Filters.cpp
   src/dsp/elements/Transfers.cpp
   src/dsp/elements/Dynamics.cpp
-  src/dsp/elements/Utility.cpp)
+  src/dsp/elements/Utility.cpp
+  src/engine/ValisEngine.cpp
+  src/ops/OpDispatcher.cpp)
 
 target_include_directories(valis_core
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -60,6 +66,15 @@ target_compile_definitions(valis_core PUBLIC
   JUCE_PLUGINHOST_LV2=0
   VALIS_VOCABS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vocabs"
   VALIS_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples")
+
+# --------------------------------------------------------------------------
+# valis-render - headless offline renderer. No GUI, no audio device.
+# --------------------------------------------------------------------------
+juce_add_console_app(valis_render PRODUCT_NAME "valis-render")
+target_sources(valis_render PRIVATE src/tools/RenderMain.cpp)
+target_link_libraries(valis_render
+  PRIVATE valis_core juce::juce_audio_formats
+  PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 
 # --------------------------------------------------------------------------
 # The plugin
@@ -92,9 +107,19 @@ if(VALIS_BUILD_PLUGIN)
     NEEDS_CURL                  FALSE
     FORMATS                     ${VALIS_FORMATS})
 
+  if(VALIS_WITH_MCP)
+    target_sources(valis_plugin PRIVATE src/mcp/McpServer.cpp)
+    target_link_libraries(valis_plugin PRIVATE valis_httplib)
+    target_compile_definitions(valis_plugin PRIVATE VALIS_WITH_MCP=1)
+  endif()
+
   target_sources(valis_plugin PRIVATE
     src/plugin/ValisProcessor.cpp
-    src/ui/ValisEditor.cpp)
+    src/ui/ValisEditor.cpp
+    src/ui/TurtleCodeTokeniser.cpp
+    src/ui/TurtleView.cpp
+    src/ui/ControlsView.cpp
+    src/ui/GraphView.cpp)
 
   target_include_directories(valis_plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -115,7 +140,9 @@ if(VALIS_BUILD_PLUGIN)
     include(FindOrFetchClap)
     clap_juce_extensions_plugin(TARGET valis_plugin
       CLAP_ID "org.purl.stuff.valis"
-      CLAP_FEATURES audio-effect filter distortion)
+      CLAP_FEATURES audio-effect filter distortion
+      CLAP_MANUAL_URL "https://danja.github.io/valis/"
+      CLAP_SUPPORT_URL "https://github.com/danja/valis/issues")
   endif()
 endif()
 

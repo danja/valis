@@ -21,6 +21,7 @@ const Ontology& shippedOntology()
     static const Ontology ontology = [] {
         Ontology o;
         std::vector<std::string> errors;
+        o.loadUnits(VALIS_VOCABS_DIR "/lv2/units.ttl", errors);
         const bool ok = o.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(ok && errors.empty());
         return o;
@@ -371,7 +372,7 @@ void testSkreamCompiles()
     assert(r.compiled_);
     assert(r.diagnostics.empty());
 
-    assert(r.compiled.nodes.size() == 13);
+    assert(r.compiled.nodes.size() == 14);
     assert(r.compiled.controlLinks.size() == 1);      // the gate sidechain
     assert(r.compiled.outputNode >= 0);
 
@@ -386,7 +387,8 @@ void testSkreamCompiles()
     // the summing node is still ordered after it.
     assert(position("loop") < position("sat1"));
     assert(position("sat1") < position("svf"));
-    assert(position("svf")  < position("mix"));
+    assert(position("svf")  < position("wetGain"));
+    assert(position("wetGain") < position("mix"));
     assert(position("mix")  < position("out"));
 
     // The sidechain arc carries its depth.
@@ -404,7 +406,7 @@ void testSkreamCompiles()
     assert(hpTaps == 1);
 
     // Parameter bindings resolve to real control inputs.
-    assert(r.model.params().size() == 7);
+    assert(r.model.params().size() == 8);
     for (const auto& binding : r.model.params())
     {
         const auto* target = r.model.findElement(binding.targetNode);

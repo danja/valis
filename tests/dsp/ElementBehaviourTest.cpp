@@ -22,6 +22,7 @@ const Ontology& ontology()
     static const Ontology loaded = [] {
         Ontology o;
         std::vector<std::string> errors;
+        o.loadUnits(VALIS_VOCABS_DIR "/lv2/units.ttl", errors);
         const bool ok = o.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(ok);
         return o;

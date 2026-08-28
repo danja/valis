@@ -17,6 +17,10 @@ template <typename Shape>
 class ShapedTransfer : public MonoElement
 {
 public:
+    /// Resolved once in prepare(). Comparing IRIs in process() would build a
+    /// std::string per block, which the allocation test rightly rejects.
+    enum class Strategy { none, adaa1, adaa2 };
+
     void reset() override
     {
         adaa1.reset();
@@ -24,7 +28,7 @@ public:
     }
 
     /// What is actually running, which may be less than what was requested.
-    std::string_view effectiveStrategy() const { return strategy; }
+    Strategy effectiveStrategy() const { return strategy; }
 
     /// ADAA evaluates the shape across the interval between samples, so it
     /// delays: measurably one sample for second order, half a sample for first.
@@ -32,7 +36,7 @@ public:
     /// sub-sample phase error rather than a rounded-up sample of latency.
     int latencyInSamples() const override
     {
-        return strategy == vocab::valTerm("ADAA2") ? 1 : 0;
+        return strategy == Strategy::adaa2 ? 1 : 0;
     }
 
 protected:
@@ -42,19 +46,37 @@ protected:
         if (gainIndex < 0)
             gainIndex = controlIndex(type, "threshold");
 
-        strategy = type.antialiasing.empty() ? vocab::valTerm("None") : type.antialiasing;
+        // The class supplies the default; the instance may override it.
+        strategy = parseStrategy(type.antialiasing);
     }
+
+public:
+    void setOption(std::string_view key, std::string_view value) override
+    {
+        if (key == "antialiasing")
+            strategy = parseStrategy(std::string(value));
+    }
+
+private:
+    static Strategy parseStrategy(const std::string& iri)
+    {
+        if (iri == vocab::valTerm("ADAA2")) return Strategy::adaa2;
+        if (iri == vocab::valTerm("ADAA1")) return Strategy::adaa1;
+        return Strategy::none;
+    }
+
+protected:
 
     void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
     {
         const float gain = std::max(controlAt(args, gainIndex, 1.0f), 1.0e-4f);
 
-        if (strategy == vocab::valTerm("ADAA2"))
+        if (strategy == Strategy::adaa2)
         {
             for (int i = 0; i < n; ++i)
                 out[i] = static_cast<float>(adaa2.process(static_cast<double>(in[i]) * gain));
         }
-        else if (strategy == vocab::valTerm("ADAA1"))
+        else if (strategy == Strategy::adaa1)
         {
             for (int i = 0; i < n; ++i)
                 out[i] = static_cast<float>(adaa1.process(static_cast<double>(in[i]) * gain));
@@ -69,7 +91,7 @@ protected:
 private:
     dsp::Adaa1<Shape> adaa1;
     dsp::Adaa2<Shape> adaa2;
-    std::string strategy;
+    Strategy strategy = Strategy::none;
     int gainIndex = -1;
 };
 

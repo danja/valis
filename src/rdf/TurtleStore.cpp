@@ -23,9 +23,10 @@ const uint8_t* u8(std::string_view s)
 
 /// serd hands us a printf-style format plus its va_list. Render it once here so
 /// the rest of the codebase never sees varargs.
-SerdStatus collectError(void* handle, const SerdError* error)
+SerdStatus collectInto(std::vector<ParseError>* errors, const SerdError* error)
 {
-    auto* errors = static_cast<std::vector<ParseError>*>(handle);
+    if (errors == nullptr)
+        return SERD_SUCCESS;
 
     char buffer[512] = {};
     if (error->fmt != nullptr)
@@ -45,6 +46,18 @@ SerdStatus collectError(void* handle, const SerdError* error)
     return SERD_SUCCESS;
 }
 
+SerdStatus collectError(void* handle, const SerdError* error)
+{
+    return collectInto(static_cast<std::vector<ParseError>*>(handle), error);
+}
+
+/// The world outlives any one parse, so it reports through the store, which
+/// knows which vector is currently collecting.
+SerdStatus collectWorldError(void* handle, const SerdError* error)
+{
+    return collectInto(*static_cast<std::vector<ParseError>**>(handle), error);
+}
+
 std::string_view nodeString(const SordNode* n)
 {
     if (n == nullptr)
@@ -55,6 +68,11 @@ std::string_view nodeString(const SordNode* n)
     return {reinterpret_cast<const char*>(s), bytes};
 }
 
+}  // namespace
+
+namespace {
+SordWorld* sw(SordWorldImpl* w) { return reinterpret_cast<SordWorld*>(w); }
+SordModel* sm(SordModelImpl* m) { return reinterpret_cast<SordModel*>(m); }
 }  // namespace
 
 // ---------------------------------------------------------------------------
@@ -143,11 +161,6 @@ bool Node::operator==(const Node& other) const
 // TurtleStore
 // ---------------------------------------------------------------------------
 
-namespace {
-SordWorld* sw(SordWorldImpl* w) { return reinterpret_cast<SordWorld*>(w); }
-SordModel* sm(SordModelImpl* m) { return reinterpret_cast<SordModel*>(m); }
-}  // namespace
-
 TurtleStore::TurtleStore()
 {
     auto* w = sord_world_new();
@@ -157,6 +170,8 @@ TurtleStore::TurtleStore()
 
     worldPtr = reinterpret_cast<SordWorldImpl*>(w);
     modelPtr = reinterpret_cast<SordModelImpl*>(m);
+
+    sord_world_set_error_sink(w, collectWorldError, &currentErrors);
 }
 
 TurtleStore::~TurtleStore()
@@ -172,6 +187,8 @@ TurtleStore::TurtleStore(TurtleStore&& other) noexcept
       modelPtr(std::exchange(other.modelPtr, nullptr)),
       prefixes(std::move(other.prefixes))
 {
+    if (worldPtr != nullptr)
+        sord_world_set_error_sink(sw(worldPtr), collectWorldError, &currentErrors);
 }
 
 TurtleStore& TurtleStore::operator=(TurtleStore&& other) noexcept
@@ -184,6 +201,9 @@ TurtleStore& TurtleStore::operator=(TurtleStore&& other) noexcept
         worldPtr = std::exchange(other.worldPtr, nullptr);
         modelPtr = std::exchange(other.modelPtr, nullptr);
         prefixes = std::move(other.prefixes);
+
+        if (worldPtr != nullptr)
+            sord_world_set_error_sink(sw(worldPtr), collectWorldError, &currentErrors);
     }
     return *this;
 }
@@ -192,6 +212,13 @@ bool TurtleStore::parse(std::string_view turtle,
                         std::string_view baseUri,
                         std::vector<ParseError>& errors)
 {
+    currentErrors = &errors;
+    struct Scope
+    {
+        std::vector<ParseError>** slot;
+        ~Scope() { *slot = nullptr; }
+    } scope{&currentErrors};
+
     const std::string base(baseUri);
     SerdNode baseNode = serd_node_from_string(SERD_URI, u8(base));
     SerdEnv* env = serd_env_new(&baseNode);

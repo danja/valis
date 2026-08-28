@@ -9,7 +9,19 @@ set(VALIS_TESTS
   model/OntologyTest.cpp
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
-  dsp/ElementBehaviourTest.cpp)
+  dsp/ElementBehaviourTest.cpp
+  engine/ValisEngineTest.cpp
+  ops/OpDispatcherTest.cpp)
+
+# The tokeniser lives in the plugin's UI layer, so its test needs the GUI
+# module. It constructs no Component and opens no window, so it still runs
+# headless.
+add_executable(ui_TurtleCodeTokeniserTest ui/TurtleCodeTokeniserTest.cpp
+                                          ${CMAKE_SOURCE_DIR}/src/ui/TurtleCodeTokeniser.cpp)
+target_link_libraries(ui_TurtleCodeTokeniserTest PRIVATE valis_core juce::juce_gui_extra)
+target_include_directories(ui_TurtleCodeTokeniserTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(ui_TurtleCodeTokeniserTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+add_test(NAME ui_TurtleCodeTokeniserTest COMMAND ui_TurtleCodeTokeniserTest)
 
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})

@@ -2,7 +2,20 @@
 
 #pragma once
 
+#include "valis/CircuitCompiler.h"
+#include "valis/CircuitModel.h"
+#include "valis/DspElement.h"
+#include "valis/Ontology.h"
+#include "valis/Ops.h"
+#include "valis/ValisEngine.h"
+
+#if VALIS_WITH_MCP
+ #include "mcp/McpServer.h"
+#endif
+
 #include <juce_audio_processors/juce_audio_processors.h>
+
+#include <atomic>
 
 namespace valis {
 
@@ -11,11 +24,47 @@ namespace valis {
 /// Turtle `val:Param` declarations bind a slot to an element property instead.
 inline constexpr int kNumParamSlots = 64;
 
-class ValisProcessor final : public juce::AudioProcessor
+/// One host parameter slot. The host sees a fixed list of these; what each one
+/// means is decided by the circuit's val:Param bindings and can change when a
+/// new circuit loads, so the name, range and unit are mutable and the host is
+/// told to re-read them.
+class ValisParameter final : public juce::AudioParameterFloat
+{
+public:
+    explicit ValisParameter(int slotIndex);
+
+    /// Message thread. Points this slot at an element property.
+    void bind(std::string node, std::string property,
+              juce::String displayName, double minimum, double maximum, juce::String unit);
+    void unbind();
+
+    bool isBound() const { return bound; }
+    const std::string& targetNode() const { return node; }
+    const std::string& targetProperty() const { return property; }
+
+    /// The slot's value in the property's own units.
+    double realValue() const;
+    void setRealValue(double value);
+
+    juce::String getName(int maximumLength) const override;
+    juce::String getLabel() const override;
+    juce::String getText(float normalised, int maximumLength) const override;
+
+private:
+    int slot = 0;
+    bool bound = false;
+    std::string node, property;
+    juce::String label, unitSymbol;
+    double lo = 0.0, hi = 1.0;
+};
+
+class ValisProcessor final : public juce::AudioProcessor,
+                             private juce::Timer,
+                             private juce::AudioProcessorParameter::Listener
 {
 public:
     ValisProcessor();
-    ~ValisProcessor() override = default;
+    ~ValisProcessor() override;
 
     void prepareToPlay(double sampleRate, int maximumExpectedSamplesPerBlock) override;
     void releaseResources() override;
@@ -46,10 +95,50 @@ public:
     /// The circuit's Turtle source. Saved verbatim in plugin state, so a session
     /// is self-contained. Message thread only.
     juce::String getTurtle() const;
+
+    /// Parses, validates, compiles and installs. Returns false and fills
+    /// `diagnostics` if the circuit will not run; the previous circuit keeps
+    /// playing in that case, so a typo never silences the plugin.
+    bool setTurtle(const juce::String& turtle, std::vector<Diagnostic>& diagnostics);
     void setTurtle(const juce::String& turtle);
+
+    /// Diagnostics from the most recent setTurtle, for the editor's gutter.
+    std::vector<Diagnostic> lastDiagnostics() const;
+
+    const CircuitModel& circuit() const { return model; }
+    const Ontology& ontology() const { return vocabulary; }
+
+    /// Builds the op surface over this processor. The three views and the MCP
+    /// server all go through here.
+    OpDispatcher ops();
+
+   #if VALIS_WITH_MCP
+    McpServer& mcp() { return *mcpServer; }
+   #endif
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeParameterLayout();
+
+    void timerCallback() override;
+    void parameterValueChanged(int parameterIndex, float newValue) override;
+    void parameterGestureChanged(int, bool) override {}
+
+    ValisParameter* slot(int index);
+    void rebindParameters();
+    void applyParameterBindings();
+
+    std::atomic<bool> parametersDirty{false};
+
+    Ontology vocabulary;
+    ElementRegistry registry;
+    ValisEngine engine;
+    CircuitModel model;
+    std::vector<Diagnostic> diagnostics;
+    juce::AudioBuffer<float> monoScratch;
+
+   #if VALIS_WITH_MCP
+    std::unique_ptr<McpServer> mcpServer;
+   #endif
 
     juce::AudioProcessorValueTreeState apvts;
 

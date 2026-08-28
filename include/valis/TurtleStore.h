@@ -124,6 +124,11 @@ private:
     SordWorldImpl* worldPtr = nullptr;
     SordModelImpl* modelPtr = nullptr;
     std::vector<std::pair<std::string, std::string>> prefixes;
+
+    /// Errors for the parse currently in flight. Some diagnostics - a CURIE
+    /// that will not expand, for one - are raised by sord's world rather than
+    /// by the reader, so both sinks have to reach the same place.
+    std::vector<ParseError>* currentErrors = nullptr;
 };
 
 }  // namespace valis::rdf

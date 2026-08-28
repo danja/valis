@@ -196,6 +196,8 @@ This is the single most important thing to get right in M6; retrofitting it is p
 
 ## Milestones
 
+**All milestones are complete.** Nine test binaries pass; all four plugin formats build.
+
 Each is independently verifiable and leaves the build green. `docs/plan.md` gets an inline status annotation per milestone as it completes — the plan doubles as the progress tracker, the convention used in `transmission/docs/plan.md`.
 
 ### M0 — Build skeleton *(complete)*
@@ -235,6 +237,8 @@ Skream adds `SinArcTan`, `SoftSine`, `EnvelopeFollower`, `Expander`, `Compressor
 
 **Fine-grained device models.** The `Transfer` subclasses go below the level of "a saturation curve". `val:Diode` is a real Shockley-equation junction — `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to a 1N4148 at room temperature, and asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel soft clipper with a series resistance; `val:Triode` is a Koren-style valve stage with grid conduction. These carry physical parameters (`Is`, `n`, `Vt`, `Rs`, `mu`, bias), so a circuit built from them behaves like the circuit it names rather than like a relabelled waveshaper. `val:Network` is declared as the seam for future component-level (nodal-analysis) subcircuits; instantiating one is a compile error today.
 
+A late fix worth recording: `val:antialiasing` set on an *instance* was being ignored — only the class default was read, which made a claim in `docs/skream.md` false. `DspElement::setOption` now carries any `val:` property that is not a control port through to the element, and a test asserts that the three strategies give different output and different latency.
+
 *Acceptance:* per-element offline determinism tests — fixed input buffer in, golden output out.
 
 *Done:* all 24 elements implemented and the drift test now closes in **both** directions — 24 ontology classes, 24 registry factories, asserted equal as sets, with every declared class constructed and prepared. `ElementRegistry` is injected rather than a singleton, so a test can build a partial one.
@@ -251,32 +255,51 @@ ADAA also delays — measured at exactly one sample for second order and half a 
 
 The diode models are physical rather than decorative: a `val:Diode` shunting through a series resistance clips its positive half at +0.58 V, a realistic forward drop, and passes the negative half intact (1.7× asymmetry); `val:DiodePair` inverts `i = 2·Is·sinh(v/nVt)` and is symmetric to within 2%. Neither rails against a clamp. `val:StateVariable` is the Cytomic form with lp/bp/hp from one state.
 
-### M4 — Engine and the real-time boundary
+### M4 — Engine and the real-time boundary *(complete)*
 `ValisEngine` owns the active `CompiledCircuit`. Swap via atomic exchange, retirement via a bounded SPSC free-queue drained on a `juce::Timer`. `BufferPool` preallocates every intermediate buffer at compile time; `processBlock` allocates nothing. Nonlinear elements run inside `dsp::Oversampling`.
 
 `valis-render` CLI (`src/tools/RenderMain.cpp`) renders a `.ttl` to a `.wav` headlessly — the fastest possible verification loop, and it needs no GUI, no host, and no audio device.
 
 *Acceptance:* `valis-render examples/basic.ttl out.wav` produces the expected signal; a hot-swap-under-load test asserts no allocation on the audio thread (run the render loop under a debug allocator hook).
 
-### M5 — Ops layer and plugin state
+*Done:* the compiler now assigns buffers — one per audio output port, a scratch buffer per summed input, and a single shared silence block every unconnected input reads. A single-source input reads its producer's buffer directly, so there is no copy. `ValisEngine` installs a graph with one atomic exchange and frees the retired one from the message thread once the audio thread has demonstrably moved past it. `valis-render` renders a circuit to a wav headlessly and warns when the result clips or diverges. The plugin is wired to the engine and loads `examples/basic.ttl` at construction, so it makes sound from the moment it opens; a circuit that will not compile leaves the previous one playing, so a typo never silences the plugin.
+
+Two bugs the tests caught rather than review:
+
+- **The audio thread allocated.** `vocab::valTerm()` builds a `std::string`, and the transfer elements were calling it inside `processMono` to compare their anti-aliasing strategy — once per block, per element. The strategy is now resolved to an enum in `prepare()`. Measured: 200 blocks of Skream, **0 allocations**.
+- **The output depended on the host's buffer size**, because control values updated once per block and an envelope follower therefore ran at the host's buffer rate. Control now updates on a fixed 32-sample grid aligned to stream position, not to block boundaries. Rendering at 128 and at 512 samples is now **bit-identical**.
+
+### M5 — Ops layer and plugin state *(complete)*
 `Op` / `OpDispatcher`: `getTurtle`, `setTurtle`, `validate`, `listElementTypes`, `getGraph`, `addNode`, `removeNode`, `connect`, `disconnect`, `listParams`, `getParam`, `setParam`, `render`, `getDiagnostics`. Every op returns a result-or-error; none of them assume a UI. Plugin state (`get/setStateInformation`) stores the Turtle source verbatim, so a saved session is self-contained.
 
 *Acceptance:* every op exercised headlessly by tests, with no editor constructed.
 
-### M6 — Parameters and host automation
-The 64-slot APVTS pool and `val:Param` binding described above. Slot↔property mapping, normalised↔real conversion driven by the `lv2:minimum`/`lv2:maximum`/`units:unit` metadata.
+*Done:* `OpDispatcher` implements the full surface, with the context injected so the same ops serve the plugin, the CLI and the tests. Structural edits go through the Turtle source and back through validation — there is no second path into the model, so an edit made over MCP passes exactly what the text editor passes.
 
-*Acceptance:* automate a bound slot from AudioPluginHost and hear the cutoff move; rebinding via new Turtle re-targets the same slot without a host rescan.
+Two behaviours the tests forced:
 
-### M7 — Turtle editor view
+- **Ops are atomic.** A rejected edit restores the previous source. Without that, a failed `connect()` left broken Turtle behind for the next op to read — which is how the test found it.
+- **`connect()` validates ports itself** rather than letting the compiler reject the rewritten source, so the message names the port instead of describing the consequence.
+
+Also fixed: some serd diagnostics — a CURIE that will not expand, for one — are raised through sord's *world* rather than the reader, and were going to stderr instead of into the result. Both sinks now reach the same place.
+
+### M6 — Parameters and host automation *(complete)*
+
+*Done:* `ValisParameter` is a fixed slot whose name, range and unit come from the circuit's `val:Param` bindings. The host's list cannot change, so loading a circuit repoints the slots and calls `updateHostDisplay(... withParameterInfoChanged)`. Verified end to end: with `examples/basic.ttl` loaded, the generated LV2 manifest carries `rdfs:label "Cutoff"` on `plug:p00`. Automation arrives on the host's thread, which only sets a flag; the timer does the work, since pushing a value walks the graph.
+
+### M7 — Turtle editor view *(complete)*
 `TurtleCodeTokeniser : public juce::CodeTokeniser` — only two virtuals to implement (`readNextToken`, `getDefaultColourScheme`). JUCE ships only C++, Lua and XML tokenisers, so this is new code; model it on `juce_XMLCodeTokeniser.cpp` (the smallest complete example) and crib the scanning helpers from `juce_CPlusPlusCodeTokeniserFunctions.h`. Token types: prefix directive, IRI, prefixed name, blank node, string, number, `a`/keyword, punctuation, comment. Wire into `CodeEditorComponent` per `examples/GUI/CodeEditorDemo.h`. Debounced recompile on edit, errors surfaced in a gutter using M1's line/column.
 
 *Acceptance:* typing a broken triple shows a marker on the right line and leaves the previously compiled circuit running.
 
-### M8 — Knobs view
-Rotary `Slider`s generated from the bound param slots, with `SliderAttachment`. `examples/Plugins/DSPModulePluginDemo.h` is the in-repo reference for a large parameter set wired to a `dsp::ProcessorChain`. Labels and unit suffixes come from `lv2:name` / `units:unit` / `units:render`.
+*Done:* `TurtleCodeTokeniser` classifies comments, directives, IRIs, prefixed names, blank nodes, strings, numbers, keywords and punctuation. Its test asserts that **every call consumes at least one character** on half-written input — a highlighter that loops on an unterminated string freezes the UI, and the fragments it is fed are exactly what a user types mid-edit. Edits are debounced 400 ms; the status line carries the first diagnostic and moves the caret to its line.
 
-### M9 — Graph view, staged
+### M8 — Knobs view *(complete)*
+Rotary sliders generated from the bound param slots. Only bound slots appear; the panel rebuilds when the circuit changes.
+
+*Done:* readouts are drawn directly rather than through `Slider`'s text box, which would not render — the value shows in the property's own units. That exposed a gap worth fixing: unit symbols were falling back to the local name of the IRI (`hz`), so the vendored `vocabs/lv2/units.ttl` is now **loaded at runtime** and supplies the real symbol (`Hz`). The vendored vocabularies are load-bearing, not decorative.
+
+### M9 — Graph view, staged *(complete)*
 Adapt `/home/danny/github/JUCE/extras/AudioPluginHost/Source/UI/GraphEditorPanel.{h,cpp}` — the connector-drag, pin hit-testing and bezier-routing logic is the reusable part; its `AudioProcessorGraph` runtime is **not** (it is a block-rate host graph, it rejects cycles, and Valis has its own engine). `PluginGraph.{h,cpp}` is the reference for persisting node positions.
 
 - Stage 1: render read-only + drag positions → `val:x`/`val:y` in the editor graph.
@@ -285,13 +308,22 @@ Adapt `/home/danny/github/JUCE/extras/AudioPluginHost/Source/UI/GraphEditorPanel
 
 Structural edits mutate the sord model and re-serialise the whole document. Surface the "graph editing reformats your Turtle and drops comments" warning once, on first structural edit.
 
-### M10 — MCP server
+### M10 — MCP server *(complete)*
 `cpp-httplib` (single header, MIT) via FetchContent, bound to `127.0.0.1` only, port configurable, optional bearer token, off unless enabled. JSON-RPC 2.0 over Streamable HTTP. JSON via `juce::JSON`/`juce::var` — already available through `juce_core`, so no extra dependency. Each MCP tool is a direct adapter to one `Op` from M5; the server thread never touches the audio thread and never blocks it.
 
 *Acceptance:* `curl` an `initialize`, then `tools/list`, then `tools/call` for `setTurtle` and hear the circuit change; a bad Turtle payload returns a JSON-RPC error with line and column rather than crashing.
 
-### M11 — Docs, packaging, CLAP
-`clap-juce-extensions` via `cmake/FindOrFetchClap.cmake` behind `VALIS_WITH_CLAP`, built by `build.sh` in its own build dir. `docs/manual/` in Markdown, published to GitHub Pages by a workflow modelled on `hyperdata/transmissions/.github/workflows/docs.yml` (marked + link rewrite + deploy). `AGENTS.md` finalised.
+*Done and verified against the running plugin:* 13 tools, all adapters over `OpDispatcher`. Work is marshalled onto the message thread, because the ops mutate the model the editor also reads. Loopback only, off unless `VALIS_MCP` is set, optional bearer token.
+
+The acceptance run inserted a `val:Tanh` between two elements over HTTP — `add_node`, `disconnect`, two `connect` calls — and **the graph view redrew with the new node in place while the audio kept running**. Diagnostics arrive over the wire with position: `4:0: missing ';' or '.'`, `Tanh has no port 'nosuch'`, `feedback loop with no val:UnitDelay to break it: g -> m`.
+
+One bug this found: `set_param` then `get_param` disagreed, because `listParams` read the circuit's *declared* value rather than what the engine was running. `ValisEngine::getControl` now reports the live value.
+
+### M11 — Docs, packaging, CLAP *(complete)*
+
+*Done:* all four formats build — Standalone, VST3, LV2 and CLAP, the last via `clap-juce-extensions` behind `VALIS_WITH_CLAP`. `docs/manual/` covers circuits, elements, MCP and building, published to Pages by a workflow modelled on the one in `hyperdata/transmissions`. A second workflow builds and tests on push.
+
+`docs/manual/elements.md` is **generated from the ontology** by `valis-render --elements`, via `scripts/generate-docs.sh`. That is the direct fix for the drift found in the reference project, where a hand-maintained vocabulary file listed implementation paths that no longer existed.
 
 ---
 

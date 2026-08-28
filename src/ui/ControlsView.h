@@ -1,0 +1,55 @@
+// src/ui/ControlsView.h
+
+#pragma once
+
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include <memory>
+#include <vector>
+
+namespace valis {
+
+class ValisProcessor;
+
+/// Knobs for the circuit's bound parameter slots, and nothing else.
+///
+/// The host's parameter list is fixed at 64 slots, but only those a val:Param
+/// binds mean anything, so unbound slots are not shown at all. Loading a new
+/// circuit rebuilds the panel.
+class ControlsView final : public juce::Component,
+                           private juce::Timer
+{
+public:
+    explicit ControlsView(ValisProcessor&);
+    ~ControlsView() override;
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
+    void rebuild();
+
+private:
+    void timerCallback() override;
+
+    struct Knob
+    {
+        std::unique_ptr<juce::Slider> slider;
+        std::unique_ptr<juce::Label> name;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
+        juce::String target, unit;
+        double minimum = 0.0, maximum = 1.0;
+
+        /// The slider's normalised position rendered in the property's units.
+        juce::String readout() const;
+    };
+
+    ValisProcessor& processor;
+    std::vector<Knob> knobs;
+    juce::Label emptyMessage;
+    int lastBindingCount = -1;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsView)
+};
+
+}  // namespace valis

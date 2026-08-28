@@ -3,36 +3,18 @@
 #include "ui/ValisEditor.h"
 
 #include "plugin/ValisProcessor.h"
+#include "ui/ControlsView.h"
+#include "ui/GraphView.h"
+#include "ui/TurtleView.h"
 
 namespace valis {
-
-namespace {
-/// Stands in for a view until its milestone lands, so the tab layout and the
-/// plugin wrapper can be exercised in a host from M0 onwards.
-class PlaceholderView final : public juce::Component
-{
-public:
-    explicit PlaceholderView(juce::String labelText) : text(std::move(labelText)) {}
-
-    void paint(juce::Graphics& g) override
-    {
-        g.fillAll(juce::Colour(0xff1e1e22));
-        g.setColour(juce::Colours::grey);
-        g.setFont(juce::FontOptions(16.0f));
-        g.drawText(text, getLocalBounds(), juce::Justification::centred);
-    }
-
-private:
-    juce::String text;
-};
-}  // namespace
 
 ValisEditor::ValisEditor(ValisProcessor& p) : juce::AudioProcessorEditor(&p), processor(p)
 {
     const auto bg = juce::Colour(0xff1e1e22);
-    tabs.addTab("Turtle", bg, new PlaceholderView("Turtle editor - M7"), true);
-    tabs.addTab("Graph",  bg, new PlaceholderView("Graph view - M9"),    true);
-    tabs.addTab("Knobs",  bg, new PlaceholderView("Controls - M8"),      true);
+    tabs.addTab("Turtle", bg, new TurtleView(p), true);
+    tabs.addTab("Graph",  bg, new GraphView(p), true);
+    tabs.addTab("Knobs",  bg, new ControlsView(p), true);
 
     addAndMakeVisible(tabs);
     setResizable(true, true);

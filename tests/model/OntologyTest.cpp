@@ -18,6 +18,9 @@ Ontology loadShipped()
     Ontology ontology;
     std::vector<std::string> errors;
 
+    // Units first: symbols are resolved as ports are read.
+    ontology.loadUnits(VALIS_VOCABS_DIR "/lv2/units.ttl", errors);
+
     if (! ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors))
         for (const auto& e : errors)
             std::printf("  ontology error: %s\n", e.c_str());
@@ -83,7 +86,9 @@ void testLadder()
     assert(cutoff->defaultValue == 1000.0);
     assert(cutoff->minimum == 20.0);
     assert(cutoff->maximum == 20000.0);
-    assert(cutoff->unitSymbol == "hz");
+    // The symbol comes from the vendored LV2 units vocabulary, not from the
+    // local name of the IRI - so it reads "Hz", not "hz".
+    assert(cutoff->unitSymbol == "Hz");
     assert(cutoff->name == "Cutoff");
 
     // An audio port is not a settable property.

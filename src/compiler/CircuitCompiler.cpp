@@ -83,7 +83,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
     std::set<std::string> seenArcs;
     std::map<std::string, int> audioFanIn;   // "node\0port" -> count
 
-    std::vector<CompiledCircuit::Link> audioLinks, controlLinks;
+    std::vector<CompiledCircuit::Link> audioLinks, controlLinkArcs;
 
     for (const auto& arc : model.arcs())
     {
@@ -158,7 +158,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
         if (toPort->control)
         {
-            controlLinks.push_back(link);
+            controlLinkArcs.push_back(link);
         }
         else
         {
@@ -273,6 +273,11 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         for (const auto* port : element.type->portsMatching(true, true))
             node.controlValues.push_back(element.valueOf(port->symbol));
 
+        // Sorted, so the compiled result is reproducible.
+        for (const auto& [key, value] : element.options)
+            node.options.emplace_back(key, value);
+        std::sort(node.options.begin(), node.options.end());
+
         out.nodes.push_back(std::move(node));
     }
 
@@ -284,10 +289,109 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
     for (const auto& link : audioLinks)
         out.audioLinks.push_back(remap(link));
-    for (const auto& link : controlLinks)
-        out.controlLinks.push_back(remap(link));
 
     out.outputNode = outputs.empty() ? -1 : positionOf[static_cast<std::size_t>(outputs.front())];
+    for (std::size_t i = 0; i < elements.size(); ++i)
+        if (elements[i].type != nullptr && elements[i].type->implementation == "Input")
+            out.inputNodes.push_back(positionOf[i]);
+
+    // -- buffers ------------------------------------------------------------
+    //
+    // One buffer per audio output port, plus one scratch buffer per summed
+    // input, plus a single shared block of silence that every unconnected
+    // input reads. Allocation happens once, here, on the message thread.
+    int nextBuffer = 0;
+    out.silenceBuffer = nextBuffer++;
+
+    int nextControlSlot = 0;
+
+    for (auto& node : out.nodes)
+    {
+        for (std::size_t i = 0; i < node.type->portsMatching(false, false).size(); ++i)
+            node.audioOutBuffers.push_back(nextBuffer++);
+
+        for (std::size_t i = 0; i < node.type->portsMatching(false, true).size(); ++i)
+            node.controlOutSlots.push_back(nextControlSlot++);
+
+        node.audioInBuffers.assign(node.type->portsMatching(true, false).size(),
+                                   out.silenceBuffer);
+    }
+
+    // Point each audio input at its source's output buffer. A second arc into
+    // the same input turns it into a sum, which the compiler has already
+    // restricted to val:Mixer.
+    const auto portIndex = [](const ElementType& type, const std::string& symbol,
+                              bool input, bool control) {
+        int index = 0;
+        for (const auto* port : type.portsMatching(input, control))
+        {
+            if (port->symbol == symbol)
+                return index;
+            ++index;
+        }
+        return -1;
+    };
+
+    std::map<std::pair<int, int>, std::vector<int>> arrivals;   // (node, inputPort) -> buffers
+    for (const auto& link : out.audioLinks)
+    {
+        const auto& source = out.nodes[static_cast<std::size_t>(link.from)];
+        const auto& dest   = out.nodes[static_cast<std::size_t>(link.to)];
+
+        const int sourcePort = portIndex(*source.type, link.fromPort, false, false);
+        const int destPort   = portIndex(*dest.type,   link.toPort,   true,  false);
+        if (sourcePort < 0 || destPort < 0)
+            continue;
+
+        arrivals[{link.to, destPort}].push_back(
+            source.audioOutBuffers[static_cast<std::size_t>(sourcePort)]);
+    }
+
+    for (const auto& [where, sources] : arrivals)
+    {
+        auto& node = out.nodes[static_cast<std::size_t>(where.first)];
+
+        if (sources.size() == 1)
+        {
+            // Read the producer's buffer directly: no copy.
+            node.audioInBuffers[static_cast<std::size_t>(where.second)] = sources.front();
+        }
+        else
+        {
+            CompiledCircuit::SumJob job;
+            job.destination = nextBuffer++;
+            job.sources     = sources;
+            node.audioInBuffers[static_cast<std::size_t>(where.second)] = job.destination;
+            node.sumJobs.push_back(std::move(job));
+        }
+    }
+
+    // -- control links ------------------------------------------------------
+    for (const auto& arc : controlLinkArcs)
+    {
+        const auto link = remap(arc);
+        const auto& source = out.nodes[static_cast<std::size_t>(link.from)];
+        const auto& dest   = out.nodes[static_cast<std::size_t>(link.to)];
+
+        const int sourcePort = portIndex(*source.type, link.fromPort, false, true);
+        const int destPort   = portIndex(*dest.type,   link.toPort,   true,  true);
+        if (sourcePort < 0 || destPort < 0)
+            continue;
+
+        CompiledCircuit::ControlLink resolved;
+        resolved.sourceSlot  = source.controlOutSlots[static_cast<std::size_t>(sourcePort)];
+        resolved.destNode    = link.to;
+        resolved.destControl = destPort;
+        resolved.depth       = link.depth;
+        resolved.fromPort    = link.fromPort;
+        resolved.toPort      = link.toPort;
+        resolved.from        = link.from;
+        resolved.to          = link.to;
+        out.controlLinks.push_back(std::move(resolved));
+    }
+
+    out.numBuffers      = nextBuffer;
+    out.numControlSlots = nextControlSlot;
 
     return out.isValid();
 }

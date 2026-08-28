@@ -22,6 +22,11 @@ struct Diagnostic
     std::string message;
     std::string subject;   ///< IRI of the offending element or arc, may be empty
 
+    /// Source position, when the problem came from the parser rather than from
+    /// validation. Zero means "no position", not line zero.
+    unsigned line = 0;
+    unsigned col  = 0;
+
     std::string toString() const;
 };
 
@@ -35,6 +40,10 @@ struct ElementInstance
     /// Control-input values set in the Turtle, keyed by port symbol. Ports the
     /// circuit does not mention keep the ontology's lv2:default.
     std::unordered_map<std::string, double> properties;
+
+    /// val: properties that are not control ports - val:antialiasing and the
+    /// like. Passed to the element through DspElement::setOption.
+    std::unordered_map<std::string, std::string> options;
 
     double valueOf(const std::string& portSymbol) const;
 };

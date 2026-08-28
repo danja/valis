@@ -6,6 +6,7 @@
 #include "valis/Vocabulary.h"
 
 #include <algorithm>
+#include <unordered_map>
 
 namespace valis {
 
@@ -13,24 +14,34 @@ namespace {
 
 /// units:unit may be a named unit (units:hz) or an inline blank node carrying
 /// units:symbol. Both appear in the ontology, so handle both.
-std::string readUnitSymbol(const rdf::TurtleStore& store, const rdf::Node& port)
+std::string readUnitSymbol(const rdf::TurtleStore& store,
+                           const rdf::Node& port,
+                           const std::unordered_map<std::string, std::string>& known)
 {
     auto unit = store.object(port, vocab::units::unit);
     if (! unit)
         return {};
 
+    // An inline unit carries its own symbol.
     if (auto symbol = store.object(unit, vocab::units::symbol))
         return std::string(symbol.string());
 
-    // A named unit such as units:hz carries its symbol in the LV2 vocabulary,
-    // which we do not load here. The local name is a usable fallback.
+    // A named unit such as units:hz carries it in the LV2 units vocabulary.
     if (unit.isUri())
-        return vocab::shortName(unit.string());
+    {
+        const std::string iri(unit.string());
+        if (const auto it = known.find(iri); it != known.end())
+            return it->second;
+
+        // Not loaded: the local name is a readable fallback.
+        return vocab::shortName(iri);
+    }
 
     return {};
 }
 
-std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node& port)
+std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node& port,
+                                 const std::unordered_map<std::string, std::string>& units)
 {
     PortDesc desc;
 
@@ -62,7 +73,7 @@ std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node&
     if (auto v = store.object(port, vocab::lv2::maximum); v.asDouble())
         desc.maximum = *v.asDouble();
 
-    desc.unitSymbol = readUnitSymbol(store, port);
+    desc.unitSymbol = readUnitSymbol(store, port, units);
     return desc;
 }
 
@@ -114,6 +125,25 @@ bool Ontology::loadFile(const std::string& path, std::vector<std::string>& error
     return loadFromStore(store, errors);
 }
 
+bool Ontology::loadUnits(const std::string& path, std::vector<std::string>& errors)
+{
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+
+    if (! store.parseFile(path, parseErrors))
+    {
+        for (const auto& e : parseErrors)
+            errors.push_back(path + ":" + e.toString());
+        return false;
+    }
+
+    for (const auto& unit : store.subjectsOfType(std::string(vocab::UNITS) + "Unit"))
+        if (auto symbol = store.object(unit, vocab::units::symbol))
+            unitSymbols[std::string(unit.string())] = std::string(symbol.string());
+
+    return true;
+}
+
 bool Ontology::loadTurtle(std::string_view turtle, std::vector<std::string>& errors)
 {
     rdf::TurtleStore store;
@@ -159,7 +189,7 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
 
         for (const auto& port : store.objects(type, vocab::lv2::port))
         {
-            if (auto desc = readPort(store, port))
+            if (auto desc = readPort(store, port, unitSymbols))
                 element.ports.push_back(std::move(*desc));
             else
                 errors.push_back(element.classIri + ": port missing lv2:symbol or direction");

@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace valis {
@@ -45,6 +46,14 @@ public:
     virtual void prepare(const ElementType& type, double sampleRate, int maxBlockSize)
     {
         (void) type; (void) sampleRate; (void) maxBlockSize;
+    }
+
+    /// An option set on this instance in the Turtle, applied after prepare()
+    /// and before the element runs. Keys are val: local names; an element
+    /// ignores what it does not recognise.
+    virtual void setOption(std::string_view key, std::string_view value)
+    {
+        (void) key; (void) value;
     }
 
     /// Clear state without reallocating. Called when the transport relocates.

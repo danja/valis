@@ -1,0 +1,98 @@
+# .github/workflows/docs.yml
+#
+# Publishes docs/manual to GitHub Pages. Modelled on the workflow in
+# hyperdata/transmissions: convert with marked, rewrite .md links to .html,
+# wrap in a template, deploy.
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install marked
+        run: npm install -g marked
+
+      - name: Convert the manual
+        run: |
+          mkdir -p _site
+          cat > _site/style.css <<'CSS'
+          :root { color-scheme: light dark; }
+          body { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 6rem;
+                 font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+          code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+          pre { padding: .9rem 1rem; overflow-x: auto; border-radius: 6px;
+                background: #f5f5f7; }
+          code { font-size: .9em; }
+          pre code { font-size: .85em; }
+          table { border-collapse: collapse; width: 100%; display: block;
+                  overflow-x: auto; margin: 1rem 0; }
+          th, td { border: 1px solid #d0d0d6; padding: .4rem .6rem; text-align: left; }
+          th { background: #f5f5f7; }
+          h1, h2, h3 { line-height: 1.25; }
+          h2 { margin-top: 2.2rem; }
+          nav { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #d0d0d6; }
+          @media (prefers-color-scheme: dark) {
+            body { background: #16161a; color: #d8d8de; }
+            pre, th { background: #202027; }
+            th, td { border-color: #33333c; }
+            a { color: #7fb2f0; }
+            nav { border-color: #33333c; }
+          }
+          CSS
+
+          for src in docs/manual/*.md docs/skream.md; do
+            name=$(basename "$src" .md)
+            out="_site/$name.html"
+            title=$(head -1 "$src" | sed 's/^#* *//')
+
+            sed 's/\(\[[^]]*\]([^)]*\)\.md)/\1.html)/g; s|(\.\./skream\.md)|(skream.html)|g' "$src" \
+              | marked > /tmp/body.html
+
+            {
+              echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+              echo '<meta name="viewport" content="width=device-width,initial-scale=1">'
+              echo "<title>$title — Valis</title>"
+              echo '<link rel="stylesheet" href="style.css"></head><body>'
+              echo '<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a>'
+              echo ' · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a>'
+              echo ' · <a href="building.html">Building</a> · <a href="skream.html">Skream</a></nav>'
+              cat /tmp/body.html
+              echo '</body></html>'
+            } > "$out"
+          done
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

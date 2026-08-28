@@ -3,6 +3,7 @@
 #include "plugin/ValisProcessor.h"
 
 #include "ui/ValisEditor.h"
+#include "valis/TurtleStore.h"
 
 namespace valis {
 
@@ -11,6 +12,77 @@ juce::String slotId(int i)   { return "p" + juce::String(i).paddedLeft('0', 2); 
 juce::String slotName(int i) { return "Param " + juce::String(i); }
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// ValisParameter
+// ---------------------------------------------------------------------------
+
+ValisParameter::ValisParameter(int slotIndex)
+    : juce::AudioParameterFloat(juce::ParameterID{slotId(slotIndex), 1},
+                                slotName(slotIndex),
+                                juce::NormalisableRange<float>{0.0f, 1.0f},
+                                0.0f),
+      slot(slotIndex),
+      label(slotName(slotIndex))
+{
+}
+
+void ValisParameter::bind(std::string targetNodeId, std::string targetProperty,
+                          juce::String displayName, double minimum, double maximum,
+                          juce::String unit)
+{
+    node       = std::move(targetNodeId);
+    property   = std::move(targetProperty);
+    label      = displayName.isNotEmpty() ? displayName : juce::String(property);
+    lo         = minimum;
+    hi         = maximum > minimum ? maximum : minimum + 1.0;
+    unitSymbol = std::move(unit);
+    bound      = true;
+}
+
+void ValisParameter::unbind()
+{
+    bound = false;
+    node.clear();
+    property.clear();
+    label = slotName(slot);
+    unitSymbol.clear();
+    lo = 0.0;
+    hi = 1.0;
+}
+
+double ValisParameter::realValue() const
+{
+    return lo + static_cast<double>(get()) * (hi - lo);
+}
+
+void ValisParameter::setRealValue(double value)
+{
+    const auto clamped = juce::jlimit(lo, hi, value);
+    setValueNotifyingHost(static_cast<float>((clamped - lo) / (hi - lo)));
+}
+
+juce::String ValisParameter::getName(int maximumLength) const
+{
+    return label.substring(0, maximumLength);
+}
+
+juce::String ValisParameter::getLabel() const
+{
+    return unitSymbol;
+}
+
+juce::String ValisParameter::getText(float normalised, int maximumLength) const
+{
+    if (! bound)
+        return juce::String(normalised, 3).substring(0, maximumLength);
+
+    const auto real = lo + static_cast<double>(normalised) * (hi - lo);
+
+    // A wide range reads better with fewer decimals; a 0-1 control needs them.
+    const int decimals = (hi - lo) > 100.0 ? 0 : ((hi - lo) > 1.0 ? 2 : 3);
+    return juce::String(real, decimals).substring(0, maximumLength);
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout ValisProcessor::makeParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -18,9 +90,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout ValisProcessor::makeParamete
     // All slots are plain normalised 0-1. A val:Param binding supplies the name,
     // range and unit for display; unbound slots stay inert and hidden.
     for (int i = 0; i < kNumParamSlots; ++i)
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            juce::ParameterID{slotId(i), 1}, slotName(i),
-            juce::NormalisableRange<float>{0.0f, 1.0f}, 0.0f));
+        layout.add(std::make_unique<ValisParameter>(i));
 
     return layout;
 }
@@ -31,11 +101,78 @@ ValisProcessor::ValisProcessor()
                                .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "VALIS", makeParameterLayout())
 {
+    registry = makeDefaultRegistry();
+
+    std::vector<std::string> ontologyErrors;
+
+    // Units first: named units such as units:hz get their symbols from here,
+    // and they are resolved as the element ports are read.
+    vocabulary.loadUnits(VALIS_VOCABS_DIR "/lv2/units.ttl", ontologyErrors);
+
+    if (! vocabulary.loadFile(VALIS_VOCABS_DIR "/valis.ttl", ontologyErrors))
+        for (const auto& e : ontologyErrors)
+            diagnostics.push_back({e, {}});
+
+    // Something audible from the moment the plugin loads.
+    setTurtle(juce::File(VALIS_EXAMPLES_DIR "/basic.ttl").loadFileAsString());
+
+    for (int i = 0; i < kNumParamSlots; ++i)
+        if (auto* parameter = apvts.getParameter(slotId(i)))
+            parameter->addListener(this);
+
+   #if VALIS_WITH_MCP
+    // Off unless asked for, and loopback only when it is. The port can be
+    // overridden for a second instance.
+    mcpServer = std::make_unique<McpServer>([this] { return ops(); });
+
+    if (const auto enabled = juce::SystemStats::getEnvironmentVariable("VALIS_MCP", {});
+        enabled.isNotEmpty() && enabled != "0")
+    {
+        const auto port = juce::SystemStats::getEnvironmentVariable("VALIS_MCP_PORT", "7676").getIntValue();
+        const auto token = juce::SystemStats::getEnvironmentVariable("VALIS_MCP_TOKEN", {}).toStdString();
+
+        if (! mcpServer->start(port, token))
+            diagnostics.push_back({"MCP server could not bind to port " + std::to_string(port), {}});
+    }
+   #endif
+
+    // Retired graphs are freed here, and parameter changes are applied here.
+    startTimerHz(30);
 }
 
-void ValisProcessor::prepareToPlay(double, int)
+OpDispatcher ValisProcessor::ops()
 {
-    // TODO(M4): prepare the engine and preallocate the buffer pool here.
+    OpContext ctx;
+    ctx.ontology = &vocabulary;
+    ctx.engine   = &engine;
+    ctx.readTurtle = [this] { return getTurtle().toStdString(); };
+    ctx.writeTurtle = [this](const std::string& turtle, std::vector<Diagnostic>& out)
+    {
+        return setTurtle(juce::String(turtle), out);
+    };
+    ctx.readModel = [this]() -> const CircuitModel* { return &model; };
+    return OpDispatcher(ctx);
+}
+
+ValisProcessor::~ValisProcessor()
+{
+   #if VALIS_WITH_MCP
+    if (mcpServer != nullptr)
+        mcpServer->stop();
+   #endif
+
+    for (int i = 0; i < kNumParamSlots; ++i)
+        if (auto* parameter = apvts.getParameter(slotId(i)))
+            parameter->removeListener(this);
+}
+
+void ValisProcessor::prepareToPlay(double sampleRate, int maximumExpectedSamplesPerBlock)
+{
+    engine.prepare(sampleRate, maximumExpectedSamplesPerBlock);
+    monoScratch.setSize(2, maximumExpectedSamplesPerBlock, false, true, true);
+
+    // Reinstalling rebuilds every element against the new rate.
+    setTurtle(getTurtle());
 }
 
 void ValisProcessor::releaseResources() {}
@@ -53,10 +190,37 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
 {
     juce::ScopedNoDenormals noDenormals;
 
-    for (auto i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
-        buffer.clear(i, 0, buffer.getNumSamples());
+    const int numSamples = buffer.getNumSamples();
+    const int numIn      = getTotalNumInputChannels();
+    const int numOut     = getTotalNumOutputChannels();
 
-    // TODO(M4): swap in the compiled circuit and run it. Pass-through until then.
+    for (int i = numIn; i < numOut; ++i)
+        buffer.clear(i, 0, numSamples);
+
+    if (! engine.hasCircuit() || numSamples > monoScratch.getNumSamples())
+        return;
+
+    // The circuit model is mono, so sum in and fan out. Per-channel circuits
+    // are a later milestone.
+    float* mono = monoScratch.getWritePointer(0);
+    if (numIn > 0)
+    {
+        juce::FloatVectorOperations::copy(mono, buffer.getReadPointer(0), numSamples);
+        for (int c = 1; c < numIn; ++c)
+            juce::FloatVectorOperations::add(mono, buffer.getReadPointer(c), numSamples);
+        if (numIn > 1)
+            juce::FloatVectorOperations::multiply(mono, 1.0f / static_cast<float>(numIn), numSamples);
+    }
+    else
+    {
+        juce::FloatVectorOperations::clear(mono, numSamples);
+    }
+
+    float* rendered = monoScratch.getWritePointer(1);
+    engine.process(mono, rendered, numSamples);
+
+    for (int c = 0; c < numOut; ++c)
+        juce::FloatVectorOperations::copy(buffer.getWritePointer(c), rendered, numSamples);
 }
 
 juce::AudioProcessorEditor* ValisProcessor::createEditor()
@@ -72,9 +236,138 @@ juce::String ValisProcessor::getTurtle() const
 
 void ValisProcessor::setTurtle(const juce::String& turtle)
 {
+    std::vector<Diagnostic> ignored;
+    setTurtle(turtle, ignored);
+}
+
+bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnostic>& out)
+{
+    // The editor's text is the user's text, kept verbatim even while it is
+    // mid-edit and broken. What must not change on failure is the circuit.
+    {
+        const juce::ScopedLock sl(turtleLock);
+        turtleSource = turtle;
+    }
+
+    out.clear();
+
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+    if (! store.parse(turtle.toStdString(), "urn:valis:circuit", parseErrors))
+    {
+        for (const auto& e : parseErrors)
+            out.push_back({e.message, {}, e.line, e.col});
+    }
+
+    CircuitModel candidate;
+    if (out.empty() && candidate.build(store, vocabulary, out))
+    {
+        CompiledCircuit compiled;
+        CircuitCompiler compiler;
+
+        if (compiler.compile(candidate, vocabulary, compiled, out))
+        {
+            std::string error;
+            if (engine.load(compiled, registry, error))
+            {
+                model = std::move(candidate);
+                setLatencySamples(engine.latencyInSamples());
+                rebindParameters();
+
+                const juce::ScopedLock sl(turtleLock);
+                diagnostics = out;
+                return true;
+            }
+            out.push_back({error, {}});
+        }
+    }
+
+    // The previous circuit keeps playing: a typo must not silence the plugin.
     const juce::ScopedLock sl(turtleLock);
-    turtleSource = turtle;
-    // TODO(M5): compile and hand the result to the engine.
+    diagnostics = out;
+    return false;
+}
+
+std::vector<Diagnostic> ValisProcessor::lastDiagnostics() const
+{
+    const juce::ScopedLock sl(turtleLock);
+    return diagnostics;
+}
+
+ValisParameter* ValisProcessor::slot(int index)
+{
+    if (index < 0 || index >= kNumParamSlots)
+        return nullptr;
+
+    return dynamic_cast<ValisParameter*>(apvts.getParameter(slotId(index)));
+}
+
+void ValisProcessor::rebindParameters()
+{
+    // The host's parameter list cannot change, so rebinding repoints the fixed
+    // slots at whatever the new circuit declares and asks the host to re-read
+    // their names and ranges.
+    for (int i = 0; i < kNumParamSlots; ++i)
+        if (auto* parameter = slot(i))
+            parameter->unbind();
+
+    for (const auto& binding : model.params())
+    {
+        auto* parameter = slot(binding.slot);
+        if (parameter == nullptr)
+            continue;
+
+        const auto* element = model.findElement(binding.targetNode);
+        if (element == nullptr || element->type == nullptr)
+            continue;
+
+        const auto* port = element->type->findProperty(binding.propertySymbol);
+        if (port == nullptr)
+            continue;
+
+        parameter->bind(binding.targetNode, binding.propertySymbol,
+                        binding.name.empty() ? juce::String(port->name) : juce::String(binding.name),
+                        port->minimum, port->maximum, juce::String(port->unitSymbol));
+
+        // Take the circuit's own value as the slot's starting point, so opening
+        // a circuit does not immediately overwrite what it declares.
+        parameter->setRealValue(element->valueOf(binding.propertySymbol));
+    }
+
+    updateHostDisplay(juce::AudioProcessorListener::ChangeDetails{}
+                          .withParameterInfoChanged(true));
+
+    applyParameterBindings();
+}
+
+void ValisProcessor::applyParameterBindings()
+{
+    // Push each bound slot's current value into the engine, so a reload keeps
+    // whatever the host has already automated.
+    for (int i = 0; i < kNumParamSlots; ++i)
+    {
+        auto* parameter = slot(i);
+        if (parameter == nullptr || ! parameter->isBound())
+            continue;
+
+        engine.setControl(parameter->targetNode(), parameter->targetProperty(),
+                          static_cast<float>(parameter->realValue()));
+    }
+}
+
+void ValisProcessor::parameterValueChanged(int, float)
+{
+    // Called from the host's automation thread. Flag it and let the timer do
+    // the work: setControl walks the graph, which is not for this thread.
+    parametersDirty.store(true, std::memory_order_release);
+}
+
+void ValisProcessor::timerCallback()
+{
+    engine.collectGarbage();
+
+    if (parametersDirty.exchange(false, std::memory_order_acq_rel))
+        applyParameterBindings();
 }
 
 void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)

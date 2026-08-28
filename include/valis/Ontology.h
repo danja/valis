@@ -61,6 +61,14 @@ public:
     /// Appends to `errors` and returns false if the file will not parse or
     /// declares a class the loader cannot make sense of.
     bool loadFile(const std::string& path, std::vector<std::string>& errors);
+
+    /// Loads an LV2 units vocabulary so named units such as units:hz resolve to
+    /// their real symbols ("Hz") rather than to the local name of their IRI.
+    ///
+    /// Call this BEFORE loadFile: symbols are resolved as ports are read, so a
+    /// units file loaded afterwards has no effect on what is already loaded.
+    /// Optional - without it units still work, they just read less well.
+    bool loadUnits(const std::string& path, std::vector<std::string>& errors);
     bool loadTurtle(std::string_view turtle, std::vector<std::string>& errors);
 
     /// Resolves owl:equivalentClass aliases, so val:NonLinear finds val:Transfer.
@@ -78,7 +86,8 @@ private:
     bool loadFromStore(const rdf::TurtleStore&, std::vector<std::string>& errors);
 
     std::unordered_map<std::string, ElementType> typesByIri;
-    std::unordered_map<std::string, std::string> aliases;  ///< alias IRI -> canonical
+    std::unordered_map<std::string, std::string> aliases;    ///< alias IRI -> canonical
+    std::unordered_map<std::string, std::string> unitSymbols; ///< unit IRI -> symbol
 };
 
 }  // namespace valis

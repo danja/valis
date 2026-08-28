@@ -85,54 +85,31 @@ names. `val:Network` is declared as the seam for future component-level subcircu
 
 ## Status
 
-**M0 (build skeleton), M1 (RDF layer), M2 (ontology, model, compiler) and M3 (DSP
-elements) are complete and verified. M4 through M11 are not started.** The plugin still
-passes audio through unchanged: a circuit can be parsed, validated, ordered and its
-elements constructed, but the engine that runs them is M4.
+**All milestones are complete.** Nine test binaries pass, and all four plugin
+formats build: Standalone, VST3, LV2 and CLAP.
 
-What M0 delivers:
+What works:
 
-- Standalone, VST3 and LV2 all build warning-free from one configure. CLAP is behind
-  the `VALIS_WITH_CLAP` option and is untested — its CMake module lands in M11.
-- The LV2 build is discoverable: `lv2ls` and `lv2info` resolve `urn:valis:valis`.
-- 64 host-visible parameter slots appear in the generated `dsp.ttl` as `lv2:Parameter`
-  with `patch:writable`. They are inert until M6 binds them to element properties.
-- The editor opens with the three tabs — Turtle, Graph, Knobs — as placeholders.
-- serd and sord are resolved by `cmake/FindOrFetchSerd.cmake` and linked into
-  `valis_core`.
+- A circuit is parsed from Turtle, validated against the ontology, compiled to
+  an execution order and run. Errors name the element or arc at fault, and
+  parse errors carry line and column.
+- All 24 elements, with the ontology and the DSP registry asserted equal as
+  sets in both directions — a class with no factory, or a factory with no class,
+  fails the build.
+- The engine allocates nothing on the audio thread, enforced by a test that
+  counts through an overridden `operator new`. Output is independent of the
+  host's buffer size: rendering at 128 and 512 samples is bit-identical.
+- All three views: a syntax-highlighted Turtle editor with diagnostics, a
+  node-and-arc graph with drag-to-connect and an ontology-driven palette, and
+  knobs generated from the circuit's parameter bindings.
+- An HTTP MCP server exposing 13 tools, all adapters over the same `Op` surface
+  the views use. Inserting an element over MCP redraws the graph view while the
+  audio keeps running.
+- `valis-render`, a headless renderer that needs no host, GUI or audio device.
 
-What M1 adds:
-
-- `TurtleStore` — an RAII wrapper over sord's quad store with serd parsing and
-  serialisation. Queries are `object`/`objects`/`subjects`/`subjectsOfType`/`contains`/
-  `forEachProperty`, with `add`/`remove` for graph edits. Terms compare by value.
-- Parse errors carry serd's line and column, so the Turtle view can mark the gutter in
-  M7: a missing `.` reports as `4:0: missing ';' or '.'`.
-- The test parses every file under `vocabs/`, so a bad ontology edit fails the build.
-
-What M2 adds:
-
-- `Ontology` loads the 24 implementable element classes from `vocabs/valis.ttl` at
-  runtime, with their ports, ranges and units.
-- `CircuitModel` resolves a circuit's elements, arcs and parameter bindings against it.
-- `CircuitCompiler` validates and topologically orders, reporting every problem it finds
-  with the element or arc at fault named: unknown or abstract class, unknown port, wrong
-  direction, audio/control rate mismatch, duplicate or dangling arc, silent fan-in onto a
-  non-Mixer input, wrong output count, and a feedback loop with no `val:UnitDelay` —
-  printed as the path round the loop.
-- [`examples/skream.ttl`](examples/skream.ttl) compiles clean: 13 nodes, both filter taps
-  in use, and the gate's sidechain resolved as a control arc.
-
-What M3 adds:
-
-- All 24 elements, with the ontology and the registry asserted equal as sets in both
-  directions — a class with no factory, or a factory with no class, fails the build.
-- Antiderivative anti-aliasing, measured rather than claimed: on a 5 kHz sine driven at
-  8×, ADAA1 cuts alias energy 4.2× and ADAA2 cuts it 16.4×. ADAA2's one-sample delay is
-  reported through `latencyInSamples()`.
-- Physical device models. `val:Diode` clips its positive half at +0.58 V and passes the
-  negative half intact; `val:DiodePair` is symmetric. `val:StateVariable` is the Cytomic
-  TPT form with lp, bp and hp taken from one state.
+Known gaps, marked `TODO:` in the code: the oscillator's saw and square shapes
+are naive and will alias, and `val:Envelope` is free-running until MIDI note
+events arrive.
 
 ## Development
 
@@ -203,6 +180,27 @@ grep -A5 'plug:p00' build/valis_plugin_artefacts/Debug/LV2/Valis.lv2/dsp.ttl
 ```
 
 Use `build-release/valis_plugin_artefacts/Release/LV2` for the release bundle.
+
+### The MCP server
+
+Off unless asked for, and bound to loopback only:
+
+```sh
+VALIS_MCP=1 ./valis
+curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+`VALIS_MCP_PORT` (default 7676) and `VALIS_MCP_TOKEN` (default none) override
+the rest. See [`docs/manual/mcp.md`](docs/manual/mcp.md).
+
+### Regenerating the docs
+
+`docs/manual/elements.md` is generated from `vocabs/valis.ttl`, so it cannot
+drift from what the plugin offers:
+
+```sh
+./scripts/generate-docs.sh
+```
 
 ## Requirements
 

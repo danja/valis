@@ -24,10 +24,10 @@
 :skream a val:Circuit ;
     rdfs:label "Skream" ;
     rdfs:comment "2010-era growl. Feedback saturation around a state variable filter." ;
-    val:element :in , :inGain , :loop , :sat1 , :svf , :fbGain , :hpf , :sat2 ,
-                :gate , :env , :z , :mix , :out ;
-    val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 , :a9 , :a10 , :a11 ,
-            :a12 , :a13 , :m1 , :m2 .
+    val:element :in , :inGain , :loop , :sat1 , :svf , :wetGain , :fbGain , :hpf ,
+                :sat2 , :gate , :env , :z , :mix , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a5b , :a6 , :a7 , :a8 , :a9 , :a10 ,
+            :a11 , :a12 , :a13 , :m1 , :m2 .
 
 ################################################################
 # Elements                                                     #
@@ -61,6 +61,13 @@
     rdfs:label "Feedback Tone" ;
     val:cutoff 300.0 ;
     val:resonance 2.0 .
+
+# Gain staging. A resonant filter with Q = 4 has roughly 12 dB of gain at its
+# corner, and it is fed a saturator running at full scale, so the wet path needs
+# trimming before it reaches the mix or the output clips.
+:wetGain a val:Gain ;
+    rdfs:label "Output" ;
+    val:gain -14.0 .
 
 :fbGain a val:Gain ;
     rdfs:label "Feedback" ;
@@ -97,8 +104,10 @@
                  val:to   [ val:node :sat1   ; val:port "in"  ] .
 :a4  a val:Arc ; val:from [ val:node :sat1   ; val:port "out" ] ;
                  val:to   [ val:node :svf    ; val:port "in"  ] .
-:a5  a val:Arc ; val:from [ val:node :svf    ; val:port "lp"  ] ;
-                 val:to   [ val:node :mix    ; val:port "wet" ] .
+:a5  a val:Arc ; val:from [ val:node :svf     ; val:port "lp"  ] ;
+                 val:to   [ val:node :wetGain ; val:port "in"  ] .
+:a5b a val:Arc ; val:from [ val:node :wetGain ; val:port "out" ] ;
+                 val:to   [ val:node :mix     ; val:port "wet" ] .
 :a6  a val:Arc ; val:from [ val:node :inGain ; val:port "out" ] ;
                  val:to   [ val:node :mix    ; val:port "dry" ] .
 :a7  a val:Arc ; val:from [ val:node :mix    ; val:port "out" ] ;
@@ -154,6 +163,9 @@
 
 :p6 a val:Param ; val:slot 6 ; val:target :hpf ; val:property val:cutoff ;
     lv2:name "Feedback Tone" ; lv2:symbol "fbtone" ; units:unit units:hz .
+
+:p7 a val:Param ; val:slot 7 ; val:target :wetGain ; val:property val:gain ;
+    lv2:name "Output" ; lv2:symbol "output" ; units:unit units:db .
 
 :p4 a val:Param ; val:slot 4 ; val:target :inGain ; val:property val:gain ;
     lv2:name "Input Gain" ; lv2:symbol "input" ; units:unit units:db .
