@@ -216,7 +216,11 @@ drift from what the plugin offers:
 - CMake 3.22 or newer, and a C and C++20 compiler. JUCE refuses to configure unless
   C is among the project languages, so a C compiler is not optional.
 - JUCE 9.0.1, added by `add_subdirectory`. `VALIS_JUCE_DIR` sets the path and defaults
-  to `/home/danny/github/JUCE`.
+  to `~/github/JUCE`. Clone it once before building:
+
+  ```sh
+  git clone --depth 1 --branch 9.0.1 https://github.com/juce-framework/JUCE ~/github/JUCE
+  ```
 
 On Debian or Ubuntu, with `JUCE_WEB_BROWSER=0` and `JUCE_USE_CURL=0` set by the build
 (so neither WebKit nor libcurl is needed):
@@ -239,5 +243,5 @@ verification above.
 
 ## Licence
 
-This repository is MIT — see [`LICENSE`](LICENSE). JUCE 9 is AGPLv3-or-commercial, so
+This repository is [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) — see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial, so
 a distributed binary that links JUCE under the AGPL obliges AGPL for the combined work.
