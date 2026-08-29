@@ -192,15 +192,15 @@ Use `build-release/valis_plugin_artefacts/Release/LV2` for the release bundle.
 
 ### The MCP server
 
-Off unless asked for, and bound to loopback only:
+Enable it from **Settings → MCP Server** inside the plugin. The server binds to
+loopback only. Check it is up:
 
 ```sh
-VALIS_MCP=1 ./valis
 curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-`VALIS_MCP_PORT` (default 7676) and `VALIS_MCP_TOKEN` (default none) override
-the rest. See [`docs/manual/mcp.md`](docs/manual/mcp.md).
+`VALIS_MCP_PORT` (default 7676) and `VALIS_MCP_TOKEN` (default none) configure
+the port and bearer token at startup. See [`docs/manual/mcp.md`](docs/manual/mcp.md).
 
 ### Regenerating the docs
 

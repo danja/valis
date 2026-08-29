@@ -121,19 +121,8 @@ ValisProcessor::ValisProcessor()
             parameter->addListener(this);
 
    #if VALIS_WITH_MCP
-    // Off unless asked for, and loopback only when it is. The port can be
-    // overridden for a second instance.
+    // Created here; started only when the user enables it via Settings → MCP Server.
     mcpServer = std::make_unique<McpServer>([this] { return ops(); });
-
-    if (const auto enabled = juce::SystemStats::getEnvironmentVariable("VALIS_MCP", {});
-        enabled.isNotEmpty() && enabled != "0")
-    {
-        const auto port = juce::SystemStats::getEnvironmentVariable("VALIS_MCP_PORT", "7676").getIntValue();
-        const auto token = juce::SystemStats::getEnvironmentVariable("VALIS_MCP_TOKEN", {}).toStdString();
-
-        if (! mcpServer->start(port, token))
-            diagnostics.push_back({"MCP server could not bind to port " + std::to_string(port), {}});
-    }
    #endif
 
     // Retired graphs are freed here, and parameter changes are applied here.
@@ -389,7 +378,10 @@ void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto tree = apvts.copyState();
     tree.setProperty("turtle", getTurtle(), nullptr);
-
+   #if VALIS_WITH_MCP
+    tree.setProperty("mcpEnabled", isMcpRunning(), nullptr);
+    tree.setProperty("mcpPort",    mcpPort(),       nullptr);
+   #endif
     if (auto xml = tree.createXml())
         copyXmlToBinary(*xml, destData);
 }
@@ -403,7 +395,41 @@ void ValisProcessor::setStateInformation(const void* data, int sizeInBytes)
     auto tree = juce::ValueTree::fromXml(*xml);
     setTurtle(tree.getProperty("turtle", juce::String()).toString());
     apvts.replaceState(tree);
+
+   #if VALIS_WITH_MCP
+    if ((bool) tree.getProperty("mcpEnabled", false))
+        startMcp((int) tree.getProperty("mcpPort", 7676));
+   #endif
 }
+
+#if VALIS_WITH_MCP
+bool ValisProcessor::startMcp(int requestedPort, const std::string& token)
+{
+    if (mcpServer == nullptr) return false;
+    if (mcpServer->isRunning()) mcpServer->stop();
+
+    const int portToUse = requestedPort > 0 ? requestedPort
+        : juce::SystemStats::getEnvironmentVariable("VALIS_MCP_PORT", "7676").getIntValue();
+
+    return mcpServer->start(portToUse, token);
+}
+
+void ValisProcessor::stopMcp()
+{
+    if (mcpServer != nullptr)
+        mcpServer->stop();
+}
+
+bool ValisProcessor::isMcpRunning() const
+{
+    return mcpServer != nullptr && mcpServer->isRunning();
+}
+
+int ValisProcessor::mcpPort() const
+{
+    return mcpServer != nullptr ? mcpServer->boundPort() : 0;
+}
+#endif
 
 }  // namespace valis
 

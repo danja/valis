@@ -114,6 +114,12 @@ public:
 
    #if VALIS_WITH_MCP
     McpServer& mcp() { return *mcpServer; }
+
+    /// Start or restart the MCP server. Port 0 falls back to VALIS_MCP_PORT or 7676.
+    bool startMcp(int port = 0, const std::string& token = {});
+    void stopMcp();
+    bool isMcpRunning() const;
+    int  mcpPort() const;
    #endif
 
 private:

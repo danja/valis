@@ -19,6 +19,11 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
                 engine/ · dsp/
 ```
 
+## Procedures
+
+- Log mistakes in MISTAKES.md (what happened, root cause, prevention).
+- Periodically read TODO.md and check for outstanding tasks, carry these out. When a task has been completed, remove it from the  doc.
+
 ## Non-negotiable real-time rules
 
 - Never allocate, access the filesystem or network, log through an unbounded sink,
@@ -53,6 +58,8 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 - `build.sh` is the one-command build, echoing a heading before each stage.
   `./valis` launches the standalone build.
 - Prefer deterministic offline audio tests (`valis-render`) over device-based ones.
+
+
 
 ## Code
 

@@ -7,15 +7,14 @@ takes, including validation.
 
 ## Running it
 
-The server is off unless asked for, and binds to loopback only:
+The server is off by default and binds to loopback only. Enable it from
+**Settings → MCP Server** inside the plugin. The toggle persists in plugin
+state, so a saved session reopens with the server in whatever state you left it.
 
-```sh
-VALIS_MCP=1 ./valis
-```
+Two environment variables configure it when Valis starts:
 
 | variable | default | meaning |
 |---|---|---|
-| `VALIS_MCP` | unset | set to anything but `0` to start the server |
 | `VALIS_MCP_PORT` | `7676` | port to bind on `127.0.0.1` |
 | `VALIS_MCP_TOKEN` | none | if set, requests need `Authorization: Bearer <token>` |
 
@@ -85,3 +84,67 @@ call connect    '{"from_node":"urn:valis:basic#growl","from_port":"out",
 
 The graph view redraws with the new node in place, and the audio keeps running
 throughout.
+
+## Using with Claude Code
+
+Start Valis with the server enabled, then register it as an MCP server. In the
+project or user settings file (`.claude/settings.json` or
+`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "valis": {
+      "type": "http",
+      "url": "http://localhost:7676/mcp"
+    }
+  }
+}
+```
+
+Or add it from the command line:
+
+```sh
+claude mcp add --transport http valis http://localhost:7676/mcp
+```
+
+Once registered, Claude Code can call any tool in the table above directly.
+Describe the sound you want in plain English — the model can call `get_graph`
+to read what is there, then `add_node`, `connect`, and `set_param` to build
+or reshape the circuit while the audio keeps running.
+
+A bearer token restricts access when the port is forwarded. Set it before
+launching, then reference it in the client config:
+
+```sh
+VALIS_MCP_TOKEN=secret ./valis
+```
+
+```json
+{
+  "mcpServers": {
+    "valis": {
+      "type": "http",
+      "url": "http://localhost:7676/mcp",
+      "headers": { "Authorization": "Bearer secret" }
+    }
+  }
+}
+```
+
+## Using with OpenAI Codex
+
+Codex CLI also supports MCP over HTTP. Add a server entry to your Codex
+configuration file (typically `~/.codex/config.toml`):
+
+```toml
+[[mcp_servers]]
+name    = "valis"
+type    = "http"
+url     = "http://localhost:7676/mcp"
+```
+
+The exact key names may vary with Codex version — check `codex mcp --help` or
+the Codex documentation if the above does not match. The Valis server speaks
+standard JSON-RPC 2.0 MCP, so any client that supports the HTTP transport will
+work.
