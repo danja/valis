@@ -159,8 +159,22 @@ void ValisEditor::updateStatusBar()
     const auto diags = processor.lastDiagnostics();
     if (diags.empty())
     {
+        const auto& elems = processor.circuit().elements();
+        bool hasMidi  = false;
+        bool hasInput = false;
+        for (const auto& e : elems)
+        {
+            if (e.typeIri.find("/Midi") != std::string::npos)
+                hasMidi = true;
+            if (e.typeIri.ends_with("/Input"))
+                hasInput = true;
+        }
+
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff98c379));
-        statusLabel.setText("Circuit OK", juce::dontSendNotification);
+        juce::String msg = "Circuit OK";
+        if (hasMidi && !hasInput)
+            msg += "  \u2014  Synthesizer \u2014 play MIDI notes";
+        statusLabel.setText(msg, juce::dontSendNotification);
     }
     else
     {

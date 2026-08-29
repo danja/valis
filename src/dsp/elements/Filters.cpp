@@ -428,7 +428,12 @@ public:
             const float r2    = r * r;
 
             // Spectral tilt: higher modes quieter when brightness is low.
-            const float gain  = std::exp(-static_cast<float>(n) * (1.0f - brightness) * 2.0f);
+            const float tilt  = std::exp(-static_cast<float>(n) * (1.0f - brightness) * 2.0f);
+
+            // Scale input by (1-r) so the resonator peak amplitude is independent
+            // of T60: without this, a long decay builds up to ~1/(1-r) times the
+            // input, which overflows the DAW's headroom at T60 > 500 ms.
+            const float gain  = tilt * (1.0f - r);
 
             float y1 = res[n].y1;
             float y2 = res[n].y2;
@@ -441,13 +446,15 @@ public:
                 out[i] += y;
             }
 
-            res[n].y1 = y1;
-            res[n].y2 = y2;
+            res[n].y1 = std::isfinite(y1) ? y1 : 0.0f;
+            res[n].y2 = std::isfinite(y2) ? y2 : 0.0f;
         }
 
-        // Six resonators summing to 1 each would clip; normalise.
+        // Resonator peak with (1-r) excitation ≈ tilt * noise_rms * sqrt(excitation_samples / 2).
+        // For 8 ms burst at 44.1 kHz that is roughly 0.015 per mode; 6 modes sum to ≈ 0.04.
+        // The 15× boost brings the output into a comfortable range without relying on T60.
         for (int i = 0; i < args.numSamples; ++i)
-            out[i] *= 0.15f;
+            out[i] *= 15.0f;
     }
 
 private:

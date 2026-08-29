@@ -458,6 +458,47 @@ void testEnvelopeRespondsToNotes()
     assert(afterRelease < held * 0.5f);
 }
 
+/// rings-modal.ttl should produce sound after a MIDI note-on: noise burst →
+/// VCA (env-gated) → ModalBank → Gain → Output. If the resonators are silent
+/// after a note, the circuit is broken.
+void testRingsModalProducesSound()
+{
+    CompiledCircuit circuit;
+    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/rings-modal.ttl", circuit);
+    if (! compiled)
+    {
+        std::puts("  rings-modal.ttl failed to compile — skipping sound test");
+        return;
+    }
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> silence(256, 0.0f);
+    std::vector<float> block(256, 0.0f);
+
+    // Before any note, output should be silent.
+    for (int i = 0; i < 4; ++i)
+        engine.process(nullptr, block.data(), 256);
+    const float beforeNote = peakOf(block);
+    std::printf("  rings-modal  before note: %.6f\n", beforeNote);
+    assert(beforeNote == 0.0f);
+
+    // After a note-on, the resonators should ring for at least 200 ms.
+    engine.noteOn(60, 1.0f);
+    float peakAfterNote = 0.0f;
+    for (int i = 0; i < 40; ++i)
+    {
+        engine.process(nullptr, block.data(), 256);
+        peakAfterNote = std::max(peakAfterNote, peakOf(block));
+    }
+    std::printf("  rings-modal  peak after note-on: %.6f\n", peakAfterNote);
+    assert(peakAfterNote > 1.0e-4f);
+}
+
 }  // namespace
 
 int main()
@@ -471,6 +512,7 @@ int main()
     testUnconnectedInputReadsSilence();
     testInstanceOptionsOverrideTheClass();
     testEnvelopeRespondsToNotes();
+    testRingsModalProducesSound();
 
     std::puts("ValisEngineTest PASSED");
     return 0;
