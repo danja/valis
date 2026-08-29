@@ -1,12 +1,12 @@
-## Done
+In the plugin, when it loses focus the current settings should be persisted, same when  the DAW is closed/reopened. Presumably this will be supported in JUCE somewhere.
 
-* `/new-element` skill created at `.claude/commands/new-element.md`
-* Delay line (`val:Delay`) implemented and in ontology
-* `val:Scale`, `val:VCA`, `val:MidiPitch`, `val:MidiVelocity` implemented and in ontology
-* `val:AsymClip` — asymmetric soft clipper for the Klon Centaur clipping stage
-* `val:CombFilter` — Karplus-Strong feedback comb filter with one-pole LP damping
-* SH-101 subtractive synth: `examples/sh101.ttl` + `docs/manual/sh101.md`
-* Klon Centaur guitar overdrive: `examples/klon.ttl` + `docs/manual/klon.md`
-* Mutable Instruments Rings (Karplus-Strong): `examples/rings.ttl` + `docs/manual/rings.md`
-  — case study doubles as a tutorial on creating new elements via `/new-element`
-* Release workflow on tag push: `.github/workflows/release.yml`
+When I load the SH-101.ttl the filter cutoff doesn't appear to have any effect. Can we extend this example a little to make it more like an SH-101, remembering to update the case study docs.
+
+Rings circuit : add the other modes, extend the types of resonator to add beam; marimba; drumhead; membrane; plate; and string. Add an exciter section in the style of Mutable Instruments Elements, include noise, mallet etc. Consider adding new UI components to the Knobs view for choices - eg. a drop-down list selector, radio buttons, checkboxes etc.
+
+## Recurring - once the above is clear
+
+* update README.md and docs for recent changes
+* check code for long files - if found, refactor
+* check test coverage
+* check MISTAKES.md for patterns, update CLAUDE.md as appropriate

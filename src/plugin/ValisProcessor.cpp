@@ -113,8 +113,26 @@ ValisProcessor::ValisProcessor()
         for (const auto& e : ontologyErrors)
             diagnostics.push_back({e, {}});
 
-    // Something audible from the moment the plugin loads.
-    setTurtle(juce::File(VALIS_EXAMPLES_DIR "/basic.ttl").loadFileAsString());
+    // Persist state across focus loss and crashes via platform settings file.
+    juce::PropertiesFile::Options opts;
+    opts.applicationName = "Valis";
+    opts.filenameSuffix  = ".props";
+    opts.folderName      = "Valis";
+    appProperties.setStorageParameters(opts);
+
+    // Try to restore the last session; fall back to the bundled example.
+    bool restored = false;
+    if (auto* settings = appProperties.getUserSettings())
+    {
+        const auto saved = settings->getValue("turtle");
+        if (saved.isNotEmpty())
+        {
+            restored = true;
+            setTurtle(saved);
+        }
+    }
+    if (! restored)
+        setTurtle(juce::File(VALIS_EXAMPLES_DIR "/basic.ttl").loadFileAsString());
 
     for (int i = 0; i < kNumParamSlots; ++i)
         if (auto* parameter = apvts.getParameter(slotId(i)))
@@ -282,6 +300,7 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
                     const juce::ScopedLock sl(turtleLock);
                     diagnostics = out;
                 }
+                autoSaveTicks = 90;  // ~3 s at 30 Hz — save after brief idle
                 sendChangeMessage();
                 return true;
             }
@@ -337,7 +356,9 @@ void ValisProcessor::rebindParameters()
 
         parameter->bind(binding.targetNode, binding.propertySymbol,
                         binding.name.empty() ? juce::String(port->name) : juce::String(binding.name),
-                        port->minimum, port->maximum, juce::String(port->unitSymbol));
+                        binding.minimum.value_or(port->minimum),
+                        binding.maximum.value_or(port->maximum),
+                        juce::String(port->unitSymbol));
 
         // Take the circuit's own value as the slot's starting point, so opening
         // a circuit does not immediately overwrite what it declares.
@@ -378,6 +399,15 @@ void ValisProcessor::timerCallback()
 
     if (parametersDirty.exchange(false, std::memory_order_acq_rel))
         applyParameterBindings();
+
+    if (autoSaveTicks > 0 && --autoSaveTicks == 0)
+    {
+        if (auto* settings = appProperties.getUserSettings())
+        {
+            settings->setValue("turtle", getTurtle());
+            settings->saveIfNeeded();
+        }
+    }
 }
 
 void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)
@@ -401,6 +431,7 @@ void ValisProcessor::setStateInformation(const void* data, int sizeInBytes)
     auto tree = juce::ValueTree::fromXml(*xml);
     setTurtle(tree.getProperty("turtle", juce::String()).toString());
     apvts.replaceState(tree);
+    autoSaveTicks = -1;  // setTurtle already scheduled save; don't double-fire
 
    #if VALIS_WITH_MCP
     if ((bool) tree.getProperty("mcpEnabled", false))

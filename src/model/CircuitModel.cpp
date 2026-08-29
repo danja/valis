@@ -224,6 +224,10 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
             binding.name = std::string(name.string());
         if (auto symbol = store.object(paramNode, vocab::lv2::symbol))
             binding.symbol = std::string(symbol.string());
+        if (auto mn = store.object(paramNode, vocab::lv2::minimum); mn.asDouble())
+            binding.minimum = *mn.asDouble();
+        if (auto mx = store.object(paramNode, vocab::lv2::maximum); mx.asDouble())
+            binding.maximum = *mx.asDouble();
 
         paramList.push_back(std::move(binding));
     }

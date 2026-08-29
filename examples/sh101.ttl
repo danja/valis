@@ -3,11 +3,15 @@
 # Monophonic subtractive synthesiser modelled after the Roland SH-101.
 #
 # Signal path:  MidiPitch → Oscillator → Ladder VCF → VCA → Output
-# Modulation:   Envelope → VCA.cv          (amplitude shaping)
-#               Envelope → Scale → VCF.cutoff  (filter envelope)
-#               LFO     → Oscillator.frequency  (vibrato, depth = 0 by default)
+# Modulation:   Envelope → VCA.cv                    (amplitude)
+#               Envelope → Scale → VCF.cutoff        (filter sweep)
+#               LFO     → Oscillator.frequency       (vibrato, depth=0)
 #
-# Parameters (slots 0–9) expose the most-played controls to the host.
+# The Scale element maps the 0–1 envelope to an absolute frequency range:
+#   min = base cutoff (the "Cutoff" knob, Hz)
+#   max = cutoff at envelope peak (the "Filter Peak" knob, Hz)
+# A control arc that reaches VCF.cutoff REPLACES the port's fixed value, so
+# the base cutoff must live inside the Scale rather than on the Ladder instance.
 
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
@@ -35,11 +39,12 @@
 # ── Filter ───────────────────────────────────────────────────────────────────
 
 :vcf a val:Ladder ;
-    val:cutoff    800.0 ;
     val:resonance 0.3 ;
     val:drive     1.0 .
+# Note: val:cutoff is intentionally absent — the control arc from :envScale
+# sets the cutoff every block, overriding any fixed value here.
 
-# ── Envelope → VCA ───────────────────────────────────────────────────────────
+# ── Envelope modulation ───────────────────────────────────────────────────────
 
 :env a val:Envelope ;
     val:attack  10.0 ;       # ms
@@ -47,11 +52,14 @@
     val:sustain 0.7 ;
     val:release 300.0 .
 
-# Scale maps 0–1 envelope to the filter's cutoff sweep range.
-# With these defaults a fully open envelope adds ~7200 Hz above the base cutoff.
+# Scale maps the 0–1 envelope to a cutoff range [min, max].
+# min is the resting cutoff (with envelope=0); max is the open cutoff (env=1).
+# Both are exposed as host parameters so the user can tune the sweep range.
 :envScale a val:Scale ;
-    val:min 0.0 ;
-    val:max 7200.0 .
+    val:min 400.0 ;          # Hz — base cutoff when envelope is silent
+    val:max 8000.0 .         # Hz — cutoff at envelope peak
+
+# ── Amplitude ────────────────────────────────────────────────────────────────
 
 :vca a val:VCA .
 
@@ -59,14 +67,17 @@
 
 # ── Audio arcs ───────────────────────────────────────────────────────────────
 
-:aOscVcf a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
-                     val:to   [ val:node :vcf ; val:port "in"  ] .
+:aOscVcf a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in"  ] .
 
-:aVcfVca a val:Arc ; val:from [ val:node :vcf ; val:port "out" ] ;
-                     val:to   [ val:node :vca ; val:port "in"  ] .
+:aVcfVca a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in"  ] .
 
-:aVcaOut a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
-                     val:to   [ val:node :out ; val:port "in"  ] .
+:aVcaOut a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
 
 # ── Control arcs ─────────────────────────────────────────────────────────────
 
@@ -75,21 +86,22 @@
     val:from [ val:node :pitch ; val:port "out" ] ;
     val:to   [ val:node :osc   ; val:port "frequency" ] .
 
-# LFO → VCO frequency (vibrato); depth = 0 by default, raise to taste
+# LFO → VCO frequency (vibrato); depth=0 = off, raise to taste
 :aLfoOsc a val:ControlArc ; val:depth 0.0 ;
     val:from [ val:node :lfo ; val:port "out" ] ;
     val:to   [ val:node :osc ; val:port "frequency" ] .
 
-# Envelope → VCA cv (amplitude)
+# Envelope → VCA cv (amplitude shaping)
 :aEnvVca a val:ControlArc ;
     val:from [ val:node :env ; val:port "out" ] ;
     val:to   [ val:node :vca ; val:port "cv"  ] .
 
-# Envelope → Scale → VCF cutoff (filter sweep)
+# Envelope → Scale (compute absolute cutoff)
 :aEnvScale a val:ControlArc ;
     val:from [ val:node :env      ; val:port "out" ] ;
     val:to   [ val:node :envScale ; val:port "in"  ] .
 
+# Scale → VCF cutoff (this arc sets the cutoff every block)
 :aScaleVcf a val:ControlArc ;
     val:from [ val:node :envScale ; val:port "out"    ] ;
     val:to   [ val:node :vcf      ; val:port "cutoff" ] .
@@ -99,8 +111,11 @@
 :p0 a val:Param ; val:slot 0 ; val:target :osc ; val:property val:shape ;
     lv2:name "Osc Shape" ; lv2:symbol "osc_shape" .
 
-:p1 a val:Param ; val:slot 1 ; val:target :vcf ; val:property val:cutoff ;
-    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+# p1 targets Scale.min — the filter's resting frequency (envelope closed).
+# lv2:minimum/maximum here override Scale's generic ±1e6 port range.
+:p1 a val:Param ; val:slot 1 ; val:target :envScale ; val:property val:min ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz ;
+    lv2:minimum 20.0 ; lv2:maximum 20000.0 .
 
 :p2 a val:Param ; val:slot 2 ; val:target :vcf ; val:property val:resonance ;
     lv2:name "Resonance" ; lv2:symbol "resonance" .
@@ -117,8 +132,10 @@
 :p6 a val:Param ; val:slot 6 ; val:target :env ; val:property val:release ;
     lv2:name "Release" ; lv2:symbol "release" ; units:unit units:ms .
 
+# p7 targets Scale.max — the filter's peak frequency (envelope fully open).
 :p7 a val:Param ; val:slot 7 ; val:target :envScale ; val:property val:max ;
-    lv2:name "Env → Filter" ; lv2:symbol "env_filter" ; units:unit units:hz .
+    lv2:name "Filter Peak" ; lv2:symbol "filter_peak" ; units:unit units:hz ;
+    lv2:minimum 20.0 ; lv2:maximum 20000.0 .
 
 :p8 a val:Param ; val:slot 8 ; val:target :lfo ; val:property val:rate ;
     lv2:name "Vibrato Rate" ; lv2:symbol "vibrato_rate" ; units:unit units:hz .

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -63,7 +64,10 @@ struct ParamBinding
     std::string targetNode;
     std::string propertySymbol;
     std::string name, symbol, unitSymbol;
-    double minimum = 0.0, maximum = 1.0;
+    /// When set, overrides the port's lv2:minimum / lv2:maximum for this
+    /// particular binding — useful when the same element port (e.g. Scale.min)
+    /// is used in circuits where the physical range differs.
+    std::optional<double> minimum, maximum;
 };
 
 class CircuitModel

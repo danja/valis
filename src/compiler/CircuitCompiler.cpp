@@ -79,7 +79,12 @@ bool CircuitCompiler::compile(const CircuitModel& model,
                                " val:Output elements; it needs exactly one", model.id()});
 
     // -- arcs ---------------------------------------------------------------
-    std::vector<std::vector<int>> adjacency(elements.size());
+    // Two adjacency graphs: `orderAdj` drives the topological sort (audio +
+    // control arcs, so control sources precede their destinations); `cycleAdj`
+    // drives cycle detection (audio arcs only, UnitDelay edges cut, matching
+    // the "val:UnitDelay breaks a loop" rule).
+    std::vector<std::vector<int>> cycleAdj(elements.size());
+    std::vector<std::vector<int>> orderAdj(elements.size());
     std::set<std::string> seenArcs;
     std::map<std::string, int> audioFanIn;   // "node\0port" -> count
 
@@ -159,6 +164,9 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         if (toPort->control)
         {
             controlLinkArcs.push_back(link);
+            // Control source must run before its destination so the value is
+            // ready when the destination reads its controlIn array.
+            orderAdj[static_cast<std::size_t>(fromIndex)].push_back(toIndex);
         }
         else
         {
@@ -168,7 +176,10 @@ bool CircuitCompiler::compile(const CircuitModel& model,
             // A unit delay reads the previous block, so it does not constrain
             // the order and its outgoing edge is cut before cycle detection.
             if (! isUnitDelay(*fromElement))
-                adjacency[static_cast<std::size_t>(fromIndex)].push_back(toIndex);
+            {
+                cycleAdj[static_cast<std::size_t>(fromIndex)].push_back(toIndex);
+                orderAdj[static_cast<std::size_t>(fromIndex)].push_back(toIndex);
+            }
         }
     }
 
@@ -202,7 +213,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
         stack.clear();
         cycle.clear();
-        if (findCycle(adjacency, static_cast<int>(i), state, stack, cycle))
+        if (findCycle(cycleAdj, static_cast<int>(i), state, stack, cycle))
         {
             std::string path;
             for (const int n : cycle)
@@ -218,8 +229,11 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         return false;
 
     // -- topological order --------------------------------------------------
+    // Uses orderAdj (audio + control arcs) so control sources are always
+    // processed before their destinations — no one-block delay on pitch or
+    // envelope modulation.
     std::vector<int> inDegree(elements.size(), 0);
-    for (const auto& edges : adjacency)
+    for (const auto& edges : orderAdj)
         for (const int target : edges)
             ++inDegree[static_cast<std::size_t>(target)];
 
@@ -241,7 +255,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         ready.pop_back();
         order.push_back(node);
 
-        for (const int next : adjacency[static_cast<std::size_t>(node)])
+        for (const int next : orderAdj[static_cast<std::size_t>(node)])
             if (--inDegree[static_cast<std::size_t>(next)] == 0)
                 ready.push_back(next);
 

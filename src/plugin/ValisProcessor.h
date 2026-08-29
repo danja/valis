@@ -135,6 +135,9 @@ private:
     void applyParameterBindings();
 
     std::atomic<bool> parametersDirty{false};
+    int autoSaveTicks = -1;   // counts down to 0 then saves; -1 = idle
+
+    juce::ApplicationProperties appProperties;
 
     Ontology vocabulary;
     ElementRegistry registry;
