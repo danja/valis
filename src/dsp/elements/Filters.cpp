@@ -184,6 +184,81 @@ private:
     float previous = 0.0f;
 };
 
+/// Feedback comb filter with a one-pole lowpass in the feedback path — the
+/// Karplus-Strong plucked-string algorithm.
+///
+/// The delay length is set by frequency: delayN = sampleRate / frequency.
+/// The lowpass coefficient `damping` controls how fast high frequencies decay:
+/// 0 = flat feedback (bright, long sustain); values near 1 damp highs quickly
+/// (dark, muted). feedback controls overall decay rate (how loud each loop is).
+class CombFilter final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        freqIndex     = controlIndex(type, "frequency");
+        feedbackIndex = controlIndex(type, "feedback");
+        dampingIndex  = controlIndex(type, "damping");
+        // Allocate for minimum 10 Hz (sampleRate / 10 samples).
+        buffer.assign(static_cast<std::size_t>(rate / 10.0) + 2, 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float freq     = std::clamp(controlAt(args, freqIndex,    220.0f),
+                                          10.0f, static_cast<float>(sampleRate * 0.45));
+        const float feedback = std::clamp(controlAt(args, feedbackIndex, 0.95f), 0.0f, 0.99f);
+        const float damping  = std::clamp(controlAt(args, dampingIndex,   0.1f), 0.0f, 1.0f);
+
+        const int delayN  = std::max(1, static_cast<int>(sampleRate / freq + 0.5));
+        const int bufSize = static_cast<int>(buffer.size());
+
+        // One-pole LP coefficient: 0 = flat (bright), 0.95 = heavily smoothed (dark).
+        const float a = damping * 0.95f;
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            int readPos = writePos - delayN;
+            if (readPos < 0)
+                readPos += bufSize;
+
+            const float delayed = buffer[static_cast<std::size_t>(readPos)];
+
+            // One-pole lowpass in the feedback path.
+            filterState = a * filterState + (1.0f - a) * delayed;
+
+            buffer[static_cast<std::size_t>(writePos)] = in[i] + filterState * feedback;
+            out[i] = delayed;
+
+            if (++writePos >= bufSize)
+                writePos = 0;
+        }
+    }
+
+private:
+    std::vector<float> buffer;
+    int writePos = 0;
+    float filterState = 0.0f;
+    double sampleRate = 44100.0;
+    int freqIndex = -1, feedbackIndex = -1, dampingIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -197,5 +272,6 @@ void registerFilters(ElementRegistry& registry)
     registry.add("OnePole",       &make<elements::OnePole>);
     registry.add("Ladder",        &make<elements::Ladder>);
     registry.add("UnitDelay",     &make<elements::UnitDelay>);
+    registry.add("CombFilter",    &make<elements::CombFilter>);
 }
 }  // namespace valis

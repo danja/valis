@@ -1,0 +1,105 @@
+# examples/rings.ttl
+#
+# Mutable Instruments Rings — Karplus-Strong plucked string mode.
+#
+# Rings is a physical modelling resonator. Its simplest mode is Karplus-Strong:
+# fill a short delay line with noise, then feed it back through a low-pass
+# filter. The resonant frequency = sampleRate / delayLength, so tuning is exact.
+#
+# Signal path:
+#   Noise ──► VCA (pluck trigger from Envelope) ──► CombFilter ──► vol ──► Output
+#   MidiPitch ──(control)──► CombFilter.frequency
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:rings#> .
+
+:rings a val:Circuit ;
+    rdfs:label "Rings (Karplus-Strong)" ;
+    val:element :pitch , :noise , :env , :vca , :comb , :vol , :out ;
+    val:arc :aNoiseVca , :aVcaComb , :aCombVol , :aVolOut ;
+    val:arc :aPitchComb , :aEnvVca .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+# White noise: the excitation signal. colour=0 = white, 1 = pink.
+:noise a val:Noise ; val:colour 0.0 .
+
+# Short ADSR: zero attack, 5 ms decay, zero sustain — just the pluck impulse.
+# The Envelope is gated by note-on, so each new note re-triggers the burst.
+:env a val:Envelope ;
+    val:attack  0.1 ;
+    val:decay   5.0 ;
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+# ── Processing ───────────────────────────────────────────────────────────────
+
+# VCA shapes the noise burst. At sustain=0 the output is silent between plucks,
+# so only the initial burst seeds the comb filter.
+:vca a val:VCA .
+
+# The comb filter is the resonator: sampleRate / frequency gives the delay
+# length in samples, and each loop through the feedback path is one period.
+# feedback controls sustain (how loud each cycle is relative to the last).
+# damping controls brightness: 0 = all harmonics sustained equally, 1 = highs die fast.
+:comb a val:CombFilter ;
+    val:frequency 220.0 ;
+    val:feedback  0.98 ;
+    val:damping   0.15 .
+
+:vol a val:Gain ; val:gain -6.0 .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aNoiseVca a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :vca   ; val:port "in"  ] .
+
+:aVcaComb a val:Arc ;
+    val:from [ val:node :vca  ; val:port "out" ] ;
+    val:to   [ val:node :comb ; val:port "in"  ] .
+
+:aCombVol a val:Arc ;
+    val:from [ val:node :comb ; val:port "out" ] ;
+    val:to   [ val:node :vol  ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+# MidiPitch drives the comb filter frequency: as notes change, the delay
+# length changes and the pitch follows. The string retunes immediately.
+:aPitchComb a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :comb  ; val:port "frequency" ] .
+
+# Envelope → VCA cv: opens the gate for a few milliseconds at each note-on.
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :comb ; val:property val:feedback ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :comb ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :env ; val:property val:decay ;
+    lv2:name "Pluck Decay" ; lv2:symbol "pluck_decay" ; units:unit units:ms .
+
+:p3 a val:Param ; val:slot 3 ; val:target :noise ; val:property val:colour ;
+    lv2:name "Noise Colour" ; lv2:symbol "noise_colour" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
