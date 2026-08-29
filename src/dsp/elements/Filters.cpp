@@ -457,8 +457,6 @@ private:
     int freqIdx = -1, decayIdx = -1, brightnessIdx = -1, modeIdx = -1;
 };
 
-// constexpr static member definitions (C++17 inline, but explicit for C++14 compat)
-constexpr float ModalBank::kRatios[ModalBank::kModes][ModalBank::kResonators];
 
 }  // namespace valis::elements
 

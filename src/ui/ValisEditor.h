@@ -8,9 +8,11 @@ namespace valis {
 
 class ValisProcessor;
 
-/// The three views in a tabbed container, topped by a File / Settings menu bar.
+/// The three views in a tabbed container, topped by a File / Settings menu bar
+/// and a global status bar at the bottom.
 class ValisEditor final : public juce::AudioProcessorEditor,
-                          public juce::MenuBarModel
+                          public juce::MenuBarModel,
+                          private juce::ChangeListener
 {
 public:
     explicit ValisEditor(ValisProcessor&);
@@ -35,12 +37,17 @@ private:
     void loadCircuit();
     void saveCircuit();
     void parentHierarchyChanged() override;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
+    void updateStatusBar();
 
     ValisProcessor& processor;
     juce::MenuBarComponent menuBar{this};
     juce::TabbedComponent tabs{juce::TabbedButtonBar::TabsAtTop};
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Button* standaloneOptionsButton = nullptr;
+
+    juce::Label  statusLabel;
+    juce::TextButton revertButton{"Revert"};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisEditor)
 };

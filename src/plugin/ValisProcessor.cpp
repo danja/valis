@@ -316,7 +316,8 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
 
                 {
                     const juce::ScopedLock sl(turtleLock);
-                    diagnostics = out;
+                    diagnostics    = out;
+                    lastGoodTurtle = turtle;
                 }
                 autoSaveTicks = 90;  // ~3 s at 30 Hz — save after brief idle
                 sendChangeMessage();
@@ -335,6 +336,17 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
     return false;
 }
 
+void ValisProcessor::revert()
+{
+    juce::String good;
+    {
+        const juce::ScopedLock sl(turtleLock);
+        good = lastGoodTurtle;
+    }
+    if (good.isNotEmpty())
+        setTurtle(good);
+}
+
 std::vector<Diagnostic> ValisProcessor::lastDiagnostics() const
 {
     const juce::ScopedLock sl(turtleLock);
@@ -351,9 +363,14 @@ ValisParameter* ValisProcessor::slot(int index)
 
 void ValisProcessor::rebindParameters()
 {
-    // The host's parameter list cannot change, so rebinding repoints the fixed
-    // slots at whatever the new circuit declares and asks the host to re-read
-    // their names and ranges.
+    // Snapshot current bindings so a sampleRate-change (prepareToPlay → setTurtle)
+    // does not clobber whatever the user has dialled in.
+    struct Snapshot { std::string node, property; float normalised; };
+    std::array<Snapshot, kNumParamSlots> snap{};
+    for (int i = 0; i < kNumParamSlots; ++i)
+        if (auto* p = slot(i); p != nullptr && p->isBound())
+            snap[static_cast<std::size_t>(i)] = { p->targetNode(), p->targetProperty(), p->get() };
+
     for (int i = 0; i < kNumParamSlots; ++i)
         if (auto* parameter = slot(i))
             parameter->unbind();
@@ -378,9 +395,13 @@ void ValisProcessor::rebindParameters()
                         binding.maximum.value_or(port->maximum),
                         juce::String(port->unitSymbol));
 
-        // Take the circuit's own value as the slot's starting point, so opening
-        // a circuit does not immediately overwrite what it declares.
-        parameter->setRealValue(element->valueOf(binding.propertySymbol));
+        // If this slot was already bound to the same target, keep the user's value.
+        // Otherwise take the circuit's declared default.
+        const auto& s = snap[static_cast<std::size_t>(binding.slot)];
+        if (s.node == binding.targetNode && s.property == binding.propertySymbol)
+            parameter->setValueNotifyingHost(s.normalised);
+        else
+            parameter->setRealValue(element->valueOf(binding.propertySymbol));
     }
 
     updateHostDisplay(juce::AudioProcessorListener::ChangeDetails{}

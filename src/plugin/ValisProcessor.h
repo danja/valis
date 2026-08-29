@@ -103,6 +103,9 @@ public:
     bool setTurtle(const juce::String& turtle, std::vector<Diagnostic>& diagnostics);
     void setTurtle(const juce::String& turtle);
 
+    /// Restore the last successfully compiled circuit, discarding any invalid edits.
+    void revert();
+
     /// Diagnostics from the most recent setTurtle, for the editor's gutter.
     std::vector<Diagnostic> lastDiagnostics() const;
 
@@ -152,10 +155,11 @@ private:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    // Guards turtleSource against the editor and the MCP thread. Never taken on
-    // the audio callback.
+    // Guards turtleSource / lastGoodTurtle against the editor and the MCP thread.
+    // Never taken on the audio callback.
     mutable juce::CriticalSection turtleLock;
     juce::String turtleSource;
+    juce::String lastGoodTurtle;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisProcessor)
 };

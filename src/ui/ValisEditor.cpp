@@ -13,12 +13,22 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     : juce::AudioProcessorEditor(&p), processor(p)
 {
     const auto bg = juce::Colour(0xff1e1e22);
-    tabs.addTab("Turtle", bg, new TurtleView(p), true);
-    tabs.addTab("Graph",  bg, new GraphView(p), true);
     tabs.addTab("Knobs",  bg, new ControlsView(p), true);
+    tabs.addTab("Graph",  bg, new GraphView(p), true);
+    tabs.addTab("Turtle", bg, new TurtleView(p), true);
+
+    statusLabel.setFont(juce::FontOptions(13.0f));
+    statusLabel.setJustificationType(juce::Justification::centredLeft);
+    revertButton.onClick = [this] { processor.revert(); };
 
     addAndMakeVisible(menuBar);
     addAndMakeVisible(tabs);
+    addAndMakeVisible(statusLabel);
+    addAndMakeVisible(revertButton);
+
+    p.addChangeListener(this);
+    updateStatusBar();
+
     setResizable(true, true);
     setResizeLimits(600, 400, 4000, 3000);
     setSize(960, 640);
@@ -26,19 +36,31 @@ ValisEditor::ValisEditor(ValisProcessor& p)
 
 ValisEditor::~ValisEditor()
 {
-    // Detach before the model (this) is partially destroyed.
+    processor.removeChangeListener(this);
     menuBar.setModel(nullptr);
 }
 
 void ValisEditor::paint(juce::Graphics& g)
 {
     g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+
+    // Status bar background.
+    auto bar = getLocalBounds().removeFromBottom(28);
+    const bool hasErrors = ! processor.lastDiagnostics().empty();
+    g.setColour(hasErrors ? juce::Colour(0xff3a2626) : juce::Colour(0xff1a2a1e));
+    g.fillRect(bar);
 }
 
 void ValisEditor::resized()
 {
     auto bounds = getLocalBounds();
     menuBar.setBounds(bounds.removeFromTop(getLookAndFeel().getDefaultMenuBarHeight()));
+
+    auto bar = bounds.removeFromBottom(28).reduced(8, 4);
+    revertButton.setBounds(bar.removeFromRight(64));
+    bar.removeFromRight(6);
+    statusLabel.setBounds(bar);
+
     tabs.setBounds(bounds);
 }
 
@@ -125,6 +147,30 @@ void ValisEditor::parentHierarchyChanged()
             }
         }
     }
+}
+
+void ValisEditor::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    updateStatusBar();
+}
+
+void ValisEditor::updateStatusBar()
+{
+    const auto diags = processor.lastDiagnostics();
+    if (diags.empty())
+    {
+        statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff98c379));
+        statusLabel.setText("Circuit OK", juce::dontSendNotification);
+    }
+    else
+    {
+        statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe06c75));
+        juce::String text = diags.front().toString();
+        if (diags.size() > 1)
+            text += "   (+" + juce::String(diags.size() - 1) + " more)";
+        statusLabel.setText(text, juce::dontSendNotification);
+    }
+    repaint();
 }
 
 void ValisEditor::loadCircuit()
