@@ -29,15 +29,18 @@ private:
         fileLoad = 1,
         fileSave,
         settingsMcpToggle = 100,
+        settingsAudioMidi,
     };
 
     void loadCircuit();
     void saveCircuit();
+    void parentHierarchyChanged() override;
 
     ValisProcessor& processor;
     juce::MenuBarComponent menuBar{this};
     juce::TabbedComponent tabs{juce::TabbedButtonBar::TabsAtTop};
     std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::Button* standaloneOptionsButton = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisEditor)
 };

@@ -203,10 +203,11 @@ std::optional<float> ValisEngine::getControl(const std::string& nodeId,
     return std::nullopt;
 }
 
-void ValisEngine::noteOn(int, float velocity) noexcept
+void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
 {
     ++heldNotes;
-    lastVelocity = velocity;
+    lastNoteNumber = noteNumber;
+    lastVelocity   = velocity;
     gate = true;
 }
 
@@ -326,6 +327,7 @@ void ValisEngine::processSlice(Graph& graph,
         ProcessArgs args;
         args.gate          = gate;
         args.velocity      = lastVelocity;
+        args.noteNumber    = lastNoteNumber;
         args.audioIn       = graph.audioInPtrs.data();
         args.audioOut      = graph.audioOutPtrs.data();
         args.numAudioIn    = static_cast<int>(node.audioInBuffers.size());

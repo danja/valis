@@ -66,6 +66,12 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
        #else
         menu.addItem(settingsMcpToggle, "MCP Server (not built)", false, false);
        #endif
+
+        if (standaloneOptionsButton != nullptr)
+        {
+            menu.addSeparator();
+            menu.addItem(settingsAudioMidi, "Audio/MIDI Settings...");
+        }
     }
 
     return menu;
@@ -83,7 +89,41 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
             else                          processor.startMcp();
             break;
        #endif
+        case settingsAudioMidi:
+            // Reveal the standalone Options button just long enough to trigger
+            // its built-in audio/MIDI settings dialog, then hide it again.
+            if (standaloneOptionsButton != nullptr)
+            {
+                standaloneOptionsButton->setVisible(true);
+                standaloneOptionsButton->triggerClick();
+                standaloneOptionsButton->setVisible(false);
+            }
+            break;
         default: break;
+    }
+}
+
+void ValisEditor::parentHierarchyChanged()
+{
+    if (standaloneOptionsButton != nullptr)
+        return;
+
+    // Walk up the component tree to find the JUCE standalone Options button
+    // and hide it — our Settings menu provides the same functionality.
+    for (auto* c = getParentComponent(); c != nullptr; c = c->getParentComponent())
+    {
+        for (int i = 0; i < c->getNumChildComponents(); ++i)
+        {
+            if (auto* b = dynamic_cast<juce::Button*>(c->getChildComponent(i)))
+            {
+                if (b->getButtonText() == "Options")
+                {
+                    standaloneOptionsButton = b;
+                    b->setVisible(false);
+                    return;
+                }
+            }
+        }
     }
 }
 

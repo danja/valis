@@ -278,8 +278,11 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
                 setLatencySamples(engine.latencyInSamples());
                 rebindParameters();
 
-                const juce::ScopedLock sl(turtleLock);
-                diagnostics = out;
+                {
+                    const juce::ScopedLock sl(turtleLock);
+                    diagnostics = out;
+                }
+                sendChangeMessage();
                 return true;
             }
             out.push_back({error, {}});
@@ -287,8 +290,11 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
     }
 
     // The previous circuit keeps playing: a typo must not silence the plugin.
-    const juce::ScopedLock sl(turtleLock);
-    diagnostics = out;
+    {
+        const juce::ScopedLock sl(turtleLock);
+        diagnostics = out;
+    }
+    sendChangeMessage();
     return false;
 }
 

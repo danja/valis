@@ -18,6 +18,7 @@ class ValisProcessor;
 /// binds mean anything, so unbound slots are not shown at all. Loading a new
 /// circuit rebuilds the panel.
 class ControlsView final : public juce::Component,
+                           public juce::ChangeListener,
                            private juce::Timer
 {
 public:
@@ -28,6 +29,7 @@ public:
     void resized() override;
 
     void rebuild();
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
 
 private:
     void timerCallback() override;

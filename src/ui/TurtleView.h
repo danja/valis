@@ -18,6 +18,7 @@ class ValisProcessor;
 /// that will not compile leaves the previous one playing - so the audio keeps
 /// running while the text is mid-edit.
 class TurtleView final : public juce::Component,
+                         public juce::ChangeListener,
                          private juce::CodeDocument::Listener,
                          private juce::Timer
 {
@@ -30,6 +31,8 @@ public:
 
     /// Replaces the editor's text, e.g. after the graph view rewrites it.
     void refreshFromProcessor();
+
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
 
 private:
     void codeDocumentTextInserted(const juce::String&, int) override;

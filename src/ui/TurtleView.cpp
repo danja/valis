@@ -12,6 +12,7 @@ constexpr int kDebounceMs = 400;
 
 TurtleView::TurtleView(ValisProcessor& p) : processor(p)
 {
+    p.addChangeListener(this);
     editor.setColourScheme(TurtleCodeTokeniser::darkColourScheme());
     editor.setColour(juce::CodeEditorComponent::backgroundColourId, juce::Colour(0xff1e1e22));
     editor.setColour(juce::CodeEditorComponent::lineNumberBackgroundId, juce::Colour(0xff1a1a1e));
@@ -35,7 +36,16 @@ TurtleView::TurtleView(ValisProcessor& p) : processor(p)
 
 TurtleView::~TurtleView()
 {
+    processor.removeChangeListener(this);
     document.removeListener(this);
+}
+
+void TurtleView::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    // Only refresh when the change came from outside this view (e.g. MCP).
+    // If we triggered the change ourselves, the document content already matches.
+    if (processor.getTurtle() != document.getAllContent())
+        refreshFromProcessor();
 }
 
 void TurtleView::refreshFromProcessor()

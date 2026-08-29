@@ -367,6 +367,18 @@ val:Gain a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:name "Gain" ; lv2:default 0.0 ;
         lv2:minimum -60.0 ; lv2:maximum 24.0 ; units:unit units:db ] .
 
+val:VCA a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "VCA" ;
+    rdfs:comment "Voltage-controlled amplifier. Multiplies audio linearly by a 0–1 CV signal. Connect val:Envelope to the cv port for proper amplitude shaping." ;
+    val:implementation "VCA" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "cv" ;
+        lv2:name "CV" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Mixer" ;
     rdfs:comment "Sums its inputs. Several arcs may target the same input port." ;
@@ -537,6 +549,25 @@ val:LFO a rdfs:Class ; rdfs:subClassOf val:Source ;
         lv2:name "Shape" ; lv2:default 0.0 ;
         lv2:minimum 0.0 ; lv2:maximum 4.0 ;
         rdfs:comment "0 sine, 1 triangle, 2 saw, 3 square, 4 sample-and-hold" ] .
+
+val:MidiPitch a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "MidiPitch" ;
+    rdfs:comment "Outputs the frequency of the most recent MIDI note as a control signal (Hz). Holds the last value; defaults to A4 (440 Hz) before any note." ;
+    val:implementation "MidiPitch" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
+        lv2:default 440.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ;
+        units:unit units:hz ] .
+
+val:MidiVelocity a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "MidiVelocity" ;
+    rdfs:comment "Outputs the velocity of the most recent MIDI note-on as a control signal (0–1 normalised). Holds the last value between notes." ;
+    val:implementation "MidiVelocity" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
+        lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
 val:DryWet a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "DryWet" ;

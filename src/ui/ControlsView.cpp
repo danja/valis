@@ -29,6 +29,7 @@ juce::String ControlsView::Knob::readout() const
 
 ControlsView::ControlsView(ValisProcessor& p) : processor(p)
 {
+    p.addChangeListener(this);
     emptyMessage.setJustificationType(juce::Justification::centred);
     emptyMessage.setColour(juce::Label::textColourId, juce::Colours::grey);
     emptyMessage.setFont(juce::FontOptions(15.0f));
@@ -43,8 +44,14 @@ ControlsView::ControlsView(ValisProcessor& p) : processor(p)
 
 ControlsView::~ControlsView()
 {
+    processor.removeChangeListener(this);
     // Attachments must go before the sliders they reference.
     knobs.clear();
+}
+
+void ControlsView::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    rebuild();
 }
 
 void ControlsView::timerCallback()

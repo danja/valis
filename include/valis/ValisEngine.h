@@ -116,11 +116,11 @@ private:
     std::atomic<std::uint64_t> blockCounter{0};
     std::uint64_t streamPosition = 0;   ///< audio thread only
 
-    /// Note state, owned by the audio thread. A count rather than a set: an
-    /// envelope only needs to know whether anything is held.
-    int  heldNotes = 0;
-    float lastVelocity = 0.0f;
-    bool  gate = false;
+    /// Note state, owned by the audio thread.
+    int   heldNotes      = 0;
+    int   lastNoteNumber = 69;
+    float lastVelocity   = 0.0f;
+    bool  gate           = false;
     std::atomic<int> reportedLatency{0};
 
     struct Retired { Graph* graph; std::uint64_t atBlock; };

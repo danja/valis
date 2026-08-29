@@ -217,6 +217,35 @@ private:
     int rateIndex = -1, shapeIndex = -1;
 };
 
+/// Outputs the frequency (Hz) of the most recent MIDI note as a control signal.
+/// Holds the last value, so arcs driven by this read a stable pitch between
+/// notes. Default is A4 (440 Hz) until the first note arrives.
+class MidiPitch final : public DspElement
+{
+public:
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+        // MIDI note → Hz: f = 440 · 2^((n − 69) / 12)
+        args.controlOut[0] = 440.0f *
+            std::exp2(static_cast<float>(args.noteNumber - 69) * (1.0f / 12.0f));
+    }
+};
+
+/// Outputs the velocity of the most recent MIDI note-on as a control signal
+/// (0–1 normalised). Holds the last value between notes.
+class MidiVelocity final : public DspElement
+{
+public:
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+        args.controlOut[0] = args.velocity;
+    }
+};
+
 /// The plugin's audio input. The engine fills its output buffer before the
 /// graph runs, so this element only has to leave it alone.
 class Input final : public DspElement
@@ -242,10 +271,12 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 
 void registerSources(ElementRegistry& registry)
 {
-    registry.add("Oscillator", &make<elements::Oscillator>);
-    registry.add("Noise",      &make<elements::Noise>);
-    registry.add("LFO",        &make<elements::LFO>);
-    registry.add("Input",      &make<elements::Input>);
-    registry.add("Output",     &make<elements::Output>);
+    registry.add("Oscillator",   &make<elements::Oscillator>);
+    registry.add("Noise",        &make<elements::Noise>);
+    registry.add("LFO",          &make<elements::LFO>);
+    registry.add("MidiPitch",    &make<elements::MidiPitch>);
+    registry.add("MidiVelocity", &make<elements::MidiVelocity>);
+    registry.add("Input",        &make<elements::Input>);
+    registry.add("Output",       &make<elements::Output>);
 }
 }  // namespace valis

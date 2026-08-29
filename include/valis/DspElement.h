@@ -26,10 +26,11 @@ struct ProcessArgs
     int numAudioOut = 0;
     int numSamples  = 0;
 
-    /// Whether any note is held, and the velocity of the most recent one.
-    /// Envelopes and gated elements read these; everything else ignores them.
-    bool  gate     = false;
-    float velocity = 0.0f;
+    /// Whether any note is held, the velocity and MIDI note number of the most
+    /// recent note-on. Envelopes and pitch/velocity sources read these.
+    bool  gate       = false;
+    float velocity   = 0.0f;
+    int   noteNumber = 69;   ///< default A4 so MidiPitch outputs 440 Hz before any note
 
     /// One value per control input, already resolved for this block: the
     /// element's own property, overridden by any control arc reaching it.

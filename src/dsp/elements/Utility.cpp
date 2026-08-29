@@ -20,6 +20,33 @@ private:
     int gainIndex = -1;
 };
 
+/// Voltage-controlled amplifier. Multiplies audio sample-by-sample by a 0–1
+/// control signal, giving proper linear amplitude modulation from an envelope.
+class VCA final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        cvIndex = controlIndex(type, "cv");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float cv  = std::clamp(controlAt(args, cvIndex, 1.0f), 0.0f, 1.0f);
+        const float* in = args.audioIn[0];
+        float*      out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+            out[i] = in[i] * cv;
+    }
+
+private:
+    int cvIndex = -1;
+};
+
 /// Sums whatever arrives at its input. The engine has already added the arcs
 /// together into that buffer, which is why fan-in onto anything else is a
 /// compile error: only this element is documented to sum.
@@ -75,6 +102,7 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 void registerUtility(ElementRegistry& registry)
 {
     registry.add("Gain",   &make<elements::Gain>);
+    registry.add("VCA",    &make<elements::VCA>);
     registry.add("Mixer",  &make<elements::Mixer>);
     registry.add("DryWet", &make<elements::DryWet>);
 }

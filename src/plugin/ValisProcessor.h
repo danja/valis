@@ -59,6 +59,7 @@ private:
 };
 
 class ValisProcessor final : public juce::AudioProcessor,
+                             public juce::ChangeBroadcaster,
                              private juce::Timer,
                              private juce::AudioProcessorParameter::Listener
 {
