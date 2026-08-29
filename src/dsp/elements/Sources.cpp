@@ -4,21 +4,31 @@
 
 namespace valis::elements {
 
-/// Audio-rate oscillator. Naive shapes for now: band limiting arrives with the
-/// oversampling work, and a saw here is honestly a saw with aliasing.
-/// TODO: PolyBLEP the discontinuous shapes.
+/// Band-limited oscillator.
+///
+/// A naive saw or square steps discontinuously, and a step contains energy at
+/// every frequency, so it aliases audibly. PolyBLEP subtracts a polynomial
+/// approximation of the band-limited step around each discontinuity, which
+/// removes most of that at a cost of a few operations per sample.
+///
+/// The triangle is the integral of the corrected square, so it inherits the
+/// correction rather than needing its own.
 class Oscillator final : public DspElement
 {
 public:
     void prepare(const ElementType& type, double rate, int) override
     {
-        sampleRate    = rate;
-        freqIndex     = controlIndex(type, "frequency");
-        shapeIndex    = controlIndex(type, "shape");
+        sampleRate = rate;
+        freqIndex  = controlIndex(type, "frequency");
+        shapeIndex = controlIndex(type, "shape");
         reset();
     }
 
-    void reset() override { phase = 0.0; }
+    void reset() override
+    {
+        phase = 0.0;
+        triangleState = 0.0f;
+    }
 
     void process(const ProcessArgs& args) noexcept override
     {
@@ -29,6 +39,7 @@ public:
                                            0.01f, static_cast<float>(sampleRate * 0.45));
         const int shape = static_cast<int>(controlAt(args, shapeIndex, 0.0f) + 0.5f);
         const double increment = frequency / sampleRate;
+        const auto dt = static_cast<float>(increment);
 
         float* out = args.audioOut[0];
         for (int i = 0; i < args.numSamples; ++i)
@@ -37,10 +48,25 @@ public:
 
             switch (shape)
             {
-                case 1:  out[i] = 2.0f * p - 1.0f;                       break;  // saw
-                case 2:  out[i] = p < 0.5f ? 1.0f : -1.0f;               break;  // square
-                case 3:  out[i] = 4.0f * std::abs(p - 0.5f) - 1.0f;      break;  // triangle
-                default: out[i] = std::sin(6.283185307179586f * p);      break;  // sine
+                case 1:   // saw: one falling step per cycle
+                    out[i] = 2.0f * p - 1.0f - polyBlep(p, dt);
+                    break;
+
+                case 2:   // square: a rising step at 0 and a falling one at 0.5
+                    out[i] = square(p, dt);
+                    break;
+
+                case 3:   // triangle: the integral of the corrected square
+                {
+                    const float s = square(p, dt);
+                    triangleState += 4.0f * dt * (s - triangleState * 0.002f);
+                    out[i] = std::clamp(triangleState, -1.0f, 1.0f);
+                    break;
+                }
+
+                default:  // sine: no discontinuity, nothing to correct
+                    out[i] = std::sin(6.283185307179586f * p);
+                    break;
             }
 
             phase += increment;
@@ -50,7 +76,45 @@ public:
     }
 
 private:
+    /// The correction to subtract around a discontinuity at t = 0 (and, by
+    /// wrapping, at t = 1). Zero away from the step, so the cost is only paid
+    /// on the one or two samples that straddle it.
+    static float polyBlep(float t, float dt) noexcept
+    {
+        if (dt <= 0.0f)
+            return 0.0f;
+
+        if (t < dt)                      // just after the step
+        {
+            t /= dt;
+            return t + t - t * t - 1.0f;
+        }
+
+        if (t > 1.0f - dt)               // just before the next one
+        {
+            t = (t - 1.0f) / dt;
+            return t * t + t + t + 1.0f;
+        }
+
+        return 0.0f;
+    }
+
+    static float square(float p, float dt) noexcept
+    {
+        float value = p < 0.5f ? 1.0f : -1.0f;
+        value += polyBlep(p, dt);
+
+        // The falling step half a cycle later.
+        float half = p + 0.5f;
+        if (half >= 1.0f)
+            half -= 1.0f;
+        value -= polyBlep(half, dt);
+
+        return value;
+    }
+
     double sampleRate = 44100.0, phase = 0.0;
+    float triangleState = 0.0f;
     int freqIndex = -1, shapeIndex = -1;
 };
 

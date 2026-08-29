@@ -44,6 +44,14 @@ public:
               const ElementRegistry& registry,
               std::string& error);
 
+    /// Audio thread, before process(). A note the circuit's envelopes and
+    /// oscillators can respond to. Bounded: beyond kMaxNotesPerBlock the extra
+    /// events are dropped rather than allocating, which is the right trade on
+    /// this thread.
+    void noteOn(int noteNumber, float velocity) noexcept;
+    void noteOff(int noteNumber) noexcept;
+    void allNotesOff() noexcept;
+
     /// Audio thread. `input` may be null when the host gives us no input.
     void process(const float* input, float* output, int numSamples) noexcept;
 
@@ -107,6 +115,12 @@ private:
     std::atomic<Graph*> active{nullptr};
     std::atomic<std::uint64_t> blockCounter{0};
     std::uint64_t streamPosition = 0;   ///< audio thread only
+
+    /// Note state, owned by the audio thread. A count rather than a set: an
+    /// envelope only needs to know whether anything is held.
+    int  heldNotes = 0;
+    float lastVelocity = 0.0f;
+    bool  gate = false;
     std::atomic<int> reportedLatency{0};
 
     struct Retired { Graph* graph; std::uint64_t atBlock; };

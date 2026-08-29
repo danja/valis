@@ -154,9 +154,10 @@ private:
     int attackIndex = -1, releaseIndex = -1, upwardIndex = -1;
 };
 
-/// ADSR contour on a control output. Free-running for now: gate handling
-/// arrives with MIDI in a later milestone.
-/// TODO: drive the gate from note events rather than retriggering on prepare.
+/// ADSR contour on a control output, driven by note events.
+///
+/// Advances a stage at a time on the control grid, so its shape does not depend
+/// on the host's buffer size any more than the rest of the circuit does.
 class Envelope final : public DspElement
 {
 public:
@@ -170,26 +171,93 @@ public:
         reset();
     }
 
-    void reset() override { level = 0.0f; }
+    void reset() override
+    {
+        level = 0.0f;
+        stage = Stage::idle;
+    }
 
     void process(const ProcessArgs& args) noexcept override
     {
         if (args.numControlOut < 1)
             return;
 
-        const float attack  = timeToCoeff(controlAt(args, attackIndex, 10.0f), sampleRate);
         const float sustain = std::clamp(controlAt(args, sustainIndex, 0.7f), 0.0f, 1.0f);
 
-        // Rise toward sustain; the decay and release stages need note events.
-        const float blockCoeff = std::pow(attack, static_cast<float>(args.numSamples));
-        level = sustain + blockCoeff * (level - sustain);
+        // A note starting always restarts the attack, so a retrigger is audible
+        // rather than being swallowed by whatever stage was running.
+        if (args.gate && ! wasGated)
+            stage = Stage::attack;
+        else if (! args.gate && wasGated)
+            stage = Stage::release;
 
-        args.controlOut[0] = level;
+        wasGated = args.gate;
+
+        const auto blockCoeff = [&](int index, float fallback)
+        {
+            const float ms = std::max(controlAt(args, index, fallback), 0.01f);
+            return std::pow(timeToCoeff(ms, sampleRate), static_cast<float>(args.numSamples));
+        };
+
+        switch (stage)
+        {
+            case Stage::attack:
+            {
+                // Aim above 1 so the curve crosses it rather than approaching
+                // it asymptotically, which is what makes an attack feel finite.
+                const float coeff = blockCoeff(attackIndex, 10.0f);
+                level = 1.2f + coeff * (level - 1.2f);
+                if (level >= 1.0f)
+                {
+                    level = 1.0f;
+                    stage = Stage::decay;
+                }
+                break;
+            }
+
+            case Stage::decay:
+            {
+                const float coeff = blockCoeff(decayIndex, 200.0f);
+                level = sustain + coeff * (level - sustain);
+                if (std::abs(level - sustain) < 1.0e-4f)
+                {
+                    level = sustain;
+                    stage = Stage::sustain;
+                }
+                break;
+            }
+
+            case Stage::sustain:
+                level = sustain;
+                break;
+
+            case Stage::release:
+            {
+                const float coeff = blockCoeff(releaseIndex, 300.0f);
+                level *= coeff;
+                if (level < 1.0e-4f)
+                {
+                    level = 0.0f;
+                    stage = Stage::idle;
+                }
+                break;
+            }
+
+            case Stage::idle:
+                level = 0.0f;
+                break;
+        }
+
+        args.controlOut[0] = level * (args.velocity > 0.0f ? args.velocity : 1.0f);
     }
 
 private:
+    enum class Stage { idle, attack, decay, sustain, release };
+
     double sampleRate = 44100.0;
     float level = 0.0f;
+    bool wasGated = false;
+    Stage stage = Stage::idle;
     int attackIndex = -1, decayIndex = -1, sustainIndex = -1, releaseIndex = -1;
 };
 

@@ -375,6 +375,76 @@ void testGainIsDecibels()
     assert(std::abs(out[0] - 0.5011872f) < 1.0e-4f);
 }
 
+/// A naive saw aliases: its harmonics run past Nyquist and fold back onto
+/// frequencies no harmonic occupies. PolyBLEP should put much less energy
+/// there. Measured, like the ADAA claim.
+void testOscillatorIsBandLimited()
+{
+    const double rate = 48000.0;
+    const int n = 4096;
+
+    // 3300 Hz is chosen so that the fold-back frequencies land nowhere near a
+    // harmonic. Harmonics are 3300, 6600, 9900 ... 23100; everything above
+    // Nyquist folds to 21600, 18300, 15000 and 11700, none of which is a
+    // multiple of 3300. Energy in those bins is aliasing and nothing else.
+    //
+    // Getting this wrong is easy: with a 3 kHz fundamental the obvious-looking
+    // bins at 15k and 21k are the fifth and seventh harmonics, and the test
+    // then measures the harmonic series instead.
+    const double f0 = 3300.0;
+    const double aliasBins[] = {21600.0, 18300.0, 15000.0, 11700.0};
+
+    const auto measure = [&](int shape)
+    {
+        Rig rig("Oscillator", rate);
+        rig.set("frequency", static_cast<float>(f0));
+        rig.set("shape", static_cast<float>(shape));
+
+        const std::vector<float> silence(static_cast<std::size_t>(n), 0.0f);
+        const auto out = rig.run(silence);
+        const auto bins = spectrum(out);
+
+        float alias = 0.0f;
+        for (const double f : aliasBins)
+            alias += energyAt(bins, f, rate, 4096);
+
+        // Normalised against the fundamental, so this measures spectral purity
+        // rather than level.
+        const float fundamental = energyAt(bins, f0, rate, 4096);
+        return fundamental > 0.0f ? alias / fundamental : 1.0f;
+    };
+
+    const float saw    = measure(1);
+    const float square = measure(2);
+
+    std::printf("  osc alias/fundamental   saw %.3e   square %.3e\n", saw, square);
+    std::fflush(stdout);
+
+    // Measured with the correction removed and restored: saw 4.68e-2 -> 2.68e-3
+    // (17x), square 2.09e-2 -> 7.32e-4 (29x). The bounds sit between those, so
+    // removing PolyBLEP fails this test while normal drift does not.
+    assert(saw < 8.0e-3);
+    assert(square < 4.0e-3);
+
+    // A sine has no discontinuity, so it should be near-pure to begin with.
+    assert(measure(0) < 1.0e-5);
+
+    // The shapes must still be the shapes: a saw sweeps the full range.
+    Rig rig("Oscillator", rate);
+    rig.set("frequency", 100.0f);
+    rig.set("shape", 1.0f);
+    const std::vector<float> silence(2048, 0.0f);
+    const auto out = rig.run(silence);
+
+    float lo = 0.0f, hi = 0.0f;
+    for (std::size_t i = 512; i < out.size(); ++i)
+    {
+        lo = std::min(lo, out[i]);
+        hi = std::max(hi, out[i]);
+    }
+    assert(hi > 0.9f && lo < -0.9f);
+}
+
 }  // namespace
 
 int main()
@@ -387,6 +457,7 @@ int main()
     testExpanderGatesQuietSignal();
     testEnvelopeFollowerTracksLevel();
     testGainIsDecibels();
+    testOscillatorIsBandLimited();
 
     std::puts("ElementBehaviourTest PASSED");
     return 0;

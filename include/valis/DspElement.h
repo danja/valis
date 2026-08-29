@@ -26,6 +26,11 @@ struct ProcessArgs
     int numAudioOut = 0;
     int numSamples  = 0;
 
+    /// Whether any note is held, and the velocity of the most recent one.
+    /// Envelopes and gated elements read these; everything else ignores them.
+    bool  gate     = false;
+    float velocity = 0.0f;
+
     /// One value per control input, already resolved for this block: the
     /// element's own property, overridden by any control arc reaching it.
     const float* controlIn  = nullptr;

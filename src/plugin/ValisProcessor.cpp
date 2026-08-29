@@ -186,9 +186,24 @@ bool ValisProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
     return layouts.getMainInputChannelSet() == out;
 }
 
-void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // Note events reach the engine before the block runs. Sample-accurate
+    // placement within the block is a later refinement; the control grid is
+    // 32 samples, so the error is bounded by that.
+    for (const auto metadata : midi)
+    {
+        const auto message = metadata.getMessage();
+
+        if (message.isNoteOn())
+            engine.noteOn(message.getNoteNumber(), message.getFloatVelocity());
+        else if (message.isNoteOff())
+            engine.noteOff(message.getNoteNumber());
+        else if (message.isAllNotesOff() || message.isAllSoundOff())
+            engine.allNotesOff();
+    }
 
     const int numSamples = buffer.getNumSamples();
     const int numIn      = getTotalNumInputChannels();

@@ -378,10 +378,12 @@ val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Envelope a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Envelope" ;
+    rdfs:comment """ADSR contour, gated by note events. Its output is a control
+port: an envelope modulates, it does not carry audio.""" ;
     val:implementation "Envelope" ;
     val:linear false ;
     lv2:port
-      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
         lv2:name "Attack" ; lv2:default 10.0 ;
         lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,

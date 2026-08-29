@@ -196,6 +196,8 @@ This is the single most important thing to get right in M6; retrofitting it is p
 
 ## Milestones
 
+**All milestones are complete**, and the two gaps left `TODO:` in the code have since been closed — see *After the milestones* at the end.
+
 **All milestones are complete.** Nine test binaries pass; all four plugin formats build.
 
 Each is independently verifiable and leaves the build green. `docs/plan.md` gets an inline status annotation per milestone as it completes — the plan doubles as the progress tracker, the convention used in `transmission/docs/plan.md`.
@@ -390,3 +392,35 @@ curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
 It also makes the project's argument concretely: Scream carries five abandoned saturators commented out in its inner loop, and choosing between them means editing C and rebuilding. In Valis that is one word in a Turtle file with the audio running, and a preset can differ in topology rather than only in values.
 
 **Acceptance for the MVP as a whole:** load `examples/basic.ttl` in the standalone app, hear it; edit the cutoff in the Turtle view and hear it change; see the same circuit rendered in the graph view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure — bad Turtle, unknown element, cycle — surface a located, recoverable error instead of silence or a crash.
+
+
+---
+
+## After the milestones
+
+Two gaps were flagged as `TODO:` when the milestones closed. Both are now done.
+
+### Band-limited oscillator
+
+A naive saw or square steps discontinuously, and a step has energy at every frequency, so it aliases audibly. PolyBLEP subtracts a polynomial approximation of the band-limited step around each discontinuity; the triangle is the integral of the corrected square, so it inherits the correction.
+
+Measured at four fold-back bins on a 3300 Hz tone, as alias energy over the fundamental:
+
+| shape | naive | PolyBLEP | reduction |
+|---|---|---|---|
+| saw | 4.68e-2 | 2.68e-3 | 17× |
+| square | 2.09e-2 | 7.32e-4 | 29× |
+
+Choosing those bins is the part worth recording. My first attempt used a 3 kHz fundamental and measured at 15 kHz and 21 kHz — which are its fifth and seventh harmonics, so the test was measuring the harmonic series, not aliasing, and read identically for saw and square. 3300 Hz was chosen so the fold-back frequencies land on no multiple of the fundamental.
+
+### Note events
+
+`val:Envelope` was free-running. `ValisEngine` now takes `noteOn`/`noteOff`/`allNotesOff` on the audio thread, tracks held notes, and passes a gate and velocity to every element through `ProcessArgs`. The envelope is a real ADSR that advances a stage at a time on the control grid, so its shape does not depend on the host's buffer size. The plugin feeds it from the host's MIDI buffer.
+
+This uncovered an ontology bug that had never been exercised: **`val:Envelope` declared its output as an `lv2:AudioPort` while the implementation wrote to `controlOut`**, so it could never have worked. Corrected to a `ControlPort`.
+
+The general fix matters more than the specific one. The ontology↔registry test proved every declared class *constructs*; it did not prove the declaration matched the implementation. A new test runs every element with sentinel-filled buffers and asserts it writes every port it declares, audio and control — so a mismatch of this kind now fails the build rather than waiting for a circuit to try to use it.
+
+### Catalogue profile
+
+`profile.ttl` describes Valis in the `trn:PluginProfile` shape that `/home/danny/github/downspout` uses for its plugin catalogue, so it can appear alongside them. It is covered by the parse test like every other Turtle file in the repository.

@@ -107,9 +107,18 @@ What works:
   audio keeps running.
 - `valis-render`, a headless renderer that needs no host, GUI or audio device.
 
-Known gaps, marked `TODO:` in the code: the oscillator's saw and square shapes
-are naive and will alias, and `val:Envelope` is free-running until MIDI note
-events arrive.
+Since the milestones closed, the two gaps that were marked `TODO:` have been
+fixed. The oscillator is band-limited with PolyBLEP — measured, alias energy
+relative to the fundamental drops 17× for a saw and 29× for a square. And
+`val:Envelope` is a real ADSR driven by MIDI note events, which uncovered an
+ontology bug it had been hiding: its output was declared an audio port while the
+implementation wrote a control one. Every element is now checked against its own
+port declarations, so that class of mismatch fails the build.
+
+Remaining rough edges: the graph view's structural edits re-serialise the
+document, so hand formatting and comments are lost (it warns on first use), and
+note events are applied per block rather than at their sample offset — bounded
+by the 32-sample control grid.
 
 ## Development
 

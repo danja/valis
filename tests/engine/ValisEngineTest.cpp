@@ -400,6 +400,64 @@ void testInstanceOptionsOverrideTheClass()
                 noneLatency, adaa1Latency, adaa2Latency);
 }
 
+/// val:Envelope used to free-run, which made it useless. It is now gated by
+/// note events, so silence before a note and a contour after one.
+void testEnvelopeRespondsToNotes()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :env , :osc , :vca , :out ;
+   val:arc :a1 , :a2 , :m1 .
+:env a val:Envelope ; val:attack 5.0 ; val:decay 50.0 ; val:sustain 0.6 ; val:release 50.0 .
+:osc a val:Oscillator ; val:frequency 220.0 .
+:vca a val:Expander ; val:threshold 0.0 ; val:ratio 4.0 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                val:to   [ val:node :vca ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in"  ] .
+:m1 a val:Arc ; val:from [ val:node :env ; val:port "out"    ] ;
+                val:to   [ val:node :vca ; val:port "amount" ] ;
+                val:depth 1.0 .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> silence(256, 0.0f);
+    std::vector<float> block(256, 0.0f);
+
+    // Before any note the envelope is idle, so the gate holds the signal down.
+    for (int i = 0; i < 8; ++i)
+        engine.process(silence.data(), block.data(), 256);
+    const float beforeNote = peakOf(block);
+
+    // A note opens it.
+    engine.noteOn(60, 1.0f);
+    for (int i = 0; i < 40; ++i)
+        engine.process(silence.data(), block.data(), 256);
+    const float held = peakOf(block);
+
+    // Releasing closes it again.
+    engine.noteOff(60);
+    for (int i = 0; i < 120; ++i)
+        engine.process(silence.data(), block.data(), 256);
+    const float afterRelease = peakOf(block);
+
+    std::printf("  envelope  before %.4f  held %.4f  released %.4f\n",
+                beforeNote, held, afterRelease);
+    std::fflush(stdout);
+
+    assert(held > beforeNote * 4.0f);
+    assert(held > 0.05f);
+    assert(afterRelease < held * 0.5f);
+}
+
 }  // namespace
 
 int main()
@@ -412,6 +470,7 @@ int main()
     testSkreamMakesTheRightKindOfNoise();
     testUnconnectedInputReadsSilence();
     testInstanceOptionsOverrideTheClass();
+    testEnvelopeRespondsToNotes();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

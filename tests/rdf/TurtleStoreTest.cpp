@@ -152,6 +152,8 @@ void testVocabulariesParse()
     const char* files[] = {
         VALIS_VOCABS_DIR "/valis.ttl",
         VALIS_EXAMPLES_DIR "/skream.ttl",
+        VALIS_EXAMPLES_DIR "/basic.ttl",
+        VALIS_ROOT_DIR "/profile.ttl",
         VALIS_VOCABS_DIR "/lv2/lv2core.ttl",
         VALIS_VOCABS_DIR "/lv2/units.ttl",
         VALIS_VOCABS_DIR "/lv2/atom.ttl",

@@ -1,0 +1,29 @@
+# profile.ttl
+#
+# Valis described in the shape /home/danny/github/downspout uses for its plugin
+# catalogue, so it can appear alongside them. The vocabulary is the transmissions
+# one; the circuit vocabulary Valis uses internally is vocabs/valis.ttl.
+
+@prefix trn:  <http://purl.org/stuff/transmissions/> .
+@prefix dsp:  <http://purl.org/stuff/transmissions/plugins/downspout/> .
+@prefix val:  <http://purl.org/stuff/valis/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+dsp:valis a trn:PluginProfile ;
+    rdfs:label "Valis" ;
+    rdfs:comment """Virtual analog circuits described in RDF/Turtle. The circuit is a
+document rather than compiled-in topology, so a preset can change the signal path and
+not merely its values, and every operation is reachable over HTTP MCP.""" ;
+    trn:bundleName "Valis.vst3" ;
+    trn:vendor "danja" ;
+    foaf:homepage <https://danja.github.io/valis/> ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio, trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic", "Experimental", "Dance" ;
+    trn:caution """The circuit is user-editable, so its behaviour is whatever the loaded
+Turtle describes. Feedback paths must pass through a val:UnitDelay or the circuit is
+rejected; a circuit that will not compile leaves the previous one playing.""" ;
+    val:vocabulary <http://purl.org/stuff/valis/> ;
+    val:formats "Standalone", "VST3", "LV2", "CLAP" .

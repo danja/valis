@@ -75,7 +75,7 @@ Linear.
 
 Nonlinear.
 
-**Audio out**: `out`
+**Control out**: `out`
 
 **Controls**
 
