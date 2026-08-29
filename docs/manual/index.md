@@ -9,6 +9,13 @@ can read, edit and hand to a language model.
 - [The MCP surface](mcp.md) — driving the plugin over HTTP
 - [Building](building.md) — prerequisites and the build
 
+### See Also
+
+- [Downspout](https://danja.github.io/downspout/) VST3 plugins
+- [Transmission](https://danja.github.io/transmission/) Generative Audio Workstation
+- [Flues](https://github.com/danja/flues) earlier LV2 plugins and Web Audio toys
+- [danny.ayers.name](https://danny.ayers.name) blog
+
 ## Why RDF
 
 An audio plugin normally hides its structure. Its topology is compiled in, its
