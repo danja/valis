@@ -32,6 +32,12 @@ struct PortDesc
     double maximum      = 1.0;
     std::string unitSymbol;  ///< units:symbol, e.g. "Hz", "dB"
 
+    bool logarithmic = false;  ///< lv2:portProperty lv2:logarithmic
+    bool enumeration = false;  ///< lv2:portProperty lv2:enumeration
+
+    /// Named integer values, sorted by value. Present when enumeration is true.
+    std::vector<std::pair<double, std::string>> scalePoints;
+
     bool isAudio() const { return ! control; }
 };
 

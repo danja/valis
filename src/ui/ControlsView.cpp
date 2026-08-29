@@ -80,24 +80,13 @@ void ControlsView::rebuild()
             continue;
 
         Knob knob;
-        knob.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag,
-                                                     juce::Slider::NoTextBox);
-        knob.slider->setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff61afef));
-        knob.slider->setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff3a3f4b));
-        knob.slider->setColour(juce::Slider::thumbColourId, juce::Colour(0xffabb2bf));
-        knob.slider->setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xffabb2bf));
-        knob.slider->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
 
-        // The slot is normalised 0-1; the readout shows the real value in the
-        // property's own units, which is what the user is actually setting.
-        // Drawn in paint() rather than through Slider's text box, so the
-        // formatting and the units are ours.
         knob.minimum = port->minimum;
         knob.maximum = port->maximum;
         knob.unit    = port->unitSymbol.empty() ? juce::String()
                                                 : " " + juce::String(port->unitSymbol);
-
-        addAndMakeVisible(*knob.slider);
+        knob.target  = juce::String(vocab::shortName(binding.targetNode)) + "." +
+                       juce::String(binding.propertySymbol);
 
         knob.name = std::make_unique<juce::Label>();
         knob.name->setJustificationType(juce::Justification::centred);
@@ -107,16 +96,36 @@ void ControlsView::rebuild()
                            juce::dontSendNotification);
         addAndMakeVisible(*knob.name);
 
-        knob.attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-            processor.state(),
-            "p" + juce::String(binding.slot).paddedLeft('0', 2),
-            *knob.slider);
+        const auto paramId = "p" + juce::String(binding.slot).paddedLeft('0', 2);
 
-        knob.target = juce::String(vocab::shortName(binding.targetNode)) + "." +
-                      juce::String(binding.propertySymbol);
-
-        // Repaint the readout as the knob moves.
-        knob.slider->onValueChange = [this] { repaint(); };
+        if (port->enumeration && ! port->scalePoints.empty())
+        {
+            knob.comboBox = std::make_unique<juce::ComboBox>();
+            knob.comboBox->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff2a2d35));
+            knob.comboBox->setColour(juce::ComboBox::textColourId, juce::Colour(0xffabb2bf));
+            knob.comboBox->setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3a3f4b));
+            knob.comboBox->setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff61afef));
+            for (const auto& [value, label] : port->scalePoints)
+                knob.comboBox->addItem(label, static_cast<int>(value) + 1);
+            addAndMakeVisible(*knob.comboBox);
+            knob.comboAttachment =
+                std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+                    processor.state(), paramId, *knob.comboBox);
+        }
+        else
+        {
+            knob.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag,
+                                                         juce::Slider::NoTextBox);
+            knob.slider->setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff61afef));
+            knob.slider->setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff3a3f4b));
+            knob.slider->setColour(juce::Slider::thumbColourId, juce::Colour(0xffabb2bf));
+            knob.slider->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+            addAndMakeVisible(*knob.slider);
+            knob.attachment =
+                std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+                    processor.state(), paramId, *knob.slider);
+            knob.slider->onValueChange = [this] { repaint(); };
+        }
 
         knobs.push_back(std::move(knob));
     }
@@ -132,17 +141,20 @@ void ControlsView::paint(juce::Graphics& g)
 
     for (const auto& knob : knobs)
     {
-        const auto area = knob.slider->getBounds();
+        // Enum knobs use a ComboBox that labels itself; only dials need a readout.
+        const juce::Rectangle<int> area = knob.isEnum()
+            ? knob.comboBox->getBounds()
+            : knob.slider->getBounds();
 
-        // The value, in the property's own units.
-        g.setColour(juce::Colour(0xffabb2bf));
-        g.setFont(juce::FontOptions(13.0f));
-        g.drawText(knob.readout(),
-                   area.getX(), area.getBottom() - kValueHeight, area.getWidth(), kValueHeight,
-                   juce::Justification::centred, false);
+        if (! knob.isEnum())
+        {
+            g.setColour(juce::Colour(0xffabb2bf));
+            g.setFont(juce::FontOptions(13.0f));
+            g.drawText(knob.readout(),
+                       area.getX(), area.getBottom() - kValueHeight, area.getWidth(), kValueHeight,
+                       juce::Justification::centred, false);
+        }
 
-        // And a faint caption naming what it drives, so the panel stays
-        // legible against the circuit.
         g.setColour(juce::Colour(0xff5a6070));
         g.setFont(juce::FontOptions(11.0f));
         g.drawText(knob.target,
@@ -161,7 +173,7 @@ void ControlsView::resized()
     int index = 0;
     for (auto& knob : knobs)
     {
-        const int row = index / perRow;
+        const int row    = index / perRow;
         const int column = index % perRow;
 
         juce::Rectangle<int> cell(area.getX() + column * kKnobWidth,
@@ -169,12 +181,13 @@ void ControlsView::resized()
                                   kKnobWidth, kKnobHeight);
 
         knob.name->setBounds(cell.removeFromTop(kNameHeight));
-        cell.removeFromBottom(kTargetHeight);   // the caption paint() draws
+        cell.removeFromBottom(kTargetHeight);
 
-        // The slider owns the dial and the value box together; JUCE puts the
-        // box at the bottom of whatever bounds it is given, so it needs room
-        // for both or the readout is simply not drawn.
-        knob.slider->setBounds(cell.reduced(2, 2));
+        if (knob.isEnum())
+            knob.comboBox->setBounds(cell.removeFromTop(28).reduced(4, 2));
+        else
+            knob.slider->setBounds(cell.reduced(2, 2));
+
         ++index;
     }
 }

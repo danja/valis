@@ -35,7 +35,8 @@ public:
 
     /// Message thread. Points this slot at an element property.
     void bind(std::string node, std::string property,
-              juce::String displayName, double minimum, double maximum, juce::String unit);
+              juce::String displayName, double minimum, double maximum,
+              juce::String unit, bool logarithmic = false);
     void unbind();
 
     bool isBound() const { return bound; }
@@ -53,6 +54,7 @@ public:
 private:
     int slot = 0;
     bool bound = false;
+    bool logScale = false;
     std::string node, property;
     juce::String label, unitSymbol;
     double lo = 0.0, hi = 1.0;

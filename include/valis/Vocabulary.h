@@ -27,6 +27,7 @@ inline constexpr std::string_view UNITS = "http://lv2plug.in/ns/extensions/units
 
 namespace rdf {
   inline const std::string type  = std::string(RDF) + "type";
+  inline const std::string value = std::string(RDF) + "value";
   inline const std::string first = std::string(RDF) + "first";
   inline const std::string rest  = std::string(RDF) + "rest";
   inline const std::string nil   = std::string(RDF) + "nil";
@@ -45,17 +46,22 @@ namespace owl {
 
 // LV2 terms carry the port and control-range description, as the brief asks.
 namespace lv2 {
-  inline const std::string port        = std::string(LV2) + "port";
-  inline const std::string symbol      = std::string(LV2) + "symbol";
-  inline const std::string name        = std::string(LV2) + "name";
-  inline const std::string index       = std::string(LV2) + "index";
-  inline const std::string defaultV    = std::string(LV2) + "default";
-  inline const std::string minimum     = std::string(LV2) + "minimum";
-  inline const std::string maximum     = std::string(LV2) + "maximum";
-  inline const std::string InputPort   = std::string(LV2) + "InputPort";
-  inline const std::string OutputPort  = std::string(LV2) + "OutputPort";
-  inline const std::string AudioPort   = std::string(LV2) + "AudioPort";
-  inline const std::string ControlPort = std::string(LV2) + "ControlPort";
+  inline const std::string port         = std::string(LV2) + "port";
+  inline const std::string symbol       = std::string(LV2) + "symbol";
+  inline const std::string name         = std::string(LV2) + "name";
+  inline const std::string index        = std::string(LV2) + "index";
+  inline const std::string defaultV     = std::string(LV2) + "default";
+  inline const std::string minimum      = std::string(LV2) + "minimum";
+  inline const std::string maximum      = std::string(LV2) + "maximum";
+  inline const std::string InputPort    = std::string(LV2) + "InputPort";
+  inline const std::string OutputPort   = std::string(LV2) + "OutputPort";
+  inline const std::string AudioPort    = std::string(LV2) + "AudioPort";
+  inline const std::string ControlPort  = std::string(LV2) + "ControlPort";
+  inline const std::string portProperty = std::string(LV2) + "portProperty";
+  inline const std::string logarithmic  = std::string(LV2) + "logarithmic";
+  inline const std::string enumeration  = std::string(LV2) + "enumeration";
+  inline const std::string integer_     = std::string(LV2) + "integer";
+  inline const std::string scalePoint   = std::string(LV2) + "scalePoint";
 }
 
 namespace units {

@@ -74,6 +74,25 @@ std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node&
         desc.maximum = *v.asDouble();
 
     desc.unitSymbol = readUnitSymbol(store, port, units);
+
+    for (const auto& prop : store.objects(port, vocab::lv2::portProperty))
+    {
+        const auto iri = std::string(prop.string());
+        if (iri == vocab::lv2::logarithmic) desc.logarithmic = true;
+        if (iri == vocab::lv2::enumeration) desc.enumeration = true;
+    }
+
+    for (const auto& sp : store.objects(port, vocab::lv2::scalePoint))
+    {
+        auto label = store.object(sp, vocab::rdfs::label);
+        auto val   = store.object(sp, vocab::rdf::value);
+        if (label && val)
+            if (auto v = val.asDouble())
+                desc.scalePoints.push_back({ *v, std::string(label.string()) });
+    }
+    std::sort(desc.scalePoints.begin(), desc.scalePoints.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+
     return desc;
 }
 

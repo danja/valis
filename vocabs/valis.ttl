@@ -339,7 +339,8 @@ Connect val:MidiPitch to frequency for pitch-tracked resonance.""" ;
         lv2:minimum 20.0 ; lv2:maximum 5000.0 ; units:unit units:hz ] ,
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "decay"      ;
         lv2:name "Decay" ; lv2:default 1.0 ;
-        lv2:minimum 0.05 ; lv2:maximum 10.0 ; units:unit units:s ] ,
+        lv2:minimum 0.05 ; lv2:maximum 10.0 ; units:unit units:s ;
+        lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "brightness" ;
         lv2:name "Brightness" ; lv2:default 0.5 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
@@ -347,7 +348,11 @@ Connect val:MidiPitch to frequency for pitch-tracked resonance.""" ;
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "mode"       ;
         lv2:name "Mode" ; lv2:default 0.0 ;
         lv2:minimum 0.0 ; lv2:maximum 3.0 ;
-        rdfs:comment "0 marimba, 1 drumhead, 2 membrane, 3 plate" ] .
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Marimba"  ; rdf:value 0 ] ,
+                       [ rdfs:label "Drumhead" ; rdf:value 1 ] ,
+                       [ rdfs:label "Membrane" ; rdf:value 2 ] ,
+                       [ rdfs:label "Plate"    ; rdf:value 3 ] ] .
 
 ################################################################
 # Transfer functions                                           #
@@ -552,16 +557,19 @@ port: an envelope modulates, it does not carry audio.""" ;
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
         lv2:name "Attack" ; lv2:default 10.0 ;
-        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "decay" ;
         lv2:name "Decay" ; lv2:default 200.0 ;
-        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ] ,
+        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "sustain" ;
         lv2:name "Sustain" ; lv2:default 0.7 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
         lv2:name "Release" ; lv2:default 300.0 ;
-        lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:ms ] .
+        lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ] .
 
 val:Input a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Input" ;

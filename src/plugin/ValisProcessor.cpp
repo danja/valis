@@ -28,7 +28,7 @@ ValisParameter::ValisParameter(int slotIndex)
 
 void ValisParameter::bind(std::string targetNodeId, std::string targetProperty,
                           juce::String displayName, double minimum, double maximum,
-                          juce::String unit)
+                          juce::String unit, bool logarithmic)
 {
     node       = std::move(targetNodeId);
     property   = std::move(targetProperty);
@@ -36,12 +36,14 @@ void ValisParameter::bind(std::string targetNodeId, std::string targetProperty,
     lo         = minimum;
     hi         = maximum > minimum ? maximum : minimum + 1.0;
     unitSymbol = std::move(unit);
+    logScale   = logarithmic && lo > 0.0;   // log only valid when lo > 0
     bound      = true;
 }
 
 void ValisParameter::unbind()
 {
-    bound = false;
+    bound    = false;
+    logScale = false;
     node.clear();
     property.clear();
     label = slotName(slot);
@@ -52,13 +54,18 @@ void ValisParameter::unbind()
 
 double ValisParameter::realValue() const
 {
+    if (logScale)
+        return lo * std::pow(hi / lo, static_cast<double>(get()));
     return lo + static_cast<double>(get()) * (hi - lo);
 }
 
-void ValisParameter::setRealValue(double value)
+void ValisParameter::setRealValue(double v)
 {
-    const auto clamped = juce::jlimit(lo, hi, value);
-    setValueNotifyingHost(static_cast<float>((clamped - lo) / (hi - lo)));
+    const auto clamped = juce::jlimit(lo, hi, v);
+    const float norm = logScale
+        ? static_cast<float>(std::log(clamped / lo) / std::log(hi / lo))
+        : static_cast<float>((clamped - lo) / (hi - lo));
+    setValueNotifyingHost(norm);
 }
 
 juce::String ValisParameter::getName(int maximumLength) const
@@ -76,7 +83,9 @@ juce::String ValisParameter::getText(float normalised, int maximumLength) const
     if (! bound)
         return juce::String(normalised, 3).substring(0, maximumLength);
 
-    const auto real = lo + static_cast<double>(normalised) * (hi - lo);
+    const double real = logScale
+        ? lo * std::pow(hi / lo, static_cast<double>(normalised))
+        : lo + static_cast<double>(normalised) * (hi - lo);
 
     // A wide range reads better with fewer decimals; a 0-1 control needs them.
     const int decimals = (hi - lo) > 100.0 ? 0 : ((hi - lo) > 1.0 ? 2 : 3);
@@ -393,7 +402,8 @@ void ValisProcessor::rebindParameters()
                         binding.name.empty() ? juce::String(port->name) : juce::String(binding.name),
                         binding.minimum.value_or(port->minimum),
                         binding.maximum.value_or(port->maximum),
-                        juce::String(port->unitSymbol));
+                        juce::String(port->unitSymbol),
+                        port->logarithmic);
 
         // If this slot was already bound to the same target, keep the user's value.
         // Otherwise take the circuit's declared default.

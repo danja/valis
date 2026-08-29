@@ -36,13 +36,18 @@ private:
 
     struct Knob
     {
-        std::unique_ptr<juce::Slider> slider;
-        std::unique_ptr<juce::Label> name;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
+        // Exactly one of slider/comboBox is non-null, depending on the port type.
+        std::unique_ptr<juce::Slider>   slider;
+        std::unique_ptr<juce::ComboBox> comboBox;
+        std::unique_ptr<juce::Label>    name;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   attachment;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> comboAttachment;
         juce::String target, unit;
         double minimum = 0.0, maximum = 1.0;
 
-        /// The slider's normalised position rendered in the property's units.
+        bool isEnum() const { return comboBox != nullptr; }
+
+        /// The dial's normalised position rendered in the property's units.
         juce::String readout() const;
     };
 
