@@ -101,7 +101,8 @@ jobs:
               echo '<link rel="stylesheet" href="style.css"></head><body>'
               echo '<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a>'
               echo ' · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a>'
-              echo ' · <a href="building.html">Building</a> · <a href="skream.html">Skream</a></nav>'
+              echo ' · <a href="building.html">Building</a> · <a href="skream.html">Skream</a>'
+              echo ' · <a href="https://github.com/danja/valis">GitHub</a></nav>'
               cat /tmp/body.html
               echo '</body></html>'
             } > "$out"
