@@ -445,6 +445,168 @@ void testOscillatorIsBandLimited()
     assert(hi > 0.9f && lo < -0.9f);
 }
 
+/// CombFilter should ring at the frequency set by its control and decay over
+/// time. Feed a single impulse and measure peak energy at the target frequency.
+void testCombFilterRingsAtCorrectPitch()
+{
+    const double rate = 48000.0;
+    const int n = 8192;
+    const float targetHz = 440.0f;
+
+    Rig rig("CombFilter", rate);
+    rig.set("frequency", targetHz);
+    rig.set("feedback",  0.95f);
+    rig.set("damping",   0.05f);
+
+    // Single-sample impulse as excitation, then silence.
+    std::vector<float> impulse(static_cast<std::size_t>(n), 0.0f);
+    impulse[0] = 1.0f;
+
+    const auto out  = rig.run(impulse);
+    const auto bins = spectrum(out);
+
+    // A comb at 440 Hz resonates at 440, 880, 1320 ... but NOT at 600 Hz.
+    const float atTarget    = energyAt(bins, targetHz,         rate, 4096);
+    const float atHarmonic2 = energyAt(bins, targetHz * 2.0,  rate, 4096);
+    const float atNonMode   = energyAt(bins, 600.0,           rate, 4096);  // between modes
+
+    std::printf("  comb energy  f0=%.0f: %.3e  2f0=%.0f: %.3e  non-mode 600Hz: %.3e\n",
+                targetHz, atTarget, targetHz * 2.0f, atHarmonic2, atNonMode);
+
+    // Fundamental and second harmonic must both be present (comb, not bandpass).
+    assert(atTarget    > 0.0f);
+    assert(atHarmonic2 > 0.0f);
+    // Non-harmonic bins must be substantially quieter than the resonances.
+    assert(atTarget > atNonMode * 10.0f);
+}
+
+/// StiffString must ring after an impulse, and changing dispersion must change
+/// the output (proving the allpass stages are active). The stretch per partial
+/// at low audio frequencies is only a few Hz, so this test does not attempt to
+/// measure exact bin positions — it only checks that the element functions.
+void testStiffStringDispersionAffectsOutput()
+{
+    const double rate = 48000.0;
+    const int n = 8192;
+    const float f0 = 220.0f;
+
+    std::vector<float> impulse(static_cast<std::size_t>(n), 0.0f);
+    impulse[0] = 1.0f;
+
+    const auto runWith = [&](float dispersion) -> std::vector<float>
+    {
+        Rig rig("StiffString", rate);
+        rig.set("frequency",  f0);
+        rig.set("feedback",   0.97f);
+        rig.set("damping",    0.02f);
+        rig.set("dispersion", dispersion);
+        return rig.run(impulse);
+    };
+
+    const auto out0 = runWith(0.0f);
+    const auto out1 = runWith(0.8f);
+
+    float peak0 = 0.0f, peak1 = 0.0f, diff = 0.0f;
+    for (std::size_t i = 0; i < out0.size(); ++i)
+    {
+        peak0 = std::max(peak0, std::abs(out0[i]));
+        peak1 = std::max(peak1, std::abs(out1[i]));
+        diff += std::abs(out0[i] - out1[i]);
+    }
+
+    std::printf("  stiff string peak(d=0)=%.4f  peak(d=0.8)=%.4f  total-diff=%.2f\n",
+                peak0, peak1, diff);
+
+    assert(peak0 > 0.01f);   // rings with no dispersion
+    assert(peak1 > 0.01f);   // rings with dispersion
+    assert(diff  > 1.0f);    // the two outputs differ (allpass is active)
+}
+
+/// ModalBank must output energy near the mode frequencies and be silent
+/// without excitation.
+void testModalBankResonatesAtModeFrequencies()
+{
+    const double rate = 48000.0;
+    const int n = 8192;
+    const float f0 = 200.0f;
+
+    Rig rig("ModalBank", rate);
+    rig.set("frequency",  f0);
+    rig.set("decay",      2.0f);
+    rig.set("brightness", 1.0f);
+    rig.set("mode",       0.0f);   // marimba: ratios 1, 2.756, 5.404 ...
+
+    // Impulse excites all modes simultaneously.
+    std::vector<float> impulse(static_cast<std::size_t>(n), 0.0f);
+    impulse[0] = 1.0f;
+    const auto out  = rig.run(impulse);
+    const auto bins = spectrum(out);
+
+    // Energy at the fundamental and second marimba mode (2.756 × f0).
+    const float atF0    = energyAt(bins, f0,             rate, 4096);
+    const float atMode1 = energyAt(bins, f0 * 2.756,     rate, 4096);
+    const float atHarm2 = energyAt(bins, f0 * 2.0,       rate, 4096);   // NOT a marimba mode
+
+    std::printf("  modal bank at f0: %.3e  at 2.756*f0: %.3e  at 2*f0: %.3e\n",
+                atF0, atMode1, atHarm2);
+
+    assert(atF0    > 0.0f);
+    assert(atMode1 > 0.0f);
+    // Marimba modes should be detectable above the non-mode bins.
+    assert(atMode1 > atHarm2 * 0.5f);
+
+    // A fresh rig that never receives an impulse must be silent.
+    {
+        Rig freshRig("ModalBank", rate);
+        freshRig.set("frequency",  f0);
+        freshRig.set("decay",      2.0f);
+        freshRig.set("brightness", 1.0f);
+        freshRig.set("mode",       0.0f);
+
+        const std::vector<float> silence(static_cast<std::size_t>(n), 0.0f);
+        const auto silOut = freshRig.run(silence);
+        float silPeak = 0.0f;
+        for (float s : silOut) silPeak = std::max(silPeak, std::abs(s));
+        assert(silPeak < 1e-6f);
+    }
+}
+
+/// Reed must be silent below the threshold and self-oscillate above it.
+void testReedSelfOscillatesAbovePressureThreshold()
+{
+    const double rate = 48000.0;
+    // Run 2× sampleRate samples so the oscillation has time to develop.
+    const int warmup = static_cast<int>(rate * 2);
+
+    const auto runAndMeasure = [&](float pressure) -> float
+    {
+        Rig rig("Reed", rate);
+        rig.set("frequency",  220.0f);
+        rig.set("pressure",   pressure);
+        rig.set("stiffness",  0.5f);
+        rig.set("damping",    0.2f);
+
+        const std::vector<float> silence(static_cast<std::size_t>(warmup), 0.0f);
+        const auto out = rig.run(silence);
+
+        // RMS of the final quarter — oscillation should be stable by then.
+        float rms = 0.0f;
+        const int tail = warmup / 4;
+        for (int i = warmup - tail; i < warmup; ++i)
+            rms += out[static_cast<std::size_t>(i)] * out[static_cast<std::size_t>(i)];
+        return std::sqrt(rms / tail);
+    };
+
+    const float rmsZero = runAndMeasure(0.0f);  // no blowing force
+    const float rmsHigh = runAndMeasure(0.5f);  // active playing range
+
+    std::printf("  reed rms: pressure=0.0 -> %.4f  pressure=0.5 -> %.4f\n",
+                rmsZero, rmsHigh);
+
+    assert(rmsZero < 0.001f);   // zero pressure = no energy injected = silence
+    assert(rmsHigh > 0.01f);    // playing pressure = self-sustained oscillation
+}
+
 }  // namespace
 
 int main()
@@ -458,6 +620,10 @@ int main()
     testEnvelopeFollowerTracksLevel();
     testGainIsDecibels();
     testOscillatorIsBandLimited();
+    testCombFilterRingsAtCorrectPitch();
+    testStiffStringDispersionAffectsOutput();
+    testModalBankResonatesAtModeFrequencies();
+    testReedSelfOscillatesAbovePressureThreshold();
 
     std::puts("ElementBehaviourTest PASSED");
     return 0;

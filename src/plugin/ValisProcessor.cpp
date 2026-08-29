@@ -129,6 +129,24 @@ ValisProcessor::ValisProcessor()
         {
             restored = true;
             setTurtle(saved);
+
+            // Restore knob positions on top of the circuit's own defaults.
+            // setTurtle already bound and initialised slots to Turtle values;
+            // replaceState overwrites them with whatever the user had dialled in.
+            const auto savedParams = settings->getValue("paramState");
+            if (savedParams.isNotEmpty())
+            {
+                if (auto xml = juce::XmlDocument::parse(savedParams))
+                {
+                    if (xml->hasTagName(apvts.state.getType()))
+                    {
+                        auto tree = juce::ValueTree::fromXml(*xml);
+                        apvts.replaceState(tree);
+                        // parametersDirty will be set by the listener; the timer
+                        // applies the restored values once it fires.
+                    }
+                }
+            }
         }
     }
     if (! restored)
@@ -405,6 +423,11 @@ void ValisProcessor::timerCallback()
         if (auto* settings = appProperties.getUserSettings())
         {
             settings->setValue("turtle", getTurtle());
+
+            // Save the APVTS state so knob positions survive focus loss.
+            if (const auto xml = apvts.copyState().createXml())
+                settings->setValue("paramState", xml->toString());
+
             settings->saveIfNeeded();
         }
     }

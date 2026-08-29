@@ -1,0 +1,101 @@
+# examples/rings-beam.ttl
+#
+# Stiff string / beam resonator (Euler-Bernoulli beam model).
+#
+# A StiffString is a CombFilter with allpass-chain dispersion in its feedback
+# path. The allpass stages shift phase non-uniformly, stretching upper partials
+# above their harmonic positions — giving the characteristic "stretched" quality
+# of piano strings, hammered dulcimer, and metal bars.
+#
+# dispersion 0.0 = no stretching (identical to CombFilter — nylon string, gut)
+# dispersion 0.1 = light stretching (piano treble wire, classical guitar)
+# dispersion 0.3 = moderate (piano bass string, dulcimer)
+# dispersion 0.7 = heavy (thin metal bar, vibraphone)
+# dispersion 1.0 = extreme (bell-like, strongly inharmonic)
+#
+# Signal path:
+#   Noise burst ──► StiffString ──► Gain ──► Output
+#   MidiPitch   ──(control)──► StiffString.frequency
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:rings-beam#> .
+
+:rings_beam a val:Circuit ;
+    rdfs:label "Rings (Stiff String / Beam)" ;
+    val:element :pitch , :noise , :env , :vca , :string , :vol , :out ;
+    val:arc :aNoiseVca , :aVcaString , :aStringVol , :aVolOut ;
+    val:arc :aPitchString , :aEnvVca .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:noise a val:Noise ; val:colour 0.0 .
+
+:env a val:Envelope ;
+    val:attack  0.1 ;     # ms — near-instantaneous attack
+    val:decay   4.0 ;     # ms — pluck burst length
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+# ── Processing ───────────────────────────────────────────────────────────────
+
+:vca a val:VCA .
+
+:string a val:StiffString ;
+    val:frequency   220.0 ;
+    val:feedback    0.97 ;    # long decay
+    val:damping     0.08 ;    # fairly bright
+    val:dispersion  0.2 .     # light inharmonicity (piano-like)
+
+:vol a val:Gain ; val:gain -6.0 .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aNoiseVca a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :vca   ; val:port "in"  ] .
+
+:aVcaString a val:Arc ;
+    val:from [ val:node :vca    ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "in"  ] .
+
+:aStringVol a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :vol    ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aPitchString a val:ControlArc ;
+    val:from [ val:node :pitch  ; val:port "out"       ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :string ; val:property val:feedback ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :string ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :string ; val:property val:dispersion ;
+    lv2:name "Dispersion" ; lv2:symbol "dispersion" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :env ; val:property val:decay ;
+    lv2:name "Pluck Width" ; lv2:symbol "pluck_width" ; units:unit units:ms .
+
+:p4 a val:Param ; val:slot 4 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .

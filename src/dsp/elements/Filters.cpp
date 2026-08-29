@@ -259,6 +259,99 @@ private:
     int freqIndex = -1, feedbackIndex = -1, dampingIndex = -1;
 };
 
+/// Stiff string (beam) resonator — a CombFilter with allpass-chain dispersion
+/// in the feedback path. The allpass stages shift phase non-uniformly, so
+/// partials are stretched upward relative to exact harmonics, giving the
+/// characteristic "inharmonic" sound of a piano string or metal bar.
+///
+/// dispersion controls the allpass coefficient: 0 = no stretching (pure comb),
+/// 1 = heavy stretching (bell-like, strongly inharmonic). Four allpass stages
+/// are used; more stages increase the dispersion without changing the formula.
+///
+/// Implementation: H_ap(z) = (a + z^-1) / (1 + a*z^-1), iterated 4 times in
+/// the comb feedback path. Per sample: y = -a*x + s; s = x + a*y.
+class StiffString final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        freqIndex       = controlIndex(type, "frequency");
+        feedbackIndex   = controlIndex(type, "feedback");
+        dampingIndex    = controlIndex(type, "damping");
+        dispersionIndex = controlIndex(type, "dispersion");
+        buffer.assign(static_cast<std::size_t>(rate / 10.0) + 2, 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+        for (auto& s : apState) s = 0.0f;
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+        for (auto& s : apState) s = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float freq       = std::clamp(controlAt(args, freqIndex,       220.0f),
+                                            10.0f, static_cast<float>(sampleRate * 0.45));
+        const float feedback   = std::clamp(controlAt(args, feedbackIndex,    0.95f), 0.0f, 0.99f);
+        const float damping    = std::clamp(controlAt(args, dampingIndex,      0.1f), 0.0f, 1.0f);
+        const float dispersion = std::clamp(controlAt(args, dispersionIndex,   0.1f), 0.0f, 1.0f);
+
+        const int delayN  = std::max(1, static_cast<int>(sampleRate / freq + 0.5));
+        const int bufSize = static_cast<int>(buffer.size());
+
+        const float a  = damping * 0.95f;       // LP coefficient
+        const float ap = dispersion * 0.85f;    // allpass coefficient
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            int readPos = writePos - delayN;
+            if (readPos < 0)
+                readPos += bufSize;
+
+            const float delayed = buffer[static_cast<std::size_t>(readPos)];
+
+            // One-pole LP (brightness decay).
+            filterState = a * filterState + (1.0f - a) * delayed;
+
+            // Four allpass stages in the feedback path (dispersion).
+            float v = filterState;
+            for (int s = 0; s < kApStages; ++s)
+            {
+                const float y = -ap * v + apState[s];
+                apState[s]    = v + ap * y;
+                v             = y;
+            }
+
+            buffer[static_cast<std::size_t>(writePos)] = in[i] + v * feedback;
+            out[i] = delayed;
+
+            if (++writePos >= bufSize)
+                writePos = 0;
+        }
+    }
+
+private:
+    static constexpr int kApStages = 4;
+    std::vector<float> buffer;
+    float apState[kApStages] = {};
+    int writePos    = 0;
+    float filterState = 0.0f;
+    double sampleRate = 44100.0;
+    int freqIndex = -1, feedbackIndex = -1, dampingIndex = -1, dispersionIndex = -1;
+};
+
 /// Six parallel 2-pole resonators tuned to preset modal frequency ratios.
 ///
 /// Each resonator is a lossless digital resonator (two-pole bandpass) with
@@ -381,6 +474,7 @@ void registerFilters(ElementRegistry& registry)
     registry.add("Ladder",        &make<elements::Ladder>);
     registry.add("UnitDelay",     &make<elements::UnitDelay>);
     registry.add("CombFilter",    &make<elements::CombFilter>);
+    registry.add("StiffString",   &make<elements::StiffString>);
     registry.add("ModalBank",     &make<elements::ModalBank>);
 }
 }  // namespace valis

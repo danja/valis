@@ -160,7 +160,7 @@ void testListElementTypes()
     auto ops = host.ops();
 
     const auto types = ops.listElementTypes();
-    assert(types.size() == 33);
+    assert(types.size() == 34);
 
     const auto ladder = std::find_if(types.begin(), types.end(),
                                      [](const ElementTypeInfo& t) { return t.implementation == "Ladder"; });
