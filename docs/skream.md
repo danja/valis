@@ -3,8 +3,8 @@
 ## Why this one
 
 [skream-plan.md](https://github.com/danja/downspout/blob/main/docs/skream-plan.md)
-proposes a bespoke plugin: port the DSP from [Scream](https://github.com/danja/Scream),
-approximate its GUI in DPF, ship ten presets. That is a reasonable plugin and a poor
+proposed a bespoke plugin: port the DSP from [Scream](https://github.com/danja/Scream),
+approximate its GUI in DPF, ship ten presets. That is [a reasonable plugin](https://danja.github.io/downspout/plugins/skream/) and a poor
 proof of anything.
 
 The better version is the same sound built as a **Valis circuit** — a Turtle file the
