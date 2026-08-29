@@ -170,26 +170,127 @@ characteristic of a real guitar string.
 
 ---
 
-## Extending toward the full Rings
+## Tuning the sound
 
-Rings also includes a **modal bank** (parallel resonators at harmonic ratios).
-That mode can be approximated in Valis without any new elements by running
-several `val:StateVariable` filters in parallel, each tuned to a harmonic, and
-summing them through a `val:Mixer`:
+| Parameter | Low | High |
+|---|---|---|
+| `feedback` | short sustain, percussive | long decay, singing |
+| `damping` | bright, metallic | dark, muted, wood-like |
+| Envelope `decay` | sharp attack, pluck | slow fill, bowed |
+| Noise `colour` | 0 = white (more initial fizz) | 1 = pink (warmer) |
+
+---
+
+## Part II — Modal synthesis (`examples/rings-modal.ttl`)
+
+`val:ModalBank` runs six parallel 2-pole resonators tuned to the natural
+frequency ratios of a physical object. Unlike a comb filter (which has
+harmonically spaced modes), a real bar, drumhead or plate has *inharmonic*
+modes — and that inharmonicity is what makes each material sound like itself.
+
+### Mode presets
+
+| Mode | Object | Ratio pattern |
+|------|--------|---------------|
+| 0 | Marimba / wooden bar | 1 : 2.756 : 5.404 : 8.933 : 13.344 : 18.648 |
+| 1 | Drumhead (circular membrane) | 1 : 1.593 : 2.136 : 2.296 : 2.653 : 2.917 |
+| 2 | Rectangular membrane | 1 : 1.414 : 1.581 : 2.000 : 2.236 : 2.550 |
+| 3 | Plate (clamped) | 1 : 1.414 : 2.000 : 2.236 : 2.449 : 2.828 |
+
+The ratios come from the analytic solutions to the wave equation for each
+geometry (Bessel function zeros for the drumhead, Euler-Bernoulli beam theory
+for the bar, rectangular membrane modes from sum-of-squares).
+
+### Mallet exciter
+
+A mallet is modelled as a band-limited noise burst: white noise passed through a
+lowpass filter to control hardness, then gated by a short ADSR:
+
+```turtle
+:noise a val:Noise ; val:colour 0.5 .
+:tone  a val:OnePole ; val:cutoff 3000.0 ; val:mode 0.0 .   # LP, mallet hardness
+:env   a val:Envelope ; val:attack 0.1 ; val:decay 8.0 ; val:sustain 0.0 ; val:release 1.0 .
+:vca   a val:VCA .
+
+Noise → OnePole(LP) → VCA → ModalBank
+```
+
+`tone.cutoff` is the "Hardness" parameter: 200 Hz = soft padded mallet; 20 kHz
+= hard metal beater. The ADSR `decay` controls how long the mallet is in contact.
+
+### Decay and brightness
+
+`decay` is the T60 time (to −60 dB) of the fundamental. Higher modes decay
+faster, proportional to their frequency ratio — a marimba's 18th harmonic dies
+roughly 18× sooner than the fundamental, matching physical reality.
+
+`brightness` controls the spectral tilt of the excitation coupling: at 0 only
+the fundamental rings; at 1 all six modes are equally loud at the moment of
+impact.
+
+---
+
+## Part III — Reed exciter (`examples/rings-reed.ttl`)
+
+`val:Reed` implements a digital waveguide single-reed instrument. A cylindrical
+bore with negative reflection at the open end produces an odd-harmonic spectrum
+(1st, 3rd, 5th harmonic only) — the acoustic signature of a clarinet or oboe.
+The instrument is self-oscillating: no external excitation is needed once mouth
+pressure exceeds the reed's closure threshold.
+
+### The reed model
 
 ```
-MidiPitch → Scale(min, max) → SVF1.cutoff (fundamental)
-                             → SVF2.cutoff (2nd harmonic)  ...
-SVF1.bp + SVF2.bp + ... → Mixer → Output
+p_reflected = −bore_output (negative reflection at open end)
+delta_p     = pressure − p_reflected
+reed_open   = sqrt(max(0, delta_p)) × stiffness_factor
+p_new       = p_reflected + reed_open    (clipped to ±1)
 ```
 
-The `val:Scale` element (min=1×, max=2×) doubles the frequency for the second
-harmonic, `max=3×` for the third, and so on. A full six-resonator bank is 30
-lines of Turtle and four element types — no new C++ required.
+When `pressure` is low the reed stays closed and the output is silence. Above
+roughly 0.35 the reed opens enough to sustain oscillation. The pitch is set by
+the bore delay length: `N = sampleRate / (2 × frequency)` samples, giving a
+round trip of `1/frequency` seconds.
 
-## Loading the circuit
+### Playing guide
 
-Paste `examples/rings.ttl` into the Turtle editor or use **File → Load
-Circuit…**. Play a MIDI note; each note-on fires the pluck burst and the
-resonator rings at the correct pitch. Five parameters are exposed: Sustain,
-Damping, Pluck Decay, Noise Colour, and Volume.
+| Pressure | Behaviour |
+|----------|-----------|
+| 0.00–0.35 | Silent (reed closed) |
+| 0.35–0.60 | Stable fundamental tone |
+| 0.60–0.80 | Brighter, slightly overblown |
+| > 0.85 | Overblowing — register change |
+
+`stiffness` controls the reed responsiveness. A soft reed (0) is oboe-like and
+responsive to small pressure changes. A stiff reed (1) requires more pressure
+but is more stable in the upper register.
+
+`damping` controls bore losses. At 0 the bore is lossless and bright (metallic).
+At 1 the bore is heavily damped, producing a stopped mouthpiece sound.
+
+### Signal chain
+
+```turtle
+MidiPitch ──(control)──► Reed.frequency
+Reed ──► Ladder(tone, resonance) ──► Gain ──► Output
+```
+
+The `val:Ladder` filter after the reed acts as the player's embouchure —
+rolling off high harmonics smooths the square-wave-like reed output into a more
+vocal clarinet tone.
+
+---
+
+## Loading the circuits
+
+Three circuit files cover the Rings range:
+
+| File | Sound | Exciter | Resonator |
+|------|-------|---------|-----------|
+| `examples/rings.ttl` | Plucked string | noise burst | CombFilter (KS) |
+| `examples/rings-modal.ttl` | Bar / drum / plate | mallet noise burst | ModalBank |
+| `examples/rings-reed.ttl` | Clarinet / oboe | self-oscillating | Reed waveguide |
+
+Load any of them via the Turtle editor. For `rings-modal.ttl`, set the **Mode**
+parameter (0–3) to switch between marimba, drumhead, membrane, and plate sounds
+— each note-on fires the mallet burst at the new mode's frequency ratios.

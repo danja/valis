@@ -1,0 +1,117 @@
+# examples/rings-modal.ttl
+#
+# Mutable Instruments Rings — modal synthesis modes.
+#
+# A ModalBank excites six parallel 2-pole resonators at the natural frequency
+# ratios of the chosen physical object. Select the resonator family with the
+# "Mode" parameter:
+#
+#   0 = Marimba  (free-free bar — heavily inharmonic, wooden)
+#   1 = Drumhead (circular membrane — bell-like, spreading partials)
+#   2 = Membrane (rectangular — similar to drumhead, different ratios)
+#   3 = Plate    (clamped plate — metallic, dense partials)
+#
+# The mallet exciter is a noise burst shaped by a one-pole lowpass:
+#   Noise → OnePole (LP, mallet hardness) → VCA (ADSR gate) → ModalBank
+#
+# MidiPitch → ModalBank.frequency tunes all six modes relative to the note.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:rings-modal#> .
+
+:rings_modal a val:Circuit ;
+    rdfs:label "Rings (Modal)" ;
+    val:element :pitch , :noise , :tone , :env , :vca , :bank , :vol , :out ;
+    val:arc :aNoiseShape , :aShapeVca , :aVcaBank , :aBankVol , :aVolOut ;
+    val:arc :aPitchBank , :aEnvVca .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:noise a val:Noise ; val:colour 0.5 .
+
+# Mallet hardness: lowpass the noise burst before gating it.
+# Low cutoff = soft mallet (warm thump); high cutoff = hard mallet (bright attack).
+:tone a val:OnePole ;
+    val:cutoff 3000.0 ;   # Hz — mallet hardness
+    val:mode   0.0 .      # lowpass
+
+# Short ADSR: impulse-like. A near-zero attack and low sustain mean only the
+# initial transient seeds the resonators, giving a struck rather than bowed feel.
+:env a val:Envelope ;
+    val:attack  0.1 ;     # ms
+    val:decay   8.0 ;     # ms — width of the mallet strike
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+# ── Processing ───────────────────────────────────────────────────────────────
+
+:vca a val:VCA .
+
+:bank a val:ModalBank ;
+    val:frequency  220.0 ;
+    val:decay      2.0 ;      # T60 for the fundamental, seconds
+    val:brightness 0.6 ;
+    val:mode       0.0 .      # 0 = marimba
+
+:vol a val:Gain ; val:gain -3.0 .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aNoiseShape a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :tone  ; val:port "in"  ] .
+
+:aShapeVca a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :vca  ; val:port "in"  ] .
+
+:aVcaBank a val:Arc ;
+    val:from [ val:node :vca  ; val:port "out" ] ;
+    val:to   [ val:node :bank ; val:port "in"  ] .
+
+:aBankVol a val:Arc ;
+    val:from [ val:node :bank ; val:port "out" ] ;
+    val:to   [ val:node :vol  ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aPitchBank a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :bank  ; val:port "frequency" ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :bank ; val:property val:mode ;
+    lv2:name "Mode" ; lv2:symbol "mode" ;
+    lv2:minimum 0.0 ; lv2:maximum 3.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :bank ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; units:unit units:s .
+
+:p2 a val:Param ; val:slot 2 ; val:target :bank ; val:property val:brightness ;
+    lv2:name "Brightness" ; lv2:symbol "brightness" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :tone ; val:property val:cutoff ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ; units:unit units:hz ;
+    lv2:minimum 200.0 ; lv2:maximum 20000.0 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :env ; val:property val:decay ;
+    lv2:name "Strike Width" ; lv2:symbol "strike_width" ; units:unit units:ms .
+
+:p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .

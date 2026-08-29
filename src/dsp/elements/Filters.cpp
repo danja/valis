@@ -259,6 +259,114 @@ private:
     int freqIndex = -1, feedbackIndex = -1, dampingIndex = -1;
 };
 
+/// Six parallel 2-pole resonators tuned to preset modal frequency ratios.
+///
+/// Each resonator is a lossless digital resonator (two-pole bandpass) with
+/// pole radius set from a per-mode T60 decay time. Higher modes decay faster
+/// by dividing the fundamental decay by their frequency ratio. The mode
+/// parameter selects which physical object's ratios are used.
+class ModalBank final : public DspElement
+{
+public:
+    static constexpr int kModes      = 4;
+    static constexpr int kResonators = 6;
+
+    // Frequency ratios relative to the fundamental for each mode.
+    static constexpr float kRatios[kModes][kResonators] = {
+        // Marimba / free-free bar (Euler-Bernoulli beam, free BCs)
+        { 1.0f, 2.756f, 5.404f, 8.933f, 13.344f, 18.648f },
+        // Drumhead — circular membrane, Bessel zeros (01, 11, 21, 02, 31, 12)
+        { 1.0f, 1.593f, 2.136f, 2.296f,  2.653f,  2.917f },
+        // Rectangular membrane (1,1)(1,2)(2,1)(2,2)(1,3)(3,1) sqrt-of-sum-of-squares
+        { 1.0f, 1.414f, 1.581f, 2.000f,  2.236f,  2.550f },
+        // Plate — clamped rectangular, approximate
+        { 1.0f, 1.414f, 2.000f, 2.236f,  2.449f,  2.828f },
+    };
+
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        freqIdx       = controlIndex(type, "frequency");
+        decayIdx      = controlIndex(type, "decay");
+        brightnessIdx = controlIndex(type, "brightness");
+        modeIdx       = controlIndex(type, "mode");
+        reset();
+    }
+
+    void reset() override
+    {
+        for (auto& r : res)
+            r.y1 = r.y2 = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float baseFreq   = std::clamp(controlAt(args, freqIdx,       220.0f), 20.0f,
+                                             static_cast<float>(sampleRate * 0.45));
+        const float decayT60   = std::clamp(controlAt(args, decayIdx,        1.0f), 0.05f, 10.0f);
+        const float brightness = std::clamp(controlAt(args, brightnessIdx,   0.5f), 0.0f, 1.0f);
+        const int   mode       = std::clamp(static_cast<int>(
+                                     controlAt(args, modeIdx, 0.0f) + 0.5f), 0, kModes - 1);
+
+        const float* ratios = kRatios[mode];
+        const float* in     = args.audioIn[0];
+        float*       out    = args.audioOut[0];
+
+        const float nyquist = static_cast<float>(sampleRate * 0.45);
+        const float twoPi   = 6.28318530717959f;
+
+        // Clear the output; each resonator accumulates into it.
+        for (int i = 0; i < args.numSamples; ++i)
+            out[i] = 0.0f;
+
+        for (int n = 0; n < kResonators; ++n)
+        {
+            const float fn = std::min(baseFreq * ratios[n], nyquist);
+
+            // Higher modes decay faster proportional to their ratio.
+            const float T60n = decayT60 / ratios[n];
+            const float r    = std::pow(0.001f, 1.0f / (static_cast<float>(sampleRate) * T60n));
+
+            const float omega = twoPi * fn / static_cast<float>(sampleRate);
+            const float coeff = 2.0f * r * std::cos(omega);
+            const float r2    = r * r;
+
+            // Spectral tilt: higher modes quieter when brightness is low.
+            const float gain  = std::exp(-static_cast<float>(n) * (1.0f - brightness) * 2.0f);
+
+            float y1 = res[n].y1;
+            float y2 = res[n].y2;
+
+            for (int i = 0; i < args.numSamples; ++i)
+            {
+                const float y = coeff * y1 - r2 * y2 + gain * in[i];
+                y2 = y1;
+                y1 = y;
+                out[i] += y;
+            }
+
+            res[n].y1 = y1;
+            res[n].y2 = y2;
+        }
+
+        // Six resonators summing to 1 each would clip; normalise.
+        for (int i = 0; i < args.numSamples; ++i)
+            out[i] *= 0.15f;
+    }
+
+private:
+    struct Resonator { float y1 = 0.0f, y2 = 0.0f; };
+    Resonator res[kResonators];
+    double sampleRate = 44100.0;
+    int freqIdx = -1, decayIdx = -1, brightnessIdx = -1, modeIdx = -1;
+};
+
+// constexpr static member definitions (C++17 inline, but explicit for C++14 compat)
+constexpr float ModalBank::kRatios[ModalBank::kModes][ModalBank::kResonators];
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -273,5 +381,6 @@ void registerFilters(ElementRegistry& registry)
     registry.add("Ladder",        &make<elements::Ladder>);
     registry.add("UnitDelay",     &make<elements::UnitDelay>);
     registry.add("CombFilter",    &make<elements::CombFilter>);
+    registry.add("ModalBank",     &make<elements::ModalBank>);
 }
 }  // namespace valis

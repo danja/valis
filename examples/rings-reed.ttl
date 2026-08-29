@@ -1,0 +1,97 @@
+# examples/rings-reed.ttl
+#
+# Reed exciter — digital waveguide clarinet.
+#
+# A cylindrical bore with negative reflection at the open end produces an
+# odd-harmonic spectrum (1st, 3rd, 5th...) that gives the characteristic
+# clarinet/oboe timbre. The reed self-oscillates above a pressure threshold.
+#
+# Signal path:  Reed (self-oscillating) ──► Ladder (tone) ──► Gain ──► Output
+# Control:      MidiPitch ──► Reed.frequency
+#
+# Unlike the Karplus-Strong and ModalBank circuits, Reed requires no external
+# excitation signal — it generates audio autonomously once pressure > threshold.
+#
+# Playing guide:
+#   Pressure 0.0–0.35 : silence (reed closed)
+#   Pressure 0.35–0.60: stable fundamental tone
+#   Pressure 0.60–0.80: brighter, slightly overblown
+#   Pressure > 0.85   : overblowing / register change
+#
+# Stiffness 0 = soft, responsive reed (oboe-like); 1 = stiff, harsh reed.
+# Damping 0 = bright bore; 1 = muted (stopped mouthpiece).
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:rings-reed#> .
+
+:rings_reed a val:Circuit ;
+    rdfs:label "Rings (Reed)" ;
+    val:element :pitch , :reed , :vcf , :vol , :out ;
+    val:arc :aReedVcf , :aVcfVol , :aVolOut ;
+    val:arc :aPitchReed .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:reed a val:Reed ;
+    val:frequency 220.0 ;
+    val:pressure  0.5 ;
+    val:stiffness 0.4 ;
+    val:damping   0.2 .
+
+# ── Processing ───────────────────────────────────────────────────────────────
+
+# Optional post-filter: softens high harmonics for a more closed-tone quality.
+:vcf a val:Ladder ;
+    val:cutoff     3000.0 ;
+    val:resonance  0.1 ;
+    val:drive      1.0 .
+
+:vol a val:Gain ; val:gain -6.0 .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aReedVcf a val:Arc ;
+    val:from [ val:node :reed ; val:port "out" ] ;
+    val:to   [ val:node :vcf  ; val:port "in"  ] .
+
+:aVcfVol a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vol ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aPitchReed a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :reed  ; val:port "frequency" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :reed ; val:property val:pressure ;
+    lv2:name "Pressure" ; lv2:symbol "pressure" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :reed ; val:property val:stiffness ;
+    lv2:name "Stiffness" ; lv2:symbol "stiffness" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :reed ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :vcf ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; units:unit units:hz ;
+    lv2:minimum 100.0 ; lv2:maximum 20000.0 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .

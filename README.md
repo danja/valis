@@ -93,7 +93,7 @@ What works:
 - A circuit is parsed from Turtle, validated against the ontology, compiled to
   an execution order and run. Errors name the element or arc at fault, and
   parse errors carry line and column.
-- All 24 elements, with the ontology and the DSP registry asserted equal as
+- All 33 elements, with the ontology and the DSP registry asserted equal as
   sets in both directions — a class with no factory, or a factory with no class,
   fails the build.
 - The engine allocates nothing on the audio thread, enforced by a test that
@@ -114,6 +114,14 @@ relative to the fundamental drops 17× for a saw and 29× for a square. And
 ontology bug it had been hiding: its output was declared an audio port while the
 implementation wrote a control one. Every element is now checked against its own
 port declarations, so that class of mismatch fails the build.
+
+Recent additions since milestones closed: nine new elements (`val:Scale`,
+`val:Delay`, `val:VCA`, `val:MidiPitch`, `val:MidiVelocity`, `val:AsymClip`,
+`val:CombFilter`, `val:ModalBank`, `val:Reed`); five worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `rings-modal.ttl`,
+`rings-reed.ttl` with matching case-study docs); session state persisted to a platform settings
+file on a 3-second debounce, so changes survive focus loss and the DAW's close;
+topological ordering now includes control arcs so control sources such as
+`MidiPitch` and `Envelope` are always processed before their destinations.
 
 Remaining rough edges: the graph view's structural edits re-serialise the
 document, so hand formatting and comments are lost (it warns on first use), and

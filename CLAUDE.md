@@ -38,6 +38,13 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 - `valis_core` links `juce_dsp` and serd/sord only; no `juce_gui_*`. The whole model and DSP layer is testable as plain console executables.
 - The parameter list is fixed at construction (64 normalised slots). `val:Param` declarations bind slots to element properties.
 
+## Control arc semantics
+
+- A control arc **replaces** the destination port's value each block — it does not add to it. A fixed `val:cutoff` on a Ladder instance has no effect if any control arc also targets `cutoff`.
+- When designing a circuit, check whether a control arc targets a port before setting a fixed value on it. If an arc reaches that port, the baked value is unreachable.
+- The resting value for a controlled port must live in the control path (e.g., in a Scale's `val:min`), not on the element instance.
+- The compiler's topological sort uses two adjacency graphs: `cycleAdj` (audio only, for cycle detection) and `orderAdj` (audio + control, for processing order). Control sources are guaranteed to run before their destinations in the same block.
+
 ## Conventions
 
 - Small files, one class each. Public headers in `include/valis/`, implementations in `src/`.

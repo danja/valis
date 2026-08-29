@@ -1,8 +1,8 @@
-In the plugin, when it loses focus the current settings should be persisted, same when  the DAW is closed/reopened. Presumably this will be supported in JUCE somewhere.
-
-When I load the SH-101.ttl the filter cutoff doesn't appear to have any effect. Can we extend this example a little to make it more like an SH-101, remembering to update the case study docs.
-
-Rings circuit : add the other modes, extend the types of resonator to add beam; marimba; drumhead; membrane; plate; and string. Add an exciter section in the style of Mutable Instruments Elements, include noise, mallet etc. Consider adding new UI components to the Knobs view for choices - eg. a drop-down list selector, radio buttons, checkboxes etc.
+Rings circuit — further Rings/Elements extensions:
+- Beam resonator (stiff string, dispersion): val:StiffString element with allpass dispersion in feedback
+- Rings-style "bowed string" exciter: val:Bow element (friction/Stribeck model, requires resonator feedback)
+- UI enhancements for integer/enum parameters: dropdown selector, radio buttons, checkboxes in Knobs view
+  (requires: new port annotation in ontology e.g. lv2:enumeration, new component in ControlsView.cpp)
 
 ## Recurring - once the above is clear
 

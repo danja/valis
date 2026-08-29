@@ -262,6 +262,95 @@ public:
     void process(const ProcessArgs&) noexcept override {}
 };
 
+/// Digital waveguide single-reed instrument (clarinet model).
+///
+/// A cylindrical bore (closed at the reed end, open at the bell) is modelled
+/// as a delay line of length sampleRate / (2 * frequency). The open end
+/// reflects negatively, giving the odd-harmonic spectrum characteristic of a
+/// clarinet. The reed junction is a pressure-controlled nonlinear valve:
+///
+///   delta_p = mouth_pressure - reflected_bore_pressure
+///   reed_open = clamp(sqrt(max(0, delta_p)) * k, 0, 1.5)
+///   p_new = bore_pressure + reed_open
+///
+/// Self-oscillates when pressure exceeds the reed's closure threshold.
+class Reed final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate   = rate;
+        freqIdx      = controlIndex(type, "frequency");
+        pressureIdx  = controlIndex(type, "pressure");
+        stiffnessIdx = controlIndex(type, "stiffness");
+        dampingIdx   = controlIndex(type, "damping");
+        buffer.assign(static_cast<std::size_t>(rate / 10.0) + 2, 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos    = 0;
+        filterState = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float freq      = std::clamp(controlAt(args, freqIdx,      220.0f), 20.0f,
+                                           static_cast<float>(sampleRate * 0.45));
+        const float pressure  = std::clamp(controlAt(args, pressureIdx,   0.5f), 0.0f, 1.0f);
+        const float stiffness = std::clamp(controlAt(args, stiffnessIdx,  0.5f), 0.0f, 1.0f);
+        const float damping   = std::clamp(controlAt(args, dampingIdx,    0.2f), 0.0f, 1.0f);
+
+        // Round trip for closed-open cylinder: 2L/c = sampleRate / (2 * freq)
+        const int N       = std::max(1, static_cast<int>(sampleRate / (2.0 * freq) + 0.5));
+        const int bufSize = static_cast<int>(buffer.size());
+
+        const float dampCoeff = damping * 0.9f;
+        const float k         = 1.0f + stiffness * 3.0f;   // reed responsiveness
+
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            int readPos = writePos - N;
+            if (readPos < 0)
+                readPos += bufSize;
+
+            // Negative reflection at the open end; loss from bore.
+            const float p_back = -buffer[static_cast<std::size_t>(readPos)];
+
+            // One-pole LP in bore (wall losses / mouthpiece damping).
+            filterState = dampCoeff * filterState + (1.0f - dampCoeff) * p_back;
+
+            // Reed junction: valve opens proportionally to pressure differential.
+            const float delta    = pressure - filterState;
+            const float reedOpen = delta > 0.0f
+                                 ? std::min(1.5f, std::sqrt(delta) * k)
+                                 : 0.0f;
+
+            const float p_new = std::clamp(filterState + reedOpen, -1.0f, 1.0f);
+            buffer[static_cast<std::size_t>(writePos)] = p_new;
+            out[i] = p_new * 0.25f;
+
+            if (++writePos >= bufSize)
+                writePos = 0;
+        }
+    }
+
+private:
+    std::vector<float> buffer;
+    int writePos    = 0;
+    float filterState = 0.0f;
+    double sampleRate = 44100.0;
+    int freqIdx = -1, pressureIdx = -1, stiffnessIdx = -1, dampingIdx = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -276,6 +365,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("LFO",          &make<elements::LFO>);
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
+    registry.add("Reed",         &make<elements::Reed>);
     registry.add("Input",        &make<elements::Input>);
     registry.add("Output",       &make<elements::Output>);
 }

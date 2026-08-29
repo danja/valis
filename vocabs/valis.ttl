@@ -181,6 +181,32 @@ val:Noise a rdfs:Class ; rdfs:subClassOf val:Source ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "0 white, 1 pink" ] .
 
+val:Reed a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Reed" ;
+    rdfs:comment """Digital waveguide single-reed instrument (clarinet model).
+A cylindrical bore with negative reflection at the open end gives odd-harmonic
+content. Self-oscillates when pressure exceeds the reed's threshold. Connect
+val:MidiPitch to frequency for pitch tracking.""" ;
+    val:implementation "Reed" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 220.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 5000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pressure" ;
+        lv2:name "Pressure" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Mouth blowing pressure. Below ~0.3 = silent; 0.4–0.7 = normal; above 0.8 = overblown." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "stiffness" ;
+        lv2:name "Stiffness" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Reed stiffness. Higher = more responsive, brighter tone." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
+        lv2:name "Damping" ; lv2:default 0.2 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Bore loss. 0 = bright and metallic; 1 = dark and muted." ] .
+
 ################################################################
 # Filters                                                      #
 ################################################################
@@ -267,6 +293,36 @@ frequencies decay: 0 = flat feedback (bright), 1 = heavily damped (dark).""" ;
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
         lv2:name "Damping" ; lv2:default 0.1 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:ModalBank a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "ModalBank" ;
+    rdfs:comment """Six parallel 2-pole resonators tuned to the modal frequency
+ratios of a physical object. mode selects the resonator family:
+  0 = marimba / wooden bar  (ratios 1 : 2.756 : 5.404 : 8.933 : 13.344 : 18.648)
+  1 = drumhead / circular membrane  (1 : 1.593 : 2.136 : 2.296 : 2.653 : 2.917)
+  2 = rectangular membrane  (1 : 1.414 : 1.581 : 2.000 : 2.236 : 2.550)
+  3 = plate  (1 : 1.414 : 2.000 : 2.236 : 2.449 : 2.828)
+Connect an excitation signal (noise, impulse, bow) to the audio input.
+Connect val:MidiPitch to frequency for pitch-tracked resonance.""" ;
+    val:implementation "ModalBank" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in"         ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out"        ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "frequency"  ;
+        lv2:name "Frequency" ; lv2:default 220.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 5000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "decay"      ;
+        lv2:name "Decay" ; lv2:default 1.0 ;
+        lv2:minimum 0.05 ; lv2:maximum 10.0 ; units:unit units:s ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "brightness" ;
+        lv2:name "Brightness" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Spectral tilt. 0 = only fundamental; 1 = all modes equally loud." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "mode"       ;
+        lv2:name "Mode" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 3.0 ;
+        rdfs:comment "0 marimba, 1 drumhead, 2 membrane, 3 plate" ] .
 
 ################################################################
 # Transfer functions                                           #
