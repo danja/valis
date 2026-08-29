@@ -92,6 +92,87 @@ private:
     int dryIn = -1, wetIn = -1, mixIndex = -1;
 };
 
+/// Remaps a 0–1 control signal to [min, max]. Bridges Envelope (0–1 output)
+/// to targets that expect physical units such as Hz or ms.
+class Scale final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        inIndex  = controlIndex(type, "in");
+        minIndex = controlIndex(type, "min");
+        maxIndex = controlIndex(type, "max");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+        const float in = controlAt(args, inIndex,  0.0f);
+        const float lo = controlAt(args, minIndex, 0.0f);
+        const float hi = controlAt(args, maxIndex, 1.0f);
+        args.controlOut[0] = lo + in * (hi - lo);
+    }
+
+private:
+    int inIndex = -1, minIndex = -1, maxIndex = -1;
+};
+
+/// Single-tap delay line with feedback. Preallocated in prepare(); process()
+/// never allocates. Maximum delay: 5 seconds at the current sample rate.
+class Delay final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        timeIndex     = controlIndex(type, "time");
+        feedbackIndex = controlIndex(type, "feedback");
+        buffer.assign(static_cast<std::size_t>(rate * 5.0) + 1, 0.0f);
+        writePos = 0;
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos = 0;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float timeMs   = std::clamp(controlAt(args, timeIndex,     250.0f), 0.0f, 5000.0f);
+        const float feedback = std::clamp(controlAt(args, feedbackIndex,   0.0f), 0.0f, 0.99f);
+        const int   delayN   = std::max(1, static_cast<int>(timeMs * 0.001 * sampleRate));
+        const int   bufSize  = static_cast<int>(buffer.size());
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            int readPos = writePos - delayN;
+            if (readPos < 0)
+                readPos += bufSize;
+
+            const float delayed = buffer[static_cast<std::size_t>(readPos)];
+            buffer[static_cast<std::size_t>(writePos)] = in[i] + delayed * feedback;
+            out[i] = delayed;
+
+            if (++writePos >= bufSize)
+                writePos = 0;
+        }
+    }
+
+private:
+    std::vector<float> buffer;
+    int writePos = 0;
+    double sampleRate = 44100.0;
+    int timeIndex = -1, feedbackIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -103,6 +184,8 @@ void registerUtility(ElementRegistry& registry)
 {
     registry.add("Gain",   &make<elements::Gain>);
     registry.add("VCA",    &make<elements::VCA>);
+    registry.add("Scale",  &make<elements::Scale>);
+    registry.add("Delay",  &make<elements::Delay>);
     registry.add("Mixer",  &make<elements::Mixer>);
     registry.add("DryWet", &make<elements::DryWet>);
 }

@@ -1,0 +1,124 @@
+# examples/sh101.ttl
+#
+# Monophonic subtractive synthesiser modelled after the Roland SH-101.
+#
+# Signal path:  MidiPitch → Oscillator → Ladder VCF → VCA → Output
+# Modulation:   Envelope → VCA.cv          (amplitude shaping)
+#               Envelope → Scale → VCF.cutoff  (filter envelope)
+#               LFO     → Oscillator.frequency  (vibrato, depth = 0 by default)
+#
+# Parameters (slots 0–9) expose the most-played controls to the host.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:sh101#> .
+
+:sh101 a val:Circuit ;
+    rdfs:label "SH-101" ;
+    val:element :pitch , :lfo , :osc , :vcf , :env , :envScale , :vca , :out ;
+    val:arc :aPitchOsc , :aLfoOsc , :aOscVcf , :aVcfVca , :aVcaOut ,
+            :aEnvVca , :aEnvScale , :aScaleVcf .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:lfo a val:LFO ;
+    val:rate  5.0 ;
+    val:shape 0 .            # 0 = sine (vibrato)
+
+:osc a val:Oscillator ;
+    val:shape 1 .            # 1 = sawtooth
+
+# ── Filter ───────────────────────────────────────────────────────────────────
+
+:vcf a val:Ladder ;
+    val:cutoff    800.0 ;
+    val:resonance 0.3 ;
+    val:drive     1.0 .
+
+# ── Envelope → VCA ───────────────────────────────────────────────────────────
+
+:env a val:Envelope ;
+    val:attack  10.0 ;       # ms
+    val:decay   200.0 ;
+    val:sustain 0.7 ;
+    val:release 300.0 .
+
+# Scale maps 0–1 envelope to the filter's cutoff sweep range.
+# With these defaults a fully open envelope adds ~7200 Hz above the base cutoff.
+:envScale a val:Scale ;
+    val:min 0.0 ;
+    val:max 7200.0 .
+
+:vca a val:VCA .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aOscVcf a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                     val:to   [ val:node :vcf ; val:port "in"  ] .
+
+:aVcfVca a val:Arc ; val:from [ val:node :vcf ; val:port "out" ] ;
+                     val:to   [ val:node :vca ; val:port "in"  ] .
+
+:aVcaOut a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
+                     val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+# MidiPitch → VCO frequency
+:aPitchOsc a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :osc   ; val:port "frequency" ] .
+
+# LFO → VCO frequency (vibrato); depth = 0 by default, raise to taste
+:aLfoOsc a val:ControlArc ; val:depth 0.0 ;
+    val:from [ val:node :lfo ; val:port "out" ] ;
+    val:to   [ val:node :osc ; val:port "frequency" ] .
+
+# Envelope → VCA cv (amplitude)
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# Envelope → Scale → VCF cutoff (filter sweep)
+:aEnvScale a val:ControlArc ;
+    val:from [ val:node :env      ; val:port "out" ] ;
+    val:to   [ val:node :envScale ; val:port "in"  ] .
+
+:aScaleVcf a val:ControlArc ;
+    val:from [ val:node :envScale ; val:port "out"    ] ;
+    val:to   [ val:node :vcf      ; val:port "cutoff" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :osc ; val:property val:shape ;
+    lv2:name "Osc Shape" ; lv2:symbol "osc_shape" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :vcf ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+
+:p2 a val:Param ; val:slot 2 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :env ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ; units:unit units:ms .
+
+:p4 a val:Param ; val:slot 4 ; val:target :env ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; units:unit units:ms .
+
+:p5 a val:Param ; val:slot 5 ; val:target :env ; val:property val:sustain ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" .
+
+:p6 a val:Param ; val:slot 6 ; val:target :env ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ; units:unit units:ms .
+
+:p7 a val:Param ; val:slot 7 ; val:target :envScale ; val:property val:max ;
+    lv2:name "Env → Filter" ; lv2:symbol "env_filter" ; units:unit units:hz .
+
+:p8 a val:Param ; val:slot 8 ; val:target :lfo ; val:property val:rate ;
+    lv2:name "Vibrato Rate" ; lv2:symbol "vibrato_rate" ; units:unit units:hz .

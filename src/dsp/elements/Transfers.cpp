@@ -234,6 +234,41 @@ private:
     int muIndex = -1, biasIndex = -1;
 };
 
+/// Asymmetric soft clipper with independent positive and negative thresholds,
+/// modelling a mismatched diode pair (e.g. Klon Centaur: 2× Ge vs 1× Schottky).
+///
+/// Each half uses t·tanh(x/t) — a smooth, bounded shape whose threshold is the
+/// 1/cosh² inflection point, approximately the diode forward voltage.
+class AsymClip final : public MonoElement
+{
+protected:
+    void cacheIndices(const ElementType& type) override
+    {
+        driveIndex = controlIndex(type, "drive");
+        posVfIndex = controlIndex(type, "posVf");
+        negVfIndex = controlIndex(type, "negVf");
+    }
+
+    void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
+    {
+        const float drive = std::max(controlAt(args, driveIndex,  1.0f), 0.1f);
+        const float posVf = std::max(controlAt(args, posVfIndex, 0.3f), 0.01f);
+        const float negVf = std::max(controlAt(args, negVfIndex, 0.6f), 0.01f);
+
+        for (int i = 0; i < n; ++i)
+        {
+            const float x = in[i] * drive;
+            if (x >= 0.0f)
+                out[i] = posVf * std::tanh(x / posVf);
+            else
+                out[i] = -negVf * std::tanh(-x / negVf);
+        }
+    }
+
+private:
+    int driveIndex = -1, posVfIndex = -1, negVfIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -251,5 +286,6 @@ void registerTransfers(ElementRegistry& registry)
     registry.add("Diode",     &make<elements::Diode>);
     registry.add("DiodePair", &make<elements::DiodePair>);
     registry.add("Triode",    &make<elements::Triode>);
+    registry.add("AsymClip",  &make<elements::AsymClip>);
 }
 }  // namespace valis

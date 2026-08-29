@@ -1,0 +1,78 @@
+# .github/workflows/release.yml
+#
+# Triggered on version tags (v*). Builds Release binaries for Linux,
+# uploads them as a GitHub Release with auto-generated notes.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libasound2-dev libjack-jackd2-dev \
+            libfreetype-dev libfontconfig1-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libxrender-dev libxi-dev \
+            libserd-dev libsord-dev
+
+      - name: Check out JUCE
+        run: git clone --depth 1 --branch 9.0.1 https://github.com/juce-framework/JUCE ../JUCE
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVALIS_JUCE_DIR=../JUCE \
+            -DVALIS_WITH_MCP=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          DIST=valis-${VERSION}-linux-x86_64
+          mkdir -p dist/${DIST}
+
+          # VST3
+          cp -r build/valis_plugin_artefacts/Release/VST3/Valis.vst3 \
+                dist/${DIST}/Valis.vst3
+
+          # LV2
+          cp -r build/valis_plugin_artefacts/Release/LV2/Valis.lv2 \
+                dist/${DIST}/Valis.lv2
+
+          # Standalone
+          cp build/valis_plugin_artefacts/Release/Standalone/Valis \
+             dist/${DIST}/Valis
+
+          # Include examples and ontology
+          cp -r examples dist/${DIST}/examples
+          cp -r vocabs   dist/${DIST}/vocabs
+
+          cd dist
+          tar -czf ${DIST}.tar.gz ${DIST}
+          sha256sum ${DIST}.tar.gz > ${DIST}.tar.gz.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256

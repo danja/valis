@@ -1,0 +1,109 @@
+# examples/klon.ttl
+#
+# Klon Centaur guitar overdrive, simplified circuit model.
+#
+# The Centaur's character comes from three things:
+#   1. Asymmetric soft clipping (two germanium diodes vs one Schottky in the
+#      feedback path of an op-amp stage).
+#   2. A clean-signal blend that preserves pick attack and low-end.
+#   3. A passive treble-cut tone control that rolls off fizz.
+#
+# Signal path:
+#   Input ─► preGain (Gain, drive) ─► clip (AsymClip) ─► blend (DryWet)
+#                                                              │
+#   Input ─────────────────────────────────────► blend.dry ───┘
+#                                                blend.out ─► tone (OnePole LP)
+#                                                             ─► vol (Gain) ─► Output
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:klon#> .
+
+:klon a val:Circuit ;
+    rdfs:label "Klon Centaur" ;
+    val:element :in , :preGain , :clip , :blend , :tone , :vol , :out ;
+    val:arc :aInPre , :aPreClip , :aClipBlendWet , :aInBlendDry ,
+            :aBlendTone , :aToneVol , :aVolOut .
+
+# ── Elements ─────────────────────────────────────────────────────────────────
+
+:in      a val:Input .
+
+# Pre-gain amplifies the guitar signal into the clipping range.
+# At drive=1 the signal stays clean; at drive=20+ it clips hard.
+:preGain a val:Gain ; val:gain 20.0 .       # dB — raises ~0.1 V guitar to ~1 V
+
+# The asymmetric clipper. Klon Centaur uses 2× 1N34A Ge (Vf ≈ 0.2 V each,
+# so the stack forward voltage ≈ 0.4 V) vs 1× BAT41 Schottky (Vf ≈ 0.3 V).
+# posVf < negVf gives the characteristic upper-half compression.
+:clip    a val:AsymClip ;
+    val:drive  1.0 ;
+    val:posVf  0.3 ;     # Schottky threshold
+    val:negVf  0.4 .     # Ge pair threshold
+
+# Clean blend: mix=0 → all dry (clean), mix=1 → all wet (clipped).
+# The Centaur sits around mix=0.5 — that blend of clean and dirty is
+# the sound the circuit is named for.
+:blend   a val:DryWet ; val:mix 0.5 .
+
+# Passive tone control: a gentle low-pass rolls off clipping fizz.
+# Cutoff 8 kHz ≈ fully open (bright); lower to taste.
+:tone    a val:OnePole ; val:cutoff 8000.0 ; val:mode 0 .   # 0 = lowpass
+
+# Output volume trim. The clipping stage has gain, so this brings level back.
+:vol     a val:Gain ; val:gain -6.0 .
+
+:out     a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aInPre a val:Arc ;
+    val:from [ val:node :in      ; val:port "out" ] ;
+    val:to   [ val:node :preGain ; val:port "in"  ] .
+
+:aPreClip a val:Arc ;
+    val:from [ val:node :preGain ; val:port "out" ] ;
+    val:to   [ val:node :clip    ; val:port "in"  ] .
+
+:aClipBlendWet a val:Arc ;
+    val:from [ val:node :clip  ; val:port "out" ] ;
+    val:to   [ val:node :blend ; val:port "wet" ] .
+
+# The clean path: Input also feeds DryWet's dry port (fan-out is fine).
+:aInBlendDry a val:Arc ;
+    val:from [ val:node :in    ; val:port "out" ] ;
+    val:to   [ val:node :blend ; val:port "dry" ] .
+
+:aBlendTone a val:Arc ;
+    val:from [ val:node :blend ; val:port "out" ] ;
+    val:to   [ val:node :tone  ; val:port "in"  ] .
+
+:aToneVol a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :vol  ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :preGain ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ; units:unit units:db .
+
+:p1 a val:Param ; val:slot 1 ; val:target :clip ; val:property val:posVf ;
+    lv2:name "Positive Vf" ; lv2:symbol "pos_vf" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :clip ; val:property val:negVf ;
+    lv2:name "Negative Vf" ; lv2:symbol "neg_vf" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :blend ; val:property val:mix ;
+    lv2:name "Blend" ; lv2:symbol "blend" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :tone ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; units:unit units:hz .
+
+:p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .

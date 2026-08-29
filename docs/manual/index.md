@@ -9,6 +9,11 @@ can read, edit and hand to a language model.
 - [The MCP surface](mcp.md) — driving the plugin over HTTP
 - [Building](building.md) — prerequisites and the build
 
+### Case studies
+
+- [SH-101 subtractive synth](sh101.md) — monophonic VCO → VCF → VCA with MIDI and LFO
+- [Klon Centaur](klon.md) — asymmetric diode overdrive with clean blend
+
 ### See Also
 
 - [Downspout](https://danja.github.io/downspout/) VST3 plugins
