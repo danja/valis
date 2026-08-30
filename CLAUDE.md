@@ -22,6 +22,8 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 
 - Log mistakes in `MISTAKES.md` (what happened, root cause, prevention).
 - Read `TODO.md` at the start of each session; carry out outstanding tasks and remove completed ones.
+- Use the Read tool rather than sed
+- Call MCP tools directly rather than using curl
 
 ## Test hosts
 
