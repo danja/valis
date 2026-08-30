@@ -28,7 +28,7 @@ effect does.
 
 Not a synth. Scream is a distortion effect that recreates the filter from Massive that
 made the 2010-era growl, and it is built on published work rather than guesswork:
-Zavalishin's *The Art of VA Filter Design* ch. 6 for the nonlinearities, Andy Simper's
+Zavalishin's [The Art of VA Filter Design](https://github.com/danja/valis/blob/main/reference/VAFilterDesign_1.0.3.pdf) ch. 6 for the nonlinearities, Andy Simper's
 [`SvfLinearTrapOptimised2`](https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf)
 for the filter, Jatin Chowdhury's second-order ADAA for the saturator, and
 Giannoulis/Massberg/Reiss for the compressor.
@@ -111,23 +111,23 @@ it, and the gate's control arc — the actual signal flow, not a faceplate.
 
 Gaps between this circuit and the ontology as it stands:
 
-- [ ] **Control-rate arcs.** An arc must be able to end on an `lv2:ControlPort`, carrying
+- [x] **Control-rate arcs.** An arc must be able to end on an `lv2:ControlPort`, carrying
       one value per block, with modulation depth as a property of the arc
       (`val:depth`) rather than of either endpoint. Without this there is no modulation
       and Valis is a static chain.
-- [ ] **`val:antialiasing`** on `val:Transfer`, with `val:ADAA1`, `val:ADAA2`,
+- [x] **`val:antialiasing`** on `val:Transfer`, with `val:ADAA1`, `val:ADAA2`,
       `val:Oversample2x`, `val:Oversample4x` and `val:None`. ADAA2 tanh needs `double`
       internally — single precision overflows the second antiderivative.
-- [ ] **Named multi-output filters.** `val:StateVariable` should expose `lp`, `bp` and
+- [x] **Named multi-output filters.** `val:StateVariable` should expose `lp`, `bp` and
       `hp` output ports rather than a numeric `mode`, matching the Cytomic
       mixing-coefficient form it implements.
-- [ ] **`val:Expander`** — hard-knee expander/gate with attack and release.
-- [ ] **`val:EnvelopeFollower`** — peak and RMS detection, the control source for the gate.
-- [ ] **`val:Compressor`** — Giannoulis/Massberg/Reiss, soft knee, upward and downward,
+- [x] **`val:Expander`** — hard-knee expander/gate with attack and release.
+- [x] **`val:EnvelopeFollower`** — peak and RMS detection, the control source for the gate.
+- [x] **`val:Compressor`** — Giannoulis/Massberg/Reiss, soft knee, upward and downward,
       for the OTT-style stage the brief asks for after the filter.
-- [ ] **More saturators** — `val:SinArcTan` (`x/√(x²+1)`) and `val:SoftSine` (`x/(|x|+1)`),
+- [x] **More saturators** — `val:SinArcTan` (`x/√(x²+1)`) and `val:SoftSine` (`x/(|x|+1)`),
       both straight from Scream and both cheap.
-- [ ] **Feedback validation.** The compiler must accept a cycle that passes through a
+- [x] **Feedback validation.** The compiler must accept a cycle that passes through a
       `val:UnitDelay` and reject one that does not, naming the offending arc.
 
 ## Acceptance

@@ -36,25 +36,29 @@ arc type is introduced.
 
 ---
 
-## System serd 0.30.x causes SEGFAULT in error callback
+## `assert(side_effect())` silenced by NDEBUG in Release builds
 
-**What happened:** `rdf_TurtleStoreTest` SEGFAULTed in the CI Release build on
-`ubuntu-latest` (Ubuntu 22.04) which ships `libserd-0` 0.30.10 via apt, while
-local development used 0.32.6 where tests passed.
+**What happened:** `rdf_TurtleStoreTest` SEGFAULTed only in CI Release builds
+(`cmake -DCMAKE_BUILD_TYPE=Release`). Debug builds passed locally.
 
-**Root cause:** The `SerdError` struct layout changed between 0.30.x and 0.32.x
-(field order reordered: `fmt`/`args` moved from offsets 0/8 to 24/32, with a new
-`status` field prepended). The CI apt install provided the 0.30.x binary alongside
-the 0.30.x headers, so the binary was correctly built for 0.30.x — but any test
-infrastructure that depends on `collectWorldError`/`collectError` reading the
-error struct becomes undefined if the code was authored against a different layout.
-Additionally, `serd_world_set_error_sink` ABI may differ across minor versions.
+**Root cause:** Six `parse`/`parseFile` calls were wrapped inside `assert()`:
+`assert(store.parse(...))`. In Release mode CMake defines `NDEBUG`, which expands
+`assert(expr)` to `((void)0)` — the expression is **never evaluated**. The parse
+never ran, the store remained empty, and the immediately following
+`circuits[0]` access on an empty vector caused the SEGFAULT.
 
-**Prevention:** Don't rely on system serd/sord. The `FindOrFetchSerd.cmake` now
-rejects system packages older than 0.32.0 and fetches a pinned version instead.
-CI workflows no longer install `libserd-dev`/`libsord-dev` via apt. When adding a
-dependency that has breaking API changes between minor versions, pin a minimum
-version in the cmake finder from the start.
+The initial diagnosis was wrong (suspected serd struct layout difference between
+0.30.x and 0.32.x). Removing `libserd-dev` from CI apt-installs had no effect
+because that was not the cause.
+
+**Prevention:** Never call a function with observable side effects inside
+`assert()`. The correct pattern is:
+```cpp
+const bool ok = store.parse(...);
+assert(ok);
+```
+This ensures the call happens in all build types. Any function whose return value
+you need to assert on must be called before the assert.
 
 ---
 

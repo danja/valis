@@ -45,6 +45,12 @@ to confirm a running instance before using MCP tools that require a host.
 - `valis_core` links `juce_dsp` and serd/sord only; no `juce_gui_*`. The whole model and DSP layer is testable as plain console executables.
 - The parameter list is fixed at construction (64 normalised slots). `val:Param` declarations bind slots to element properties.
 
+## Documentation rules
+
+- documents should be written in technical plain English
+- do not use em dashes or novel jargon
+- any references to concepts that aren't common knowledge should contain links to further information
+
 ## Control arc semantics
 
 - A control arc **replaces** the destination port's value each block — it does not add to it. A fixed `val:cutoff` on a Ladder instance has no effect if any control arc also targets `cutoff`.

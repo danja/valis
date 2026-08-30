@@ -34,7 +34,8 @@ void testParseAndQuery()
 {
     TurtleStore store;
     std::vector<ParseError> errors;
-    assert(store.parse(kCircuit, "urn:valis:test", errors));
+    const bool parsed = store.parse(kCircuit, "urn:valis:test", errors);
+    assert(parsed);
     assert(errors.empty());
     assert(store.size() > 0);
 
@@ -106,7 +107,8 @@ void testRoundTrip()
 {
     TurtleStore first;
     std::vector<ParseError> errors;
-    assert(first.parse(kCircuit, "urn:valis:test", errors));
+    const bool parsed1 = first.parse(kCircuit, "urn:valis:test", errors);
+    assert(parsed1);
 
     first.registerPrefix("val", vocab::VAL);
     const std::string out = first.serialise();
@@ -116,7 +118,8 @@ void testRoundTrip()
     // layout are not preserved; the triples are.
     TurtleStore second;
     std::vector<ParseError> errors2;
-    assert(second.parse(out, "urn:valis:test", errors2));
+    const bool parsed2 = second.parse(out, "urn:valis:test", errors2);
+    assert(parsed2);
     assert(errors2.empty());
     assert(second.size() == first.size());
 
@@ -128,7 +131,8 @@ void testMutation()
 {
     TurtleStore store;
     std::vector<ParseError> errors;
-    assert(store.parse(kCircuit, "urn:valis:test", errors));
+    const bool parsedM = store.parse(kCircuit, "urn:valis:test", errors);
+    assert(parsedM);
 
     const auto before = store.size();
     auto s = store.uri("urn:valis:circuit#gain");
@@ -185,7 +189,8 @@ void testOntologyShape()
 {
     TurtleStore store;
     std::vector<ParseError> errors;
-    assert(store.parseFile(VALIS_VOCABS_DIR "/valis.ttl", errors));
+    const bool parsedOnt = store.parseFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
+    assert(parsedOnt);
 
     const auto implemented = store.subjects(vocab::val::implementation,
                                             store.literal("Ladder"));
@@ -235,7 +240,8 @@ void testSkreamCircuit()
 {
     TurtleStore store;
     std::vector<ParseError> errors;
-    assert(store.parseFile(VALIS_EXAMPLES_DIR "/skream.ttl", errors));
+    const bool parsedSkream = store.parseFile(VALIS_EXAMPLES_DIR "/skream.ttl", errors);
+    assert(parsedSkream);
     assert(errors.empty());
 
     const auto circuits = store.subjectsOfType(vocab::val::Circuit);

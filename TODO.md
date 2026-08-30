@@ -4,7 +4,7 @@ I think there is some VST tesing code in ~/VST_SDK that might be useful for vali
 
 Maximise compatibility with /home/danny/github/transmission - try it as a test host using MCP. We maintain Transmission so can changes things over there if need be.
 
-* test coverage — Ladder, OnePole, LFO, Noise, Envelope, Compressor, VCA, Scale, Mixer, Delay, DryWet have no dedicated behaviour tests (covered indirectly by engine/circuit tests)
+* test coverage — Envelope, Compressor, Scale, Mixer, Delay, DryWet have no dedicated behaviour tests (covered indirectly by engine/circuit tests)
 
 ## Recurring - check periodically
 

@@ -2,50 +2,21 @@
 
 **Virtual Analog LLM Integrated System**
 
-Valis is a DAW plugin — Standalone, VST3, LV2 and CLAP — that builds virtual-analog
-circuits from RDF/Turtle descriptions. The same circuit is presented through three
-views (a syntax-highlighted Turtle editor, a node-and-arc graph, and a knobs panel)
-and through an HTTP MCP surface, so an LLM can drive every operation the UI can.
+Valis is a standalone app and a DAW plugin that builds virtual analog circuits from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view with knobs etc, a node-and-arc graph and a syntax-highlighted Turtle editor.
+Functionality is also supported through MCP, so an LLM can drive every operation the UI can.
 
-[`docs/plan.md`](docs/plan.md) is the implementation plan and the progress tracker:
-it fixes the vocabulary, the layering and the real-time boundary, and each milestone
-carries an inline status annotation as it completes.
+The core of this system is the Valis ontology : [valis.ttl](https://github.com/danja/valis/blob/main/vocabs/valis.ttl)
 
-## Architecture
+## What is Virtual Analog Synthesis?
 
-Four layers with two hard boundaries. Every operation the plugin can perform is one
-`Op`; the three views and the MCP server are thin adapters over that single surface,
-never a second implementation. Below the model sits the real-time line: the audio
-callback never allocates, never does I/O and never parses RDF. `CompiledCircuit` is
-built and fully preallocated on the message thread, then handed to the engine by
-atomic pointer swap.
+VA, also known as [Analog Modeling](https://en.wikipedia.org/wiki/Analog_modeling_synthesizer) is a technique where, rather than working with digital signal processing techniques directly, electronic circuits are simulated in code. [The Art of VA Filter Design](https://github.com/danja/valis/blob/main/reference/VAFilterDesign_1.0.3.pdf) by Vadim Zavalishin is a key reference, it covers a lot more than filters.
 
-```
-  ┌─ ui/ ────────────────┐   ┌─ mcp/ ──────┐
-  │ Turtle │ Graph │ Knobs│   │ HTTP/JSON-RPC│
-  └───────────┬──────────┘   └──────┬───────┘
-              └────────┬────────────┘
-                  ┌────▼─────┐   ops/ — the headless command surface.
-                  │   Ops    │   Every key operation is one Op. UI and MCP
-                  └────┬─────┘   are both thin adapters over it.
-   ═══════════════════ │ ═══════════════ message thread only ═══════════
-                  ┌────▼─────┐
-                  │  Model   │   rdf/ · model/ · compiler/
-                  └────┬─────┘   Turtle → CircuitModel → CompiledCircuit
-   ═══════════════════ │ ═══════════════ RT boundary ═════════════════
-                  ┌────▼─────┐
-                  │  Engine  │   engine/ · dsp/
-                  └──────────┘   Preallocated. Never parses RDF.
-```
-
-`valis_core` links `juce_dsp` and serd/sord only — no GUI module — so the model,
-compiler and DSP layers stay testable as plain console executables.
+Circuits in Valis are represented as connected functional blocks rather than individual electronic components as in [SPICE](https://en.wikipedia.org/wiki/SPICE).
 
 ## Circuits are Turtle
 
 A circuit is a set of elements and explicitly named arcs between their ports. Element
-classes, port symbols and control ranges reuse the LV2 vocabulary rather than inventing
-terms.
+classes, port symbols and control ranges reuse the [LV2](https://en.wikipedia.org/wiki/LV2) vocabulary.
 
 ```turtle
 @prefix val:   <http://purl.org/stuff/valis/> .
@@ -72,16 +43,47 @@ terms.
 [`vocabs/valis.ttl`](vocabs/valis.ttl) declares the element classes and is loaded at
 runtime, not merely documented: a test asserts that the ontology's class set and the DSP
 registry's factory set match in both directions. The vocabularies it is written against
-are vendored beside it — [`vocabs/lv2/`](vocabs/lv2) holds the LV2 1.18.10 ontologies
+are vendored beside it - [`vocabs/lv2/`](vocabs/lv2) holds the LV2 1.18.10 ontologies
 (core, units, atom, patch, parameters, port-groups) and [`vocabs/w3c/`](vocabs/w3c) holds
 rdf, rdfs and owl.
 
 Element classes go finer-grained than "a saturation curve" where it earns its keep.
-`val:Diode` is a Shockley-equation junction — `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to
+`val:Diode` is a Shockley-equation junction - `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to
 a 1N4148, asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel
 soft clipper with a series resistance, and `val:Triode` a Koren-style valve stage. They
 carry real device parameters, so a circuit built from them behaves like the circuit it
 names. `val:Network` is declared as the seam for future component-level subcircuits.
+
+## Architecture
+
+Four layers with two hard boundaries. Every operation the plugin can perform is one
+`Op`; the three views and the MCP server are thin adapters over that single surface,
+never a second implementation. Below the model sits the real-time line: the audio
+callback never allocates, never does I/O and never parses RDF. `CompiledCircuit` is
+built and fully preallocated on the message thread, then handed to the engine by
+atomic pointer swap.
+
+```
+  ┌─ ui/ ─────────────────┐   ┌─ mcp/ ───────┐
+  │ Turtle │ Graph │ Knobs│   │ HTTP/JSON-RPC│
+  └───────────┬───────────┘   └──────┬───────┘
+              └────────┬─────────────┘
+                  ┌────▼─────┐   ops/ - the headless command surface.
+                  │   Ops    │   Every key operation is one Op. UI and MCP
+                  └────┬─────┘   are both thin adapters over it.
+   ═══════════════════ │ ═══════════════ message thread only ═══════════
+                  ┌────▼─────┐
+                  │  Model   │   rdf/ · model/ · compiler/
+                  └────┬─────┘   Turtle → CircuitModel → CompiledCircuit
+   ═══════════════════ │ ═══════════════ RT boundary ═════════════════
+                  ┌────▼─────┐
+                  │  Engine  │   engine/ · dsp/
+                  └──────────┘   Preallocated. 
+```
+
+`valis_core` links `juce_dsp` and serd/sord only - no GUI module - so the model,
+compiler and DSP layers stay testable as plain console executables.
+
 
 ## Status
 
@@ -94,7 +96,7 @@ What works:
   an execution order and run. Errors name the element or arc at fault, and
   parse errors carry line and column.
 - All 34 elements, with the ontology and the DSP registry asserted equal as
-  sets in both directions — a class with no factory, or a factory with no class,
+  sets in both directions - a class with no factory, or a factory with no class,
   fails the build.
 - The engine allocates nothing on the audio thread, enforced by a test that
   counts through an overridden `operator new`. Output is independent of the
@@ -108,7 +110,7 @@ What works:
 - `valis-render`, a headless renderer that needs no host, GUI or audio device.
 
 Since the milestones closed, the two gaps that were marked `TODO:` have been
-fixed. The oscillator is band-limited with PolyBLEP — measured, alias energy
+fixed. The oscillator is band-limited with PolyBLEP - measured, alias energy
 relative to the fundamental drops 17× for a saw and 29× for a square. And
 `val:Envelope` is a real ADSR driven by MIDI note events, which uncovered an
 ontology bug it had been hiding: its output was declared an audio port while the
@@ -127,7 +129,7 @@ shows the loaded filename and turns amber when there are unsaved edits.
 
 Remaining rough edges: the graph view's structural edits re-serialise the
 document, so hand formatting and comments are lost (it warns on first use), and
-note events are applied per block rather than at their sample offset — bounded
+note events are applied per block rather than at their sample offset - bounded
 by the 32-sample control grid.
 
 ## Development
@@ -147,7 +149,7 @@ Run the unit tests alone:
 ctest --test-dir build --output-on-failure
 ```
 
-Launch the standalone application — it prefers the Release build, falling back to
+Launch the standalone application - it prefers the Release build, falling back to
 Debug:
 
 ```sh
@@ -254,5 +256,5 @@ verification above.
 
 ## Licence
 
-This repository is [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) — see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial, so
+This repository is [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) - see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial, so
 a distributed binary that links JUCE under the AGPL obliges AGPL for the combined work.

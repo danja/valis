@@ -607,6 +607,192 @@ void testReedSelfOscillatesAbovePressureThreshold()
     assert(rmsHigh > 0.01f);    // playing pressure = self-sustained oscillation
 }
 
+/// OnePole must pass low frequencies and attenuate high frequencies in lowpass
+/// mode, and vice versa in highpass mode.
+void testOnePoleFiltersCorrectly()
+{
+    const double rate = 48000.0;
+    const int n = 4096;
+
+    auto rms = [](const std::vector<float>& v, int from) {
+        double sum = 0.0;
+        for (int i = from; i < static_cast<int>(v.size()); ++i)
+            sum += v[static_cast<std::size_t>(i)] * v[static_cast<std::size_t>(i)];
+        return static_cast<float>(std::sqrt(sum / (v.size() - static_cast<std::size_t>(from))));
+    };
+
+    // Lowpass mode: 100 Hz should pass, 10 kHz should be attenuated.
+    {
+        Rig rig("OnePole", rate);
+        rig.set("cutoff", 1000.0f);
+        rig.set("mode", 0.0f);  // 0 = lowpass
+
+        const float lowRms  = rms(rig.run(sine(100.0,   rate, n)), n / 2);
+        rig.element->reset();
+        const float highRms = rms(rig.run(sine(10000.0, rate, n)), n / 2);
+
+        std::printf("  onepole LP (cutoff 1kHz): 100Hz=%.3f  10kHz=%.3f\n", lowRms, highRms);
+        assert(lowRms  > 0.5f);
+        assert(highRms < lowRms * 0.1f);
+    }
+
+    // Highpass mode: 10 kHz should pass, 100 Hz should be attenuated.
+    {
+        Rig rig("OnePole", rate);
+        rig.set("cutoff", 1000.0f);
+        rig.set("mode", 1.0f);  // 1 = highpass
+
+        const float highRms = rms(rig.run(sine(10000.0, rate, n)), n / 2);
+        rig.element->reset();
+        const float lowRms  = rms(rig.run(sine(100.0,   rate, n)), n / 2);
+
+        std::printf("  onepole HP (cutoff 1kHz): 10kHz=%.3f  100Hz=%.3f\n", highRms, lowRms);
+        assert(highRms > 0.5f);
+        assert(lowRms  < highRms * 0.1f);
+    }
+}
+
+/// Ladder must pass signals below its cutoff and attenuate signals above it.
+/// At high resonance the filter rings, so an impulse is audible as a tone at
+/// the cutoff frequency.
+void testLadderFiltersAndResonates()
+{
+    const double rate = 48000.0;
+    const int n = 4096;
+
+    auto rms = [](const std::vector<float>& v, int from) {
+        double sum = 0.0;
+        for (int i = from; i < static_cast<int>(v.size()); ++i)
+            sum += v[static_cast<std::size_t>(i)] * v[static_cast<std::size_t>(i)];
+        return static_cast<float>(std::sqrt(sum / (v.size() - static_cast<std::size_t>(from))));
+    };
+
+    // Lowpass: DC (or very low frequency) should pass; Nyquist tone should be
+    // stopped. This is true regardless of the exact cutoff-to-coefficient mapping.
+    {
+        Rig rig("Ladder", rate);
+        rig.set("cutoff", 1000.0f);
+        rig.set("resonance", 0.0f);
+
+        // DC test: constant input should settle near the input value.
+        const auto dc = std::vector<float>(static_cast<std::size_t>(n), 0.5f);
+        const auto dcOut = rig.run(dc);
+        const float dcRms = rms(dcOut, n / 2);
+
+        rig.element->reset();
+
+        // Nyquist test: alternating ±0.5 is heavily filtered.
+        std::vector<float> nyq(static_cast<std::size_t>(n));
+        for (int i = 0; i < n; ++i)
+            nyq[static_cast<std::size_t>(i)] = (i % 2 == 0) ? 0.5f : -0.5f;
+        const auto nyqOut = rig.run(nyq);
+        const float nyqRms = rms(nyqOut, n / 2);
+
+        std::printf("  ladder lowpass: DC rms=%.4f  Nyquist rms=%.6f\n", dcRms, nyqRms);
+        assert(dcRms  > 0.4f);
+        assert(nyqRms < dcRms * 0.01f);
+    }
+
+    // Resonance: a high-resonance filter should decay more slowly than a flat
+    // one — the tail (last quarter) should contain more of the total energy
+    // relative to the early part.
+    {
+        const std::vector<float> impulse = [&] {
+            std::vector<float> v(static_cast<std::size_t>(n), 0.0f);
+            v[0] = 0.5f;
+            return v;
+        }();
+
+        Rig rigFlat("Ladder", rate);
+        rigFlat.set("cutoff", 1000.0f);
+        rigFlat.set("resonance", 0.0f);
+        const auto flatOut = rigFlat.run(impulse);
+
+        Rig rigRes("Ladder", rate);
+        rigRes.set("cutoff", 1000.0f);
+        rigRes.set("resonance", 0.95f);
+        const auto resOut = rigRes.run(impulse);
+
+        const float flatTail = rms(flatOut, n * 3 / 4);
+        const float resTail  = rms(resOut,  n * 3 / 4);
+
+        std::printf("  ladder resonance tail: flat=%.7f  resonant=%.7f\n", flatTail, resTail);
+        assert(resTail > flatTail * 2.0f);  // resonance prolongs the decay
+    }
+}
+
+/// Noise must produce non-zero, non-DC output across repeated calls — the
+/// classic check that the source is running and not stuck.
+void testNoiseIsNonZeroAndVaries()
+{
+    Rig rig("Noise");
+    const int n = 1024;
+
+    const auto block1 = rig.run(std::vector<float>(static_cast<std::size_t>(n), 0.0f));
+    const auto block2 = rig.run(std::vector<float>(static_cast<std::size_t>(n), 0.0f));
+
+    float peak = 0.0f;
+    for (float s : block1) peak = std::max(peak, std::abs(s));
+    assert(peak > 0.001f);  // non-zero
+
+    float diff = 0.0f;
+    for (int i = 0; i < n; ++i)
+        diff += std::abs(block1[static_cast<std::size_t>(i)] - block2[static_cast<std::size_t>(i)]);
+    assert(diff > 0.0f);  // non-constant across blocks
+
+    std::printf("  noise peak=%.3f block-diff=%.3f\n", peak, diff / n);
+}
+
+/// LFO must produce an oscillating control output whose range spans positive
+/// and negative values at the requested rate.
+void testLfoOscillates()
+{
+    const double rate = 48000.0;
+    const int blockSize = 512;
+    const int numBlocks = static_cast<int>(rate / blockSize) * 2;  // 2 seconds
+
+    Rig rig("LFO", rate);
+    rig.set("rate", 2.0f);   // 2 Hz → period = 24000 samples = 46–47 blocks
+
+    float maxOut = -1e9f, minOut = 1e9f;
+    const std::vector<float> silence(static_cast<std::size_t>(blockSize), 0.0f);
+    for (int b = 0; b < numBlocks; ++b)
+    {
+        rig.run(silence);
+        maxOut = std::max(maxOut, rig.lastControlOut[0]);
+        minOut = std::min(minOut, rig.lastControlOut[0]);
+    }
+
+    std::printf("  lfo 2Hz range: [%.3f, %.3f]\n", minOut, maxOut);
+    assert(maxOut >  0.5f);
+    assert(minOut < -0.5f);
+}
+
+/// VCA must scale audio by the cv value: cv=0 silences, cv=1 is unity gain.
+void testVcaScalesByCV()
+{
+    const int n = 512;
+    const auto signal = sine(440.0, 48000.0, n, 0.5f);
+
+    auto rms = [](const std::vector<float>& v) {
+        double sum = 0.0;
+        for (float s : v) sum += s * s;
+        return static_cast<float>(std::sqrt(sum / v.size()));
+    };
+
+    Rig rigOpen("VCA");
+    rigOpen.set("cv", 1.0f);
+    const float rmsOpen = rms(rigOpen.run(signal));
+
+    Rig rigClosed("VCA");
+    rigClosed.set("cv", 0.0f);
+    const float rmsClosed = rms(rigClosed.run(signal));
+
+    std::printf("  vca: cv=1.0 rms=%.4f  cv=0.0 rms=%.4f\n", rmsOpen, rmsClosed);
+    assert(rmsOpen   > 0.3f);
+    assert(rmsClosed < 1e-4f);
+}
+
 }  // namespace
 
 int main()
@@ -624,6 +810,11 @@ int main()
     testStiffStringDispersionAffectsOutput();
     testModalBankResonatesAtModeFrequencies();
     testReedSelfOscillatesAbovePressureThreshold();
+    testOnePoleFiltersCorrectly();
+    testLadderFiltersAndResonates();
+    testNoiseIsNonZeroAndVaries();
+    testLfoOscillates();
+    testVcaScalesByCV();
 
     std::puts("ElementBehaviourTest PASSED");
     return 0;
