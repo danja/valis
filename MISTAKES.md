@@ -36,6 +36,28 @@ arc type is introduced.
 
 ---
 
+## System serd 0.30.x causes SEGFAULT in error callback
+
+**What happened:** `rdf_TurtleStoreTest` SEGFAULTed in the CI Release build on
+`ubuntu-latest` (Ubuntu 22.04) which ships `libserd-0` 0.30.10 via apt, while
+local development used 0.32.6 where tests passed.
+
+**Root cause:** The `SerdError` struct layout changed between 0.30.x and 0.32.x
+(field order reordered: `fmt`/`args` moved from offsets 0/8 to 24/32, with a new
+`status` field prepended). The CI apt install provided the 0.30.x binary alongside
+the 0.30.x headers, so the binary was correctly built for 0.30.x — but any test
+infrastructure that depends on `collectWorldError`/`collectError` reading the
+error struct becomes undefined if the code was authored against a different layout.
+Additionally, `serd_world_set_error_sink` ABI may differ across minor versions.
+
+**Prevention:** Don't rely on system serd/sord. The `FindOrFetchSerd.cmake` now
+rejects system packages older than 0.32.0 and fetches a pinned version instead.
+CI workflows no longer install `libserd-dev`/`libsord-dev` via apt. When adding a
+dependency that has breaking API changes between minor versions, pin a minimum
+version in the cmake finder from the start.
+
+---
+
 ## ParamBinding range not overridable
 
 **What happened:** `val:Scale` ports need a ±1e6 range for general numeric use.

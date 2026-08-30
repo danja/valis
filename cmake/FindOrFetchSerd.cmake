@@ -14,7 +14,9 @@ set(_valis_serd_system FALSE)
 if(PkgConfig_FOUND)
   pkg_check_modules(SERD QUIET IMPORTED_TARGET serd-0)
   pkg_check_modules(SORD QUIET IMPORTED_TARGET sord-0)
-  if(SERD_FOUND AND SORD_FOUND)
+  # The SerdError struct layout changed in 0.32.0; reject older system packages
+  # to avoid a runtime SEGFAULT in the error callback.
+  if(SERD_FOUND AND SORD_FOUND AND SERD_VERSION VERSION_GREATER_EQUAL "0.32.0")
     set(_valis_serd_system TRUE)
   endif()
 endif()

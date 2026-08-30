@@ -151,6 +151,8 @@ void ValisEditor::parentHierarchyChanged()
 
 void ValisEditor::changeListenerCallback(juce::ChangeBroadcaster*)
 {
+    if (loadedFile != juce::File{})
+        fileModified = (processor.getTurtle() != loadedFileTurtle);
     updateStatusBar();
 }
 
@@ -170,10 +172,21 @@ void ValisEditor::updateStatusBar()
                 hasInput = true;
         }
 
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff98c379));
-        juce::String msg = "Circuit OK";
+        juce::String msg;
+        if (loadedFile != juce::File{})
+        {
+            msg = loadedFile.getFileName();
+            if (fileModified)
+                msg += "*";
+            msg += "  \u2014  ";
+        }
+        msg += "Circuit OK";
         if (hasMidi && !hasInput)
             msg += "  \u2014  Synthesizer \u2014 play MIDI notes";
+
+        const auto textColour = fileModified ? juce::Colour(0xffe5c07b)
+                                             : juce::Colour(0xff98c379);
+        statusLabel.setColour(juce::Label::textColourId, textColour);
         statusLabel.setText(msg, juce::dontSendNotification);
     }
     else
@@ -197,7 +210,13 @@ void ValisEditor::loadCircuit()
         {
             const auto f = chooser.getResult();
             if (f.existsAsFile())
-                processor.setTurtle(f.loadFileAsString());
+            {
+                const auto turtle = f.loadFileAsString();
+                processor.setTurtle(turtle);
+                loadedFile       = f;
+                loadedFileTurtle = turtle;
+                fileModified     = false;
+            }
         });
 }
 
@@ -213,7 +232,14 @@ void ValisEditor::saveCircuit()
         {
             auto f = chooser.getResult().withFileExtension("ttl");
             if (f.getFullPathName().isNotEmpty())
-                f.replaceWithText(processor.getTurtle());
+            {
+                const auto turtle = processor.getTurtle();
+                f.replaceWithText(turtle);
+                loadedFile       = f;
+                loadedFileTurtle = turtle;
+                fileModified     = false;
+                updateStatusBar();
+            }
         });
 }
 

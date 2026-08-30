@@ -23,6 +23,13 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 - Log mistakes in `MISTAKES.md` (what happened, root cause, prevention).
 - Read `TODO.md` at the start of each session; carry out outstanding tasks and remove completed ones.
 
+## Test hosts
+
+A live running instance of Reaper may be available for end-to-end testing via the
+`reaper-mcp` MCP server. A live instance of the Transmission host (`/home/danny/github/transmission`)
+may also be running and reachable via the `transmission` MCP server. Just ask the user
+to confirm a running instance before using MCP tools that require a host.
+
 ## Real-time rules (non-negotiable)
 
 - No allocation, filesystem, network, unbounded logging, or unpredictable locks in `processBlock` or any element's `process`.
@@ -66,7 +73,7 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 
 ## Libraries
 
-- RDF: serd (parse/serialise), sord (in-memory store)
+- RDF: serd (parse/serialise), sord (in-memory store) — pinned to ≥ 0.32.0; system packages older than that have an incompatible `SerdError` struct layout that causes a SEGFAULT in the error callback. `cmake/FindOrFetchSerd.cmake` enforces this and fetches a known-good version if the system package is absent or too old.
 - DSP: `juce_dsp` — `StateVariableTPTFilter`, `LadderFilter`, `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `FastMathApproximations`
 - GUI: `juce_gui_basics`, `CodeEditorComponent` for the Turtle view
 - HTTP: cpp-httplib; JSON: `juce::JSON` / `juce::var`

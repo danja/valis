@@ -49,6 +49,10 @@ private:
     juce::Label  statusLabel;
     juce::TextButton revertButton{"Revert"};
 
+    juce::File   loadedFile;
+    juce::String loadedFileTurtle;
+    bool         fileModified = false;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisEditor)
 };
 

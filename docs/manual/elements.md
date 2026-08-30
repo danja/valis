@@ -6,6 +6,38 @@ Do not edit by hand; run `scripts/generate-docs.sh` instead.
 The Filter/Transfer split is memory versus no memory. Linearity is a
 separate property: a ladder filter has memory and is nonlinear.
 
+## val:AsymClip
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `drive` | Drive | 1 | 0.1 to 100 |  |
+| `posVf` | Positive Vf | 0.3 | 0.01 to 2 | V |
+| `negVf` | Negative Vf | 0.6 | 0.01 to 2 | V |
+
+## val:CombFilter
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 220 | 10 to 20000 | Hz |
+| `feedback` | Feedback | 0.95 | 0 to 0.99 |  |
+| `damping` | Damping | 0.1 | 0 to 1 |  |
+
 ## val:Compressor
 
 Nonlinear.
@@ -24,6 +56,21 @@ Nonlinear.
 | `attack` | Attack | 5 | 0.01 to 500 | ms |
 | `release` | Release | 100 | 1 to 5000 | ms |
 | `upward` | Upward | 0 | 0 to 1 |  |
+
+## val:Delay
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `time` | Time | 250 | 0 to 5000 | ms |
+| `feedback` | Feedback | 0 | 0 to 0.99 |  |
 
 ## val:Diode
 
@@ -195,6 +242,18 @@ Nonlinear.
 | `resonance` | Resonance | 0 | 0 to 1 |  |
 | `drive` | Drive | 1 | 1 to 20 |  |
 
+## val:MidiPitch
+
+Nonlinear.
+
+**Control out**: `out`
+
+## val:MidiVelocity
+
+Nonlinear.
+
+**Control out**: `out`
+
 ## val:Mixer
 
 Linear.
@@ -202,6 +261,23 @@ Linear.
 **Audio in**: `in`
 
 **Audio out**: `out`
+
+## val:ModalBank
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 220 | 20 to 5000 | Hz |
+| `decay` | Decay | 1 | 0.05 to 10 | s |
+| `brightness` | Brightness | 0.5 | 0 to 1 |  |
+| `mode` | Mode | 0 | 0 to 3 |  |
 
 ## val:Noise
 
@@ -249,6 +325,35 @@ Linear.
 
 **Audio in**: `in`
 
+## val:Reed
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `damping` | Damping | 0.2 | 0 to 1 |  |
+| `frequency` | Frequency | 220 | 20 to 5000 | Hz |
+| `pressure` | Pressure | 0.5 | 0 to 1 |  |
+| `stiffness` | Stiffness | 0.5 | 0 to 1 |  |
+
+## val:Scale
+
+Linear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `in` | In | 0 | 0 to 1 |  |
+| `min` | Min | 0 | -1e+06 to 1e+06 |  |
+| `max` | Max | 1 | -1e+06 to 1e+06 |  |
+
 ## val:SinArcTan
 
 Nonlinear.
@@ -292,6 +397,23 @@ Linear.
 | `cutoff` | Cutoff | 1000 | 20 to 20000 | Hz |
 | `resonance` | Resonance | 0.7071 | 0.05 to 20 |  |
 
+## val:StiffString
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 220 | 10 to 20000 | Hz |
+| `feedback` | Feedback | 0.95 | 0 to 0.99 |  |
+| `damping` | Damping | 0.1 | 0 to 1 |  |
+| `dispersion` | Dispersion | 0.1 | 0 to 1 |  |
+
 ## val:Tanh
 
 Nonlinear.
@@ -328,4 +450,18 @@ Linear.
 **Audio in**: `in`
 
 **Audio out**: `out`
+
+## val:VCA
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `cv` | CV | 1 | 0 to 1 |  |
 
