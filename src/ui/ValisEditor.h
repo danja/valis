@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ui/GraphView.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 namespace valis {
@@ -33,6 +35,7 @@ private:
         fileSave,
         settingsMcpToggle = 100,
         settingsAudioMidi,
+        settingsAutolayout,
     };
 
     using juce::Component::keyPressed;
@@ -51,6 +54,8 @@ private:
 
     juce::Label  statusLabel;
     juce::TextButton revertButton{"Revert"};
+
+    GraphView*   graphView = nullptr;
 
     juce::File   loadedFile;
     juce::String loadedFileTurtle;

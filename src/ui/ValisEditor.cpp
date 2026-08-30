@@ -19,7 +19,8 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     tabs.addTab("Knobs", bg, knobsPort, true);
 
     auto* graphPort = new juce::Viewport();
-    graphPort->setViewedComponent(new GraphView(p), true);
+    graphView = new GraphView(p);
+    graphPort->setViewedComponent(graphView, true);
     graphPort->setScrollBarsShown(true, true);
     tabs.addTab("Graph", bg, graphPort, true);
 
@@ -99,6 +100,9 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
         menu.addItem(settingsMcpToggle, "MCP Server (not built)", false, false);
        #endif
 
+        menu.addSeparator();
+        menu.addItem(settingsAutolayout, "Autolayout Graph");
+
         if (standaloneOptionsButton != nullptr)
         {
             menu.addSeparator();
@@ -121,6 +125,9 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
             else                          processor.startMcp();
             break;
        #endif
+        case settingsAutolayout:
+            if (graphView != nullptr) graphView->autolayout();
+            break;
         case settingsAudioMidi:
             // Reveal the standalone Options button just long enough to trigger
             // its built-in audio/MIDI settings dialog, then hide it again.

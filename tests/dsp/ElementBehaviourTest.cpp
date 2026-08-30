@@ -88,6 +88,9 @@ struct Rig
         args.numAudioIn    = numAudioIn;
         args.numAudioOut   = numAudioOut;
         args.numSamples    = n;
+        args.gate          = gate;
+        args.velocity      = velocity;
+        args.noteNumber    = noteNumber;
         args.controlIn     = controls.data();
         args.numControlIn  = static_cast<int>(controls.size());
         args.controlOut    = ctrlOut.data();
@@ -110,6 +113,9 @@ struct Rig
     std::unique_ptr<DspElement> element;
     std::vector<float> controls, lastControlOut;
     int numAudioIn = 0, numAudioOut = 0, numCtrlOut = 0;
+    bool  gate       = false;
+    float velocity   = 1.0f;
+    int   noteNumber = 69;
 };
 
 std::vector<float> sine(double frequency, double rate, int n, float amplitude = 1.0f)
@@ -793,6 +799,184 @@ void testVcaScalesByCV()
     assert(rmsClosed < 1e-4f);
 }
 
+/// Envelope must rise from 0 on note-on and fall back to 0 after note-off.
+void testEnvelopeRisesAndFalls()
+{
+    const double rate = 48000.0;
+    const int    n    = 4096;   // ~85 ms per block
+    const std::vector<float> silence(static_cast<std::size_t>(n), 0.0f);
+
+    Rig rig("Envelope", rate);
+    rig.set("attack",  10.0f);   // 10 ms — shorter than one block
+    rig.set("decay",   200.0f);
+    rig.set("sustain", 0.7f);
+    rig.set("release", 300.0f);
+
+    // Gate on: attack completes within the first block, decay starts.
+    rig.gate = true;
+    rig.run(silence);
+    const float afterFirstBlock = rig.lastControlOut[0];
+
+    // More blocks with gate held: envelope settles at sustain.
+    for (int i = 0; i < 4; ++i) rig.run(silence);
+    const float atSustain = rig.lastControlOut[0];
+
+    // Gate off: release brings it to zero.
+    rig.gate = false;
+    for (int i = 0; i < 20; ++i) rig.run(silence);
+    const float afterRelease = rig.lastControlOut[0];
+
+    std::printf("  envelope: after 1 block=%.3f  at sustain=%.3f  after release=%.3f\n",
+                afterFirstBlock, atSustain, afterRelease);
+
+    assert(afterFirstBlock > 0.5f);
+    assert(atSustain > 0.5f && atSustain < 0.85f);
+    assert(afterRelease < 0.05f);
+}
+
+/// Compressor must apply more gain reduction to loud signals than to quiet ones.
+void testCompressorReducesDynamics()
+{
+    const double rate = 48000.0;
+    const int    n    = 4096;
+
+    auto rms = [](const std::vector<float>& v) {
+        double sum = 0.0;
+        for (float s : v) sum += s * s;
+        return static_cast<float>(std::sqrt(sum / v.size()));
+    };
+
+    const auto measure = [&](float amplitude) {
+        Rig rig("Compressor", rate);
+        rig.set("threshold", -12.0f);
+        rig.set("ratio",       4.0f);
+        rig.set("attack",      5.0f);
+        rig.set("release",   100.0f);
+        const auto sig = sine(100.0, rate, n, amplitude);
+        rig.run(sig);
+        rig.run(sig);
+        return rms(rig.run(sig));
+    };
+
+    const float loudIn  = 0.5f;    // ~-6 dB, well above -12 dB threshold
+    const float quietIn = 0.05f;   // ~-26 dB, below threshold
+
+    const float gainLoud  = measure(loudIn)  / loudIn;
+    const float gainQuiet = measure(quietIn) / quietIn;
+
+    std::printf("  compressor: loud gain=%.3f  quiet gain=%.3f\n", gainLoud, gainQuiet);
+
+    assert(gainLoud  < gainQuiet * 0.7f);  // loud signal is compressed more
+    assert(gainQuiet > 0.5f);              // quiet signal passes mostly unchanged
+}
+
+/// Scale must linearly map its control input [0,1] to [min,max].
+void testScaleMapsInputToRange()
+{
+    const std::vector<float> block(512, 0.0f);
+
+    Rig rig("Scale");
+    rig.set("min", 200.0f);
+    rig.set("max", 8000.0f);
+
+    rig.set("in", 0.0f);  rig.run(block);
+    const float atZero = rig.lastControlOut[0];
+
+    rig.set("in", 1.0f);  rig.run(block);
+    const float atOne = rig.lastControlOut[0];
+
+    rig.set("in", 0.5f);  rig.run(block);
+    const float atHalf = rig.lastControlOut[0];
+
+    std::printf("  scale [200,8000]: in=0→%.0f  in=0.5→%.0f  in=1→%.0f\n",
+                atZero, atHalf, atOne);
+
+    assert(std::abs(atZero - 200.0f)  < 1.0f);
+    assert(std::abs(atOne  - 8000.0f) < 1.0f);
+    assert(std::abs(atHalf - 4100.0f) < 2.0f);
+}
+
+/// Mixer in isolation passes its audio input to its output unchanged.
+void testMixerPassesAudio()
+{
+    const int n = 512;
+    const auto signal = sine(440.0, 48000.0, n, 0.5f);
+
+    Rig rig("Mixer");
+    const auto out = rig.run(signal);
+
+    float maxDiff = 0.0f;
+    for (int i = 0; i < n; ++i)
+        maxDiff = std::max(maxDiff,
+                           std::abs(signal[static_cast<std::size_t>(i)]
+                                  - out[static_cast<std::size_t>(i)]));
+
+    std::printf("  mixer passthrough max-error: %.2e\n", maxDiff);
+    assert(maxDiff < 1.0e-5f);
+}
+
+/// Delay must shift an impulse by approximately the configured time.
+void testDelayShiftsSignalByTime()
+{
+    const double rate      = 48000.0;
+    const float  delayMs   = 50.0f;
+    const int    delaySmps = static_cast<int>(delayMs * rate / 1000.0f);  // 2400
+    const int    n         = delaySmps + 2048;
+
+    Rig rig("Delay", rate);
+    rig.set("time",     delayMs);
+    rig.set("feedback", 0.0f);
+
+    std::vector<float> impulse(static_cast<std::size_t>(n), 0.0f);
+    impulse[0] = 1.0f;
+
+    const auto out = rig.run(impulse);
+
+    int   peakIndex = 0;
+    float peakVal   = 0.0f;
+    for (int i = 0; i < n; ++i)
+    {
+        if (std::abs(out[static_cast<std::size_t>(i)]) > peakVal)
+        {
+            peakVal   = std::abs(out[static_cast<std::size_t>(i)]);
+            peakIndex = i;
+        }
+    }
+
+    std::printf("  delay 50 ms: peak at sample %d (expected ~%d), value=%.4f\n",
+                peakIndex, delaySmps, peakVal);
+
+    assert(peakVal > 0.5f);
+    assert(std::abs(peakIndex - delaySmps) <= 2);
+}
+
+/// DryWet at mix=0 passes the dry input; at mix=1 passes the wet input (silence
+/// in this test, since the Rig supplies only one audio stream).
+void testDryWetBlends()
+{
+    const int  n      = 512;
+    const auto signal = sine(440.0, 48000.0, n, 0.5f);
+
+    auto rms = [](const std::vector<float>& v) {
+        double sum = 0.0;
+        for (float s : v) sum += s * s;
+        return static_cast<float>(std::sqrt(sum / v.size()));
+    };
+
+    Rig rigDry("DryWet");
+    rigDry.set("mix", 0.0f);
+    const float rmsDry = rms(rigDry.run(signal));
+
+    Rig rigWet("DryWet");
+    rigWet.set("mix", 1.0f);
+    const float rmsWet = rms(rigWet.run(signal));
+
+    std::printf("  drywet: mix=0 rms=%.4f  mix=1 rms=%.4f\n", rmsDry, rmsWet);
+
+    assert(rmsDry > 0.3f);    // dry passes through at mix=0
+    assert(rmsWet < 0.01f);   // wet=silence at mix=1 → nearly silent
+}
+
 }  // namespace
 
 int main()
@@ -815,6 +999,12 @@ int main()
     testNoiseIsNonZeroAndVaries();
     testLfoOscillates();
     testVcaScalesByCV();
+    testEnvelopeRisesAndFalls();
+    testCompressorReducesDynamics();
+    testScaleMapsInputToRange();
+    testMixerPassesAudio();
+    testDelayShiftsSignalByTime();
+    testDryWetBlends();
 
     std::puts("ElementBehaviourTest PASSED");
     return 0;

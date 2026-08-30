@@ -22,6 +22,7 @@
 
 #include <map>
 #include <optional>
+#include <string>
 
 namespace valis {
 
@@ -43,6 +44,7 @@ public:
     void mouseUp(const juce::MouseEvent&) override;
 
     void rebuild();
+    void autolayout();
 
 private:
     struct Pin
@@ -65,7 +67,9 @@ private:
 
     const NodeBox* nodeAt(juce::Point<float>) const;
     const Pin* pinAt(juce::Point<float>) const;
+    std::optional<Arc> arcAt(juce::Point<float>) const;
     void showMenuFor(const NodeBox*, juce::Point<int>);
+    void showArcMenu(const Arc&, juce::Point<int>);
     void warnAboutReformatting();
 
     ValisProcessor& processor;

@@ -52,6 +52,73 @@ void GraphView::timerCallback()
         rebuild();
 }
 
+void GraphView::autolayout()
+{
+    positions.clear();
+
+    const auto& model = processor.circuit();
+
+    // Replicate the depth pass so we can measure columns and rows before placing.
+    std::map<std::string, int> depth;
+    for (const auto& node : nodes) depth[node.id] = 0;
+
+    for (int pass = 0; pass < static_cast<int>(nodes.size()); ++pass)
+    {
+        bool changed = false;
+        for (const auto& arc : model.arcs())
+        {
+            const auto from = depth.find(arc.fromNode);
+            const auto to   = depth.find(arc.toNode);
+            if (from == depth.end() || to == depth.end()) continue;
+            if (to->second < from->second + 1) { to->second = from->second + 1; changed = true; }
+        }
+        if (! changed) break;
+    }
+
+    std::map<int, int> rowsPerCol;
+    for (const auto& node : nodes) rowsPerCol[depth[node.id]]++;
+
+    int maxCol = 0, maxRows = 0;
+    for (const auto& [col, count] : rowsPerCol)
+    {
+        maxCol  = juce::jmax(maxCol, col);
+        maxRows = juce::jmax(maxRows, count);
+    }
+
+    // Scale column and row gaps to fill the visible area without overlap.
+    float colGap = kColumnGap;
+    float rowGap = kRowGap;
+
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+    {
+        const float visW = static_cast<float>(vp->getMaximumVisibleWidth())  - 80.0f;
+        const float visH = static_cast<float>(vp->getMaximumVisibleHeight()) - 80.0f;
+
+        if (maxCol > 0)
+            colGap = juce::jmax(kNodeWidth + 20.0f,
+                                juce::jmin(kColumnGap, visW / static_cast<float>(maxCol)));
+        if (maxRows > 1)
+            rowGap = juce::jmax(kNodeHeight + 10.0f,
+                                juce::jmin(kRowGap, visH / static_cast<float>(maxRows - 1)));
+    }
+
+    std::map<int, int> perColumn;
+    for (auto& node : nodes)
+    {
+        const int col = depth[node.id];
+        const int row = perColumn[col]++;
+        positions[node.id] = { 40.0f + static_cast<float>(col) * colGap,
+                               40.0f + static_cast<float>(row) * rowGap };
+    }
+
+    layout();
+
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+        vp->setViewPosition(0, 0);
+
+    repaint();
+}
+
 void GraphView::rebuild()
 {
     const auto& model = processor.circuit();
@@ -294,6 +361,45 @@ void GraphView::parentSizeChanged()
     }
 }
 
+std::optional<Arc> GraphView::arcAt(juce::Point<float> point) const
+{
+    const auto& model = processor.circuit();
+    constexpr float kHitThreshold = 8.0f;
+
+    for (const auto& arc : model.arcs())
+    {
+        const Pin* from = nullptr;
+        const Pin* to   = nullptr;
+
+        for (const auto& node : nodes)
+            for (const auto& pin : node.pins)
+            {
+                if (pin.node == arc.fromNode && pin.port == arc.fromPort && ! pin.input) from = &pin;
+                if (pin.node == arc.toNode   && pin.port == arc.toPort   && pin.input)   to   = &pin;
+            }
+
+        if (from == nullptr || to == nullptr)
+            continue;
+
+        const auto p0    = from->position;
+        const auto p3    = to->position;
+        const float reach = juce::jmax(40.0f, std::abs(p3.x - p0.x) * 0.5f);
+        const auto p1    = p0.translated(reach, 0.0f);
+        const auto p2    = p3.translated(-reach, 0.0f);
+
+        for (int i = 0; i <= 24; ++i)
+        {
+            const float t = static_cast<float>(i) / 24.0f;
+            const float u = 1.0f - t;
+            const juce::Point<float> pt = u*u*u * p0 + 3.0f*u*u*t * p1
+                                        + 3.0f*u*t*t * p2 + t*t*t * p3;
+            if (pt.getDistanceFrom(point) < kHitThreshold)
+                return arc;
+        }
+    }
+    return std::nullopt;
+}
+
 void GraphView::mouseDown(const juce::MouseEvent& event)
 {
     const auto point = event.position;
@@ -301,7 +407,14 @@ void GraphView::mouseDown(const juce::MouseEvent& event)
 
     if (event.mods.isPopupMenu())
     {
-        showMenuFor(nodeAt(point), event.getPosition());
+        const auto* node = nodeAt(point);
+        if (node == nullptr)
+            if (const auto arc = arcAt(point); arc.has_value())
+            {
+                showArcMenu(*arc, event.getPosition());
+                return;
+            }
+        showMenuFor(node, event.getPosition());
         return;
     }
 
@@ -369,6 +482,33 @@ void GraphView::mouseUp(const juce::MouseEvent& event)
         message = result.diagnostics.front().toString();
 
     rebuild();
+}
+
+void GraphView::showArcMenu(const Arc& arc, juce::Point<int> where)
+{
+    juce::PopupMenu menu;
+    const auto label = juce::String(vocab::shortName(arc.fromNode)) + "." + arc.fromPort
+                     + "  \u2192  "
+                     + juce::String(vocab::shortName(arc.toNode))   + "." + arc.toPort;
+    menu.addItem(1, "Delete arc: " + label);
+
+    const auto fromNode = arc.fromNode, fromPort = arc.fromPort;
+    const auto toNode   = arc.toNode,   toPort   = arc.toPort;
+    const auto screenPos = localPointToGlobal(where);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(
+                           juce::Rectangle<int>(screenPos.x, screenPos.y, 1, 1)),
+                       [this, fromNode, fromPort, toNode, toPort](int choice)
+                       {
+                           if (choice != 1)
+                               return;
+                           warnAboutReformatting();
+                           auto dispatcher = ops();
+                           const auto result = dispatcher.disconnect(fromNode, fromPort,
+                                                                     toNode, toPort);
+                           if (! result.ok && ! result.diagnostics.empty())
+                               message = result.diagnostics.front().toString();
+                           rebuild();
+                       });
 }
 
 void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
