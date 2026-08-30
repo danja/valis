@@ -21,6 +21,16 @@ echo "==> Release plugin (Standalone, VST3, LV2)"
 cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DVALIS_BUILD_TESTS=OFF
 cmake --build build-release --parallel "$JOBS"
 
+VALIDATOR="${VALIDATOR:-$HOME/VST_SDK/build/bin/Release/validator}"
+if [[ -x "$VALIDATOR" ]]; then
+  echo
+  echo "==> VST3 conformance check"
+  "$VALIDATOR" build-release/valis_plugin_artefacts/Release/VST3/Valis.vst3
+else
+  echo
+  echo "==> VST3 conformance check (skipped: validator not found at $VALIDATOR)"
+fi
+
 if [[ "${VALIS_WITH_CLAP:-0}" == "1" ]]; then
   echo
   echo "==> CLAP build"

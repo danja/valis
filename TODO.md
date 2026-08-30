@@ -1,5 +1,3 @@
-I think there is some VST testing code in ~/VST_SDK that might be useful for validation.
-
 Maximise compatibility with /home/danny/github/transmission - try it as a test host using MCP. We maintain Transmission so can change things over there if need be.
 
 ## Recurring - check periodically
