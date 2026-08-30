@@ -109,7 +109,7 @@ claude mcp add --transport http valis http://localhost:7676/mcp
 ```
 
 Once registered, Claude Code can call any tool in the table above directly.
-Describe the sound you want in plain English — the model can call `get_graph`
+Describe the sound you want in plain English - the model can call `get_graph`
 to read what is there, then `add_node`, `connect`, and `set_param` to build
 or reshape the circuit while the audio keeps running.
 
@@ -144,7 +144,7 @@ type    = "http"
 url     = "http://localhost:7676/mcp"
 ```
 
-The exact key names may vary with Codex version — check `codex mcp --help` or
+The exact key names may vary with Codex version - check `codex mcp --help` or
 the Codex documentation if the above does not match. The Valis server speaks
 standard JSON-RPC 2.0 MCP, so any client that supports the HTTP transport will
 work.

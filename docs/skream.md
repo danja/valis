@@ -1,4 +1,4 @@
-# Skream — the Valis proof of concept
+# Skream - the Valis proof of concept
 
 ## Why this one
 
@@ -7,7 +7,7 @@ proposed a bespoke plugin: port the DSP from [Scream](https://github.com/danja/S
 approximate its GUI in DPF, ship ten presets. That is [a reasonable plugin](https://danja.github.io/downspout/plugins/skream/) and a poor
 proof of anything.
 
-The better version is the same sound built as a **Valis circuit** — a Turtle file the
+The better version is the same sound built as a **Valis circuit** - a Turtle file the
 user can open, read, re-patch and hand to an LLM. It is the right proof of concept
 because the scream filter is small enough to write in forty lines of Turtle and
 demanding enough to exercise the parts of Valis that are easy to get wrong:
@@ -45,8 +45,8 @@ Its inner loop (`src/plugin.c`, around line 600) is:
 ```
 
 The feedback path is what screams: the loop gain, highpass corner and second saturator
-set the resonant howl, and the gate — driven by an envelope follower on the *input*,
-not on the loop — stops it self-oscillating when nothing is playing.
+set the resonant howl, and the gate - driven by an envelope follower on the *input*,
+not on the loop - stops it self-oscillating when nothing is playing.
 
 Two details worth keeping. The `Resonance` control is not the filter's Q alone; in the
 original it raises the internal distortion drive and the Q together, which is why the
@@ -89,7 +89,7 @@ The full circuit is [`examples/skream.ttl`](../examples/skream.ttl).
 ## Why this beats a bespoke plugin
 
 **The commented-out lines become the interface.** Scream's inner loop carries five
-abandoned saturators in comments — `sinarctan`, `sinarctan2`, `softsine`, `softsine2`,
+abandoned saturators in comments - `sinarctan`, `sinarctan2`, `softsine`, `softsine2`,
 a plain clamp. Choosing between them meant editing C and rebuilding. In Valis it is one
 word in a Turtle file, live, with the audio running.
 
@@ -105,7 +105,7 @@ described vocabulary rather than a request to nudge opaque sliders. That is the 
 in the project's name, and this is the circuit that tests it.
 
 **It is inspectable.** The graph view shows the feedback loop, the unit delay that breaks
-it, and the gate's control arc — the actual signal flow, not a faceplate.
+it, and the gate's control arc - the actual signal flow, not a faceplate.
 
 ## What it demands of Valis
 
@@ -117,15 +117,15 @@ Gaps between this circuit and the ontology as it stands:
       and Valis is a static chain.
 - [x] **`val:antialiasing`** on `val:Transfer`, with `val:ADAA1`, `val:ADAA2`,
       `val:Oversample2x`, `val:Oversample4x` and `val:None`. ADAA2 tanh needs `double`
-      internally — single precision overflows the second antiderivative.
+      internally - single precision overflows the second antiderivative.
 - [x] **Named multi-output filters.** `val:StateVariable` should expose `lp`, `bp` and
       `hp` output ports rather than a numeric `mode`, matching the Cytomic
       mixing-coefficient form it implements.
-- [x] **`val:Expander`** — hard-knee expander/gate with attack and release.
-- [x] **`val:EnvelopeFollower`** — peak and RMS detection, the control source for the gate.
-- [x] **`val:Compressor`** — Giannoulis/Massberg/Reiss, soft knee, upward and downward,
+- [x] **`val:Expander`** - hard-knee expander/gate with attack and release.
+- [x] **`val:EnvelopeFollower`** - peak and RMS detection, the control source for the gate.
+- [x] **`val:Compressor`** - Giannoulis/Massberg/Reiss, soft knee, upward and downward,
       for the OTT-style stage the brief asks for after the filter.
-- [x] **More saturators** — `val:SinArcTan` (`x/√(x²+1)`) and `val:SoftSine` (`x/(|x|+1)`),
+- [x] **More saturators** - `val:SinArcTan` (`x/√(x²+1)`) and `val:SoftSine` (`x/(|x|+1)`),
       both straight from Scream and both cheap.
 - [x] **Feedback validation.** The compiler must accept a cycle that passes through a
       `val:UnitDelay` and reject one that does not, naming the offending arc.

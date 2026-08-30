@@ -1,0 +1,126 @@
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix :      <urn:valis:subsynth2#> .
+
+:subsynth2 a val:Circuit ;
+    rdfs:label "Subtractive Synth 2" ;
+    val:element :pitch , :vel , :ampEnv , :filtEnv ,
+                :osc , :filtScale , :vcf , :vcaVel , :vcaEnv , :vol , :out ;
+    val:arc :aPitchOsc , :aVelVcaVel , :aAmpEnvVcaEnv ,
+            :aFiltEnvScale , :aFiltScaleVcf ,
+            :aOscVcf , :aVcfVcaVel , :aVcaVelVcaEnv , :aVcaEnvVol , :aVolOut .
+
+:pitch  a val:MidiPitch .
+:vel    a val:MidiVelocity .
+
+:ampEnv a val:Envelope ;
+    val:attack  10.0 ; val:decay 150.0 ; val:sustain 0.6 ; val:release 300.0 .
+
+:filtEnv a val:Envelope ;
+    val:attack  5.0 ; val:decay 400.0 ; val:sustain 0.2 ; val:release 500.0 .
+
+:osc a val:Oscillator ; val:shape 2.0 .
+
+:osc2 a val:Oscillator ; val:shape 2.0 .
+
+:filtScale a val:Scale ; val:min 300.0 ; val:max 5000.0 .
+
+:vcf a val:Ladder ; val:resonance 0.5 ; val:drive 1.0 .
+
+:vcaVel a val:VCA .
+:vcaEnv a val:VCA .
+
+:vol a val:Gain ; val:gain -6.0 .
+:out a val:Output .
+
+:aPitchOsc a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :osc   ; val:port "frequency" ] .
+
+:aVelVcaVel a val:ControlArc ;
+    val:from [ val:node :vel    ; val:port "out" ] ;
+    val:to   [ val:node :vcaVel ; val:port "cv"  ] .
+
+:aAmpEnvVcaEnv a val:ControlArc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vcaEnv ; val:port "cv"  ] .
+
+:aFiltEnvScale a val:ControlArc ;
+    val:from [ val:node :filtEnv   ; val:port "out" ] ;
+    val:to   [ val:node :filtScale ; val:port "in"  ] .
+
+:aFiltScaleVcf a val:ControlArc ;
+    val:from [ val:node :filtScale ; val:port "out"    ] ;
+    val:to   [ val:node :vcf       ; val:port "cutoff" ] .
+
+:aOscVcf a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in"  ] .
+
+:aVcfVcaVel a val:Arc ;
+    val:from [ val:node :vcf    ; val:port "out" ] ;
+    val:to   [ val:node :vcaVel ; val:port "in"  ] .
+
+:aVcaVelVcaEnv a val:Arc ;
+    val:from [ val:node :vcaVel ; val:port "out" ] ;
+    val:to   [ val:node :vcaEnv ; val:port "in"  ] .
+
+:aVcaEnvVol a val:Arc ;
+    val:from [ val:node :vcaEnv ; val:port "out" ] ;
+    val:to   [ val:node :vol    ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :osc ; val:property val:shape ;
+    lv2:name "Waveform" ; lv2:symbol "waveform" ;
+    lv2:minimum 0.0 ; lv2:maximum 3.0 ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Sine"     ; rdf:value 0.0 ] ;
+    lv2:scalePoint [ rdfs:label "Saw"      ; rdf:value 1.0 ] ;
+    lv2:scalePoint [ rdfs:label "Square"   ; rdf:value 2.0 ] ;
+    lv2:scalePoint [ rdfs:label "Triangle" ; rdf:value 3.0 ] .
+
+:p1 a val:Param ; val:slot 1 ; val:target :ampEnv ; val:property val:attack ;
+    lv2:name "Amp Attack" ; lv2:symbol "amp_atk" ; units:unit units:ms ;
+    lv2:minimum 0.1 ; lv2:maximum 2000.0 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Amp Decay" ; lv2:symbol "amp_dec" ; units:unit units:ms ;
+    lv2:minimum 1.0 ; lv2:maximum 5000.0 .
+
+:p3 a val:Param ; val:slot 3 ; val:target :ampEnv ; val:property val:sustain ;
+    lv2:name "Amp Sustain" ; lv2:symbol "amp_sus" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :ampEnv ; val:property val:release ;
+    lv2:name "Amp Release" ; lv2:symbol "amp_rel" ; units:unit units:ms ;
+    lv2:minimum 1.0 ; lv2:maximum 8000.0 .
+
+:p5 a val:Param ; val:slot 5 ; val:target :filtEnv ; val:property val:attack ;
+    lv2:name "Filt Attack" ; lv2:symbol "filt_atk" ; units:unit units:ms ;
+    lv2:minimum 0.1 ; lv2:maximum 2000.0 .
+
+:p6 a val:Param ; val:slot 6 ; val:target :filtEnv ; val:property val:decay ;
+    lv2:name "Filt Decay" ; lv2:symbol "filt_dec" ; units:unit units:ms ;
+    lv2:minimum 1.0 ; lv2:maximum 5000.0 .
+
+:p7 a val:Param ; val:slot 7 ; val:target :filtEnv ; val:property val:sustain ;
+    lv2:name "Filt Sustain" ; lv2:symbol "filt_sus" .
+
+:p8 a val:Param ; val:slot 8 ; val:target :filtEnv ; val:property val:release ;
+    lv2:name "Filt Release" ; lv2:symbol "filt_rel" ; units:unit units:ms ;
+    lv2:minimum 1.0 ; lv2:maximum 8000.0 .
+
+:p9 a val:Param ; val:slot 9 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+
+:p10 a val:Param ; val:slot 10 ; val:target :filtScale ; val:property val:max ;
+    lv2:name "Filter Depth" ; lv2:symbol "filt_depth" ; units:unit units:hz ;
+    lv2:minimum 300.0 ; lv2:maximum 18000.0 .
+
+:p11 a val:Param ; val:slot 11 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .  

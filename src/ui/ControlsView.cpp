@@ -163,13 +163,32 @@ void ControlsView::paint(juce::Graphics& g)
     }
 }
 
+void ControlsView::parentSizeChanged()
+{
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+        setSize(vp->getMaximumVisibleWidth(), getHeight());
+}
+
 void ControlsView::resized()
 {
+    const int w = getWidth();
+    if (w <= 0)
+        return;
+
+    const int perRow = juce::jmax(1, (w - 24) / kKnobWidth);
+    const int rows   = knobs.empty() ? 1
+                                     : (static_cast<int>(knobs.size()) + perRow - 1) / perRow;
+    const int needed = rows * kKnobHeight + 24;
+
+    if (needed != getHeight())
+    {
+        setSize(w, needed);
+        return;
+    }
+
     emptyMessage.setBounds(getLocalBounds().reduced(40));
 
     auto area = getLocalBounds().reduced(12);
-    const int perRow = juce::jmax(1, area.getWidth() / kKnobWidth);
-
     int index = 0;
     for (auto& knob : knobs)
     {

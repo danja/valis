@@ -27,6 +27,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void parentSizeChanged() override;
 
     void rebuild();
     void changeListenerCallback(juce::ChangeBroadcaster*) override;

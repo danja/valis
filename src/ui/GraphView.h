@@ -36,6 +36,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void parentSizeChanged() override;
 
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;

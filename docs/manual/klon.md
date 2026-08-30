@@ -19,7 +19,7 @@ Valis; it is fan-in onto a non-Mixer input that is flagged as an error.
 ## The asymmetric clipper
 
 `val:AsymClip` models two diodes in antiparallel with different forward
-voltages — a positive threshold and a negative one. The default values
+voltages - a positive threshold and a negative one. The default values
 approximate the Centaur's original component values:
 
 | Direction | Component | Forward voltage |
@@ -28,7 +28,7 @@ approximate the Centaur's original component values:
 | Negative | 1N34A Germanium × 2 | 0.4 V (two in series) |
 
 The result is that positive peaks clip earlier than negative ones, producing a
-lopsided waveform with stronger even harmonics — the "warmth" commonly
+lopsided waveform with stronger even harmonics - the "warmth" commonly
 attributed to the pedal.
 
 ```turtle
@@ -53,7 +53,7 @@ The Centaur sits around `mix=0.5`.
 :blend a val:DryWet ; val:mix 0.5 .
 ```
 
-This blend is what distinguishes the Centaur from a pure overdrive — the clean
+This blend is what distinguishes the Centaur from a pure overdrive - the clean
 signal preserves pick attack and low-end definition that would otherwise be
 compressed away by the clipping stage.
 

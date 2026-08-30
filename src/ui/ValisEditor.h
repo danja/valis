@@ -12,6 +12,7 @@ class ValisProcessor;
 /// and a global status bar at the bottom.
 class ValisEditor final : public juce::AudioProcessorEditor,
                           public juce::MenuBarModel,
+                          public juce::KeyListener,
                           private juce::ChangeListener
 {
 public:
@@ -34,6 +35,8 @@ private:
         settingsAudioMidi,
     };
 
+    using juce::Component::keyPressed;
+    bool keyPressed(const juce::KeyPress&, juce::Component*) override;
     void loadCircuit();
     void saveCircuit();
     void parentHierarchyChanged() override;

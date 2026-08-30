@@ -2,6 +2,8 @@
 
 **Virtual Analog LLM Integrated System**
 
+[Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
+
 Valis is a standalone app and a DAW plugin that builds virtual analog circuits from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view with knobs etc, a node-and-arc graph and a syntax-highlighted Turtle editor.
 Functionality is also supported through MCP, so an LLM can drive every operation the UI can.
 

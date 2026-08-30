@@ -144,6 +144,18 @@ void GraphView::layout()
                             node.bounds.getY() + t * node.bounds.getHeight()};
         }
     }
+
+    // Size to content so the parent Viewport can scroll.
+    float maxX = 200.0f, maxY = 200.0f;
+    for (const auto& node : nodes)
+    {
+        maxX = juce::jmax(maxX, node.bounds.getRight() + 40.0f);
+        maxY = juce::jmax(maxY, node.bounds.getBottom() + 40.0f);
+    }
+    const auto neededW = static_cast<int>(maxX);
+    const auto neededH = static_cast<int>(maxY);
+    if (neededW != getWidth() || neededH != getHeight())
+        setSize(neededW, neededH);
 }
 
 const GraphView::NodeBox* GraphView::nodeAt(juce::Point<float> point) const
@@ -271,6 +283,17 @@ void GraphView::paint(juce::Graphics& g)
 
 void GraphView::resized() { layout(); }
 
+void GraphView::parentSizeChanged()
+{
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+    {
+        const int w = juce::jmax(getWidth(),  vp->getMaximumVisibleWidth());
+        const int h = juce::jmax(getHeight(), vp->getMaximumVisibleHeight());
+        if (w != getWidth() || h != getHeight())
+            setSize(w, h);
+    }
+}
+
 void GraphView::mouseDown(const juce::MouseEvent& event)
 {
     const auto point = event.position;
@@ -376,8 +399,9 @@ void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
 
     const std::string nodeId = node != nullptr ? node->id : std::string();
 
+    const auto screenPos = localPointToGlobal(where);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(
-                           juce::Rectangle<int>(localPointToGlobal(where), {1, 1})),
+                           juce::Rectangle<int>(screenPos.x, screenPos.y, 1, 1)),
                        [this, nodeId, classForId](int choice)
                        {
                            if (choice == 0)

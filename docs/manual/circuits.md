@@ -30,7 +30,7 @@ cannot express a graph:
 ```
 
 An arc runs from an output port to an input port, and both ends must be the
-same rate — audio to audio, control to control.
+same rate - audio to audio, control to control.
 
 ## Modulation
 
@@ -90,7 +90,7 @@ driving it. The class supplies a default; the instance may override it:
 
 `val:antialiasing` chooses how a nonlinearity suppresses the harmonics it
 creates above Nyquist: `val:None`, `val:ADAA1` or `val:ADAA2`. Antiderivative
-anti-aliasing is cheaper and cleaner than oversampling for a memoryless curve —
+anti-aliasing is cheaper and cleaner than oversampling for a memoryless curve -
 measured on a 5 kHz sine driven at 8×, ADAA1 cuts alias energy 4.2× and ADAA2
 cuts it 16.4×. ADAA2 costs one sample of latency, which the plugin reports to
 the host.

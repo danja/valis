@@ -16,14 +16,14 @@ made it possible.
 Rings needs a feedback comb filter not available in the existing element set.
 Using the `/new-element` skill:
 
-**1. Ontology** (`vocabs/valis.ttl`) — add a class near the other `val:Filter`
+**1. Ontology** (`vocabs/valis.ttl`) - add a class near the other `val:Filter`
 subclasses:
 
 ```turtle
 val:CombFilter a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "CombFilter" ;
     rdfs:comment "Feedback comb filter with one-pole lowpass in the
-feedback path — the Karplus-Strong plucked-string algorithm." ;
+feedback path - the Karplus-Strong plucked-string algorithm." ;
     val:implementation "CombFilter" ;
     val:linear false ;
     lv2:port
@@ -38,7 +38,7 @@ feedback path — the Karplus-Strong plucked-string algorithm." ;
         lv2:default 0.1   ; lv2:minimum 0.0   ; lv2:maximum 1.0   ] .
 ```
 
-**2. C++ class** (`src/dsp/elements/Filters.cpp`) — inside
+**2. C++ class** (`src/dsp/elements/Filters.cpp`) - inside
 `namespace valis::elements`:
 
 ```cpp
@@ -97,13 +97,13 @@ The key design decisions:
 - **Delay length changes at control rate** (every 32 samples). Notes retune immediately with no glide artefact at typical musical speeds.
 - **Read-before-write**: the output is the delayed sample *before* the new input is written, which matches the standard comb filter convention.
 
-**3. Registry** — add one line to `registerFilters()`:
+**3. Registry** - add one line to `registerFilters()`:
 
 ```cpp
 registry.add("CombFilter", &make<elements::CombFilter>);
 ```
 
-**4. Test count** — the `ops_OpDispatcherTest` hardcodes the number of element
+**4. Test count** - the `ops_OpDispatcherTest` hardcodes the number of element
 types; increment it by one each time a new element is added. The
 `dsp_ElementRegistryTest` asserts ontology ↔ registry symmetry automatically.
 
@@ -124,8 +124,8 @@ the VCA for a few milliseconds at each note-on:
 
 ```turtle
 :env a val:Envelope ;
-    val:attack  0.1 ;   # ms — near-instantaneous
-    val:decay   5.0 ;   # ms — the pluck width
+    val:attack  0.1 ;   # ms - near-instantaneous
+    val:decay   5.0 ;   # ms - the pluck width
     val:sustain 0.0 ;   # closes completely after decay
     val:release 1.0 .
 ```
@@ -142,7 +142,7 @@ produce a bowed-string character (the delay line fills through multiple periods)
     val:damping   0.15 .
 ```
 
-`feedback=0.98` means each cycle retains 98% of its amplitude — roughly 3.5
+`feedback=0.98` means each cycle retains 98% of its amplitude - roughly 3.5
 seconds of decay time at 220 Hz. `damping=0.15` gives a gentle treble roll-off,
 characteristic of a real guitar string.
 
@@ -181,12 +181,12 @@ characteristic of a real guitar string.
 
 ---
 
-## Part II — Modal synthesis (`examples/rings-modal.ttl`)
+## Part II - Modal synthesis (`examples/rings-modal.ttl`)
 
 `val:ModalBank` runs six parallel 2-pole resonators tuned to the natural
 frequency ratios of a physical object. Unlike a comb filter (which has
 harmonically spaced modes), a real bar, drumhead or plate has *inharmonic*
-modes — and that inharmonicity is what makes each material sound like itself.
+modes - and that inharmonicity is what makes each material sound like itself.
 
 ### Mode presets
 
@@ -221,7 +221,7 @@ Noise → OnePole(LP) → VCA → ModalBank
 ### Decay and brightness
 
 `decay` is the T60 time (to −60 dB) of the fundamental. Higher modes decay
-faster, proportional to their frequency ratio — a marimba's 18th harmonic dies
+faster, proportional to their frequency ratio - a marimba's 18th harmonic dies
 roughly 18× sooner than the fundamental, matching physical reality.
 
 `brightness` controls the spectral tilt of the excitation coupling: at 0 only
@@ -230,11 +230,11 @@ impact.
 
 ---
 
-## Part III — Reed exciter (`examples/rings-reed.ttl`)
+## Part III - Reed exciter (`examples/rings-reed.ttl`)
 
 `val:Reed` implements a digital waveguide single-reed instrument. A cylindrical
 bore with negative reflection at the open end produces an odd-harmonic spectrum
-(1st, 3rd, 5th harmonic only) — the acoustic signature of a clarinet or oboe.
+(1st, 3rd, 5th harmonic only) - the acoustic signature of a clarinet or oboe.
 The instrument is self-oscillating: no external excitation is needed once mouth
 pressure exceeds the reed's closure threshold.
 
@@ -259,7 +259,7 @@ round trip of `1/frequency` seconds.
 | 0.00–0.35 | Silent (reed closed) |
 | 0.35–0.60 | Stable fundamental tone |
 | 0.60–0.80 | Brighter, slightly overblown |
-| > 0.85 | Overblowing — register change |
+| > 0.85 | Overblowing - register change |
 
 `stiffness` controls the reed responsiveness. A soft reed (0) is oboe-like and
 responsive to small pressure changes. A stiff reed (1) requires more pressure
@@ -275,7 +275,7 @@ MidiPitch ──(control)──► Reed.frequency
 Reed ──► Ladder(tone, resonance) ──► Gain ──► Output
 ```
 
-The `val:Ladder` filter after the reed acts as the player's embouchure —
+The `val:Ladder` filter after the reed acts as the player's embouchure -
 rolling off high harmonics smooths the square-wave-like reed output into a more
 vocal clarinet tone.
 
@@ -293,4 +293,4 @@ Three circuit files cover the Rings range:
 
 Load any of them via the Turtle editor. For `rings-modal.ttl`, set the **Mode**
 parameter (0–3) to switch between marimba, drumhead, membrane, and plate sounds
-— each note-on fires the mallet burst at the new mode's frequency ratios.
+- each note-on fires the mallet burst at the new mode's frequency ratios.

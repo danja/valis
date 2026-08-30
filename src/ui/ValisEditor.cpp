@@ -13,8 +13,16 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     : juce::AudioProcessorEditor(&p), processor(p)
 {
     const auto bg = juce::Colour(0xff1e1e22);
-    tabs.addTab("Knobs",  bg, new ControlsView(p), true);
-    tabs.addTab("Graph",  bg, new GraphView(p), true);
+    auto* knobsPort = new juce::Viewport();
+    knobsPort->setViewedComponent(new ControlsView(p), true);
+    knobsPort->setScrollBarsShown(true, false);
+    tabs.addTab("Knobs", bg, knobsPort, true);
+
+    auto* graphPort = new juce::Viewport();
+    graphPort->setViewedComponent(new GraphView(p), true);
+    graphPort->setScrollBarsShown(true, true);
+    tabs.addTab("Graph", bg, graphPort, true);
+
     tabs.addTab("Turtle", bg, new TurtleView(p), true);
 
     statusLabel.setFont(juce::FontOptions(13.0f));
@@ -27,6 +35,7 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     addAndMakeVisible(revertButton);
 
     p.addChangeListener(this);
+    addKeyListener(this);
     updateStatusBar();
 
     setResizable(true, true);
@@ -36,6 +45,7 @@ ValisEditor::ValisEditor(ValisProcessor& p)
 
 ValisEditor::~ValisEditor()
 {
+    removeKeyListener(this);
     processor.removeChangeListener(this);
     menuBar.setModel(nullptr);
 }
@@ -198,6 +208,27 @@ void ValisEditor::updateStatusBar()
         statusLabel.setText(text, juce::dontSendNotification);
     }
     repaint();
+}
+
+bool ValisEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
+{
+    if (key == juce::KeyPress('s', juce::ModifierKeys::commandModifier, 0))
+    {
+        if (loadedFile != juce::File{})
+        {
+            const auto turtle = processor.getTurtle();
+            loadedFile.replaceWithText(turtle);
+            loadedFileTurtle = turtle;
+            fileModified     = false;
+            updateStatusBar();
+        }
+        else
+        {
+            saveCircuit();
+        }
+        return true;
+    }
+    return false;
 }
 
 void ValisEditor::loadCircuit()

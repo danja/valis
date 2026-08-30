@@ -4,23 +4,25 @@ Valis is a DAW plugin that builds virtual-analog circuits from RDF/Turtle
 descriptions. The circuit is not compiled into the plugin: it is a document you
 can read, edit and hand to a language model.
 
-- [Writing circuits](circuits.md) — the Turtle format, elements and arcs
-- [Element reference](elements.md) — every class the ontology declares
-- [The MCP surface](mcp.md) — driving the plugin over HTTP
-- [Building](building.md) — prerequisites and the build
+[Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
+
+- [Writing circuits](circuits.md) : the Turtle format, elements and arcs
+- [Element reference](elements.md) : every class the ontology declares
+- [The MCP surface](mcp.md) : driving the plugin over HTTP
+- [Building](building.md) : prerequisites and the build
 
 ### Case studies
 
-- [SH-101 subtractive synth](sh101.md) — monophonic VCO → VCF → VCA with MIDI and LFO
-- [Klon Centaur](klon.md) — asymmetric diode overdrive with clean blend
-- [Mutable Instruments Rings](rings.md) — Karplus-Strong plucked string, and how to create a new element
+- [SH-101 subtractive synth](sh101.md) : monophonic VCO → VCF → VCA with MIDI and LFO
+- [Klon Centaur](klon.md) : asymmetric diode overdrive with clean blend
+- [Mutable Instruments Rings](rings.md) : Karplus-Strong plucked string, and how to create a new element
 
 ### See Also
 
-- [Downspout](https://danja.github.io/downspout/) VST3 plugins
-- [Transmission](https://danja.github.io/transmission/) Generative Audio Workstation
-- [Flues](https://github.com/danja/flues) earlier LV2 plugins and Web Audio toys
-- [danny.ayers.name](https://danny.ayers.name) blog
+- [Downspout](https://danja.github.io/downspout/) : VST3 plugins
+- [Transmission](https://danja.github.io/transmission/) : Generative Audio Workstation
+- [Flues](https://github.com/danja/flues) : earlier LV2 plugins and Web Audio toys
+- [danny.ayers.name](https://danny.ayers.name) : blog
 
 ## Why RDF
 
