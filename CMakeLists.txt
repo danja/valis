@@ -127,7 +127,8 @@ if(VALIS_BUILD_PLUGIN)
   target_compile_definitions(valis_plugin PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0)
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_VST3_EMULATE_MIDI_CC_WITH_PARAMETERS=0)
 
   target_link_libraries(valis_plugin
     PRIVATE
