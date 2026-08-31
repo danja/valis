@@ -545,12 +545,16 @@ val:VCA a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Mixer" ;
-    rdfs:comment "Sums its inputs. Several arcs may target the same input port." ;
+    rdfs:comment "Sums its inputs across mono (in/out) and stereo (left/right) channels. Several arcs may target the same input port." ;
     val:implementation "Mixer" ;
     val:linear true ;
     lv2:port
-      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
-      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] .
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;    lv2:name "In" ] ,
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;   lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] .
 
 val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Scale" ;
@@ -697,11 +701,13 @@ val:Input a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Output a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Output" ;
-    rdfs:comment "The plugin's audio output. A circuit needs exactly one." ;
+    rdfs:comment "The plugin's audio output. Supports mono (in) and stereo (left/right) inputs. A circuit needs exactly one." ;
     val:implementation "Output" ;
     val:linear true ;
     lv2:port
-      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] .
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ;    lv2:name "In" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] .
 
 ################################################################
 # Saturators from the Scream reference                         #

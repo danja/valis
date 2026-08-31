@@ -47,16 +47,56 @@ private:
     int cvIndex = -1;
 };
 
-/// Sums whatever arrives at its input. The engine has already added the arcs
-/// together into that buffer, which is why fan-in onto anything else is a
-/// compile error: only this element is documented to sum.
-class Mixer final : public MonoElement
+/// Sums whatever arrives at its inputs (mono 'in' or stereo 'left'/'right').
+/// The engine has already added the arcs together into those buffers.
+class Mixer final : public DspElement
 {
-protected:
-    void processMono(const float* in, float* out, int n, const ProcessArgs&) noexcept override
+public:
+    void prepare(const ElementType& type, double, int) override
     {
-        std::copy(in, in + n, out);
+        inIdx    = audioInIndex(type, "in");
+        leftIn   = audioInIndex(type, "left");
+        rightIn  = audioInIndex(type, "right");
+        outIdx   = audioOutIndex(type, "out");
+        leftOut  = audioOutIndex(type, "left");
+        rightOut = audioOutIndex(type, "right");
     }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        const int n = args.numSamples;
+
+        if (outIdx >= 0 && outIdx < args.numAudioOut)
+        {
+            float* out = args.audioOut[outIdx];
+            if (inIdx >= 0 && inIdx < args.numAudioIn)
+                std::copy(args.audioIn[inIdx], args.audioIn[inIdx] + n, out);
+            else
+                std::fill(out, out + n, 0.0f);
+        }
+
+        if (leftOut >= 0 && leftOut < args.numAudioOut)
+        {
+            float* lOut = args.audioOut[leftOut];
+            if (leftIn >= 0 && leftIn < args.numAudioIn)
+                std::copy(args.audioIn[leftIn], args.audioIn[leftIn] + n, lOut);
+            else
+                std::fill(lOut, lOut + n, 0.0f);
+        }
+
+        if (rightOut >= 0 && rightOut < args.numAudioOut)
+        {
+            float* rOut = args.audioOut[rightOut];
+            if (rightIn >= 0 && rightIn < args.numAudioIn)
+                std::copy(args.audioIn[rightIn], args.audioIn[rightIn] + n, rOut);
+            else
+                std::fill(rOut, rOut + n, 0.0f);
+        }
+    }
+
+private:
+    int inIdx = -1, leftIn = -1, rightIn = -1;
+    int outIdx = -1, leftOut = -1, rightOut = -1;
 };
 
 class DryWet final : public DspElement

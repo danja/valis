@@ -55,6 +55,7 @@ public:
 
     /// Audio thread. `input` may be null when the host gives us no input.
     void process(const float* input, float* output, int numSamples) noexcept;
+    void process(const float* input, float* outputL, float* outputR, int numSamples) noexcept;
 
     /// Message thread. Frees graphs the audio thread has finished with. Safe to
     /// call at any time; cheap when there is nothing to free.
@@ -105,7 +106,7 @@ private:
         }
     };
 
-    void processSlice(Graph&, const float* input, float* output, int numSamples) noexcept;
+    void processSlice(Graph&, const float* input, float* outputL, float* outputR, int numSamples) noexcept;
     void retire(Graph* graph);
 
     /// Control values are recomputed on this grid, aligned to stream position

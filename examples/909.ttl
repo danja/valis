@@ -72,39 +72,39 @@
         # Bass Drum
         :aBdGatePitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
-        :aBdOscSat , :aBdSatVca , :aBdEnvVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMix ,
+        :aBdOscSat , :aBdSatVca , :aBdEnvVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
         # Snare Drum
         :aSdGateToneEnv , :aSdGateNoiseEnv ,
         :aSdOsc1OscMix , :aSdOsc2OscMix ,
         :aSdOscMixToneVca , :aSdToneEnvToneVca ,
         :aSdNoiseBpf , :aSdBpfNoiseVca , :aSdNoiseEnvNoiseVca ,
-        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelPan , :aSdPanMix ,
+        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelPan , :aSdPanMixL , :aSdPanMixR ,
         # Rim Shot
-        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelPan , :aRsPanMix ,
+        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelPan , :aRsPanMixL , :aRsPanMixR ,
         # Hand Clap
-        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelPan , :aCpPanMix ,
+        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelPan , :aCpPanMixL , :aCpPanMixR ,
         # Low Tom
         :aLtGatePitchEnv , :aLtGateAmpEnv , :aLtGateTwinT ,
         :aLtPitchEnvScale , :aLtScaleOsc ,
-        :aLtOscVca , :aLtAmpEnvVca , :aLtVcaLevel , :aLtLevelPan , :aLtPanMix ,
+        :aLtOscVca , :aLtAmpEnvVca , :aLtVcaLevel , :aLtLevelPan , :aLtPanMixL , :aLtPanMixR ,
         # Mid Tom
         :aMtGatePitchEnv , :aMtGateAmpEnv , :aMtGateTwinT ,
         :aMtPitchEnvScale , :aMtScaleOsc ,
-        :aMtOscVca , :aMtAmpEnvVca , :aMtVcaLevel , :aMtLevelPan , :aMtPanMix ,
+        :aMtOscVca , :aMtAmpEnvVca , :aMtVcaLevel , :aMtLevelPan , :aMtPanMixL , :aMtPanMixR ,
         # High Tom
         :aHtGatePitchEnv , :aHtGateAmpEnv , :aHtGateTwinT ,
         :aHtPitchEnvScale , :aHtScaleOsc ,
-        :aHtOscVca , :aHtAmpEnvVca , :aHtVcaLevel , :aHtLevelPan , :aHtPanMix ,
+        :aHtOscVca , :aHtAmpEnvVca , :aHtVcaLevel , :aHtLevelPan , :aHtPanMixL , :aHtPanMixR ,
         # Closed Hi-Hat
         :aChGateEnv ,
         :aChOsc1Mix , :aChOsc2Mix , :aChOsc3Mix , :aChOsc4Mix , :aChOsc5Mix , :aChOsc6Mix ,
-        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelPan , :aChPanMix ,
+        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelPan , :aChPanMixL , :aChPanMixR ,
         # Open Hi-Hat
         :aOhGateChoke , :aChGateChoke , :aOhChokeEnv ,
         :aOhOsc1Mix , :aOhOsc2Mix , :aOhOsc3Mix , :aOhOsc4Mix , :aOhOsc5Mix , :aOhOsc6Mix ,
-        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelPan , :aOhPanMix ,
+        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelPan , :aOhPanMixL , :aOhPanMixR ,
         # Output
-        :aMixOut .
+        :aMixOutL , :aMixOutR .
 
 ################################################################
 # Bass Drum  (MIDI note 36)                                    #
@@ -471,9 +471,13 @@
     val:from [ val:node :bdLevel ; val:port "out" ] ;
     val:to   [ val:node :bdPan   ; val:port "in"  ] .
 
-:aBdPanMix a val:Arc ;
-    val:from [ val:node :bdPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aBdPanMixL a val:Arc ;
+    val:from [ val:node :bdPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aBdPanMixR a val:Arc ;
+    val:from [ val:node :bdPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Snare Drum arcs                                              #
@@ -534,9 +538,13 @@
     val:from [ val:node :sdLevel ; val:port "out" ] ;
     val:to   [ val:node :sdPan   ; val:port "in"  ] .
 
-:aSdPanMix a val:Arc ;
-    val:from [ val:node :sdPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aSdPanMixL a val:Arc ;
+    val:from [ val:node :sdPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aSdPanMixR a val:Arc ;
+    val:from [ val:node :sdPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Rim Shot arcs                                                #
@@ -566,9 +574,13 @@
     val:from [ val:node :rsLevel ; val:port "out" ] ;
     val:to   [ val:node :rsPan   ; val:port "in"  ] .
 
-:aRsPanMix a val:Arc ;
-    val:from [ val:node :rsPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aRsPanMixL a val:Arc ;
+    val:from [ val:node :rsPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aRsPanMixR a val:Arc ;
+    val:from [ val:node :rsPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Hand Clap arcs                                               #
@@ -598,9 +610,13 @@
     val:from [ val:node :cpLevel ; val:port "out" ] ;
     val:to   [ val:node :cpPan   ; val:port "in"  ] .
 
-:aCpPanMix a val:Arc ;
-    val:from [ val:node :cpPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aCpPanMixL a val:Arc ;
+    val:from [ val:node :cpPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aCpPanMixR a val:Arc ;
+    val:from [ val:node :cpPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Low Tom arcs                                                 #
@@ -642,9 +658,13 @@
     val:from [ val:node :ltLevel ; val:port "out" ] ;
     val:to   [ val:node :ltPan   ; val:port "in"  ] .
 
-:aLtPanMix a val:Arc ;
-    val:from [ val:node :ltPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aLtPanMixL a val:Arc ;
+    val:from [ val:node :ltPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aLtPanMixR a val:Arc ;
+    val:from [ val:node :ltPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Mid Tom arcs                                                 #
@@ -686,9 +706,13 @@
     val:from [ val:node :mtLevel ; val:port "out" ] ;
     val:to   [ val:node :mtPan   ; val:port "in"  ] .
 
-:aMtPanMix a val:Arc ;
-    val:from [ val:node :mtPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aMtPanMixL a val:Arc ;
+    val:from [ val:node :mtPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aMtPanMixR a val:Arc ;
+    val:from [ val:node :mtPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # High Tom arcs                                                #
@@ -730,9 +754,13 @@
     val:from [ val:node :htLevel ; val:port "out" ] ;
     val:to   [ val:node :htPan   ; val:port "in"  ] .
 
-:aHtPanMix a val:Arc ;
-    val:from [ val:node :htPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aHtPanMixL a val:Arc ;
+    val:from [ val:node :htPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aHtPanMixR a val:Arc ;
+    val:from [ val:node :htPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Closed Hi-Hat arcs                                           #
@@ -786,9 +814,13 @@
     val:from [ val:node :chLevel ; val:port "out" ] ;
     val:to   [ val:node :chPan   ; val:port "in"  ] .
 
-:aChPanMix a val:Arc ;
-    val:from [ val:node :chPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aChPanMixL a val:Arc ;
+    val:from [ val:node :chPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aChPanMixR a val:Arc ;
+    val:from [ val:node :chPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
 # Open Hi-Hat arcs                                             #
@@ -850,17 +882,25 @@
     val:from [ val:node :ohLevel ; val:port "out" ] ;
     val:to   [ val:node :ohPan   ; val:port "in"  ] .
 
-:aOhPanMix a val:Arc ;
-    val:from [ val:node :ohPan ; val:port "out" ] ;
-    val:to   [ val:node :mix   ; val:port "in"  ] .
+:aOhPanMixL a val:Arc ;
+    val:from [ val:node :ohPan ; val:port "left" ] ;
+    val:to   [ val:node :mix   ; val:port "left" ] .
+
+:aOhPanMixR a val:Arc ;
+    val:from [ val:node :ohPan ; val:port "right" ] ;
+    val:to   [ val:node :mix   ; val:port "right" ] .
 
 ################################################################
-# Output arc                                                   #
+# Output arcs                                                  #
 ################################################################
 
-:aMixOut a val:Arc ;
-    val:from [ val:node :mix ; val:port "out" ] ;
-    val:to   [ val:node :out ; val:port "in"  ] .
+:aMixOutL a val:Arc ;
+    val:from [ val:node :mix ; val:port "left" ] ;
+    val:to   [ val:node :out ; val:port "left" ] .
+
+:aMixOutR a val:Arc ;
+    val:from [ val:node :mix ; val:port "right" ] ;
+    val:to   [ val:node :out ; val:port "right" ] .
 
 ################################################################
 # Host parameters                                              #

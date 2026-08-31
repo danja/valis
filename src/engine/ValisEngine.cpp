@@ -242,20 +242,23 @@ void ValisEngine::allNotesOff() noexcept
 
 void ValisEngine::process(const float* input, float* output, int numSamples) noexcept
 {
+    process(input, output, nullptr, numSamples);
+}
+
+void ValisEngine::process(const float* input, float* outputL, float* outputR, int numSamples) noexcept
+{
     blockCounter.fetch_add(1, std::memory_order_acq_rel);
 
     Graph* graph = active.load(std::memory_order_acquire);
     if (graph == nullptr)
     {
-        std::memset(output, 0, static_cast<std::size_t>(numSamples) * sizeof(float));
+        if (outputL != nullptr)
+            std::memset(outputL, 0, static_cast<std::size_t>(numSamples) * sizeof(float));
+        if (outputR != nullptr)
+            std::memset(outputR, 0, static_cast<std::size_t>(numSamples) * sizeof(float));
         return;
     }
 
-    // Control values update once per slice, and slices are aligned to stream
-    // position rather than to the host's block boundaries. Without that, an
-    // envelope follower would run at the host's buffer rate and the circuit
-    // would sound different at 128 samples than at 512 - which is not something
-    // a user should have to think about.
     int done = 0;
     while (done < numSamples)
     {
@@ -264,7 +267,8 @@ void ValisEngine::process(const float* input, float* output, int numSamples) noe
 
         processSlice(*graph,
                      input != nullptr ? input + done : nullptr,
-                     output + done,
+                     outputL != nullptr ? outputL + done : nullptr,
+                     outputR != nullptr ? outputR + done : nullptr,
                      slice);
 
         streamPosition += static_cast<std::uint64_t>(slice);
@@ -276,7 +280,8 @@ void ValisEngine::process(const float* input, float* output, int numSamples) noe
 
 void ValisEngine::processSlice(Graph& graph,
                                const float* input,
-                               float* output,
+                               float* outputL,
+                               float* outputR,
                                int numSamples) noexcept
 {
     const auto& circuit = graph.circuit;
@@ -368,13 +373,34 @@ void ValisEngine::processSlice(Graph& graph,
                 graph.controlOut[c];
     }
 
-    // The output element reads whatever arrives at its single audio input.
+    // The output element reads whatever arrives at its audio inputs (in, left, right).
     const auto& outputNode = circuit.nodes[static_cast<std::size_t>(circuit.outputNode)];
-    if (! outputNode.audioInBuffers.empty())
-        std::memcpy(output, graph.buffer(outputNode.audioInBuffers[0]),
-                    static_cast<std::size_t>(numSamples) * sizeof(float));
-    else
-        std::memset(output, 0, static_cast<std::size_t>(numSamples) * sizeof(float));
+
+    const int inPortIdx    = outputNode.type != nullptr ? outputNode.type->findPortIndex("in") : -1;
+    const int leftPortIdx  = outputNode.type != nullptr ? outputNode.type->findPortIndex("left") : -1;
+    const int rightPortIdx = outputNode.type != nullptr ? outputNode.type->findPortIndex("right") : -1;
+
+    const float* monoBuf  = (inPortIdx >= 0 && static_cast<std::size_t>(inPortIdx) < outputNode.audioInBuffers.size())
+                                ? graph.buffer(outputNode.audioInBuffers[static_cast<std::size_t>(inPortIdx)])
+                                : nullptr;
+    const float* leftBuf  = (leftPortIdx >= 0 && static_cast<std::size_t>(leftPortIdx) < outputNode.audioInBuffers.size())
+                                ? graph.buffer(outputNode.audioInBuffers[static_cast<std::size_t>(leftPortIdx)])
+                                : nullptr;
+    const float* rightBuf = (rightPortIdx >= 0 && static_cast<std::size_t>(rightPortIdx) < outputNode.audioInBuffers.size())
+                                ? graph.buffer(outputNode.audioInBuffers[static_cast<std::size_t>(rightPortIdx)])
+                                : nullptr;
+
+    const bool hasLeft  = leftBuf  != nullptr && leftBuf  != graph.buffer(circuit.silenceBuffer);
+    const bool hasRight = rightBuf != nullptr && rightBuf != graph.buffer(circuit.silenceBuffer);
+    const bool hasMono  = monoBuf  != nullptr && monoBuf  != graph.buffer(circuit.silenceBuffer);
+
+    const float* srcL = hasLeft ? leftBuf : (hasMono ? monoBuf : graph.buffer(circuit.silenceBuffer));
+    const float* srcR = hasRight ? rightBuf : (hasMono ? monoBuf : graph.buffer(circuit.silenceBuffer));
+
+    if (outputL != nullptr)
+        std::memcpy(outputL, srcL, static_cast<std::size_t>(numSamples) * sizeof(float));
+    if (outputR != nullptr)
+        std::memcpy(outputR, srcR, static_cast<std::size_t>(numSamples) * sizeof(float));
 }
 
 }  // namespace valis

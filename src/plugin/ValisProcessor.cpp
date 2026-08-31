@@ -265,11 +265,12 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         juce::FloatVectorOperations::clear(mono, numSamples);
     }
 
-    float* rendered = monoScratch.getWritePointer(1);
-    engine.process(mono, rendered, numSamples);
+    float* left  = numOut > 0 ? buffer.getWritePointer(0) : nullptr;
+    float* right = numOut > 1 ? buffer.getWritePointer(1) : nullptr;
+    engine.process(mono, left, right, numSamples);
 
-    for (int c = 0; c < numOut; ++c)
-        juce::FloatVectorOperations::copy(buffer.getWritePointer(c), rendered, numSamples);
+    for (int c = 2; c < numOut; ++c)
+        juce::FloatVectorOperations::copy(buffer.getWritePointer(c), left, numSamples);
 }
 
 juce::AudioProcessorEditor* ValisProcessor::createEditor()

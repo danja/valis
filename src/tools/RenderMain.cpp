@@ -252,13 +252,14 @@ int main(int argc, char** argv)
     if (input.empty())
         return 1;
 
-    std::vector<float> output(input.size(), 0.0f);
+    std::vector<float> outputL(input.size(), 0.0f);
+    std::vector<float> outputR(input.size(), 0.0f);
 
     for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(options.blockSize))
     {
         const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
                                                  input.size() - at));
-        engine.process(input.data() + at, output.data() + at, n);
+        engine.process(input.data() + at, outputL.data() + at, outputR.data() + at, n);
     }
 
     // -- write -------------------------------------------------------------
@@ -275,25 +276,26 @@ int main(int argc, char** argv)
     }
 
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        wav.createWriterFor(stream.release(), options.sampleRate, 1, 24, {}, 0));
+        wav.createWriterFor(stream.release(), options.sampleRate, 2, 24, {}, 0));
     if (writer == nullptr)
     {
         std::fprintf(stderr, "cannot create wav writer\n");
         return 1;
     }
 
-    const float* channels[] = {output.data()};
-    writer->writeFromFloatArrays(channels, 1, static_cast<int>(output.size()));
+    const float* channels[] = {outputL.data(), outputR.data()};
+    writer->writeFromFloatArrays(channels, 2, static_cast<int>(outputL.size()));
     writer.reset();
 
     float peak = 0.0f;
     double sum = 0.0;
-    for (const float sample : output)
+    for (std::size_t i = 0; i < input.size(); ++i)
     {
-        peak = std::max(peak, std::abs(sample));
-        sum += static_cast<double>(sample) * sample;
+        const float s = 0.5f * (outputL[i] + outputR[i]);
+        peak = std::max(peak, std::abs(s));
+        sum += static_cast<double>(s) * s;
     }
-    const auto rms = std::sqrt(sum / static_cast<double>(output.size()));
+    const auto rms = std::sqrt(sum / static_cast<double>(outputL.size()));
 
     std::printf("%s: %zu nodes, %d buffers, latency %d\n",
                 options.circuitPath.c_str(), compiled.nodes.size(),
