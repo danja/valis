@@ -233,11 +233,11 @@ void testDirectionAndRateAreChecked()
 :c a val:Circuit ; val:element :in , :out ; val:arc :a1 .
 :in a val:Input .
 :out a val:Output .
-:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
-                val:to   [ val:node :in ; val:port "out" ] .
+:a1 a val:Arc ; val:from [ val:node :out ; val:port "in" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
 )"));
     assert(! backwards.compiled_);
-    assert(backwards.hasDiagnosticContaining("which is an output port"));
+    assert(backwards.hasDiagnosticContaining("which is an input port"));
 
     // Audio output into a control input.
     auto mixed = run(circuit(R"(

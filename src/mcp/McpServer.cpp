@@ -14,6 +14,11 @@ namespace valis {
 namespace {
 
 constexpr const char* kProtocolVersion = "2024-11-05";
+constexpr const char* kTurtleResourceUri = "valis://turtle";
+constexpr const char* kGraphResourceUri = "valis://graph";
+constexpr const char* kDiagnosticsResourceUri = "valis://diagnostics";
+constexpr const char* kElementTypesResourceUri = "valis://element-types";
+constexpr const char* kParamsResourceUri = "valis://params";
 
 /// Runs `work` on the message thread and waits for it. The ops mutate the model
 /// the editor also reads, so they belong on one thread; the HTTP thread waits
@@ -66,6 +71,38 @@ juce::var textContent(const juce::String& text, bool isError = false)
     return juce::var(result);
 }
 
+juce::var textResource(const char* uri, const char* name, const char* description,
+                       const char* mimeType)
+{
+    auto* resource = new juce::DynamicObject();
+    resource->setProperty("uri", uri);
+    resource->setProperty("name", name);
+    resource->setProperty("description", description);
+    resource->setProperty("mimeType", mimeType);
+    return juce::var(resource);
+}
+
+juce::var resourceManifest()
+{
+    juce::Array<juce::var> resources;
+    resources.add(textResource(kTurtleResourceUri, "Current Turtle",
+                               "The circuit's current Turtle source.",
+                               "text/turtle"));
+    resources.add(textResource(kGraphResourceUri, "Current graph",
+                               "The current circuit as JSON.",
+                               "application/json"));
+    resources.add(textResource(kDiagnosticsResourceUri, "Current diagnostics",
+                               "Whether the circuit loaded, its size, and its latency.",
+                               "application/json"));
+    resources.add(textResource(kElementTypesResourceUri, "Element types",
+                               "Every element class the ontology declares, with ports, ranges, and units.",
+                               "application/json"));
+    resources.add(textResource(kParamsResourceUri, "Parameter bindings",
+                               "The circuit's parameter bindings, with ranges, units, and current values.",
+                               "application/json"));
+    return resources;
+}
+
 juce::String diagnosticsToText(const std::vector<Diagnostic>& diagnostics)
 {
     juce::StringArray lines;
@@ -88,6 +125,138 @@ juce::var resultOf(const OpResult& result)
         text += (text.isEmpty() ? "" : "\n") + diagnosticsToText(result.diagnostics);
 
     return textContent(text.isEmpty() ? juce::String("ok") : text);
+}
+
+juce::var readResource(std::function<OpDispatcher()> makeDispatcher, const juce::String& uri,
+                       juce::String& error)
+{
+    return onMessageThread([&]() -> juce::var
+    {
+        auto ops = makeDispatcher();
+
+        if (uri == kTurtleResourceUri)
+        {
+            const auto result = ops.getTurtle();
+            if (! result.ok)
+            {
+                error = result.diagnostics.empty() ? "failed to read Turtle" : diagnosticsToText(result.diagnostics);
+                return {};
+            }
+
+            auto* contents = new juce::DynamicObject();
+            contents->setProperty("uri", uri);
+            contents->setProperty("mimeType", "text/turtle");
+            contents->setProperty("text", juce::String(result.value));
+
+            juce::Array<juce::var> items;
+            items.add(juce::var(contents));
+
+            auto* response = new juce::DynamicObject();
+            response->setProperty("contents", items);
+            return juce::var(response);
+        }
+
+        if (uri == kGraphResourceUri || uri == kDiagnosticsResourceUri)
+        {
+            const auto result = uri == kGraphResourceUri ? ops.getGraph() : ops.getDiagnostics();
+            if (! result.ok)
+            {
+                error = result.diagnostics.empty() ? "failed to read resource" : diagnosticsToText(result.diagnostics);
+                return {};
+            }
+
+            auto* contents = new juce::DynamicObject();
+            contents->setProperty("uri", uri);
+            contents->setProperty("mimeType", "application/json");
+            contents->setProperty("text", juce::String(result.value));
+
+            juce::Array<juce::var> items;
+            items.add(juce::var(contents));
+
+            auto* response = new juce::DynamicObject();
+            response->setProperty("contents", items);
+            return juce::var(response);
+        }
+
+        if (uri == kElementTypesResourceUri)
+        {
+            juce::Array<juce::var> types;
+            for (const auto& type : ops.listElementTypes())
+            {
+                auto* entry = new juce::DynamicObject();
+                entry->setProperty("class", juce::String(type.classIri));
+                entry->setProperty("label", juce::String(type.label));
+                entry->setProperty("linear", type.linear);
+
+                juce::Array<juce::var> ports;
+                for (const auto& portDesc : type.ports)
+                {
+                    auto* p = new juce::DynamicObject();
+                    p->setProperty("symbol", juce::String(portDesc.symbol));
+                    p->setProperty("name", juce::String(portDesc.name));
+                    p->setProperty("direction", portDesc.input ? "in" : "out");
+                    p->setProperty("rate", portDesc.control ? "control" : "audio");
+                    if (portDesc.control)
+                    {
+                        p->setProperty("default", portDesc.defaultValue);
+                        p->setProperty("minimum", portDesc.minimum);
+                        p->setProperty("maximum", portDesc.maximum);
+                        if (! portDesc.unit.empty())
+                            p->setProperty("unit", juce::String(portDesc.unit));
+                    }
+                    ports.add(juce::var(p));
+                }
+                entry->setProperty("ports", ports);
+                types.add(juce::var(entry));
+            }
+
+            auto* contents = new juce::DynamicObject();
+            contents->setProperty("uri", uri);
+            contents->setProperty("mimeType", "application/json");
+            contents->setProperty("text", juce::JSON::toString(types, true));
+
+            juce::Array<juce::var> items;
+            items.add(juce::var(contents));
+
+            auto* response = new juce::DynamicObject();
+            response->setProperty("contents", items);
+            return juce::var(response);
+        }
+
+        if (uri == kParamsResourceUri)
+        {
+            juce::Array<juce::var> params;
+            for (const auto& param : ops.listParams())
+            {
+                auto* entry = new juce::DynamicObject();
+                entry->setProperty("slot", param.slot);
+                entry->setProperty("name", juce::String(param.name));
+                entry->setProperty("target", juce::String(param.targetNode));
+                entry->setProperty("property", juce::String(param.property));
+                entry->setProperty("value", param.value);
+                entry->setProperty("minimum", param.minimum);
+                entry->setProperty("maximum", param.maximum);
+                if (! param.unit.empty())
+                    entry->setProperty("unit", juce::String(param.unit));
+                params.add(juce::var(entry));
+            }
+
+            auto* contents = new juce::DynamicObject();
+            contents->setProperty("uri", uri);
+            contents->setProperty("mimeType", "application/json");
+            contents->setProperty("text", juce::JSON::toString(params, true));
+
+            juce::Array<juce::var> items;
+            items.add(juce::var(contents));
+
+            auto* response = new juce::DynamicObject();
+            response->setProperty("contents", items);
+            return juce::var(response);
+        }
+
+        error = "unknown resource: " + uri;
+        return {};
+    });
 }
 
 /// A tool definition, so the manifest and the dispatch stay in one place.
@@ -298,8 +467,10 @@ std::string McpServer::handleMessage(const std::string& request)
         info->setProperty("version", "0.1.0");
 
         auto* tools = new juce::DynamicObject();
+        auto* resources = new juce::DynamicObject();
         auto* capabilities = new juce::DynamicObject();
         capabilities->setProperty("tools", juce::var(tools));
+        capabilities->setProperty("resources", juce::var(resources));
 
         auto* result = new juce::DynamicObject();
         result->setProperty("protocolVersion", kProtocolVersion);
@@ -313,6 +484,24 @@ std::string McpServer::handleMessage(const std::string& request)
         auto* result = new juce::DynamicObject();
         result->setProperty("tools", toolManifest());
         response->setProperty("result", juce::var(result));
+    }
+    else if (method == "resources/list")
+    {
+        auto* result = new juce::DynamicObject();
+        result->setProperty("resources", resourceManifest());
+        response->setProperty("result", juce::var(result));
+    }
+    else if (method == "resources/read")
+    {
+        const auto params = parsed["params"];
+
+        juce::String error;
+        const auto result = readResource(makeDispatcher, params["uri"].toString(), error);
+
+        if (error.isNotEmpty())
+            response->setProperty("error", errorObject(-32602, error));
+        else
+            response->setProperty("result", result);
     }
     else if (method == "tools/call")
     {

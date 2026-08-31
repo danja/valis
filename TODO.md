@@ -1,4 +1,4 @@
-Fix the build warnings local to Valis
+
 
 ## Recurring - check periodically
 

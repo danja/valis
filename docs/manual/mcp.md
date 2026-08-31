@@ -26,12 +26,25 @@ curl -s localhost:7676/health
 
 ## Protocol
 
-JSON-RPC 2.0 over `POST /mcp`. `initialize`, `tools/list` and `tools/call` are
-supported.
+JSON-RPC 2.0 over `POST /mcp`. `initialize`, `tools/list`, `tools/call`,
+`resources/list`, and `resources/read` are supported.
 
 ```sh
 curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+## Resources
+
+These read-only resources let a client inspect the current state without picking
+a tool first.
+
+| resource | contains |
+|---|---|
+| `valis://turtle` | the circuit's current Turtle source |
+| `valis://graph` | the current circuit as JSON |
+| `valis://diagnostics` | load state, size, latency, and any diagnostics |
+| `valis://element-types` | every declared element class with ports, ranges, and units |
+| `valis://params` | the circuit's current parameter bindings |
 
 ## Tools
 

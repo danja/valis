@@ -108,8 +108,8 @@ bool CircuitCompiler::compile(const CircuitModel& model,
             continue;
         }
 
-        const auto* fromPort = fromElement->type->findPort(arc.fromPort, false, arc.control);
-        const auto* toPort   = toElement->type->findPort(arc.toPort, true, arc.control);
+        const auto* fromPort = fromElement->type->findPort(arc.fromPort);
+        const auto* toPort   = toElement->type->findPort(arc.toPort);
 
         if (fromPort == nullptr)
         {
@@ -145,6 +145,15 @@ bool CircuitCompiler::compile(const CircuitModel& model,
                                    (fromPort->control ? "control" : "audio") +
                                    " output to a " + (toPort->control ? "control" : "audio") +
                                    " input", arc.id});
+            continue;
+        }
+        if (fromPort->control != arc.control || toPort->control != arc.control)
+        {
+            diagnostics.push_back({std::string("arc is declared as ") +
+                                   (arc.control ? "control" : "audio") +
+                                   " but connects " +
+                                   (fromPort->control ? "control" : "audio") +
+                                   " ports", arc.id});
             continue;
         }
 

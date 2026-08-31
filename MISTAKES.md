@@ -62,6 +62,25 @@ you need to assert on must be called before the assert.
 
 ---
 
+## OpenHarness MCP client drifted from installed MCP library
+
+**What happened:** OpenHarness reported all configured MCP servers as failed even
+though the same servers worked in Claude. HTTP servers (`valis`, `transmission`)
+failed with `not enough values to unpack (expected 3, got 2)`. The stdio server
+(`reaper-mcp`) failed with `'Tool' object has no attribute 'inputSchema'`.
+
+**Root cause:** The local OpenHarness 0.1.9 install expected an older MCP Python
+API than the one installed in its virtualenv. `streamable_http_client(...)`
+now yields two streams, but OpenHarness unpacked three values. MCP `Tool`
+objects now expose `input_schema`, but OpenHarness read `inputSchema`.
+
+**Prevention:** When MCP servers all fail at once but work in another client,
+check the local client library compatibility before changing server configs.
+Inspect the installed function signatures and model fields in the active
+virtualenv, then patch or upgrade the client to match.
+
+---
+
 ## ParamBinding range not overridable
 
 **What happened:** `val:Scale` ports need a ±1e6 range for general numeric use.
