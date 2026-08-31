@@ -298,6 +298,27 @@ void testDiagnostics()
     assert(result.value.find("\"latency\":3") != std::string::npos);
 }
 
+/// Load 909.ttl and verify that triggering MIDI note 36 produces audio output.
+void test909BassdrumProducesOutput()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    if (! host.loaded)
+    {
+        std::puts("  909.ttl failed to load — circuit compilation errors above");
+        assert(host.loaded);
+    }
+
+    host.engine.noteOn(36, 0.8f);
+    std::vector<float> output(512, 0.0f);
+    host.engine.process(nullptr, output.data(), 512);
+    host.engine.process(nullptr, output.data(), 512);
+
+    float maxAbs = 0.0f;
+    for (float s : output) maxAbs = std::max(maxAbs, std::abs(s));
+    std::printf("  BD note 36 max output after 2 blocks: %f\n", maxAbs);
+    assert(maxAbs > 0.001f && "Bass drum note 36 produced no output");
+}
+
 /// An edit made through the ops must produce Turtle that survives a round trip,
 /// or the text view and the graph view would drift apart.
 void testEditsSurviveAReparse()
@@ -329,6 +350,7 @@ int main()
     testParameters();
     testDiagnostics();
     testEditsSurviveAReparse();
+    test909BassdrumProducesOutput();
 
     std::puts("OpDispatcherTest PASSED");
     return 0;
