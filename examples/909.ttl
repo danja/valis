@@ -42,67 +42,67 @@
     val:element
         # Bass Drum
         :bdGate , :bdOsc , :bdPitchEnv , :bdPitchScale ,
-        :bdAmpEnv , :bdSat , :bdVca , :bdLevel ,
+        :bdAmpEnv , :bdSat , :bdVca , :bdLevel , :bdPan ,
         # Snare Drum
         :sdGate ,
         :sdOsc1 , :sdOsc2 , :sdOscMix ,
         :sdNoise , :sdBpf ,
         :sdToneEnv , :sdToneVca ,
         :sdNoiseEnv , :sdNoiseVca ,
-        :sdMix , :sdLevel ,
+        :sdMix , :sdLevel , :sdPan ,
         # Rim Shot
-        :rsGate , :rsNoise , :rsHpf , :rsEnv , :rsVca , :rsLevel ,
+        :rsGate , :rsNoise , :rsHpf , :rsEnv , :rsVca , :rsLevel , :rsPan ,
         # Hand Clap
-        :cpGate , :cpNoise , :cpBpf , :cpEnv , :cpVca , :cpLevel ,
+        :cpGate , :cpNoise , :cpBpf , :cpEnv , :cpVca , :cpLevel , :cpPan ,
         # Low Tom
-        :ltGate , :ltOsc , :ltPitchEnv , :ltPitchScale , :ltAmpEnv , :ltVca , :ltLevel ,
+        :ltGate , :ltOsc , :ltPitchEnv , :ltPitchScale , :ltAmpEnv , :ltVca , :ltLevel , :ltPan ,
         # Mid Tom
-        :mtGate , :mtOsc , :mtPitchEnv , :mtPitchScale , :mtAmpEnv , :mtVca , :mtLevel ,
+        :mtGate , :mtOsc , :mtPitchEnv , :mtPitchScale , :mtAmpEnv , :mtVca , :mtLevel , :mtPan ,
         # High Tom
-        :htGate , :htOsc , :htPitchEnv , :htPitchScale , :htAmpEnv , :htVca , :htLevel ,
+        :htGate , :htOsc , :htPitchEnv , :htPitchScale , :htAmpEnv , :htVca , :htLevel , :htPan ,
         # Closed Hi-Hat
         :chGate , :chOsc1 , :chOsc2 , :chOsc3 , :chOsc4 , :chOsc5 , :chOsc6 ,
-        :chMix , :chHpf , :chEnv , :chVca , :chLevel ,
+        :chMix , :chHpf , :chEnv , :chVca , :chLevel , :chPan ,
         # Open Hi-Hat
         :ohGate , :ohOsc1 , :ohOsc2 , :ohOsc3 , :ohOsc4 , :ohOsc5 , :ohOsc6 ,
-        :ohMix , :ohHpf , :ohEnv , :ohVca , :ohLevel ,
+        :ohMix , :ohHpf , :ohEnv , :ohVca , :ohLevel , :ohPan , :ohChoke ,
         # Output stage
         :mix , :out ;
     val:arc
         # Bass Drum
         :aBdGatePitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
-        :aBdOscSat , :aBdSatVca , :aBdEnvVca , :aBdVcaLevel , :aBdLevelMix ,
+        :aBdOscSat , :aBdSatVca , :aBdEnvVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMix ,
         # Snare Drum
         :aSdGateToneEnv , :aSdGateNoiseEnv ,
         :aSdOsc1OscMix , :aSdOsc2OscMix ,
         :aSdOscMixToneVca , :aSdToneEnvToneVca ,
         :aSdNoiseBpf , :aSdBpfNoiseVca , :aSdNoiseEnvNoiseVca ,
-        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelMix ,
+        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelPan , :aSdPanMix ,
         # Rim Shot
-        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelMix ,
+        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelPan , :aRsPanMix ,
         # Hand Clap
-        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelMix ,
+        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelPan , :aCpPanMix ,
         # Low Tom
         :aLtGatePitchEnv , :aLtGateAmpEnv , :aLtGateTwinT ,
         :aLtPitchEnvScale , :aLtScaleOsc ,
-        :aLtOscVca , :aLtAmpEnvVca , :aLtVcaLevel , :aLtLevelMix ,
+        :aLtOscVca , :aLtAmpEnvVca , :aLtVcaLevel , :aLtLevelPan , :aLtPanMix ,
         # Mid Tom
         :aMtGatePitchEnv , :aMtGateAmpEnv , :aMtGateTwinT ,
         :aMtPitchEnvScale , :aMtScaleOsc ,
-        :aMtOscVca , :aMtAmpEnvVca , :aMtVcaLevel , :aMtLevelMix ,
+        :aMtOscVca , :aMtAmpEnvVca , :aMtVcaLevel , :aMtLevelPan , :aMtPanMix ,
         # High Tom
         :aHtGatePitchEnv , :aHtGateAmpEnv , :aHtGateTwinT ,
         :aHtPitchEnvScale , :aHtScaleOsc ,
-        :aHtOscVca , :aHtAmpEnvVca , :aHtVcaLevel , :aHtLevelMix ,
+        :aHtOscVca , :aHtAmpEnvVca , :aHtVcaLevel , :aHtLevelPan , :aHtPanMix ,
         # Closed Hi-Hat
         :aChGateEnv ,
         :aChOsc1Mix , :aChOsc2Mix , :aChOsc3Mix , :aChOsc4Mix , :aChOsc5Mix , :aChOsc6Mix ,
-        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelMix ,
+        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelPan , :aChPanMix ,
         # Open Hi-Hat
-        :aOhGateEnv ,
+        :aOhGateChoke , :aChGateChoke , :aOhChokeEnv ,
         :aOhOsc1Mix , :aOhOsc2Mix , :aOhOsc3Mix , :aOhOsc4Mix , :aOhOsc5Mix , :aOhOsc6Mix ,
-        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelMix ,
+        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelPan , :aOhPanMix ,
         # Output
         :aMixOut .
 
@@ -144,6 +144,7 @@
 :bdVca a val:VCA .
 
 :bdLevel a val:Gain ; val:gain 0.0 .
+:bdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
 # Snare Drum  (MIDI note 38)                                   #
@@ -196,6 +197,7 @@
 :sdMix a val:Mixer .          # sums tone + noise outputs
 
 :sdLevel a val:Gain ; val:gain -6.0 .
+:sdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
 # Rim Shot  (MIDI note 37)                                     #
@@ -223,6 +225,7 @@
 :rsVca a val:VCA .
 
 :rsLevel a val:Gain ; val:gain -6.0 .
+:rsPan a val:Pan ; val:pan -0.3 .
 
 ################################################################
 # Hand Clap  (MIDI note 39)                                    #
@@ -250,6 +253,7 @@
 :cpVca a val:VCA .
 
 :cpLevel a val:Gain ; val:gain -6.0 .
+:cpPan a val:Pan ; val:pan 0.3 .
 
 ################################################################
 # Low Tom  (MIDI note 41)                                      #
@@ -282,6 +286,7 @@
 :ltVca a val:VCA .
 
 :ltLevel a val:Gain ; val:gain -3.0 .
+:ltPan a val:Pan ; val:pan -0.5 .
 
 ################################################################
 # Mid Tom  (MIDI note 43)                                      #
@@ -311,6 +316,7 @@
 :mtVca a val:VCA .
 
 :mtLevel a val:Gain ; val:gain -3.0 .
+:mtPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
 # High Tom  (MIDI note 50)                                     #
@@ -340,6 +346,7 @@
 :htVca a val:VCA .
 
 :htLevel a val:Gain ; val:gain -3.0 .
+:htPan a val:Pan ; val:pan 0.5 .
 
 ################################################################
 # Closed Hi-Hat  (MIDI note 42)                                #
@@ -375,6 +382,7 @@
 :chVca a val:VCA .
 
 :chLevel a val:Gain ; val:gain -9.0 .
+:chPan a val:Pan ; val:pan -0.2 .
 
 ################################################################
 # Open Hi-Hat  (MIDI note 46)                                  #
@@ -409,6 +417,8 @@
 :ohVca a val:VCA .
 
 :ohLevel a val:Gain ; val:gain -9.0 .
+:ohPan a val:Pan ; val:pan 0.2 .
+:ohChoke a val:Choke .
 
 ################################################################
 # Output stage                                                 #
@@ -457,8 +467,12 @@
     val:from [ val:node :bdVca ; val:port "out" ] ;
     val:to   [ val:node :bdLevel ; val:port "in"  ] .
 
-:aBdLevelMix a val:Arc ;
+:aBdLevelPan a val:Arc ;
     val:from [ val:node :bdLevel ; val:port "out" ] ;
+    val:to   [ val:node :bdPan   ; val:port "in"  ] .
+
+:aBdPanMix a val:Arc ;
+    val:from [ val:node :bdPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -516,8 +530,12 @@
     val:from [ val:node :sdMix ; val:port "out" ] ;
     val:to   [ val:node :sdLevel ; val:port "in"  ] .
 
-:aSdLevelMix a val:Arc ;
+:aSdLevelPan a val:Arc ;
     val:from [ val:node :sdLevel ; val:port "out" ] ;
+    val:to   [ val:node :sdPan   ; val:port "in"  ] .
+
+:aSdPanMix a val:Arc ;
+    val:from [ val:node :sdPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -544,8 +562,12 @@
     val:from [ val:node :rsVca ; val:port "out" ] ;
     val:to   [ val:node :rsLevel ; val:port "in"  ] .
 
-:aRsLevelMix a val:Arc ;
+:aRsLevelPan a val:Arc ;
     val:from [ val:node :rsLevel ; val:port "out" ] ;
+    val:to   [ val:node :rsPan   ; val:port "in"  ] .
+
+:aRsPanMix a val:Arc ;
+    val:from [ val:node :rsPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -572,8 +594,12 @@
     val:from [ val:node :cpVca ; val:port "out" ] ;
     val:to   [ val:node :cpLevel ; val:port "in"  ] .
 
-:aCpLevelMix a val:Arc ;
+:aCpLevelPan a val:Arc ;
     val:from [ val:node :cpLevel ; val:port "out" ] ;
+    val:to   [ val:node :cpPan   ; val:port "in"  ] .
+
+:aCpPanMix a val:Arc ;
+    val:from [ val:node :cpPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -612,8 +638,12 @@
     val:from [ val:node :ltVca ; val:port "out" ] ;
     val:to   [ val:node :ltLevel ; val:port "in"  ] .
 
-:aLtLevelMix a val:Arc ;
+:aLtLevelPan a val:Arc ;
     val:from [ val:node :ltLevel ; val:port "out" ] ;
+    val:to   [ val:node :ltPan   ; val:port "in"  ] .
+
+:aLtPanMix a val:Arc ;
+    val:from [ val:node :ltPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -652,8 +682,12 @@
     val:from [ val:node :mtVca ; val:port "out" ] ;
     val:to   [ val:node :mtLevel ; val:port "in"  ] .
 
-:aMtLevelMix a val:Arc ;
+:aMtLevelPan a val:Arc ;
     val:from [ val:node :mtLevel ; val:port "out" ] ;
+    val:to   [ val:node :mtPan   ; val:port "in"  ] .
+
+:aMtPanMix a val:Arc ;
+    val:from [ val:node :mtPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -692,8 +726,12 @@
     val:from [ val:node :htVca ; val:port "out" ] ;
     val:to   [ val:node :htLevel ; val:port "in"  ] .
 
-:aHtLevelMix a val:Arc ;
+:aHtLevelPan a val:Arc ;
     val:from [ val:node :htLevel ; val:port "out" ] ;
+    val:to   [ val:node :htPan   ; val:port "in"  ] .
+
+:aHtPanMix a val:Arc ;
+    val:from [ val:node :htPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -744,17 +782,29 @@
     val:from [ val:node :chVca ; val:port "out" ] ;
     val:to   [ val:node :chLevel ; val:port "in"  ] .
 
-:aChLevelMix a val:Arc ;
+:aChLevelPan a val:Arc ;
     val:from [ val:node :chLevel ; val:port "out" ] ;
+    val:to   [ val:node :chPan   ; val:port "in"  ] .
+
+:aChPanMix a val:Arc ;
+    val:from [ val:node :chPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
 # Open Hi-Hat arcs                                             #
 ################################################################
 
-:aOhGateEnv a val:ControlArc ;
-    val:from [ val:node :ohGate ; val:port "gate" ] ;
-    val:to   [ val:node :ohEnv  ; val:port "gate" ] .
+:aOhGateChoke a val:ControlArc ;
+    val:from [ val:node :ohGate  ; val:port "gate" ] ;
+    val:to   [ val:node :ohChoke ; val:port "gate" ] .
+
+:aChGateChoke a val:ControlArc ;
+    val:from [ val:node :chGate  ; val:port "gate" ] ;
+    val:to   [ val:node :ohChoke ; val:port "choke" ] .
+
+:aOhChokeEnv a val:ControlArc ;
+    val:from [ val:node :ohChoke ; val:port "out"  ] ;
+    val:to   [ val:node :ohEnv   ; val:port "gate" ] .
 
 :aOhOsc1Mix a val:Arc ;
     val:from [ val:node :ohOsc1 ; val:port "out" ] ;
@@ -796,8 +846,12 @@
     val:from [ val:node :ohVca ; val:port "out" ] ;
     val:to   [ val:node :ohLevel ; val:port "in"  ] .
 
-:aOhLevelMix a val:Arc ;
+:aOhLevelPan a val:Arc ;
     val:from [ val:node :ohLevel ; val:port "out" ] ;
+    val:to   [ val:node :ohPan   ; val:port "in"  ] .
+
+:aOhPanMix a val:Arc ;
+    val:from [ val:node :ohPan ; val:port "out" ] ;
     val:to   [ val:node :mix   ; val:port "in"  ] .
 
 ################################################################
@@ -834,6 +888,11 @@
     lv2:name "Level" ; lv2:symbol "bd_level" ; val:section "Bass Drum" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
+:pBdPan a val:Param ; val:slot 24 ;
+    val:target :bdPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "bd_pan" ; val:section "Bass Drum" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
 # ── Snare ────────────────────────────────────────────────────────────────────
 
 :pSdToneDecay a val:Param ; val:slot 4 ;
@@ -856,6 +915,11 @@
     lv2:name "Level" ; lv2:symbol "sd_level" ; val:section "Snare" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
+:pSdPan a val:Param ; val:slot 25 ;
+    val:target :sdPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "sd_pan" ; val:section "Snare" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
 # ── Rim Shot ─────────────────────────────────────────────────────────────────
 
 :pRsDecay a val:Param ; val:slot 7 ;
@@ -867,6 +931,11 @@
     val:target :rsLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "rs_level" ; val:section "Rim Shot" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
+
+:pRsPan a val:Param ; val:slot 26 ;
+    val:target :rsPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "rs_pan" ; val:section "Rim Shot" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Hand Clap ────────────────────────────────────────────────────────────────
 
@@ -880,6 +949,11 @@
     lv2:name "Level" ; lv2:symbol "cp_level" ; val:section "Hand Clap" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
+:pCpPan a val:Param ; val:slot 27 ;
+    val:target :cpPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "cp_pan" ; val:section "Hand Clap" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
 # ── Low Tom ──────────────────────────────────────────────────────────────────
 
 :pLtDecay a val:Param ; val:slot 9 ;
@@ -891,6 +965,11 @@
     val:target :ltLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "lt_level" ; val:section "Low Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
+
+:pLtPan a val:Param ; val:slot 28 ;
+    val:target :ltPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "lt_pan" ; val:section "Low Tom" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Mid Tom ──────────────────────────────────────────────────────────────────
 
@@ -904,6 +983,11 @@
     lv2:name "Level" ; lv2:symbol "mt_level" ; val:section "Mid Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
+:pMtPan a val:Param ; val:slot 29 ;
+    val:target :mtPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "mt_pan" ; val:section "Mid Tom" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
 # ── High Tom ─────────────────────────────────────────────────────────────────
 
 :pHtDecay a val:Param ; val:slot 11 ;
@@ -916,6 +1000,11 @@
     lv2:name "Level" ; lv2:symbol "ht_level" ; val:section "High Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
+:pHtPan a val:Param ; val:slot 30 ;
+    val:target :htPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "ht_pan" ; val:section "High Tom" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
 # ── Closed HH ────────────────────────────────────────────────────────────────
 
 :pChDecay a val:Param ; val:slot 12 ;
@@ -927,6 +1016,11 @@
     val:target :chLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "ch_level" ; val:section "Closed HH" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
+
+:pChPan a val:Param ; val:slot 31 ;
+    val:target :chPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "ch_pan" ; val:section "Closed HH" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Open HH ──────────────────────────────────────────────────────────────────
 
@@ -944,3 +1038,8 @@
     val:target :ohLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "oh_level" ; val:section "Open HH" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
+
+:pOhPan a val:Param ; val:slot 32 ;
+    val:target :ohPan ; val:property val:pan ;
+    lv2:name "Pan" ; lv2:symbol "oh_pan" ; val:section "Open HH" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .

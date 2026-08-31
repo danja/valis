@@ -173,6 +173,245 @@ private:
     int timeIndex = -1, feedbackIndex = -1;
 };
 
+/// Equal-power stereo panner. Maps mono audio in to left, right, and combined out.
+class Pan final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        panIndex = controlIndex(type, "pan");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float pan = std::clamp(controlAt(args, panIndex, 0.0f), -1.0f, 1.0f);
+        const float angle = (pan + 1.0f) * 0.7853981633974483f;   // (pan + 1) * pi/4
+        const float gainL = std::cos(angle);
+        const float gainR = std::sin(angle);
+
+        const float* in = args.audioIn[0];
+        float* outMono = args.audioOut[0];
+        float* outL = args.numAudioOut > 1 ? args.audioOut[1] : nullptr;
+        float* outR = args.numAudioOut > 2 ? args.audioOut[2] : nullptr;
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const float sampleL = in[i] * gainL;
+            const float sampleR = in[i] * gainR;
+            outMono[i] = (sampleL + sampleR) * 0.70710678f;
+            if (outL) outL[i] = sampleL;
+            if (outR) outR[i] = sampleR;
+        }
+    }
+
+private:
+    int panIndex = -1;
+};
+
+/// Control gate choke element.
+class Choke final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        gateIndex  = controlIndex(type, "gate");
+        chokeIndex = controlIndex(type, "choke");
+        reset();
+    }
+
+    void reset() override
+    {
+        choked = false;
+        prevGate = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const float gateIn  = controlAt(args, gateIndex, 0.0f);
+        const float chokeIn = controlAt(args, chokeIndex, 0.0f);
+
+        if (gateIn > 0.5f && prevGate <= 0.5f)
+            choked = false;
+        prevGate = gateIn;
+
+        if (chokeIn > 0.5f)
+            choked = true;
+
+        args.controlOut[0] = choked ? 0.0f : (gateIn > 0.5f ? 1.0f : 0.0f);
+    }
+
+private:
+    int gateIndex = -1, chokeIndex = -1;
+    bool choked = false;
+    float prevGate = 0.0f;
+};
+
+/// Signal generator for test signals and circuit development.
+class SignalGenerator final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        freqIndex  = controlIndex(type, "frequency");
+        ampIndex   = controlIndex(type, "amplitude");
+        shapeIndex = controlIndex(type, "shape");
+        reset();
+    }
+
+    void reset() override { phase = 0.0; }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float freq  = std::clamp(controlAt(args, freqIndex, 440.0f), 1.0f, static_cast<float>(sampleRate * 0.45));
+        const float amp   = std::clamp(controlAt(args, ampIndex, 0.5f), 0.0f, 1.0f);
+        const int   shape = static_cast<int>(controlAt(args, shapeIndex, 0.0f) + 0.5f);
+
+        const double inc = freq / sampleRate;
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            float s = 0.0f;
+            const float p = static_cast<float>(phase);
+            switch (shape)
+            {
+                case 0: s = std::sin(6.283185307179586 * phase); break;   // Sine
+                case 1: s = p < 0.5f ? 1.0f : -1.0f; break;                // Square
+                case 2: s = 2.0f * p - 1.0f; break;                        // Saw
+                case 3: s = 4.0f * std::abs(p - 0.5f) - 1.0f; break;        // Triangle
+                case 4: {                                                  // White noise
+                    static uint32_t seed = 54321u;
+                    seed = seed * 1664525u + 1013904223u;
+                    s = static_cast<float>(seed) * (2.0f / 4294967296.0f) - 1.0f;
+                    break;
+                }
+                case 5: s = (i == 0 && phase < inc) ? 1.0f : 0.0f; break;  // Impulse
+                default: s = std::sin(6.283185307179586 * phase); break;
+            }
+            out[i] = s * amp;
+            phase += inc;
+            if (phase >= 1.0) phase -= 1.0;
+        }
+    }
+
+private:
+    double sampleRate = 44100.0, phase = 0.0;
+    int freqIndex = -1, ampIndex = -1, shapeIndex = -1;
+};
+
+/// Waveform and level monitor element.
+class Oscilloscope final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        float peak = 0.0f;
+        double sumSq = 0.0;
+        int zeroCrossings = 0;
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            out[i] = in[i];
+            const float absS = std::abs(in[i]);
+            if (absS > peak) peak = absS;
+            sumSq += in[i] * in[i];
+
+            if (i > 0 && ((in[i - 1] <= 0.0f && in[i] > 0.0f) || (in[i - 1] >= 0.0f && in[i] < 0.0f)))
+                zeroCrossings++;
+        }
+
+        const float rms = static_cast<float>(std::sqrt(sumSq / static_cast<double>(std::max(args.numSamples, 1))));
+        const float estFreq = (zeroCrossings * 0.5f * static_cast<float>(sampleRate)) / static_cast<float>(std::max(args.numSamples, 1));
+
+        if (args.numControlOut > 0) args.controlOut[0] = peak;
+        if (args.numControlOut > 1) args.controlOut[1] = rms;
+        if (args.numControlOut > 2) args.controlOut[2] = estFreq;
+    }
+
+private:
+    double sampleRate = 44100.0;
+};
+
+/// Frequency analyzer meter element.
+class FreqAnalyzer final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        stateLow = 0.0f;
+        stateHigh = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        double lowSum = 0.0, midSum = 0.0, highSum = 0.0;
+        double weightedFreqSum = 0.0, totalMagSum = 1e-9;
+
+        const float alphaLow  = std::exp(static_cast<float>(-2.0 * 3.14159265358979 * 500.0 / sampleRate));
+        const float alphaHigh = std::exp(static_cast<float>(-2.0 * 3.14159265358979 * 4000.0 / sampleRate));
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const float s = in[i];
+            out[i] = s;
+
+            stateLow  = alphaLow * stateLow + (1.0f - alphaLow) * s;
+            stateHigh = alphaHigh * stateHigh + (1.0f - alphaHigh) * s;
+            const float sMid = s - stateLow - (s - stateHigh);
+
+            lowSum  += stateLow * stateLow;
+            midSum  += sMid * sMid;
+            highSum += (s - stateHigh) * (s - stateHigh);
+
+            const float mag = std::abs(s);
+            weightedFreqSum += mag;
+            totalMagSum += mag;
+        }
+
+        const float lowRms  = static_cast<float>(std::sqrt(lowSum  / static_cast<double>(std::max(args.numSamples, 1))));
+        const float midRms  = static_cast<float>(std::sqrt(midSum  / static_cast<double>(std::max(args.numSamples, 1))));
+        const float highRms = static_cast<float>(std::sqrt(highSum / static_cast<double>(std::max(args.numSamples, 1))));
+        const float centroid = static_cast<float>(weightedFreqSum / totalMagSum) * 1000.0f;
+
+        if (args.numControlOut > 0) args.controlOut[0] = lowRms;
+        if (args.numControlOut > 1) args.controlOut[1] = midRms;
+        if (args.numControlOut > 2) args.controlOut[2] = highRms;
+        if (args.numControlOut > 3) args.controlOut[3] = centroid;
+    }
+
+private:
+    double sampleRate = 44100.0;
+    float stateLow = 0.0f, stateHigh = 0.0f;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -182,12 +421,17 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 
 void registerUtility(ElementRegistry& registry)
 {
-    registry.add("Gain",   &make<elements::Gain>);
-    registry.add("VCA",    &make<elements::VCA>);
-    registry.add("Scale",  &make<elements::Scale>);
-    registry.add("Delay",  &make<elements::Delay>);
-    registry.add("Mixer",  &make<elements::Mixer>);
-    registry.add("DryWet", &make<elements::DryWet>);
+    registry.add("Gain",            &make<elements::Gain>);
+    registry.add("VCA",             &make<elements::VCA>);
+    registry.add("Scale",           &make<elements::Scale>);
+    registry.add("Delay",           &make<elements::Delay>);
+    registry.add("Mixer",           &make<elements::Mixer>);
+    registry.add("DryWet",          &make<elements::DryWet>);
+    registry.add("Pan",             &make<elements::Pan>);
+    registry.add("Choke",           &make<elements::Choke>);
+    registry.add("SignalGenerator", &make<elements::SignalGenerator>);
+    registry.add("Oscilloscope",    &make<elements::Oscilloscope>);
+    registry.add("FreqAnalyzer",    &make<elements::FreqAnalyzer>);
 }
 
 // The one place that knows the whole set. makeDefaultRegistry's keys and the

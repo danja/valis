@@ -28,9 +28,10 @@ struct ProcessArgs
 
     /// Whether any note is held, the velocity and MIDI note number of the most
     /// recent note-on. Envelopes and pitch/velocity sources read these.
-    bool  gate       = false;
-    float velocity   = 0.0f;
-    int   noteNumber = 69;   ///< default A4 so MidiPitch outputs 440 Hz before any note
+    bool         gate           = false;
+    float        velocity       = 0.0f;
+    int          noteNumber     = 69;   ///< default A4 so MidiPitch outputs 440 Hz before any note
+    const float* noteVelocities = nullptr;  ///< Array of 128 per-MIDI-note velocities (0..127)
 
     /// One value per control input, already resolved for this block: the
     /// element's own property, overridden by any control arc reaching it.

@@ -1,6 +1,7 @@
 // tests/dsp/ElementBehaviourTest.cpp
 
 #include "valis/DspElement.h"
+#include "valis/ElementTestFixture.h"
 #include "valis/Ontology.h"
 #include "valis/Vocabulary.h"
 
@@ -1005,7 +1006,97 @@ void testDryWetBlends()
     std::printf("  drywet: mix=0 rms=%.4f  mix=1 rms=%.4f\n", rmsDry, rmsWet);
 
     assert(rmsDry > 0.3f);    // dry passes through at mix=0
-    assert(rmsWet < 0.01f);   // wet=silence at mix=1 → nearly silent
+    assert(rmsWet < 0.01f);   // wet=silence at mix=1 -> nearly silent
+}
+
+void testPanPositionsSignal()
+{
+    ElementTestFixture pan("Pan");
+    const auto input = ElementTestFixture::generateSine(100.0, 48000.0, 512);
+
+    pan.set("pan", 0.0f);
+    const auto outLCenter = pan.run(input, "left");
+    const auto outRCenter = pan.run(input, "right");
+    assert(std::abs(ElementTestFixture::measureRms(outLCenter) - ElementTestFixture::measureRms(outRCenter)) < 0.01f);
+
+    pan.set("pan", -1.0f);
+    const auto outLLeft = pan.run(input, "left");
+    const auto outRLeft = pan.run(input, "right");
+    assert(ElementTestFixture::measureRms(outLLeft) > 0.4f);
+    assert(ElementTestFixture::measureRms(outRLeft) < 0.01f);
+
+    pan.set("pan", 1.0f);
+    const auto outLRight = pan.run(input, "left");
+    const auto outRRight = pan.run(input, "right");
+    assert(ElementTestFixture::measureRms(outLRight) < 0.01f);
+    assert(ElementTestFixture::measureRms(outRRight) > 0.4f);
+}
+
+void testChokeMutesGateOnTrigger()
+{
+    ElementTestFixture choke("Choke");
+    const std::vector<float> dummy(256, 0.0f);
+
+    choke.set("gate", 1.0f);
+    choke.set("choke", 0.0f);
+    choke.run(dummy);
+    assert(choke.lastControlOut[0] == 1.0f);
+
+    choke.set("choke", 1.0f);
+    choke.run(dummy);
+    assert(choke.lastControlOut[0] == 0.0f);
+
+    choke.set("choke", 0.0f);
+    choke.run(dummy);
+    assert(choke.lastControlOut[0] == 0.0f);
+
+    choke.set("gate", 0.0f);
+    choke.run(dummy);
+    choke.set("gate", 1.0f);
+    choke.run(dummy);
+    assert(choke.lastControlOut[0] == 1.0f);
+}
+
+void testSignalGeneratorProducesWaves()
+{
+    ElementTestFixture gen("SignalGenerator");
+    const std::vector<float> silence(1024, 0.0f);
+
+    gen.set("shape", 0.0f);
+    gen.set("frequency", 440.0f);
+    gen.set("amplitude", 0.5f);
+    const auto sine = gen.run(silence);
+    assert(ElementTestFixture::measurePeak(sine) > 0.45f);
+    assert(ElementTestFixture::measurePeak(sine) <= 0.51f);
+}
+
+void testOscilloscopeMeasuresPeakAndRms()
+{
+    ElementTestFixture scope("Oscilloscope");
+    const auto input = ElementTestFixture::generateSine(1000.0, 48000.0, 512, 0.8f);
+
+    const auto out = scope.run(input);
+    assert(out == input);
+    assert(std::abs(scope.lastControlOut[0] - 0.8f) < 0.05f);
+    assert(std::abs(scope.lastControlOut[1] - 0.565f) < 0.05f);
+}
+
+void testFreqAnalyzerSplitsBands()
+{
+    ElementTestFixture analyzer("FreqAnalyzer");
+    const auto lowIn  = ElementTestFixture::generateSine(100.0, 48000.0, 1024, 0.8f);
+    const auto highIn = ElementTestFixture::generateSine(10000.0, 48000.0, 1024, 0.8f);
+
+    analyzer.run(lowIn);
+    const float lowBandFromLow = analyzer.lastControlOut[0];
+    const float highBandFromLow = analyzer.lastControlOut[2];
+    assert(lowBandFromLow > highBandFromLow * 3.0f);
+
+    analyzer.element->reset();
+    analyzer.run(highIn);
+    const float lowBandFromHigh = analyzer.lastControlOut[0];
+    const float highBandFromHigh = analyzer.lastControlOut[2];
+    assert(highBandFromHigh > lowBandFromHigh * 3.0f);
 }
 
 }  // namespace
@@ -1037,7 +1128,13 @@ int main()
     testMixerPassesAudio();
     testDelayShiftsSignalByTime();
     testDryWetBlends();
+    testPanPositionsSignal();
+    testChokeMutesGateOnTrigger();
+    testSignalGeneratorProducesWaves();
+    testOscilloscopeMeasuresPeakAndRms();
+    testFreqAnalyzerSplitsBands();
 
     std::puts("ElementBehaviourTest PASSED");
     return 0;
 }
+

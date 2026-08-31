@@ -495,8 +495,32 @@ void testRingsModalProducesSound()
         engine.process(nullptr, block.data(), 256);
         peakAfterNote = std::max(peakAfterNote, peakOf(block));
     }
-    std::printf("  rings-modal  peak after note-on: %.6f\n", peakAfterNote);
     assert(peakAfterNote > 1.0e-4f);
+}
+
+void testSimultaneousPolyphonicNoteGates()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> block(256, 0.0f);
+
+    // Trigger Bass Drum (36) and Snare (38) simultaneously in the same block, followed by noteOff.
+    engine.noteOn(36, 0.8f);
+    engine.noteOn(38, 0.8f);
+    engine.noteOff(36);
+    engine.noteOff(38);
+
+    engine.process(nullptr, block.data(), 256);
+    const float peak = peakOf(block);
+    std::printf("  simultaneous BD+SD trigger peak: %.4f\n", peak);
+    assert(peak > 0.05f);
 }
 
 }  // namespace
@@ -513,7 +537,9 @@ int main()
     testInstanceOptionsOverrideTheClass();
     testEnvelopeRespondsToNotes();
     testRingsModalProducesSound();
+    testSimultaneousPolyphonicNoteGates();
 
     std::puts("ValisEngineTest PASSED");
     return 0;
 }
+

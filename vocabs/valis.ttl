@@ -569,6 +569,81 @@ val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:name "Max" ; lv2:default 1.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
 
+val:Pan a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Pan" ;
+    rdfs:comment "Equal-power stereo panner. Maps mono audio in to left, right, and combined out." ;
+    val:implementation "Pan" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in" ;    lv2:name "In" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "pan" ;   lv2:name "Pan" ;
+        lv2:default 0.0 ; lv2:minimum -1.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out" ;   lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "right" ; lv2:name "Right" ] .
+
+val:Choke a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Choke" ;
+    rdfs:comment "Control gate choke. Passes input gate, but drops to 0 when a choke trigger is received." ;
+    val:implementation "Choke" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "gate" ;
+        lv2:name "Gate" ; lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "choke" ;
+        lv2:name "Choke" ; lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:SignalGenerator a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "SignalGenerator" ;
+    rdfs:comment "Test signal generator for circuit development and testing." ;
+    val:implementation "SignalGenerator" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "amplitude" ;
+        lv2:name "Amplitude" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 5.0 ; lv2:portProperty lv2:integer ] .
+
+val:Oscilloscope a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Oscilloscope" ;
+    rdfs:comment "Waveform and level monitor element. Passes audio through and outputs peak, RMS and frequency controls." ;
+    val:implementation "Oscilloscope" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in" ;   lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out" ;  lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "peak" ; lv2:name "Peak" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 10.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "rms" ;  lv2:name "RMS" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 10.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "frequency" ; lv2:name "Frequency" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] .
+
+val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "FreqAnalyzer" ;
+    rdfs:comment "Spectrum analysis meter element. Measures low, mid, high band energies and spectral centroid." ;
+    val:implementation "FreqAnalyzer" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in" ;   lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out" ;  lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "low" ;  lv2:name "Low" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "mid" ;  lv2:name "Mid" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "high" ; lv2:name "High" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "centroid" ; lv2:name "Centroid" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] .
+
 val:Delay a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Delay" ;
     rdfs:comment "Single-tap delay line with feedback. Maximum delay 5 seconds." ;

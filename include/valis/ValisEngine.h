@@ -16,6 +16,7 @@
 #include "valis/CircuitCompiler.h"
 #include "valis/DspElement.h"
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -121,6 +122,8 @@ private:
     int   lastNoteNumber = 69;
     float lastVelocity   = 0.0f;
     bool  gate           = false;
+    std::array<float, 128> activeNoteVelocities{};
+    std::array<float, 128> triggeredNoteVelocities{};
     std::atomic<int> reportedLatency{0};
 
     struct Retired { Graph* graph; std::uint64_t atBlock; };

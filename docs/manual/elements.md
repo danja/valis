@@ -22,6 +22,19 @@ Nonlinear.
 | `posVf` | Positive Vf | 0.3 | 0.01 to 2 | V |
 | `negVf` | Negative Vf | 0.6 | 0.01 to 2 | V |
 
+## val:Choke
+
+Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `gate` | Gate | 0 | 0 to 1 |  |
+| `choke` | Choke | 0 | 0 to 1 |  |
+
 ## val:CombFilter
 
 Nonlinear.
@@ -180,6 +193,16 @@ Nonlinear.
 |---|---|---|---|---|
 | `gain` | Gain | 1 | 0.1 to 20 |  |
 
+## val:FreqAnalyzer
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Control out**: `low`, `mid`, `high`, `centroid`
+
 ## val:Gain
 
 Linear.
@@ -332,11 +355,35 @@ Nonlinear.
 | `frequency` | Frequency | 440 | 0.01 to 20000 | Hz |
 | `shape` | Shape | 0 | 0 to 3 |  |
 
+## val:Oscilloscope
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Control out**: `peak`, `rms`, `frequency`
+
 ## val:Output
 
 Linear.
 
 **Audio in**: `in`
+
+## val:Pan
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`, `left`, `right`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `pan` | Pan | 0 | -1 to 1 |  |
 
 ## val:Reed
 
@@ -366,6 +413,20 @@ Linear.
 | `in` | In | 0 | 0 to 1 |  |
 | `min` | Min | 0 | -1e+06 to 1e+06 |  |
 | `max` | Max | 1 | -1e+06 to 1e+06 |  |
+
+## val:SignalGenerator
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 440 | 1 to 20000 | Hz |
+| `amplitude` | Amplitude | 0.5 | 0 to 1 |  |
+| `shape` | Shape | 0 | 0 to 5 |  |
 
 ## val:SinArcTan
 

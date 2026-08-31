@@ -207,22 +207,37 @@ void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
 {
     ++heldNotes;
     lastNoteNumber = noteNumber;
-    lastVelocity   = velocity;
+    const float vel = velocity > 0.0f ? velocity : 1.0f;
+    lastVelocity   = vel;
     gate = true;
+
+    if (noteNumber >= 0 && noteNumber < 128)
+    {
+        const auto idx = static_cast<std::size_t>(noteNumber);
+        activeNoteVelocities[idx] = vel;
+        triggeredNoteVelocities[idx] = vel;
+    }
 }
 
-void ValisEngine::noteOff(int) noexcept
+void ValisEngine::noteOff(int noteNumber) noexcept
 {
     if (heldNotes > 0)
         --heldNotes;
 
     gate = heldNotes > 0;
+
+    if (noteNumber >= 0 && noteNumber < 128)
+    {
+        activeNoteVelocities[static_cast<std::size_t>(noteNumber)] = 0.0f;
+    }
 }
 
 void ValisEngine::allNotesOff() noexcept
 {
     heldNotes = 0;
     gate = false;
+    activeNoteVelocities.fill(0.0f);
+    triggeredNoteVelocities.fill(0.0f);
 }
 
 void ValisEngine::process(const float* input, float* output, int numSamples) noexcept
@@ -255,6 +270,8 @@ void ValisEngine::process(const float* input, float* output, int numSamples) noe
         streamPosition += static_cast<std::uint64_t>(slice);
         done += slice;
     }
+
+    triggeredNoteVelocities.fill(0.0f);
 }
 
 void ValisEngine::processSlice(Graph& graph,
@@ -263,6 +280,10 @@ void ValisEngine::processSlice(Graph& graph,
                                int numSamples) noexcept
 {
     const auto& circuit = graph.circuit;
+
+    std::array<float, 128> currentNoteVelocities;
+    for (std::size_t k = 0; k < 128; ++k)
+        currentNoteVelocities[k] = std::max(activeNoteVelocities[k], triggeredNoteVelocities[k]);
 
     // Silence is shared, so it has to be silent every slice: an element that
     // wrote through an unconnected input would poison every other reader.
@@ -325,11 +346,12 @@ void ValisEngine::processSlice(Graph& graph,
             graph.audioOutPtrs[p] = graph.buffer(node.audioOutBuffers[p]);
 
         ProcessArgs args;
-        args.gate          = gate;
-        args.velocity      = lastVelocity;
-        args.noteNumber    = lastNoteNumber;
-        args.audioIn       = graph.audioInPtrs.data();
-        args.audioOut      = graph.audioOutPtrs.data();
+        args.gate           = gate;
+        args.velocity       = lastVelocity;
+        args.noteNumber     = lastNoteNumber;
+        args.noteVelocities = currentNoteVelocities.data();
+        args.audioIn        = graph.audioInPtrs.data();
+        args.audioOut       = graph.audioOutPtrs.data();
         args.numAudioIn    = static_cast<int>(node.audioInBuffers.size());
         args.numAudioOut   = static_cast<int>(node.audioOutBuffers.size());
         args.numSamples    = numSamples;

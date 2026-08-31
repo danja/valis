@@ -318,9 +318,19 @@ public:
     void process(const ProcessArgs& args) noexcept override
     {
         const int target = static_cast<int>(controlAt(args, noteIndex, 60.0f));
-        const bool hit   = args.gate && args.noteNumber == target;
+        float vel = 0.0f;
+        if (args.noteVelocities && target >= 0 && target < 128)
+        {
+            vel = args.noteVelocities[static_cast<std::size_t>(target)];
+        }
+        else
+        {
+            vel = (args.gate && args.noteNumber == target) ? args.velocity : 0.0f;
+        }
+
+        const bool hit = vel > 0.0f;
         if (args.numControlOut > 0) args.controlOut[0] = hit ? 1.0f : 0.0f;
-        if (args.numControlOut > 1) args.controlOut[1] = hit ? args.velocity : 0.0f;
+        if (args.numControlOut > 1) args.controlOut[1] = hit ? vel : 0.0f;
     }
 
 private:
