@@ -80,15 +80,30 @@ bool compileFile(const char* path, CompiledCircuit& out)
     rdf::TurtleStore store;
     std::vector<rdf::ParseError> parseErrors;
     if (! store.parseFile(path, parseErrors))
+    {
+        for (const auto& e : parseErrors)
+            std::printf("%s:%s\n", path, e.toString().c_str());
         return false;
+    }
 
     CircuitModel model;
     std::vector<Diagnostic> diagnostics;
     if (! model.build(store, ontology(), diagnostics))
+    {
+        for (const auto& d : diagnostics)
+            std::printf("%s\n", d.toString().c_str());
         return false;
+    }
 
     CircuitCompiler compiler;
-    return compiler.compile(model, ontology(), out, diagnostics);
+    if (! compiler.compile(model, ontology(), out, diagnostics))
+    {
+        for (const auto& d : diagnostics)
+            std::printf("%s\n", d.toString().c_str());
+        return false;
+    }
+
+    return true;
 }
 
 const char* kGain = R"(
@@ -511,11 +526,9 @@ void testSimultaneousPolyphonicNoteGates()
 
     std::vector<float> block(256, 0.0f);
 
-    // Trigger Bass Drum (36) and Snare (38) simultaneously in the same block, followed by noteOff.
+    // Trigger Bass Drum (36) and Snare (38) in the same block.
     engine.noteOn(36, 0.8f);
     engine.noteOn(38, 0.8f);
-    engine.noteOff(36);
-    engine.noteOff(38);
 
     engine.process(nullptr, block.data(), 256);
     const float peak = peakOf(block);

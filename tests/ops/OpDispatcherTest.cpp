@@ -70,12 +70,20 @@ struct Host
 
         CircuitModel candidate;
         if (! candidate.build(store, ontology, diagnostics))
+        {
+            for (const auto& d : diagnostics)
+                std::printf("    %s\n", d.toString().c_str());
             return false;
+        }
 
         CompiledCircuit compiled;
         CircuitCompiler compiler;
         if (! compiler.compile(candidate, ontology, compiled, diagnostics))
+        {
+            for (const auto& d : diagnostics)
+                std::printf("    %s\n", d.toString().c_str());
             return false;
+        }
 
         std::string error;
         if (! engine.load(compiled, registry, error))
@@ -125,6 +133,8 @@ void testValidateReportsWithoutInstalling()
     const auto before = ops.getTurtle().value;
 
     const auto good = ops.validate(readFile(VALIS_EXAMPLES_DIR "/skream.ttl"));
+    if (! good.ok)
+        for (const auto& d : good.diagnostics) std::printf("    %s\n", d.toString().c_str());
     assert(good.ok);
     assert(good.value.find("14 nodes") != std::string::npos);
 

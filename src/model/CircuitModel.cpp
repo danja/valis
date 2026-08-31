@@ -181,9 +181,6 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
         if (auto depth = store.object(arcNode, vocab::valTerm("depth")); depth.asDouble())
             arc.depth = *depth.asDouble();
 
-        const bool declaredControl = store.hasType(arcNode, vocab::valTerm("ControlArc"));
-        const bool declaredAudio   = store.hasType(arcNode, vocab::val::Arc) && ! declaredControl;
-
         const auto* fromElement = findElement(arc.fromNode);
         const auto* toElement   = findElement(arc.toNode);
         if (fromElement != nullptr && fromElement->type != nullptr
@@ -192,13 +189,7 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
             const auto* fromPort = fromElement->type->findPort(arc.fromPort);
             const auto* toPort   = toElement->type->findPort(arc.toPort);
             if (fromPort != nullptr && toPort != nullptr)
-            {
-                const bool inferredControl = fromPort->control && toPort->control;
-                if (declaredControl || declaredAudio)
-                    arc.control = declaredControl;
-                else
-                    arc.control = inferredControl;
-            }
+                arc.control = fromPort->control && toPort->control;
         }
 
         arcList.push_back(std::move(arc));
