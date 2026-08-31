@@ -73,6 +73,12 @@ val:property a rdf:Property ; rdfs:domain val:Param ; rdfs:range rdf:Property .
 val:x a rdf:Property ; rdfs:range xsd:double .
 val:y a rdf:Property ; rdfs:range xsd:double .
 
+val:section a rdf:Property ;
+    rdfs:label "section" ;
+    rdfs:comment "Groups val:Param bindings under a named heading in the Knobs panel." ;
+    rdfs:domain val:Param ;
+    rdfs:range rdfs:Literal .
+
 ################################################################
 # Anti-aliasing strategies                                     #
 ################################################################
@@ -569,7 +575,11 @@ port: an envelope modulates, it does not carry audio.""" ;
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
         lv2:name "Release" ; lv2:default 300.0 ;
         lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:ms ;
-        lv2:portProperty lv2:logarithmic ] .
+        lv2:portProperty lv2:logarithmic ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gate" ;
+        lv2:name "Gate" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = use host MIDI gate (default), 0/1 = explicit off/on. Connect a NoteGate.gate arc for per-note drum triggering." ] .
 
 val:Input a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Input" ;
@@ -730,6 +740,24 @@ val:MidiVelocity a rdfs:Class ; rdfs:subClassOf val:Source ;
     lv2:port
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
         lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:NoteGate a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "NoteGate" ;
+    rdfs:comment """Outputs a gate signal (0 or 1) and the velocity of the most recent
+note-on, but only when the incoming MIDI note number matches val:note. Use one
+NoteGate per drum instrument to route per-note triggers inside a circuit.""" ;
+    val:implementation "NoteGate" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "note" ;
+        lv2:name "Note" ; lv2:default 60.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 127.0 ; lv2:portProperty lv2:integer ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "gate" ;
+        lv2:name "Gate" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "velocity" ;
+        lv2:name "Velocity" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
 val:DryWet a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "DryWet" ;

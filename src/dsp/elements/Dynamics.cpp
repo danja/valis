@@ -168,6 +168,7 @@ public:
         decayIndex   = controlIndex(type, "decay");
         sustainIndex = controlIndex(type, "sustain");
         releaseIndex = controlIndex(type, "release");
+        gateIndex    = controlIndex(type, "gate");
         reset();
     }
 
@@ -182,16 +183,19 @@ public:
         if (args.numControlOut < 1)
             return;
 
-        const float sustain = std::clamp(controlAt(args, sustainIndex, 0.7f), 0.0f, 1.0f);
+        const float sustain  = std::clamp(controlAt(args, sustainIndex, 0.7f), 0.0f, 1.0f);
 
-        // A note starting always restarts the attack, so a retrigger is audible
-        // rather than being swallowed by whatever stage was running.
-        if (args.gate && ! wasGated)
+        // A connected gate control input (e.g. from NoteGate) overrides the host
+        // MIDI gate; sentinel -1.0 means fall back to args.gate.
+        const float gateCtrl = controlAt(args, gateIndex, -1.0f);
+        const bool  gateNow  = gateCtrl >= 0.0f ? gateCtrl >= 0.5f : args.gate;
+
+        if (gateNow && ! wasGated)
             stage = Stage::attack;
-        else if (! args.gate && wasGated)
+        else if (! gateNow && wasGated)
             stage = Stage::release;
 
-        wasGated = args.gate;
+        wasGated = gateNow;
 
         const auto blockCoeff = [&](int index, float fallback)
         {
@@ -258,7 +262,7 @@ private:
     float level = 0.0f;
     bool wasGated = false;
     Stage stage = Stage::idle;
-    int attackIndex = -1, decayIndex = -1, sustainIndex = -1, releaseIndex = -1;
+    int attackIndex = -1, decayIndex = -1, sustainIndex = -1, releaseIndex = -1, gateIndex = -1;
 };
 
 }  // namespace valis::elements

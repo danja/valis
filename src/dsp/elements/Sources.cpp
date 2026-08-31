@@ -246,6 +246,29 @@ public:
     }
 };
 
+/// Routes the host MIDI gate to a control output only when the current note
+/// number matches val:note. Lets a circuit wire separate envelope chains per
+/// drum hit without any per-voice circuit duplication in the engine.
+class NoteGate final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        noteIndex = controlIndex(type, "note");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        const int target = static_cast<int>(controlAt(args, noteIndex, 60.0f));
+        const bool hit   = args.gate && args.noteNumber == target;
+        if (args.numControlOut > 0) args.controlOut[0] = hit ? 1.0f : 0.0f;
+        if (args.numControlOut > 1) args.controlOut[1] = hit ? args.velocity : 0.0f;
+    }
+
+private:
+    int noteIndex = -1;
+};
+
 /// The plugin's audio input. The engine fills its output buffer before the
 /// graph runs, so this element only has to leave it alone.
 class Input final : public DspElement
@@ -365,6 +388,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("LFO",          &make<elements::LFO>);
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
+    registry.add("NoteGate",     &make<elements::NoteGate>);
     registry.add("Reed",         &make<elements::Reed>);
     registry.add("Input",        &make<elements::Input>);
     registry.add("Output",       &make<elements::Output>);

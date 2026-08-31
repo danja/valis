@@ -46,6 +46,9 @@ private:
         juce::String target, unit;
         double minimum = 0.0, maximum = 1.0;
 
+        // Non-null when this knob is the first in a new val:section group.
+        std::unique_ptr<juce::Label> sectionLabel;
+
         bool isEnum() const { return comboBox != nullptr; }
 
         /// The dial's normalised position rendered in the property's units.

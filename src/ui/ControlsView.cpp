@@ -9,11 +9,12 @@
 namespace valis {
 
 namespace {
-constexpr int kKnobWidth   = 104;
-constexpr int kKnobHeight  = 152;
-constexpr int kNameHeight  = 18;
-constexpr int kValueHeight = 20;
+constexpr int kKnobWidth    = 104;
+constexpr int kKnobHeight   = 152;
+constexpr int kNameHeight   = 18;
+constexpr int kValueHeight  = 20;
 constexpr int kTargetHeight = 14;
+constexpr int kSectionHeight = 28;
 }
 
 juce::String ControlsView::Knob::readout() const
@@ -69,6 +70,8 @@ void ControlsView::rebuild()
     const auto& model = processor.circuit();
     lastBindingCount = static_cast<int>(model.params().size());
 
+    std::string currentSection;
+
     for (const auto& binding : model.params())
     {
         const auto* element = model.findElement(binding.targetNode);
@@ -95,6 +98,17 @@ void ControlsView::rebuild()
         knob.name->setText(binding.name.empty() ? port->name : binding.name,
                            juce::dontSendNotification);
         addAndMakeVisible(*knob.name);
+
+        if (!binding.section.empty() && binding.section != currentSection)
+        {
+            currentSection = binding.section;
+            knob.sectionLabel = std::make_unique<juce::Label>();
+            knob.sectionLabel->setJustificationType(juce::Justification::centredLeft);
+            knob.sectionLabel->setColour(juce::Label::textColourId, juce::Colour(0xff61afef));
+            knob.sectionLabel->setFont(juce::FontOptions(12.0f, juce::Font::bold));
+            knob.sectionLabel->setText(binding.section, juce::dontSendNotification);
+            addAndMakeVisible(*knob.sectionLabel);
+        }
 
         const auto paramId = "p" + juce::String(binding.slot).paddedLeft('0', 2);
 
@@ -141,6 +155,13 @@ void ControlsView::paint(juce::Graphics& g)
 
     for (const auto& knob : knobs)
     {
+        if (knob.sectionLabel)
+        {
+            const auto& b = knob.sectionLabel->getBounds();
+            g.setColour(juce::Colour(0xff3a3f4b));
+            g.fillRect(b.getX(), b.getBottom() - 1, b.getWidth(), 1);
+        }
+
         // Enum knobs use a ComboBox that labels itself; only dials need a readout.
         const juce::Rectangle<int> area = knob.isEnum()
             ? knob.comboBox->getBounds()
@@ -176,10 +197,27 @@ void ControlsView::resized()
         return;
 
     const int perRow = juce::jmax(1, (w - 24) / kKnobWidth);
-    const int rows   = knobs.empty() ? 1
-                                     : (static_cast<int>(knobs.size()) + perRow - 1) / perRow;
-    const int needed = rows * kKnobHeight + 24;
 
+    // Measure total height needed by simulating the layout pass.
+    auto measure = [&]() -> int
+    {
+        int y        = 0;
+        int colInRow = 0;
+        for (const auto& knob : knobs)
+        {
+            if (knob.sectionLabel)
+            {
+                if (colInRow > 0) { y += kKnobHeight; colInRow = 0; }
+                y += kSectionHeight;
+            }
+            ++colInRow;
+            if (colInRow >= perRow) { y += kKnobHeight; colInRow = 0; }
+        }
+        if (colInRow > 0 || knobs.empty()) y += kKnobHeight;
+        return y + 24;
+    };
+
+    const int needed = measure();
     if (needed != getHeight())
     {
         setSize(w, needed);
@@ -188,16 +226,23 @@ void ControlsView::resized()
 
     emptyMessage.setBounds(getLocalBounds().reduced(40));
 
-    auto area = getLocalBounds().reduced(12);
-    int index = 0;
+    const int originX = getLocalBounds().reduced(12).getX();
+    const int originY = getLocalBounds().reduced(12).getY();
+
+    int curY     = originY;
+    int colInRow = 0;
+
     for (auto& knob : knobs)
     {
-        const int row    = index / perRow;
-        const int column = index % perRow;
+        if (knob.sectionLabel)
+        {
+            if (colInRow > 0) { curY += kKnobHeight; colInRow = 0; }
+            knob.sectionLabel->setBounds(originX, curY, w - 24, kSectionHeight);
+            curY += kSectionHeight;
+        }
 
-        juce::Rectangle<int> cell(area.getX() + column * kKnobWidth,
-                                  area.getY() + row * kKnobHeight,
-                                  kKnobWidth, kKnobHeight);
+        const int x = originX + colInRow * kKnobWidth;
+        juce::Rectangle<int> cell(x, curY, kKnobWidth, kKnobHeight);
 
         knob.name->setBounds(cell.removeFromTop(kNameHeight));
         cell.removeFromBottom(kTargetHeight);
@@ -207,7 +252,8 @@ void ControlsView::resized()
         else
             knob.slider->setBounds(cell.reduced(2, 2));
 
-        ++index;
+        ++colInRow;
+        if (colInRow >= perRow) { curY += kKnobHeight; colInRow = 0; }
     }
 }
 

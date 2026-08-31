@@ -95,6 +95,7 @@ namespace val {
   inline const std::string slot     = std::string(VAL) + "slot";
   inline const std::string target   = std::string(VAL) + "target";
   inline const std::string property = std::string(VAL) + "property";
+  inline const std::string section  = std::string(VAL) + "section";
 
   // Editor metadata. Kept in a separate graph from execution metadata: moving a
   // node must never invalidate the compiled circuit.

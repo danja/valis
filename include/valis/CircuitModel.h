@@ -68,6 +68,10 @@ struct ParamBinding
     /// particular binding — useful when the same element port (e.g. Scale.min)
     /// is used in circuits where the physical range differs.
     std::optional<double> minimum, maximum;
+
+    /// Optional heading for the Knobs panel. Bindings with the same section string
+    /// are grouped together under that label.
+    std::string section;
 };
 
 class CircuitModel
