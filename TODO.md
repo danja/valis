@@ -1,10 +1,4 @@
-Remove the redundant status bar in the Turtle code view.
-
-Add 909.ttl as another case study in the docs.
-
-Revisit the existing case studies and revise the layouts of their Knobs view to include labeled sections as appropriate. Ensure that selector UI components are used where appropriate (eg. for Waveform).
-
-Can you add a twin-T bridge resonator Element and use it where appropriate in 909.ttl
+I'm not hearing anything from the  Bass Drum in 909.ttl, I suspect it's a midi routing issue
 
 Add the extra elements necessary to get a more faithful reproduction : more oscillators on the hi-hats, plus choke. Anything else that has been  simplified.
 
@@ -18,5 +12,6 @@ A signal generator, an oscilloscope and a freq analysis meter elements could be 
 
 ## Recurring - check periodically
 
+* remove tasks that have been done from this file
 * for new material, check test coverage
 * ensure README.md and docs are up-to-date

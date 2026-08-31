@@ -161,6 +161,64 @@ private:
     int colourIndex = -1;
 };
 
+/// Triggered damped sine resonator for bridged-T drum voices.
+class TwinTBridge final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate     = rate;
+        frequencyIndex = controlIndex(type, "frequency");
+        decayIndex     = controlIndex(type, "decay");
+        triggerIndex   = controlIndex(type, "trigger");
+        reset();
+    }
+
+    void reset() override
+    {
+        phase = 0.0;
+        amplitude = 0.0f;
+        previousTrigger = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float frequency = std::clamp(controlAt(args, frequencyIndex, 55.0f),
+                                           10.0f, static_cast<float>(sampleRate * 0.45));
+        const float decayMs = std::clamp(controlAt(args, decayIndex, 500.0f), 1.0f, 5000.0f);
+        const float trigger = controlAt(args, triggerIndex, -1.0f);
+        const bool gate = trigger >= 0.0f ? trigger > 0.5f : args.gate;
+
+        if (gate && previousTrigger <= 0.5f)
+        {
+            amplitude = args.velocity > 0.0f ? args.velocity : 1.0f;
+            phase = 0.0;
+        }
+        previousTrigger = gate ? 1.0f : 0.0f;
+
+        const double increment = frequency / sampleRate;
+        const float coeff = timeToCoeff(decayMs, sampleRate);
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            out[i] = amplitude * std::sin(6.283185307179586 * phase);
+            amplitude *= coeff;
+            phase += increment;
+            if (phase >= 1.0)
+                phase -= 1.0;
+        }
+    }
+
+private:
+    double sampleRate = 44100.0, phase = 0.0;
+    float amplitude = 0.0f, previousTrigger = 0.0f;
+    int frequencyIndex = -1, decayIndex = -1, triggerIndex = -1;
+};
+
 /// Control-rate oscillator. One value per block, which is what a modulation arc
 /// carries - audio-rate modulation would need an audio arc instead.
 class LFO final : public DspElement
@@ -385,6 +443,7 @@ void registerSources(ElementRegistry& registry)
 {
     registry.add("Oscillator",   &make<elements::Oscillator>);
     registry.add("Noise",        &make<elements::Noise>);
+    registry.add("TwinTBridge",   &make<elements::TwinTBridge>);
     registry.add("LFO",          &make<elements::LFO>);
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);

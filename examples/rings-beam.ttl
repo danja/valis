@@ -86,16 +86,16 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :string ; val:property val:feedback ;
-    lv2:name "Sustain" ; lv2:symbol "sustain" .
+    lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Resonator" .
 
 :p1 a val:Param ; val:slot 1 ; val:target :string ; val:property val:damping ;
-    lv2:name "Damping" ; lv2:symbol "damping" .
+    lv2:name "Damping" ; lv2:symbol "damping" ; val:section "Resonator" .
 
 :p2 a val:Param ; val:slot 2 ; val:target :string ; val:property val:dispersion ;
-    lv2:name "Dispersion" ; lv2:symbol "dispersion" .
+    lv2:name "Dispersion" ; lv2:symbol "dispersion" ; val:section "Resonator" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :env ; val:property val:decay ;
-    lv2:name "Pluck Width" ; lv2:symbol "pluck_width" ; units:unit units:ms .
+    lv2:name "Pluck Width" ; lv2:symbol "pluck_width" ; val:section "Exciter" ; units:unit units:ms .
 
 :p4 a val:Param ; val:slot 4 ; val:target :vol ; val:property val:gain ;
-    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .

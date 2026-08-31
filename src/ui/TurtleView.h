@@ -11,8 +11,7 @@ namespace valis {
 
 class ValisProcessor;
 
-/// The Turtle source view: a syntax-highlighted editor over the circuit, with
-/// a status line carrying the compiler's diagnostics.
+/// The Turtle source view: a syntax-highlighted editor over the circuit.
 ///
 /// Edits are debounced rather than compiled on every keystroke, and a circuit
 /// that will not compile leaves the previous one playing - so the audio keeps
@@ -46,9 +45,6 @@ private:
     juce::CodeDocument document;
     TurtleCodeTokeniser tokeniser;
     juce::CodeEditorComponent editor{document, &tokeniser};
-
-    juce::TextButton revertButton{"Revert"};
-    juce::Label status;
 
     std::vector<Diagnostic> diagnostics;
     bool suppressCallbacks = false;

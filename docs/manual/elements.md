@@ -132,6 +132,7 @@ Nonlinear.
 | `decay` | Decay | 200 | 0.1 to 5000 | ms |
 | `sustain` | Sustain | 0.7 | 0 to 1 |  |
 | `release` | Release | 300 | 0.1 to 10000 | ms |
+| `gate` | Gate | -1 | -1 to 1 |  |
 
 ## val:EnvelopeFollower
 
@@ -291,6 +292,18 @@ Nonlinear.
 |---|---|---|---|---|
 | `colour` | Colour | 0 | 0 to 1 |  |
 
+## val:NoteGate
+
+Nonlinear.
+
+**Control out**: `gate`, `velocity`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `note` | Note | 60 | 0 to 127 |  |
+
 ## val:OnePole
 
 Linear.
@@ -335,10 +348,10 @@ Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
-| `damping` | Damping | 0.2 | 0 to 1 |  |
 | `frequency` | Frequency | 220 | 20 to 5000 | Hz |
 | `pressure` | Pressure | 0.5 | 0 to 1 |  |
 | `stiffness` | Stiffness | 0.5 | 0 to 1 |  |
+| `damping` | Damping | 0.2 | 0 to 1 |  |
 
 ## val:Scale
 
@@ -442,6 +455,20 @@ Nonlinear.
 |---|---|---|---|---|
 | `mu` | mu | 100 | 1 to 250 |  |
 | `bias` | Bias | -1.5 | -10 to 0 | V |
+
+## val:TwinTBridge
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 55 | 10 to 5000 | Hz |
+| `decay` | Decay | 500 | 1 to 5000 | ms |
+| `trigger` | Trigger | -1 | -1 to 1 |  |
 
 ## val:UnitDelay
 

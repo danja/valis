@@ -109,33 +109,33 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :osc ; val:property val:shape ;
-    lv2:name "Osc Shape" ; lv2:symbol "osc_shape" .
+    lv2:name "Osc Shape" ; lv2:symbol "osc_shape" ; val:section "Oscillator" .
 
 # p1 targets Scale.min — the filter's resting frequency (envelope closed).
 # lv2:minimum/maximum here override Scale's generic ±1e6 port range.
 :p1 a val:Param ; val:slot 1 ; val:target :envScale ; val:property val:min ;
-    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; val:section "Filter" ; units:unit units:hz ;
     lv2:minimum 20.0 ; lv2:maximum 20000.0 .
 
 :p2 a val:Param ; val:slot 2 ; val:target :vcf ; val:property val:resonance ;
-    lv2:name "Resonance" ; lv2:symbol "resonance" .
+    lv2:name "Resonance" ; lv2:symbol "resonance" ; val:section "Filter" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :env ; val:property val:attack ;
-    lv2:name "Attack" ; lv2:symbol "attack" ; units:unit units:ms .
+    lv2:name "Attack" ; lv2:symbol "attack" ; val:section "Envelope" ; units:unit units:ms .
 
 :p4 a val:Param ; val:slot 4 ; val:target :env ; val:property val:decay ;
-    lv2:name "Decay" ; lv2:symbol "decay" ; units:unit units:ms .
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Envelope" ; units:unit units:ms .
 
 :p5 a val:Param ; val:slot 5 ; val:target :env ; val:property val:sustain ;
-    lv2:name "Sustain" ; lv2:symbol "sustain" .
+    lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Envelope" .
 
 :p6 a val:Param ; val:slot 6 ; val:target :env ; val:property val:release ;
-    lv2:name "Release" ; lv2:symbol "release" ; units:unit units:ms .
+    lv2:name "Release" ; lv2:symbol "release" ; val:section "Envelope" ; units:unit units:ms .
 
 # p7 targets Scale.max — the filter's peak frequency (envelope fully open).
 :p7 a val:Param ; val:slot 7 ; val:target :envScale ; val:property val:max ;
-    lv2:name "Filter Peak" ; lv2:symbol "filter_peak" ; units:unit units:hz ;
+    lv2:name "Filter Peak" ; lv2:symbol "filter_peak" ; val:section "Filter" ; units:unit units:hz ;
     lv2:minimum 20.0 ; lv2:maximum 20000.0 .
 
 :p8 a val:Param ; val:slot 8 ; val:target :lfo ; val:property val:rate ;
-    lv2:name "Vibrato Rate" ; lv2:symbol "vibrato_rate" ; units:unit units:hz .
+    lv2:name "Vibrato Rate" ; lv2:symbol "vibrato_rate" ; val:section "Modulation" ; units:unit units:hz .

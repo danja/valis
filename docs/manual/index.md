@@ -16,6 +16,7 @@ can read, edit and hand to a language model.
 - [SH-101 subtractive synth](sh101.md) : monophonic VCO → VCF → VCA with MIDI and LFO
 - [Klon Centaur](klon.md) : asymmetric diode overdrive with clean blend
 - [Mutable Instruments Rings](rings.md) : Karplus-Strong plucked string, and how to create a new element
+- [TR-909 drum synthesiser](909.md) : per-note drum routing, bridged-T resonators, and sectioned controls
 
 ### See Also
 

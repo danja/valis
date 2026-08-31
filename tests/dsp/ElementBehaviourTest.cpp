@@ -749,6 +749,37 @@ void testNoiseIsNonZeroAndVaries()
     std::printf("  noise peak=%.3f block-diff=%.3f\n", peak, diff / n);
 }
 
+/// TwinTBridge should restart from a trigger edge, ring audibly, and decay.
+void testTwinTBridgeRingsAndDecays()
+{
+    const double rate = 48000.0;
+    const int n = 4096;
+    const std::vector<float> silence(static_cast<std::size_t>(n), 0.0f);
+
+    Rig rig("TwinTBridge", rate);
+    rig.set("frequency", 60.0f);
+    rig.set("decay", 30.0f);
+    rig.set("trigger", 1.0f);
+    const auto first = rig.run(silence);
+
+    rig.set("trigger", 0.0f);
+    const auto second = rig.run(silence);
+
+    auto peak = [](const std::vector<float>& v, std::size_t from, std::size_t to) {
+        float result = 0.0f;
+        for (std::size_t i = from; i < to; ++i)
+            result = std::max(result, std::abs(v[i]));
+        return result;
+    };
+
+    const float early = peak(first, 16, first.size() / 4);
+    const float late = peak(second, second.size() / 2, second.size());
+
+    std::printf("  twint bridge: early peak=%.4f  late peak=%.4f\n", early, late);
+    assert(early > 0.5f);
+    assert(late < early * 0.2f);
+}
+
 /// LFO must produce an oscillating control output whose range spans positive
 /// and negative values at the requested rate.
 void testLfoOscillates()
@@ -997,6 +1028,7 @@ int main()
     testOnePoleFiltersCorrectly();
     testLadderFiltersAndResonates();
     testNoiseIsNonZeroAndVaries();
+    testTwinTBridgeRingsAndDecays();
     testLfoOscillates();
     testVcaScalesByCV();
     testEnvelopeRisesAndFalls();

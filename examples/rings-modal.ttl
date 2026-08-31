@@ -99,21 +99,21 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :bank ; val:property val:mode ;
-    lv2:name "Mode" ; lv2:symbol "mode" ;
+    lv2:name "Mode" ; lv2:symbol "mode" ; val:section "Resonator" ;
     lv2:minimum 0.0 ; lv2:maximum 3.0 .
 
 :p1 a val:Param ; val:slot 1 ; val:target :bank ; val:property val:decay ;
-    lv2:name "Decay" ; lv2:symbol "decay" ; units:unit units:s .
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Resonator" ; units:unit units:s .
 
 :p2 a val:Param ; val:slot 2 ; val:target :bank ; val:property val:brightness ;
-    lv2:name "Brightness" ; lv2:symbol "brightness" .
+    lv2:name "Brightness" ; lv2:symbol "brightness" ; val:section "Resonator" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :tone ; val:property val:cutoff ;
-    lv2:name "Hardness" ; lv2:symbol "hardness" ; units:unit units:hz ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ; val:section "Exciter" ; units:unit units:hz ;
     lv2:minimum 200.0 ; lv2:maximum 20000.0 .
 
 :p4 a val:Param ; val:slot 4 ; val:target :env ; val:property val:decay ;
-    lv2:name "Strike Width" ; lv2:symbol "strike_width" ; units:unit units:ms .
+    lv2:name "Strike Width" ; lv2:symbol "strike_width" ; val:section "Exciter" ; units:unit units:ms .
 
 :p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
-    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .

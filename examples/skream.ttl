@@ -150,25 +150,25 @@
 ################################################################
 
 :p0 a val:Param ; val:slot 0 ; val:target :svf ; val:property val:cutoff ;
-    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; val:section "Filter" ; units:unit units:hz .
 
 :p1 a val:Param ; val:slot 1 ; val:target :svf ; val:property val:resonance ;
-    lv2:name "Resonance" ; lv2:symbol "resonance" .
+    lv2:name "Resonance" ; lv2:symbol "resonance" ; val:section "Filter" .
 
 :p2 a val:Param ; val:slot 2 ; val:target :sat1 ; val:property val:gain ;
-    lv2:name "Scream" ; lv2:symbol "scream" .
+    lv2:name "Scream" ; lv2:symbol "scream" ; val:section "Drive" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :fbGain ; val:property val:gain ;
-    lv2:name "Feedback" ; lv2:symbol "feedback" ; units:unit units:db .
+    lv2:name "Feedback" ; lv2:symbol "feedback" ; val:section "Feedback" ; units:unit units:db .
 
 :p6 a val:Param ; val:slot 6 ; val:target :hpf ; val:property val:cutoff ;
-    lv2:name "Feedback Tone" ; lv2:symbol "fbtone" ; units:unit units:hz .
+    lv2:name "Feedback Tone" ; lv2:symbol "fbtone" ; val:section "Feedback" ; units:unit units:hz .
 
 :p7 a val:Param ; val:slot 7 ; val:target :wetGain ; val:property val:gain ;
-    lv2:name "Output" ; lv2:symbol "output" ; units:unit units:db .
+    lv2:name "Output" ; lv2:symbol "output" ; val:section "Output" ; units:unit units:db .
 
 :p4 a val:Param ; val:slot 4 ; val:target :inGain ; val:property val:gain ;
-    lv2:name "Input Gain" ; lv2:symbol "input" ; units:unit units:db .
+    lv2:name "Input Gain" ; lv2:symbol "input" ; val:section "Input" ; units:unit units:db .
 
 :p5 a val:Param ; val:slot 5 ; val:target :mix ; val:property val:mix ;
-    lv2:name "Mix" ; lv2:symbol "mix" .
+    lv2:name "Mix" ; lv2:symbol "mix" ; val:section "Output" .

@@ -78,20 +78,20 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :reed ; val:property val:pressure ;
-    lv2:name "Pressure" ; lv2:symbol "pressure" .
+    lv2:name "Pressure" ; lv2:symbol "pressure" ; val:section "Reed" .
 
 :p1 a val:Param ; val:slot 1 ; val:target :reed ; val:property val:stiffness ;
-    lv2:name "Stiffness" ; lv2:symbol "stiffness" .
+    lv2:name "Stiffness" ; lv2:symbol "stiffness" ; val:section "Reed" .
 
 :p2 a val:Param ; val:slot 2 ; val:target :reed ; val:property val:damping ;
-    lv2:name "Damping" ; lv2:symbol "damping" .
+    lv2:name "Damping" ; lv2:symbol "damping" ; val:section "Reed" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :vcf ; val:property val:cutoff ;
-    lv2:name "Tone" ; lv2:symbol "tone" ; units:unit units:hz ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Filter" ; units:unit units:hz ;
     lv2:minimum 100.0 ; lv2:maximum 20000.0 .
 
 :p4 a val:Param ; val:slot 4 ; val:target :vcf ; val:property val:resonance ;
-    lv2:name "Resonance" ; lv2:symbol "resonance" .
+    lv2:name "Resonance" ; lv2:symbol "resonance" ; val:section "Filter" .
 
 :p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
-    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .

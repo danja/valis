@@ -159,6 +159,28 @@ void testAntiAliasingIsDeclared()
     assert(gain->antialiasing.empty());
 }
 
+void testEnumControlsExposeScalePoints()
+{
+    const auto ontology = loadShipped();
+
+    const auto* oscillator = ontology.find(vocab::valTerm("Oscillator"));
+    assert(oscillator != nullptr);
+    const auto* shape = oscillator->findProperty("shape");
+    assert(shape != nullptr);
+    assert(shape->enumeration);
+    assert(shape->scalePoints.size() == 4);
+    assert(shape->scalePoints[0].second == "Sine");
+    assert(shape->scalePoints[2].second == "Square");
+
+    const auto* onePole = ontology.find(vocab::valTerm("OnePole"));
+    assert(onePole != nullptr);
+    const auto* mode = onePole->findProperty("mode");
+    assert(mode != nullptr);
+    assert(mode->enumeration);
+    assert(mode->scalePoints.size() == 3);
+    assert(mode->scalePoints[1].second == "Highpass");
+}
+
 /// Every element type the Skream circuit names must exist, with the ports the
 /// circuit's arcs address. This is the acceptance demo's contract.
 void testSkreamTypesResolve()
@@ -228,6 +250,7 @@ int main()
     testStateVariableHasNamedOutputs();
     testDiodeIsADiode();
     testAntiAliasingIsDeclared();
+    testEnumControlsExposeScalePoints();
     testSkreamTypesResolve();
     testRejectsMalformedOntology();
 

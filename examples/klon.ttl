@@ -91,19 +91,19 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :preGain ; val:property val:gain ;
-    lv2:name "Drive" ; lv2:symbol "drive" ; units:unit units:db .
+    lv2:name "Drive" ; lv2:symbol "drive" ; val:section "Drive" ; units:unit units:db .
 
 :p1 a val:Param ; val:slot 1 ; val:target :clip ; val:property val:posVf ;
-    lv2:name "Positive Vf" ; lv2:symbol "pos_vf" .
+    lv2:name "Positive Vf" ; lv2:symbol "pos_vf" ; val:section "Clipping" .
 
 :p2 a val:Param ; val:slot 2 ; val:target :clip ; val:property val:negVf ;
-    lv2:name "Negative Vf" ; lv2:symbol "neg_vf" .
+    lv2:name "Negative Vf" ; lv2:symbol "neg_vf" ; val:section "Clipping" .
 
 :p3 a val:Param ; val:slot 3 ; val:target :blend ; val:property val:mix ;
-    lv2:name "Blend" ; lv2:symbol "blend" .
+    lv2:name "Blend" ; lv2:symbol "blend" ; val:section "Output" .
 
 :p4 a val:Param ; val:slot 4 ; val:target :tone ; val:property val:cutoff ;
-    lv2:name "Tone" ; lv2:symbol "tone" ; units:unit units:hz .
+    lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Output" ; units:unit units:hz .
 
 :p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
-    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .

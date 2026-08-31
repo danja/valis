@@ -90,16 +90,16 @@
 # ── Host parameters ──────────────────────────────────────────────────────────
 
 :p0 a val:Param ; val:slot 0 ; val:target :comb ; val:property val:feedback ;
-    lv2:name "Sustain" ; lv2:symbol "sustain" .
+    lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Resonator" .
 
 :p1 a val:Param ; val:slot 1 ; val:target :comb ; val:property val:damping ;
-    lv2:name "Damping" ; lv2:symbol "damping" .
+    lv2:name "Damping" ; lv2:symbol "damping" ; val:section "Resonator" .
 
 :p2 a val:Param ; val:slot 2 ; val:target :env ; val:property val:decay ;
-    lv2:name "Pluck Decay" ; lv2:symbol "pluck_decay" ; units:unit units:ms .
+    lv2:name "Pluck Decay" ; lv2:symbol "pluck_decay" ; val:section "Exciter" ; units:unit units:ms .
 
 :p3 a val:Param ; val:slot 3 ; val:target :noise ; val:property val:colour ;
-    lv2:name "Noise Colour" ; lv2:symbol "noise_colour" .
+    lv2:name "Noise Colour" ; lv2:symbol "noise_colour" ; val:section "Exciter" .
 
 :p4 a val:Param ; val:slot 4 ; val:target :vol ; val:property val:gain ;
-    lv2:name "Volume" ; lv2:symbol "volume" ; units:unit units:db .
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .
