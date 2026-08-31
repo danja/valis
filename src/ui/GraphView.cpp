@@ -548,12 +548,12 @@ void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
                                return;
 
                            warnAboutReformatting();
-                           auto dispatcher = ops();
+                           auto menuOps = ops();
                            OpResult result;
 
                            if (choice == 1 && ! nodeId.empty())
                            {
-                               result = dispatcher.removeNode(nodeId);
+                               result = menuOps.removeNode(nodeId);
                                positions.erase(nodeId);
                            }
                            else if (const auto it = classForId.find(choice); it != classForId.end())
@@ -565,7 +565,7 @@ void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
                                for (int n = 2; processor.circuit().findElement(candidate) != nullptr; ++n)
                                    candidate = base + std::to_string(n);
 
-                               result = dispatcher.addNode(candidate, it->second);
+                               result = menuOps.addNode(candidate, it->second);
                            }
 
                            if (! result.ok && ! result.diagnostics.empty())

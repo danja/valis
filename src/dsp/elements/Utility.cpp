@@ -353,7 +353,7 @@ private:
 class Oscilloscope final : public DspElement
 {
 public:
-    void prepare(const ElementType& type, double rate, int) override
+    void prepare(const ElementType&, double rate, int) override
     {
         sampleRate = rate;
     }
@@ -397,7 +397,7 @@ private:
 class FreqAnalyzer final : public DspElement
 {
 public:
-    void prepare(const ElementType& type, double rate, int) override
+    void prepare(const ElementType&, double rate, int) override
     {
         sampleRate = rate;
         stateLow = 0.0f;

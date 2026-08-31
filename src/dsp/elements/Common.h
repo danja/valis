@@ -61,9 +61,12 @@ protected:
 inline int controlIndex(const ElementType& type, std::string_view symbol)
 {
     int index = 0;
-    for (const auto* port : type.portsMatching(true, true))
+    for (const auto& port : type.ports)
     {
-        if (port->symbol == symbol)
+        if (! port.input || ! port.control)
+            continue;
+
+        if (port.symbol == symbol)
             return index;
         ++index;
     }
@@ -73,9 +76,12 @@ inline int controlIndex(const ElementType& type, std::string_view symbol)
 inline int audioOutIndex(const ElementType& type, std::string_view symbol)
 {
     int index = 0;
-    for (const auto* port : type.portsMatching(false, false))
+    for (const auto& port : type.ports)
     {
-        if (port->symbol == symbol)
+        if (port.input || port.control)
+            continue;
+
+        if (port.symbol == symbol)
             return index;
         ++index;
     }
@@ -85,9 +91,12 @@ inline int audioOutIndex(const ElementType& type, std::string_view symbol)
 inline int audioInIndex(const ElementType& type, std::string_view symbol)
 {
     int index = 0;
-    for (const auto* port : type.portsMatching(true, false))
+    for (const auto& port : type.ports)
     {
-        if (port->symbol == symbol)
+        if (! port.input || port.control)
+            continue;
+
+        if (port.symbol == symbol)
             return index;
         ++index;
     }

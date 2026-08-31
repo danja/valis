@@ -225,20 +225,20 @@ juce::var McpServer::callTool(const juce::String& name, const juce::var& argumen
                 entry->setProperty("linear", type.linear);
 
                 juce::Array<juce::var> ports;
-                for (const auto& port : type.ports)
+                for (const auto& portDesc : type.ports)
                 {
                     auto* p = new juce::DynamicObject();
-                    p->setProperty("symbol", juce::String(port.symbol));
-                    p->setProperty("name", juce::String(port.name));
-                    p->setProperty("direction", port.input ? "in" : "out");
-                    p->setProperty("rate", port.control ? "control" : "audio");
-                    if (port.control)
+                    p->setProperty("symbol", juce::String(portDesc.symbol));
+                    p->setProperty("name", juce::String(portDesc.name));
+                    p->setProperty("direction", portDesc.input ? "in" : "out");
+                    p->setProperty("rate", portDesc.control ? "control" : "audio");
+                    if (portDesc.control)
                     {
-                        p->setProperty("default", port.defaultValue);
-                        p->setProperty("minimum", port.minimum);
-                        p->setProperty("maximum", port.maximum);
-                        if (! port.unit.empty())
-                            p->setProperty("unit", juce::String(port.unit));
+                        p->setProperty("default", portDesc.defaultValue);
+                        p->setProperty("minimum", portDesc.minimum);
+                        p->setProperty("maximum", portDesc.maximum);
+                        if (! portDesc.unit.empty())
+                            p->setProperty("unit", juce::String(portDesc.unit));
                     }
                     ports.add(juce::var(p));
                 }

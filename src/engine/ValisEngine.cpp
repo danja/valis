@@ -94,9 +94,12 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
                 continue;
 
             int index = 0;
-            for (const auto* port : node.type->portsMatching(true, true))
+            for (const auto& port : node.type->ports)
             {
-                if (port->symbol == portSymbol && index < static_cast<int>(graph->controlValues[i].size()))
+                if (! port.input || ! port.control)
+                    continue;
+
+                if (port.symbol == portSymbol && index < static_cast<int>(graph->controlValues[i].size()))
                     graph->controlValues[i][static_cast<std::size_t>(index)] = value;
                 ++index;
             }
@@ -174,9 +177,12 @@ void ValisEngine::setControl(const std::string& nodeId,
                 continue;
 
             int index = 0;
-            for (const auto* port : node.type->portsMatching(true, true))
+            for (const auto& port : node.type->ports)
             {
-                if (port->symbol == portSymbol
+                if (! port.input || ! port.control)
+                    continue;
+
+                if (port.symbol == portSymbol
                     && index < static_cast<int>(graph->controlValues[i].size()))
                     graph->controlValues[i][static_cast<std::size_t>(index)] = value;
                 ++index;
@@ -286,9 +292,8 @@ void ValisEngine::processSlice(Graph& graph,
 {
     const auto& circuit = graph.circuit;
 
-    std::array<float, 128> currentNoteVelocities;
     for (std::size_t k = 0; k < 128; ++k)
-        currentNoteVelocities[k] = std::max(activeNoteVelocities[k], triggeredNoteVelocities[k]);
+        graph.currentNoteVelocities[k] = std::max(activeNoteVelocities[k], triggeredNoteVelocities[k]);
 
     // Silence is shared, so it has to be silent every slice: an element that
     // wrote through an unconnected input would poison every other reader.
@@ -354,7 +359,7 @@ void ValisEngine::processSlice(Graph& graph,
         args.gate           = gate;
         args.velocity       = lastVelocity;
         args.noteNumber     = lastNoteNumber;
-        args.noteVelocities = currentNoteVelocities.data();
+        args.noteVelocities = graph.currentNoteVelocities.data();
         args.audioIn        = graph.audioInPtrs.data();
         args.audioOut       = graph.audioOutPtrs.data();
         args.numAudioIn    = static_cast<int>(node.audioInBuffers.size());
@@ -376,9 +381,28 @@ void ValisEngine::processSlice(Graph& graph,
     // The output element reads whatever arrives at its audio inputs (in, left, right).
     const auto& outputNode = circuit.nodes[static_cast<std::size_t>(circuit.outputNode)];
 
-    const int inPortIdx    = outputNode.type != nullptr ? outputNode.type->findPortIndex("in") : -1;
-    const int leftPortIdx  = outputNode.type != nullptr ? outputNode.type->findPortIndex("left") : -1;
-    const int rightPortIdx = outputNode.type != nullptr ? outputNode.type->findPortIndex("right") : -1;
+    auto findAudioInputIndex = [&](const char* symbol)
+    {
+        if (outputNode.type == nullptr)
+            return -1;
+
+        int index = 0;
+        for (const auto& port : outputNode.type->ports)
+        {
+            if (! port.input || port.control)
+                continue;
+
+            if (port.symbol == symbol)
+                return index;
+            ++index;
+        }
+
+        return -1;
+    };
+
+    const int inPortIdx    = findAudioInputIndex("in");
+    const int leftPortIdx  = findAudioInputIndex("left");
+    const int rightPortIdx = findAudioInputIndex("right");
 
     const float* monoBuf  = (inPortIdx >= 0 && static_cast<std::size_t>(inPortIdx) < outputNode.audioInBuffers.size())
                                 ? graph.buffer(outputNode.audioInBuffers[static_cast<std::size_t>(inPortIdx)])

@@ -181,6 +181,17 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
         if (auto depth = store.object(arcNode, vocab::valTerm("depth")); depth.asDouble())
             arc.depth = *depth.asDouble();
 
+        const auto* fromElement = findElement(arc.fromNode);
+        const auto* toElement   = findElement(arc.toNode);
+        if (fromElement != nullptr && fromElement->type != nullptr
+            && toElement != nullptr && toElement->type != nullptr)
+        {
+            const auto* fromPort = fromElement->type->findPort(arc.fromPort);
+            const auto* toPort   = toElement->type->findPort(arc.toPort);
+            if (fromPort != nullptr && toPort != nullptr)
+                arc.control = fromPort->control && toPort->control;
+        }
+
         arcList.push_back(std::move(arc));
     }
 

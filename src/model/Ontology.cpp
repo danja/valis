@@ -109,6 +109,16 @@ const PortDesc* ElementType::findPort(std::string_view symbol) const
     return it != ports.end() ? &*it : nullptr;
 }
 
+const PortDesc* ElementType::findPort(std::string_view symbol, bool input, bool control) const
+{
+    const auto it = std::find_if(ports.begin(), ports.end(),
+                                 [&](const PortDesc& p)
+                                 {
+                                     return p.symbol == symbol && p.input == input && p.control == control;
+                                 });
+    return it != ports.end() ? &*it : nullptr;
+}
+
 std::vector<const PortDesc*> ElementType::portsMatching(bool input, bool control) const
 {
     std::vector<const PortDesc*> result;
@@ -117,6 +127,15 @@ std::vector<const PortDesc*> ElementType::portsMatching(bool input, bool control
             result.push_back(&p);
 
     return result;
+}
+
+int ElementType::countPorts(bool input, bool control) const
+{
+    return static_cast<int>(std::count_if(ports.begin(), ports.end(),
+                                          [&](const PortDesc& p)
+                                          {
+                                              return p.input == input && p.control == control;
+                                          }));
 }
 
 const PortDesc* ElementType::findProperty(std::string_view localName) const
@@ -217,13 +236,14 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
         if (element.ports.empty())
             errors.push_back(element.classIri + ": declares val:implementation but no lv2:port");
 
-        // Two ports with the same symbol would make an arc endpoint ambiguous.
-        std::vector<std::string> symbols;
+        // Port symbols must be unique within the same direction and rate.
+        // Input and output ports may share a symbol, for example Mixer.left.
+        std::vector<std::string> keys;
         for (const auto& p : element.ports)
-            symbols.push_back(p.symbol);
-        std::sort(symbols.begin(), symbols.end());
-        if (std::adjacent_find(symbols.begin(), symbols.end()) != symbols.end())
-            errors.push_back(element.classIri + ": duplicate lv2:symbol among its ports");
+            keys.push_back(std::string(p.input ? "in:" : "out:") + (p.control ? "control:" : "audio:") + p.symbol);
+        std::sort(keys.begin(), keys.end());
+        if (std::adjacent_find(keys.begin(), keys.end()) != keys.end())
+            errors.push_back(element.classIri + ": duplicate lv2:symbol among ports with the same direction and rate");
 
         typesByIri[element.classIri] = std::move(element);
     }

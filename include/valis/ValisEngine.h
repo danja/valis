@@ -97,6 +97,7 @@ private:
         /// Live control values, starting from the compiled defaults and
         /// overridden by setControl and by control arcs.
         std::vector<std::vector<float>> controlValues;
+        std::array<float, 128> currentNoteVelocities{};
 
         int blockSize = 0;
 

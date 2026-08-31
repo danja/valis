@@ -52,9 +52,12 @@ struct ElementType
     std::vector<PortDesc> ports;
 
     const PortDesc* findPort(std::string_view symbol) const;
+    const PortDesc* findPort(std::string_view symbol, bool input, bool control) const;
 
     /// Ports matching a direction and rate, in declaration order.
     std::vector<const PortDesc*> portsMatching(bool input, bool control) const;
+
+    int countPorts(bool input, bool control) const;
 
     /// Control inputs are settable properties: val:cutoff and the port symbol
     /// "cutoff" are the same thing.

@@ -108,8 +108,8 @@ bool CircuitCompiler::compile(const CircuitModel& model,
             continue;
         }
 
-        const auto* fromPort = fromElement->type->findPort(arc.fromPort);
-        const auto* toPort   = toElement->type->findPort(arc.toPort);
+        const auto* fromPort = fromElement->type->findPort(arc.fromPort, false, arc.control);
+        const auto* toPort   = toElement->type->findPort(arc.toPort, true, arc.control);
 
         if (fromPort == nullptr)
         {
@@ -284,8 +284,10 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         node.implementation = element.type->implementation;
         node.type           = element.type;
 
-        for (const auto* port : element.type->portsMatching(true, true))
-            node.controlValues.push_back(element.valueOf(port->symbol));
+        node.controlValues.reserve(static_cast<std::size_t>(element.type->countPorts(true, true)));
+        for (const auto& port : element.type->ports)
+            if (port.input && port.control)
+                node.controlValues.push_back(element.valueOf(port.symbol));
 
         // Sorted, so the compiled result is reproducible.
         for (const auto& [key, value] : element.options)
@@ -321,13 +323,18 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
     for (auto& node : out.nodes)
     {
-        for (std::size_t i = 0; i < node.type->portsMatching(false, false).size(); ++i)
-            node.audioOutBuffers.push_back(nextBuffer++);
+        node.audioOutBuffers.reserve(static_cast<std::size_t>(node.type->countPorts(false, false)));
+        node.controlOutSlots.reserve(static_cast<std::size_t>(node.type->countPorts(false, true)));
 
-        for (std::size_t i = 0; i < node.type->portsMatching(false, true).size(); ++i)
-            node.controlOutSlots.push_back(nextControlSlot++);
+        for (const auto& port : node.type->ports)
+        {
+            if (! port.input && ! port.control)
+                node.audioOutBuffers.push_back(nextBuffer++);
+            else if (! port.input && port.control)
+                node.controlOutSlots.push_back(nextControlSlot++);
+        }
 
-        node.audioInBuffers.assign(node.type->portsMatching(true, false).size(),
+        node.audioInBuffers.assign(static_cast<std::size_t>(node.type->countPorts(true, false)),
                                    out.silenceBuffer);
     }
 
@@ -337,11 +344,14 @@ bool CircuitCompiler::compile(const CircuitModel& model,
     const auto portIndex = [](const ElementType& type, const std::string& symbol,
                               bool input, bool control) {
         int index = 0;
-        for (const auto* port : type.portsMatching(input, control))
+        for (const auto& port : type.ports)
         {
-            if (port->symbol == symbol)
-                return index;
-            ++index;
+            if (port.input == input && port.control == control)
+            {
+                if (port.symbol == symbol)
+                    return index;
+                ++index;
+            }
         }
         return -1;
     };

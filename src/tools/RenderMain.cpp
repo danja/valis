@@ -268,15 +268,19 @@ int main(int argc, char** argv)
     outputFile.deleteFile();
 
     juce::WavAudioFormat wav;
-    std::unique_ptr<juce::FileOutputStream> stream(outputFile.createOutputStream());
+    std::unique_ptr<juce::OutputStream> stream(outputFile.createOutputStream());
     if (stream == nullptr)
     {
         std::fprintf(stderr, "cannot write %s\n", options.outputPath.c_str());
         return 1;
     }
 
+    auto writerOptions = juce::AudioFormatWriterOptions()
+                             .withSampleRate(options.sampleRate)
+                             .withNumChannels(2)
+                             .withBitsPerSample(24);
     std::unique_ptr<juce::AudioFormatWriter> writer(
-        wav.createWriterFor(stream.release(), options.sampleRate, 2, 24, {}, 0));
+        wav.createWriterFor(stream, writerOptions));
     if (writer == nullptr)
     {
         std::fprintf(stderr, "cannot create wav writer\n");
@@ -301,7 +305,7 @@ int main(int argc, char** argv)
                 options.circuitPath.c_str(), compiled.nodes.size(),
                 compiled.numBuffers, engine.latencyInSamples());
     std::printf("%s: %zu samples, peak %.4f, rms %.4f\n",
-                options.outputPath.c_str(), output.size(), peak, rms);
+                options.outputPath.c_str(), outputL.size(), peak, rms);
 
     if (peak > 1.0f)
         std::fprintf(stderr,

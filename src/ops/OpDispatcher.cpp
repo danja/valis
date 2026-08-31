@@ -465,7 +465,7 @@ OpResult OpDispatcher::setParam(int slot, double value)
         ctx.engine->setControl(param.targetNode, param.property, static_cast<float>(clamped));
 
         OpResult result = OpResult::success(number(clamped));
-        if (clamped != value)
+        if (value < param.minimum || value > param.maximum)
             result.diagnostics.push_back(
                 {"value clamped to [" + number(param.minimum) + ", " + number(param.maximum) + "]",
                  param.targetNode});
