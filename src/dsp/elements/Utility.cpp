@@ -66,20 +66,26 @@ public:
     {
         const int n = args.numSamples;
 
+        const float* monoIn  = inIdx >= 0 && inIdx < args.numAudioIn ? args.audioIn[inIdx] : nullptr;
+        const float* stereoL = leftIn >= 0 && leftIn < args.numAudioIn ? args.audioIn[leftIn] : nullptr;
+        const float* stereoR = rightIn >= 0 && rightIn < args.numAudioIn ? args.audioIn[rightIn] : nullptr;
+
         if (outIdx >= 0 && outIdx < args.numAudioOut)
         {
             float* out = args.audioOut[outIdx];
-            if (inIdx >= 0 && inIdx < args.numAudioIn)
-                std::copy(args.audioIn[inIdx], args.audioIn[inIdx] + n, out);
-            else
-                std::fill(out, out + n, 0.0f);
+            for (int i = 0; i < n; ++i)
+                out[i] = monoIn != nullptr ? monoIn[i]
+                                           : 0.5f * ((stereoL != nullptr ? stereoL[i] : 0.0f)
+                                                   + (stereoR != nullptr ? stereoR[i] : 0.0f));
         }
 
         if (leftOut >= 0 && leftOut < args.numAudioOut)
         {
             float* lOut = args.audioOut[leftOut];
-            if (leftIn >= 0 && leftIn < args.numAudioIn)
-                std::copy(args.audioIn[leftIn], args.audioIn[leftIn] + n, lOut);
+            if (stereoL != nullptr)
+                std::copy(stereoL, stereoL + n, lOut);
+            else if (monoIn != nullptr)
+                std::copy(monoIn, monoIn + n, lOut);
             else
                 std::fill(lOut, lOut + n, 0.0f);
         }
@@ -87,8 +93,10 @@ public:
         if (rightOut >= 0 && rightOut < args.numAudioOut)
         {
             float* rOut = args.audioOut[rightOut];
-            if (rightIn >= 0 && rightIn < args.numAudioIn)
-                std::copy(args.audioIn[rightIn], args.audioIn[rightIn] + n, rOut);
+            if (stereoR != nullptr)
+                std::copy(stereoR, stereoR + n, rOut);
+            else if (monoIn != nullptr)
+                std::copy(monoIn, monoIn + n, rOut);
             else
                 std::fill(rOut, rOut + n, 0.0f);
         }
