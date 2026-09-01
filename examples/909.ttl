@@ -42,7 +42,7 @@
     val:element
         # Bass Drum
         :bdGate , :bdOsc , :bdPitchEnv , :bdPitchScale ,
-        :bdAmpEnv , :bdSat , :bdVca , :bdLevel , :bdPan ,
+        :bdAmpEnv , :bdAmpMul , :bdSat , :bdVca , :bdLevel , :bdPan ,
         # Snare Drum
         :sdGate ,
         :sdOsc1 , :sdOsc2 , :sdOscMix ,
@@ -70,9 +70,9 @@
         :mix , :out ;
     val:arc
         # Bass Drum
-        :aBdGatePitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
+        :aBdGatePitchEnv , :aBdVelPitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
-        :aBdOscSat , :aBdSatVca , :aBdEnvVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
+        :aBdOscSat , :aBdSatVca , :aBdEnvAmpMul , :aBdVelAmpMul , :aBdAmpMulVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
         # Snare Drum
         :aSdGateToneEnv , :aSdGateNoiseEnv ,
         :aSdOsc1OscMix , :aSdOsc2OscMix ,
@@ -141,6 +141,7 @@
 :bdSat a val:Tanh ;
     val:gain 5.0 .
 
+:bdAmpMul a val:ControlMultiply .
 :bdVca a val:VCA .
 
 :bdLevel a val:Gain ; val:gain 0.0 .
@@ -435,6 +436,10 @@
     val:from [ val:node :bdGate    ; val:port "gate" ] ;
     val:to   [ val:node :bdPitchEnv ; val:port "gate" ] .
 
+:aBdVelPitchEnv a val:Arc ;
+    val:from [ val:node :bdGate    ; val:port "velocity" ] ;
+    val:to   [ val:node :bdPitchEnv ; val:port "sustain" ] .
+
 :aBdGateAmpEnv a val:Arc ;
     val:from [ val:node :bdGate   ; val:port "gate" ] ;
     val:to   [ val:node :bdAmpEnv ; val:port "gate" ] .
@@ -459,8 +464,16 @@
     val:from [ val:node :bdSat ; val:port "out" ] ;
     val:to   [ val:node :bdVca ; val:port "in"  ] .
 
-:aBdEnvVca a val:Arc ;
+:aBdEnvAmpMul a val:Arc ;
     val:from [ val:node :bdAmpEnv ; val:port "out" ] ;
+    val:to   [ val:node :bdAmpMul ; val:port "a"  ] .
+
+:aBdVelAmpMul a val:Arc ;
+    val:from [ val:node :bdGate   ; val:port "velocity" ] ;
+    val:to   [ val:node :bdAmpMul ; val:port "b" ] .
+
+:aBdAmpMulVca a val:Arc ;
+    val:from [ val:node :bdAmpMul ; val:port "out" ] ;
     val:to   [ val:node :bdVca    ; val:port "cv"  ] .
 
 :aBdVcaLevel a val:Arc ;
@@ -484,11 +497,11 @@
 ################################################################
 
 :aSdGateToneEnv a val:Arc ;
-    val:from [ val:node :sdGate    ; val:port "gate" ] ;
+    val:from [ val:node :sdGate    ; val:port "velocity" ] ;
     val:to   [ val:node :sdToneEnv ; val:port "gate" ] .
 
 :aSdGateNoiseEnv a val:Arc ;
-    val:from [ val:node :sdGate     ; val:port "gate" ] ;
+    val:from [ val:node :sdGate     ; val:port "velocity" ] ;
     val:to   [ val:node :sdNoiseEnv ; val:port "gate" ] .
 
 # Both oscillators sum in the oscillator mixer.
@@ -551,7 +564,7 @@
 ################################################################
 
 :aRsGateEnv a val:Arc ;
-    val:from [ val:node :rsGate ; val:port "gate" ] ;
+    val:from [ val:node :rsGate ; val:port "velocity" ] ;
     val:to   [ val:node :rsEnv  ; val:port "gate" ] .
 
 :aRsNoiseHpf a val:Arc ;
@@ -587,7 +600,7 @@
 ################################################################
 
 :aCpGateEnv a val:Arc ;
-    val:from [ val:node :cpGate ; val:port "gate" ] ;
+    val:from [ val:node :cpGate ; val:port "velocity" ] ;
     val:to   [ val:node :cpEnv  ; val:port "gate" ] .
 
 :aCpNoiseBpf a val:Arc ;
@@ -623,15 +636,15 @@
 ################################################################
 
 :aLtGatePitchEnv a val:Arc ;
-    val:from [ val:node :ltGate    ; val:port "gate" ] ;
+    val:from [ val:node :ltGate    ; val:port "velocity" ] ;
     val:to   [ val:node :ltPitchEnv ; val:port "gate" ] .
 
 :aLtGateAmpEnv a val:Arc ;
-    val:from [ val:node :ltGate  ; val:port "gate" ] ;
+    val:from [ val:node :ltGate  ; val:port "velocity" ] ;
     val:to   [ val:node :ltAmpEnv ; val:port "gate" ] .
 
 :aLtGateTwinT a val:Arc ;
-    val:from [ val:node :ltGate ; val:port "gate" ] ;
+    val:from [ val:node :ltGate ; val:port "velocity" ] ;
     val:to   [ val:node :ltOsc  ; val:port "trigger" ] .
 
 :aLtPitchEnvScale a val:Arc ;
@@ -671,15 +684,15 @@
 ################################################################
 
 :aMtGatePitchEnv a val:Arc ;
-    val:from [ val:node :mtGate    ; val:port "gate" ] ;
+    val:from [ val:node :mtGate    ; val:port "velocity" ] ;
     val:to   [ val:node :mtPitchEnv ; val:port "gate" ] .
 
 :aMtGateAmpEnv a val:Arc ;
-    val:from [ val:node :mtGate  ; val:port "gate" ] ;
+    val:from [ val:node :mtGate  ; val:port "velocity" ] ;
     val:to   [ val:node :mtAmpEnv ; val:port "gate" ] .
 
 :aMtGateTwinT a val:Arc ;
-    val:from [ val:node :mtGate ; val:port "gate" ] ;
+    val:from [ val:node :mtGate ; val:port "velocity" ] ;
     val:to   [ val:node :mtOsc  ; val:port "trigger" ] .
 
 :aMtPitchEnvScale a val:Arc ;
@@ -719,15 +732,15 @@
 ################################################################
 
 :aHtGatePitchEnv a val:Arc ;
-    val:from [ val:node :htGate    ; val:port "gate" ] ;
+    val:from [ val:node :htGate    ; val:port "velocity" ] ;
     val:to   [ val:node :htPitchEnv ; val:port "gate" ] .
 
 :aHtGateAmpEnv a val:Arc ;
-    val:from [ val:node :htGate  ; val:port "gate" ] ;
+    val:from [ val:node :htGate  ; val:port "velocity" ] ;
     val:to   [ val:node :htAmpEnv ; val:port "gate" ] .
 
 :aHtGateTwinT a val:Arc ;
-    val:from [ val:node :htGate ; val:port "gate" ] ;
+    val:from [ val:node :htGate ; val:port "velocity" ] ;
     val:to   [ val:node :htOsc  ; val:port "trigger" ] .
 
 :aHtPitchEnvScale a val:Arc ;
@@ -767,7 +780,7 @@
 ################################################################
 
 :aChGateEnv a val:Arc ;
-    val:from [ val:node :chGate ; val:port "gate" ] ;
+    val:from [ val:node :chGate ; val:port "velocity" ] ;
     val:to   [ val:node :chEnv  ; val:port "gate" ] .
 
 :aChOsc1Mix a val:Arc ;
@@ -827,11 +840,11 @@
 ################################################################
 
 :aOhGateChoke a val:Arc ;
-    val:from [ val:node :ohGate  ; val:port "gate" ] ;
+    val:from [ val:node :ohGate  ; val:port "velocity" ] ;
     val:to   [ val:node :ohChoke ; val:port "gate" ] .
 
 :aChGateChoke a val:Arc ;
-    val:from [ val:node :chGate  ; val:port "gate" ] ;
+    val:from [ val:node :chGate  ; val:port "velocity" ] ;
     val:to   [ val:node :ohChoke ; val:port "choke" ] .
 
 :aOhChokeEnv a val:Arc ;
@@ -895,11 +908,11 @@
 ################################################################
 
 :aMixOutL a val:Arc ;
-    val:from [ val:node :mix ; val:port "out" ] ;
+    val:from [ val:node :mix ; val:port "left" ] ;
     val:to   [ val:node :out ; val:port "left" ] .
 
 :aMixOutR a val:Arc ;
-    val:from [ val:node :mix ; val:port "out" ] ;
+    val:from [ val:node :mix ; val:port "right" ] ;
     val:to   [ val:node :out ; val:port "right" ] .
 
 ################################################################

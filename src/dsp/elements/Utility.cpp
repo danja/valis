@@ -158,6 +158,27 @@ private:
     int inIndex = -1, minIndex = -1, maxIndex = -1;
 };
 
+class ControlMultiply final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        aIndex = controlIndex(type, "a");
+        bIndex = controlIndex(type, "b");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        args.controlOut[0] = controlAt(args, aIndex, 0.0f) * controlAt(args, bIndex, 0.0f);
+    }
+
+private:
+    int aIndex = -1, bIndex = -1;
+};
+
 /// Single-tap delay line with feedback. Preallocated in prepare(); process()
 /// never allocates. Maximum delay: 5 seconds at the current sample rate.
 class Delay final : public DspElement
@@ -464,6 +485,7 @@ void registerUtility(ElementRegistry& registry)
     registry.add("Gain",            &make<elements::Gain>);
     registry.add("VCA",             &make<elements::VCA>);
     registry.add("Scale",           &make<elements::Scale>);
+    registry.add("ControlMultiply", &make<elements::ControlMultiply>);
     registry.add("Delay",           &make<elements::Delay>);
     registry.add("Mixer",           &make<elements::Mixer>);
     registry.add("DryWet",          &make<elements::DryWet>);

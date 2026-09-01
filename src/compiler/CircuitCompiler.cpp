@@ -108,8 +108,13 @@ bool CircuitCompiler::compile(const CircuitModel& model,
             continue;
         }
 
-        const auto* fromPort = fromElement->type->findPort(arc.fromPort);
-        const auto* toPort   = toElement->type->findPort(arc.toPort);
+        const auto* fromPort = fromElement->type->findPort(arc.fromPort, false, arc.control);
+        const auto* toPort   = toElement->type->findPort(arc.toPort, true, arc.control);
+
+        if (fromPort == nullptr)
+            fromPort = fromElement->type->findPort(arc.fromPort);
+        if (toPort == nullptr)
+            toPort = toElement->type->findPort(arc.toPort);
 
         if (fromPort == nullptr)
         {

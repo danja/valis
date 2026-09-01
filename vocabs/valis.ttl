@@ -573,6 +573,22 @@ val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:name "Max" ; lv2:default 1.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
 
+val:ControlMultiply a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "ControlMultiply" ;
+    rdfs:comment "Multiplies two control signals. Use it to apply velocity or modulation depth to another control path." ;
+    val:implementation "ControlMultiply" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "a" ;
+        lv2:name "A" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "b" ;
+        lv2:name "B" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
+
 val:Pan a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Pan" ;
     rdfs:comment "Equal-power stereo panner. Maps mono audio in to left, right, and combined out." ;

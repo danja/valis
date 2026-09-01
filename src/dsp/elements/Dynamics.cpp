@@ -252,7 +252,7 @@ public:
                 break;
         }
 
-        args.controlOut[0] = level * (args.velocity > 0.0f ? args.velocity : 1.0f);
+        args.controlOut[0] = level;
     }
 
 private:
