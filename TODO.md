@@ -1,4 +1,4 @@
-
+The T bridge as used in 909.ttl gives a short, mid frequency tone, nothing like the bass drum it's meant to make. Also its controls in Knobs have no effect. Check the Element and check  the wiring.
 
 ## Recurring - check periodically
 
