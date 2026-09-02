@@ -70,7 +70,7 @@
         :mix , :out ;
     val:arc
         # Bass Drum
-        :aBdGatePitchEnv , :aBdVelPitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
+        :aBdGatePitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
         :aBdOscSat , :aBdSatVca , :aBdEnvAmpMul , :aBdVelAmpMul , :aBdAmpMulVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
         # Snare Drum
@@ -435,10 +435,6 @@
 :aBdGatePitchEnv a val:Arc ;
     val:from [ val:node :bdGate    ; val:port "gate" ] ;
     val:to   [ val:node :bdPitchEnv ; val:port "gate" ] .
-
-:aBdVelPitchEnv a val:Arc ;
-    val:from [ val:node :bdGate    ; val:port "velocity" ] ;
-    val:to   [ val:node :bdPitchEnv ; val:port "sustain" ] .
 
 :aBdGateAmpEnv a val:Arc ;
     val:from [ val:node :bdGate   ; val:port "gate" ] ;
