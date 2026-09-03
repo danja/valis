@@ -1,7 +1,3 @@
-Create a combined chorus, phaser and flanger effect circuit based on val:Chorus. There will be shared components, you may find it useful to split val:Chorus into more atomic elements.
-
-Create an instrument that simulates a clarinet.
-
 ## Recurring - check periodically
 
 * remove tasks that have been done from this file

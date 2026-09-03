@@ -1,0 +1,75 @@
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix :      <urn:valis:modulation#> .
+
+# Combined chorus, phaser and flanger in series.
+#
+# A single LFO drives all three modulation rates in sync via a shared Scale
+# element. Scale maps the LFO output (-1..+1) to a positive rate range so
+# that the rate port of each effect never goes negative. With min=0.5 and
+# max=0.9 the rate sweeps 0.1–0.9 Hz around the 0.5 Hz LFO centre.
+#
+# Signal path: Input → Flanger → Chorus → Phaser → Output.
+
+:main a val:Circuit ;
+    val:element :in, :lfo, :rate,
+                :flanger, :chorus, :phaser, :out ;
+    val:arc :aInFlanger,
+            :aFlangerChorus,
+            :aChorusPhaser,
+            :aPhaserOut,
+            :aLfoRate,
+            :aRateFlanger,
+            :aRateChorus,
+            :aRatePhaser .
+
+:in      a val:Input .
+:lfo     a val:LFO ; val:rate 0.5 ; val:shape 0 .
+:rate    a val:Scale ; val:min 0.5 ; val:max 0.9 .
+:flanger a val:Flanger ; val:depth 2.0 ; val:feedback 0.5 ; val:mix 0.5 .
+:chorus  a val:Chorus  ; val:depth 2.0 ; val:mix 0.5 .
+:phaser  a val:Phaser  ; val:depth 0.7 ; val:feedback 0.3 ; val:mix 0.5 .
+:out     a val:Output .
+
+# Audio signal path
+:aInFlanger     a val:Arc ;
+    val:from [ val:node :in      ; val:port "out" ] ;
+    val:to   [ val:node :flanger ; val:port "in"  ] .
+:aFlangerChorus a val:Arc ;
+    val:from [ val:node :flanger ; val:port "out" ] ;
+    val:to   [ val:node :chorus  ; val:port "in"  ] .
+:aChorusPhaser  a val:Arc ;
+    val:from [ val:node :chorus  ; val:port "out" ] ;
+    val:to   [ val:node :phaser  ; val:port "in"  ] .
+:aPhaserOut     a val:Arc ;
+    val:from [ val:node :phaser  ; val:port "out" ] ;
+    val:to   [ val:node :out     ; val:port "in"  ] .
+
+# Shared LFO → Scale → all three effect rates (fan-out)
+:aLfoRate     a val:Arc ;
+    val:from [ val:node :lfo  ; val:port "out" ] ;
+    val:to   [ val:node :rate ; val:port "in"  ] .
+:aRateFlanger a val:Arc ;
+    val:from [ val:node :rate    ; val:port "out"  ] ;
+    val:to   [ val:node :flanger ; val:port "rate" ] .
+:aRateChorus  a val:Arc ;
+    val:from [ val:node :rate   ; val:port "out"  ] ;
+    val:to   [ val:node :chorus ; val:port "rate" ] .
+:aRatePhaser  a val:Arc ;
+    val:from [ val:node :rate   ; val:port "out"  ] ;
+    val:to   [ val:node :phaser ; val:port "rate" ] .
+
+# Host parameters
+:p0 a val:Param ; val:slot 0 ; val:target :lfo     ; val:property val:rate ;
+    lv2:name "LFO Rate"      ; lv2:symbol "lfoRate"      ; units:unit units:hz .
+:p1 a val:Param ; val:slot 1 ; val:target :flanger ; val:property val:depth ;
+    lv2:name "Flanger Depth" ; lv2:symbol "flangerDepth" ; units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ; val:target :flanger ; val:property val:feedback ;
+    lv2:name "Flanger FB"    ; lv2:symbol "flangerFb" .
+:p3 a val:Param ; val:slot 3 ; val:target :chorus  ; val:property val:depth ;
+    lv2:name "Chorus Depth"  ; lv2:symbol "chorusDepth"  ; units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ; val:target :phaser  ; val:property val:depth ;
+    lv2:name "Phaser Depth"  ; lv2:symbol "phaserDepth" .
+:p5 a val:Param ; val:slot 5 ; val:target :phaser  ; val:property val:feedback ;
+    lv2:name "Phaser FB"     ; lv2:symbol "phaserFb" .

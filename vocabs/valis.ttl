@@ -328,6 +328,52 @@ process() never allocates.""" ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "Dry/wet blend. 0 = dry only; 1 = wet only; 0.5 = equal mix." ] .
 
+val:Flanger a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Flanger" ;
+    rdfs:comment """Single-voice LFO-modulated short delay with feedback. Comb-filtering
+from the feedback creates the characteristic jet-flanging sweep. Centre delay is 5 ms;
+depth sweeps up to ±4 ms. Negative feedback values invert the comb pattern.""" ;
+    val:implementation "Flanger" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in"       ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out"      ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "rate"     ;
+        lv2:name "Rate" ; lv2:default 0.5 ;
+        lv2:minimum 0.01 ; lv2:maximum 10.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "depth"    ;
+        lv2:name "Depth" ; lv2:default 2.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 4.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.5 ;
+        lv2:minimum -0.95 ; lv2:maximum 0.95 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "mix"      ;
+        lv2:name "Mix" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:Phaser a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Phaser" ;
+    rdfs:comment """Four-stage first-order all-pass chain with LFO modulation and feedback.
+The pole frequency is swept by a sine LFO between 100 Hz and 100 + depth·1900 Hz,
+creating two notches in the frequency response. Feedback deepens the notches.""" ;
+    val:implementation "Phaser" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in"       ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out"      ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "rate"     ;
+        lv2:name "Rate" ; lv2:default 0.5 ;
+        lv2:minimum 0.01 ; lv2:maximum 10.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "depth"    ;
+        lv2:name "Depth" ; lv2:default 0.7 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 0.9 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "mix"      ;
+        lv2:name "Mix" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:UnitDelay a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "UnitDelay" ;
     rdfs:comment """A one-sample delay. Required to break a cycle: the compiler

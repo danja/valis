@@ -559,6 +559,59 @@ void testBassDrumOnly()
     assert(maxHeld   > 0.01f);
 }
 
+void testModulationCompileAndPassesAudio()
+{
+    CompiledCircuit circuit;
+    if (! compileFile(VALIS_EXAMPLES_DIR "/modulation.ttl", circuit))
+    {
+        std::puts("  modulation.ttl failed to compile — check diagnostics above");
+        assert(false);
+    }
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> in(256, 0.2f);
+    std::vector<float> out(256, 0.0f);
+    for (int i = 0; i < 8; ++i)
+        engine.process(in.data(), out.data(), 256);
+
+    const float peak = peakOf(out);
+    std::printf("  modulation peak after 8 blocks: %.4f\n", peak);
+    assert(peak > 1.0e-4f && "modulation.ttl produced no output");
+}
+
+void testClarinetCompileAndProducesSound()
+{
+    CompiledCircuit circuit;
+    if (! compileFile(VALIS_EXAMPLES_DIR "/clarinet.ttl", circuit))
+    {
+        std::puts("  clarinet.ttl failed to compile — check diagnostics above");
+        assert(false);
+    }
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> block(256, 0.0f);
+    engine.noteOn(60, 1.0f);
+    float peak = 0.0f;
+    for (int i = 0; i < 16; ++i)
+    {
+        std::fill(block.begin(), block.end(), 0.0f);
+        engine.process(nullptr, block.data(), 256);
+        peak = std::max(peak, peakOf(block));
+    }
+    std::printf("  clarinet note-on peak after 16 blocks: %.4f\n", peak);
+    assert(peak > 1.0e-4f && "clarinet produced no audio on note-on");
+}
+
 void testSh101CompileAndProducesSound()
 {
     CompiledCircuit circuit;
@@ -604,6 +657,8 @@ int main()
     testSimultaneousPolyphonicNoteGates();
     testBassDrumOnly();
     testSh101CompileAndProducesSound();
+    testModulationCompileAndPassesAudio();
+    testClarinetCompileAndProducesSound();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

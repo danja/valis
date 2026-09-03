@@ -563,6 +563,171 @@ private:
     int rateIndex = -1, depthIndex = -1, mixIndex = -1;
 };
 
+/// Single-voice LFO-modulated short delay with feedback. The comb-filtering
+/// from the feedback creates the characteristic jet-flanging sweep. Center
+/// delay is 5 ms; depth sweeps up to ±4 ms around that centre. Buffer sized
+/// at prepare time; process() never allocates.
+class Flanger final : public DspElement
+{
+    static constexpr float  kCenterMs   = 5.0f;
+    static constexpr float  kMaxDepthMs = 4.0f;
+    static constexpr double kBufMs      = (kCenterMs + kMaxDepthMs) * 2.0;
+    static constexpr float  kMaxFb      = 0.95f;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        rateIndex  = controlIndex(type, "rate");
+        depthIndex = controlIndex(type, "depth");
+        fbIndex    = controlIndex(type, "feedback");
+        mixIndex   = controlIndex(type, "mix");
+
+        const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
+        buffer.assign(static_cast<std::size_t>(len), 0.0f);
+        writePos      = 0;
+        phase         = 0.0f;
+        feedbackState = 0.0f;
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos      = 0;
+        feedbackState = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float rate  = std::clamp(controlAt(args, rateIndex,  0.5f), 0.01f, 10.0f);
+        const float depth = std::clamp(controlAt(args, depthIndex, 2.0f), 0.0f, kMaxDepthMs);
+        const float fb    = std::clamp(controlAt(args, fbIndex,    0.5f), -kMaxFb, kMaxFb);
+        const float mix   = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
+
+        const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
+        const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
+        const float phaseInc      = rate / static_cast<float>(sampleRate);
+        const int   bufLen        = static_cast<int>(buffer.size());
+
+        const float lfo = std::sin(phase * 6.28318530718f);
+        const float d   = centerSamples + lfo * depthSamples;
+        const int   iD  = static_cast<int>(d);
+        const float frac = d - static_cast<float>(iD);
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+        float        fbSample = feedbackState;
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            buffer[static_cast<std::size_t>(writePos)] = in[i] + fb * fbSample;
+
+            const int r0 = ((writePos - iD)     % bufLen + bufLen) % bufLen;
+            const int r1 = ((writePos - iD - 1) % bufLen + bufLen) % bufLen;
+            const float wet = buffer[static_cast<std::size_t>(r0)] * (1.0f - frac)
+                            + buffer[static_cast<std::size_t>(r1)] * frac;
+            fbSample = wet;
+            out[i] = in[i] * (1.0f - mix) + wet * mix;
+
+            if (++writePos >= bufLen) writePos = 0;
+        }
+        feedbackState = fbSample;
+
+        phase += phaseInc * static_cast<float>(args.numSamples);
+        while (phase >= 1.0f) phase -= 1.0f;
+    }
+
+private:
+    std::vector<float> buffer;
+    int    writePos       = 0;
+    float  phase          = 0.0f;
+    float  feedbackState  = 0.0f;
+    double sampleRate     = 44100.0;
+    int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
+};
+
+
+/// Four-stage first-order all-pass chain with a block-rate sine LFO sweeping
+/// the pole frequency. Feedback from the chain output back to the input
+/// deepens the notches. The all-pass transfer function per stage is
+///   H(z) = (g + z⁻¹) / (1 + g·z⁻¹)
+/// where g = (tan(π·fc/fs) − 1) / (tan(π·fc/fs) + 1) and fc is swept between
+/// 100 Hz and 100 + depth·1900 Hz.
+class Phaser final : public DspElement
+{
+    static constexpr int kStages = 4;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        rateIndex  = controlIndex(type, "rate");
+        depthIndex = controlIndex(type, "depth");
+        fbIndex    = controlIndex(type, "feedback");
+        mixIndex   = controlIndex(type, "mix");
+
+        std::fill(xm1, xm1 + kStages, 0.0f);
+        std::fill(ym1, ym1 + kStages, 0.0f);
+        phase   = 0.0f;
+        fbState = 0.0f;
+    }
+
+    void reset() override
+    {
+        std::fill(xm1, xm1 + kStages, 0.0f);
+        std::fill(ym1, ym1 + kStages, 0.0f);
+        fbState = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float rate  = std::clamp(controlAt(args, rateIndex,  0.5f), 0.01f, 10.0f);
+        const float depth = std::clamp(controlAt(args, depthIndex, 0.7f), 0.0f, 1.0f);
+        const float fb    = std::clamp(controlAt(args, fbIndex,    0.5f), 0.0f, 0.9f);
+        const float mix   = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
+
+        const float lfo = std::sin(phase * 6.28318530718f);
+        phase += rate / static_cast<float>(sampleRate) * static_cast<float>(args.numSamples);
+        while (phase >= 1.0f) phase -= 1.0f;
+
+        const float fcMin = 100.0f;
+        const float fc    = fcMin + depth * 1900.0f * (0.5f + 0.5f * lfo);
+        const float w     = std::tan(3.14159265358979f * fc / static_cast<float>(sampleRate));
+        const float g     = (w - 1.0f) / (w + 1.0f);
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            float x = in[i] + fb * fbState;
+            for (int s = 0; s < kStages; ++s)
+            {
+                const float y = g * x + xm1[s] - g * ym1[s];
+                xm1[s] = x;
+                ym1[s] = y;
+                x = y;
+            }
+            fbState = x;
+            out[i] = in[i] * (1.0f - mix) + x * mix;
+        }
+    }
+
+private:
+    float  xm1[kStages]{};
+    float  ym1[kStages]{};
+    float  phase      = 0.0f;
+    float  fbState    = 0.0f;
+    double sampleRate = 44100.0;
+    int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -580,5 +745,7 @@ void registerFilters(ElementRegistry& registry)
     registry.add("StiffString",   &make<elements::StiffString>);
     registry.add("ModalBank",     &make<elements::ModalBank>);
     registry.add("Chorus",        &make<elements::Chorus>);
+    registry.add("Flanger",       &make<elements::Flanger>);
+    registry.add("Phaser",        &make<elements::Phaser>);
 }
 }  // namespace valis

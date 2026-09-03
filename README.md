@@ -100,7 +100,7 @@ What works:
 - A circuit is parsed from Turtle, validated against the ontology, compiled to
   an execution order and run. Errors name the element or arc at fault, and
   parse errors carry line and column.
-- All 43 elements, with the ontology and the DSP registry asserted equal as
+- All 45 elements, with the ontology and the DSP registry asserted equal as
   sets in both directions - a class with no factory, or a factory with no class,
   fails the build.
 - The engine allocates nothing on the audio thread, enforced by a test that
@@ -125,14 +125,16 @@ port declarations, so that class of mismatch fails the build.
 Recent additions since milestones closed: new elements including `val:Scale`,
 `val:Delay`, `val:VCA`, `val:MidiPitch`, `val:MidiVelocity`, `val:AsymClip`,
 `val:CombFilter`, `val:StiffString`, `val:ModalBank`, `val:Reed`, `val:TwinTBridge`,
-`val:NoteGate`, `val:Oscilloscope`, `val:FreqAnalyzer`, and `val:Chorus`; worked
-examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl` with matching case-study
-docs); session state persisted to a platform settings file on a 3-second debounce;
-topological ordering includes control arcs so control sources such as `MidiPitch` and
-`Envelope` are always processed before their destinations; parameter slots support
-logarithmic taper and integer/enum ranges; the status bar shows the loaded filename
-and turns amber when there are unsaved edits; `val:Oscilloscope` elements appear in
-the Controls view with live peak, RMS and frequency readouts.
+`val:NoteGate`, `val:Oscilloscope`, `val:FreqAnalyzer`, `val:Chorus`, `val:Flanger`,
+and `val:Phaser`; worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl`,
+`modulation.ttl`, `clarinet.ttl` with matching case-study docs); session state
+persisted to a platform settings file on a 3-second debounce; topological ordering
+includes control arcs so control sources such as `MidiPitch` and `Envelope` are always
+processed before their destinations; parameter slots support logarithmic taper and
+integer/enum ranges; the status bar shows the loaded filename and turns amber when
+there are unsaved edits; `val:Oscilloscope` elements appear in the Controls view with
+live peak, RMS and frequency readouts; the Circuit view now refreshes immediately when
+a new circuit is loaded (previously relied on element-count polling).
 
 Remaining rough edges: the graph view's structural edits re-serialise the
 document, so hand formatting and comments are lost (it warns on first use), and

@@ -1,0 +1,71 @@
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix :      <urn:valis:clarinet#> .
+
+# Clarinet simulation built from a digital waveguide reed model.
+#
+# val:Reed models a cylindrical bore (open-closed tube) driven by a
+# pressure-controlled nonlinear valve. The cylindrical geometry reflects
+# the open end negatively, so the fundamental and odd harmonics dominate —
+# the hallmark of the clarinet's woody tone.
+#
+# The Envelope shapes the breath pressure: the slow attack and sustain
+# level create the characteristic tongued articulation. The same envelope
+# controls the VCA amplitude so the instrument is silent before the first
+# note. A one-pole low-pass filter at the body port rolls off the high
+# partials that the bore alone does not suppress.
+#
+# Signal path: Reed → OnePole (body) → VCA → Output
+# Controls:    MidiPitch → Reed.frequency
+#              Envelope  → Reed.pressure, VCA.cv
+
+:main a val:Circuit ;
+    val:element :pitch, :env, :reed, :body, :amp, :out ;
+    val:arc :aPitchReed, :aEnvReed, :aReedBody, :aBodyAmp, :aEnvAmp, :aAmpOut .
+
+:pitch a val:MidiPitch .
+:env   a val:Envelope ; val:attack 30.0 ; val:decay 50.0 ;
+                        val:sustain 0.8 ; val:release 200.0 .
+:reed  a val:Reed ; val:stiffness 0.3 ; val:damping 0.15 .
+:body  a val:OnePole ; val:cutoff 3000.0 .
+:amp   a val:VCA .
+:out   a val:Output .
+
+# MidiPitch drives reed frequency for pitch tracking
+:aPitchReed a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :reed  ; val:port "frequency" ] .
+
+# Envelope shapes the breath (pressure) contour
+:aEnvReed a val:Arc ;
+    val:from [ val:node :env  ; val:port "out"      ] ;
+    val:to   [ val:node :reed ; val:port "pressure" ] .
+
+# Audio chain
+:aReedBody a val:Arc ;
+    val:from [ val:node :reed ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in"  ] .
+:aBodyAmp a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :amp  ; val:port "in"  ] .
+:aAmpOut a val:Arc ;
+    val:from [ val:node :amp ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# Envelope also controls amplitude so the VCA closes between notes
+:aEnvAmp a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :amp ; val:port "cv"  ] .
+
+# Host parameters
+:p0 a val:Param ; val:slot 0 ; val:target :reed ; val:property val:stiffness ;
+    lv2:name "Reed Stiffness" ; lv2:symbol "stiffness" .
+:p1 a val:Param ; val:slot 1 ; val:target :reed ; val:property val:damping ;
+    lv2:name "Damping"        ; lv2:symbol "damping" .
+:p2 a val:Param ; val:slot 2 ; val:target :body ; val:property val:cutoff ;
+    lv2:name "Brightness"     ; lv2:symbol "brightness" ; units:unit units:hz .
+:p3 a val:Param ; val:slot 3 ; val:target :env  ; val:property val:attack ;
+    lv2:name "Attack"         ; lv2:symbol "attack"     ; units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ; val:target :env  ; val:property val:release ;
+    lv2:name "Release"        ; lv2:symbol "release"    ; units:unit units:ms .

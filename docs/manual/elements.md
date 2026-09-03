@@ -208,6 +208,23 @@ Nonlinear.
 | `threshold` | Threshold | -60 | -140 to 0 | dB |
 | `ratio` | Ratio | 2 | 1 to 20 |  |
 
+## val:Flanger
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `rate` | Rate | 0.5 | 0.01 to 10 | Hz |
+| `depth` | Depth | 2 | 0 to 4 | ms |
+| `feedback` | Feedback | 0.5 | -0.95 to 0.95 |  |
+| `mix` | Mix | 0.5 | 0 to 1 |  |
+
 ## val:Fold
 
 Nonlinear.
@@ -413,6 +430,23 @@ Linear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `pan` | Pan | 0 | -1 to 1 |  |
+
+## val:Phaser
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `rate` | Rate | 0.5 | 0.01 to 10 | Hz |
+| `depth` | Depth | 0.7 | 0 to 1 |  |
+| `feedback` | Feedback | 0.5 | 0 to 0.9 |  |
+| `mix` | Mix | 0.5 | 0 to 1 |  |
 
 ## val:Reed
 
