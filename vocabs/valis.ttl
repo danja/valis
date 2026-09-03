@@ -212,7 +212,11 @@ host MIDI gate.""" ;
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "trigger" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Override: -1 = use host MIDI gate, 0/1 = explicit off/on." ] .
+        rdfs:comment "Override: -1 = use host MIDI gate, 0/1 = explicit off/on." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velocity" ;
+        lv2:name "Velocity" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = use host MIDI velocity (default), 0-1 = explicit per-note velocity." ] .
 
 val:Reed a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Reed" ;

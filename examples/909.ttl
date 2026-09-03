@@ -42,7 +42,7 @@
     val:element
         # Bass Drum
         :bdGate , :bdOsc , :bdPitchEnv , :bdPitchScale ,
-        :bdAmpEnv , :bdAmpMul , :bdSat , :bdVca , :bdLevel , :bdPan ,
+        :bdAmpEnv , :bdSat , :bdVca , :bdLevel , :bdPan ,
         # Snare Drum
         :sdGate ,
         :sdOsc1 , :sdOsc2 , :sdOscMix ,
@@ -72,7 +72,7 @@
         # Bass Drum
         :aBdGatePitchEnv , :aBdGateAmpEnv , :aBdGateTwinT ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
-        :aBdOscSat , :aBdSatVca , :aBdEnvAmpMul , :aBdVelAmpMul , :aBdAmpMulVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
+        :aBdOscSat , :aBdSatVca , :aBdAmpEnvVca , :aBdVelOsc , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
         # Snare Drum
         :aSdGateToneEnv , :aSdGateNoiseEnv ,
         :aSdOsc1OscMix , :aSdOsc2OscMix ,
@@ -132,16 +132,15 @@
     val:max 210.0 .           # Hz — attack peak
 
 :bdAmpEnv a val:Envelope ;
-    val:attack  1.0 ;         # ms
-    val:decay   500.0 ;       # ms — Decay control range
+    val:attack  1.0 ;
+    val:decay   5000.0 ;      # long hold — TwinTBridge internal decay is the amplitude shaper
     val:sustain 0.0 ;
-    val:release 20.0 .
+    val:release 2000.0 .      # must outlast the TwinTBridge decay (500 ms)
 
 # Output stage clipping — models the saturation in the original's output amp.
 :bdSat a val:Tanh ;
     val:gain 5.0 .
 
-:bdAmpMul a val:ControlMultiply .
 :bdVca a val:VCA .
 
 :bdLevel a val:Gain ; val:gain 0.0 .
@@ -282,7 +281,7 @@
     val:attack  1.0 ;
     val:decay   500.0 ;
     val:sustain 0.0 ;
-    val:release 20.0 .
+    val:release 800.0 .       # must outlast the TwinTBridge decay (500 ms)
 
 :ltVca a val:VCA .
 
@@ -312,7 +311,7 @@
     val:attack  1.0 ;
     val:decay   350.0 ;
     val:sustain 0.0 ;
-    val:release 20.0 .
+    val:release 600.0 .       # must outlast the TwinTBridge decay (350 ms)
 
 :mtVca a val:VCA .
 
@@ -342,7 +341,7 @@
     val:attack  1.0 ;
     val:decay   250.0 ;
     val:sustain 0.0 ;
-    val:release 15.0 .
+    val:release 400.0 .       # must outlast the TwinTBridge decay (250 ms)
 
 :htVca a val:VCA .
 
@@ -460,17 +459,13 @@
     val:from [ val:node :bdSat ; val:port "out" ] ;
     val:to   [ val:node :bdVca ; val:port "in"  ] .
 
-:aBdEnvAmpMul a val:Arc ;
+:aBdAmpEnvVca a val:Arc ;
     val:from [ val:node :bdAmpEnv ; val:port "out" ] ;
-    val:to   [ val:node :bdAmpMul ; val:port "a"  ] .
-
-:aBdVelAmpMul a val:Arc ;
-    val:from [ val:node :bdGate   ; val:port "velocity" ] ;
-    val:to   [ val:node :bdAmpMul ; val:port "b" ] .
-
-:aBdAmpMulVca a val:Arc ;
-    val:from [ val:node :bdAmpMul ; val:port "out" ] ;
     val:to   [ val:node :bdVca    ; val:port "cv"  ] .
+
+:aBdVelOsc a val:Arc ;
+    val:from [ val:node :bdGate ; val:port "velocity" ] ;
+    val:to   [ val:node :bdOsc  ; val:port "velocity" ] .
 
 :aBdVcaLevel a val:Arc ;
     val:from [ val:node :bdVca ; val:port "out" ] ;
@@ -918,7 +913,7 @@
 # ── Bass Drum ────────────────────────────────────────────────────────────────
 
 :pBdDecay a val:Param ; val:slot 1 ;
-    val:target :bdAmpEnv ; val:property val:decay ;
+    val:target :bdOsc ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "bd_decay" ; val:section "Bass Drum" ;
     units:unit units:ms ; lv2:minimum 50.0 ; lv2:maximum 2000.0 .
 

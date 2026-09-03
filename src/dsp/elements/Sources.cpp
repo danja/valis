@@ -171,6 +171,7 @@ public:
         frequencyIndex = controlIndex(type, "frequency");
         decayIndex     = controlIndex(type, "decay");
         triggerIndex   = controlIndex(type, "trigger");
+        velocityIndex  = controlIndex(type, "velocity");
         reset();
     }
 
@@ -194,7 +195,9 @@ public:
 
         if (gate && previousTrigger <= 0.5f)
         {
-            amplitude = args.velocity > 0.0f ? args.velocity : 1.0f;
+            // Use the velocity arc if connected; fall back to the host MIDI velocity.
+            const float vel = controlAt(args, velocityIndex, -1.0f);
+            amplitude = vel >= 0.0f ? vel : (args.velocity > 0.0f ? args.velocity : 1.0f);
             phase = 0.0;
         }
         previousTrigger = gate ? 1.0f : 0.0f;
@@ -216,7 +219,7 @@ public:
 private:
     double sampleRate = 44100.0, phase = 0.0;
     float amplitude = 0.0f, previousTrigger = 0.0f;
-    int frequencyIndex = -1, decayIndex = -1, triggerIndex = -1;
+    int frequencyIndex = -1, decayIndex = -1, triggerIndex = -1, velocityIndex = -1;
 };
 
 /// Control-rate oscillator. One value per block, which is what a modulation arc
