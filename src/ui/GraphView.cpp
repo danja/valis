@@ -30,16 +30,25 @@ juce::Colour colourForType(const ElementType* type)
 
 GraphView::GraphView(ValisProcessor& p) : processor(p)
 {
+    p.addChangeListener(this);
     rebuild();
     startTimerHz(4);
 }
 
-GraphView::~GraphView() = default;
+GraphView::~GraphView()
+{
+    processor.removeChangeListener(this);
+}
 
 OpDispatcher GraphView::ops()
 {
     // The same surface the MCP server uses: one implementation, two callers.
     return processor.ops();
+}
+
+void GraphView::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    rebuild();
 }
 
 void GraphView::timerCallback()

@@ -29,7 +29,8 @@ namespace valis {
 class ValisProcessor;
 
 class GraphView final : public juce::Component,
-                        private juce::Timer
+                        private juce::Timer,
+                        private juce::ChangeListener
 {
 public:
     explicit GraphView(ValisProcessor&);
@@ -61,6 +62,7 @@ private:
         std::vector<Pin> pins;
     };
 
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void timerCallback() override;
     void layout();
     OpDispatcher ops();

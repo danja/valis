@@ -559,6 +559,34 @@ void testBassDrumOnly()
     assert(maxHeld   > 0.01f);
 }
 
+void testSh101CompileAndProducesSound()
+{
+    CompiledCircuit circuit;
+    if (! compileFile(VALIS_EXAMPLES_DIR "/sh101.ttl", circuit))
+    {
+        std::puts("  sh101.ttl failed to compile — check diagnostics above");
+        assert(false);
+    }
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> block(256, 0.0f);
+    engine.noteOn(60, 1.0f);
+    float peak = 0.0f;
+    for (int i = 0; i < 8; ++i)
+    {
+        std::fill(block.begin(), block.end(), 0.0f);
+        engine.process(nullptr, block.data(), 256);
+        peak = std::max(peak, peakOf(block));
+    }
+    std::printf("  sh101 note-on peak after 8 blocks: %.4f\n", peak);
+    assert(peak > 1.0e-4f && "sh101 produced no audio on note-on");
+}
+
 }  // namespace
 
 int main()
@@ -575,6 +603,7 @@ int main()
     testRingsModalProducesSound();
     testSimultaneousPolyphonicNoteGates();
     testBassDrumOnly();
+    testSh101CompileAndProducesSound();
 
     std::puts("ValisEngineTest PASSED");
     return 0;
