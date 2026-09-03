@@ -1,12 +1,6 @@
-Rename the UI tabs from Knobs Graph Turtle to Controls Circuit Code. Update the docs where necessary.
-
-When mcp starts up in Claude it doesn't seem to work for Valis unless there is an instance running. Other servers like transmission seem ok without a running instance. 
-
-Review examples/sh101.ttl and make it more faithful to the hardware original.
-
-Invent a totally new instrument or processor that producers will find indispensible. 
-
-When I add an Oscilloscope element to the graph, it should show up in the Controls view.
+  New element val:Chorus: Three-voice LFO-modulated delay chorus with pre-allocated circular buffer,         
+  block-rate LFO, and linear interpolation. Added to vocabs/valis.ttl and registered in ElementRegistry. All
+  tests pass with 43 elements. 
 
 ## Recurring - check periodically
 

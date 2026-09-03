@@ -465,6 +465,104 @@ private:
 };
 
 
+/// Classic bucket-brigade chorus with three LFO-modulated delay lines.
+///
+/// Three voices share a single circular buffer with evenly distributed LFO
+/// phases (0°, 120°, 240°). Modulation is at block rate (kControlBlock samples);
+/// the LFO frequency is far below audio rate so block-rate updates produce
+/// smooth sweeps. Buffer sized to 40 ms at prepare time; process() never
+/// allocates.
+class Chorus final : public DspElement
+{
+    static constexpr float  kCenterMs   = 7.0f;
+    static constexpr float  kMaxDepthMs = 3.5f;
+    static constexpr double kBufMs      = (kCenterMs + kMaxDepthMs) * 2.0;
+    static constexpr int    kVoices     = 3;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        rateIndex  = controlIndex(type, "rate");
+        depthIndex = controlIndex(type, "depth");
+        mixIndex   = controlIndex(type, "mix");
+
+        const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
+        buffer.assign(static_cast<std::size_t>(len), 0.0f);
+        writePos = 0;
+        for (int v = 0; v < kVoices; ++v)
+            phase[v] = static_cast<float>(v) / static_cast<float>(kVoices);
+    }
+
+    void reset() override
+    {
+        std::fill(buffer.begin(), buffer.end(), 0.0f);
+        writePos = 0;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float rate    = std::clamp(controlAt(args, rateIndex,  0.5f), 0.01f, 10.0f);
+        const float depth   = std::clamp(controlAt(args, depthIndex, 2.0f), 0.0f, kMaxDepthMs);
+        const float mix     = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
+
+        const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
+        const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
+        const float phaseInc      = rate / static_cast<float>(sampleRate);
+        const int   bufLen        = static_cast<int>(buffer.size());
+
+        // Compute per-voice delay offsets from block-rate LFO values.
+        float delayOffset[kVoices];
+        for (int v = 0; v < kVoices; ++v)
+        {
+            const float lfo = std::sin(phase[v] * 6.28318530718f);
+            delayOffset[v]  = centerSamples + lfo * depthSamples;
+        }
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            buffer[static_cast<std::size_t>(writePos)] = in[i];
+
+            float wet = 0.0f;
+            for (int v = 0; v < kVoices; ++v)
+            {
+                const float d     = delayOffset[v];
+                const int   iD    = static_cast<int>(d);
+                const float frac  = d - static_cast<float>(iD);
+                const int   r0    = ((writePos - iD)     % bufLen + bufLen) % bufLen;
+                const int   r1    = ((writePos - iD - 1) % bufLen + bufLen) % bufLen;
+                wet += buffer[static_cast<std::size_t>(r0)] * (1.0f - frac)
+                     + buffer[static_cast<std::size_t>(r1)] * frac;
+            }
+            wet /= static_cast<float>(kVoices);
+            out[i] = in[i] * (1.0f - mix) + wet * mix;
+
+            if (++writePos >= bufLen)
+                writePos = 0;
+        }
+
+        // Advance LFO phases at block rate.
+        for (int v = 0; v < kVoices; ++v)
+        {
+            phase[v] += phaseInc * static_cast<float>(args.numSamples);
+            while (phase[v] >= 1.0f) phase[v] -= 1.0f;
+        }
+    }
+
+private:
+    std::vector<float> buffer;
+    int   writePos      = 0;
+    float phase[kVoices]{};
+    double sampleRate   = 44100.0;
+    int rateIndex = -1, depthIndex = -1, mixIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -481,5 +579,6 @@ void registerFilters(ElementRegistry& registry)
     registry.add("CombFilter",    &make<elements::CombFilter>);
     registry.add("StiffString",   &make<elements::StiffString>);
     registry.add("ModalBank",     &make<elements::ModalBank>);
+    registry.add("Chorus",        &make<elements::Chorus>);
 }
 }  // namespace valis

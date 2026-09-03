@@ -304,6 +304,30 @@ val:Ladder a rdfs:Class ; rdfs:subClassOf val:Filter ;
         lv2:name "Drive" ; lv2:default 1.0 ;
         lv2:minimum 1.0 ; lv2:maximum 20.0 ] .
 
+val:Chorus a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Chorus" ;
+    rdfs:comment """Three-voice chorus. Bucket-brigade-style delay lines modulated
+by sine LFOs with evenly distributed phases (0°, 120°, 240°) produce the
+characteristic shimmer. A single circular buffer is pre-allocated in prepare();
+process() never allocates.""" ;
+    val:implementation "Chorus" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in"    ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out"   ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "rate"  ;
+        lv2:name "Rate" ; lv2:default 0.5 ;
+        lv2:minimum 0.01 ; lv2:maximum 10.0 ; units:unit units:hz ;
+        rdfs:comment "LFO modulation rate. Slow (0.1–1 Hz) for lush chorus; faster for vibrato." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "depth" ;
+        lv2:name "Depth" ; lv2:default 2.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 3.5 ; units:unit units:ms ;
+        rdfs:comment "Modulation depth in milliseconds. 0 = static delay; 3.5 = maximum sweep." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "mix"   ;
+        lv2:name "Mix" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Dry/wet blend. 0 = dry only; 1 = wet only; 0.5 = equal mix." ] .
+
 val:UnitDelay a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "UnitDelay" ;
     rdfs:comment """A one-sample delay. Required to break a cycle: the compiler
