@@ -1,6 +1,6 @@
-  New element val:Chorus: Three-voice LFO-modulated delay chorus with pre-allocated circular buffer,         
-  block-rate LFO, and linear interpolation. Added to vocabs/valis.ttl and registered in ElementRegistry. All
-  tests pass with 43 elements. 
+Create a combined chorus, phaser and flanger effect circuit based on val:Chorus. There will be shared components, you may find it useful to split val:Chorus into more atomic elements.
+
+Create an instrument that simulates a clarinet.
 
 ## Recurring - check periodically
 
