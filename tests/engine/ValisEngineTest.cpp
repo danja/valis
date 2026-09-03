@@ -525,6 +525,40 @@ void testSimultaneousPolyphonicNoteGates()
     assert(peak > 0.05f);
 }
 
+void testBassDrumOnly()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> block(512, 0.0f);
+
+    // Trigger only bass drum (note 36) — confirms TwinTBridge path produces output.
+    engine.noteOn(36, 1.0f);
+    engine.process(nullptr, block.data(), 512);
+    const float firstPeak = peakOf(block);
+
+    // Hold for several more blocks to confirm sustained ring.
+    float maxHeld = 0.0f;
+    for (int i = 0; i < 10; ++i)
+    {
+        std::fill(block.begin(), block.end(), 0.0f);
+        engine.process(nullptr, block.data(), 512);
+        maxHeld = std::max(maxHeld, peakOf(block));
+    }
+
+    engine.noteOff(36);
+
+    std::printf("  bass drum only: first block peak=%.4f  held peak=%.4f\n", firstPeak, maxHeld);
+    assert(firstPeak > 0.01f);
+    assert(maxHeld   > 0.01f);
+}
+
 }  // namespace
 
 int main()
@@ -540,6 +574,7 @@ int main()
     testEnvelopeRespondsToNotes();
     testRingsModalProducesSound();
     testSimultaneousPolyphonicNoteGates();
+    testBassDrumOnly();
 
     std::puts("ValisEngineTest PASSED");
     return 0;
