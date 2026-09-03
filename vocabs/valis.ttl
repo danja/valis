@@ -75,7 +75,7 @@ val:y a rdf:Property ; rdfs:range xsd:double .
 
 val:section a rdf:Property ;
     rdfs:label "section" ;
-    rdfs:comment "Groups val:Param bindings under a named heading in the Knobs panel." ;
+    rdfs:comment "Groups val:Param bindings under a named heading in the Controls panel." ;
     rdfs:domain val:Param ;
     rdfs:range rdfs:Literal .
 

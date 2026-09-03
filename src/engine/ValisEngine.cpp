@@ -210,6 +210,40 @@ std::optional<float> ValisEngine::getControl(const std::string& nodeId,
 }
 
 
+std::optional<float> ValisEngine::getControlOutput(const std::string& nodeId,
+                                                    const std::string& portSymbol) const
+{
+    const auto* graph = active.load(std::memory_order_acquire);
+    if (!graph) return std::nullopt;
+
+    for (const auto& node : graph->circuit.nodes)
+    {
+        if (node.id != nodeId || node.type == nullptr)
+            continue;
+
+        int idx = 0;
+        for (const auto& port : node.type->ports)
+        {
+            if (!port.input && port.control)
+            {
+                if (port.symbol == portSymbol)
+                {
+                    if (idx < static_cast<int>(node.controlOutSlots.size()))
+                    {
+                        const int slot = node.controlOutSlots[static_cast<std::size_t>(idx)];
+                        if (slot >= 0 && slot < static_cast<int>(graph->controlStore.size()))
+                            return graph->controlStore[static_cast<std::size_t>(slot)];
+                    }
+                    return std::nullopt;
+                }
+                ++idx;
+            }
+        }
+        break;
+    }
+    return std::nullopt;
+}
+
 void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
 {
     ++heldNotes;

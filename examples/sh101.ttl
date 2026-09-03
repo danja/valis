@@ -2,10 +2,21 @@
 #
 # Monophonic subtractive synthesiser modelled after the Roland SH-101.
 #
-# Signal path:  MidiPitch → Oscillator → Ladder VCF → VCA → Output
-# Modulation:   Envelope → VCA.cv                    (amplitude)
-#               Envelope → Scale → VCF.cutoff        (filter sweep)
-#               LFO     → Oscillator.frequency       (vibrato, depth=0)
+# Signal path:
+#   MidiPitch → VCO ──────────────────────┐
+#   MidiPitch → SubOsc (×0.5) → subGain ──┤→ Mixer → Ladder VCF → VCA → Output
+#   Noise → noiseGain ─────────────────────┘
+#
+# Modulation:
+#   Envelope → VCA.cv                    (amplitude)
+#   Envelope → Scale → VCF.cutoff        (filter sweep)
+#   LFO     → Oscillator.frequency       (vibrato, depth=0 by default)
+#
+# Sub-oscillator: square wave one octave below the VCO, implemented by
+# multiplying MidiPitch by 0.5 via ControlMultiply. Level is a host param.
+#
+# Noise: white noise mixed into the filter input. Level is a host param.
+# Turn this up for breathy or percussion-like textures.
 #
 # The Scale element maps the 0–1 envelope to an absolute frequency range:
 #   min = base cutoff (the "Cutoff" knob, Hz)
@@ -21,9 +32,17 @@
 
 :sh101 a val:Circuit ;
     rdfs:label "SH-101" ;
-    val:element :pitch , :lfo , :osc , :vcf , :env , :envScale , :vca , :out ;
-    val:arc :aPitchOsc , :aLfoOsc , :aOscVcf , :aVcfVca , :aVcaOut ,
-            :aEnvVca , :aEnvScale , :aScaleVcf .
+    val:element :pitch , :lfo ,
+                :osc ,
+                :subMult , :subOsc , :subGain ,
+                :noise , :noiseGain ,
+                :vcfMix ,
+                :vcf , :env , :envScale , :vca , :out ;
+    val:arc :aPitchOsc , :aPitchSubMult , :aSubMultSubOsc ,
+            :aSubOscGain , :aNoiseGain ,
+            :aOscMix , :aSubGainMix , :aNoiseGainMix ,
+            :aMixVcf , :aVcfVca , :aVcaOut ,
+            :aLfoOsc , :aEnvVca , :aEnvScale , :aScaleVcf .
 
 # ── Sources ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +54,27 @@
 
 :osc a val:Oscillator ;
     val:shape 1 .            # 1 = sawtooth
+
+# Sub-oscillator: MidiPitch × 0.5 gives one octave below the VCO.
+# val:b 0.5 sets the fixed multiplier; no arc connects to b.
+:subMult a val:ControlMultiply ;
+    val:b 0.5 .
+
+:subOsc a val:Oscillator ;
+    val:shape 2 .            # 2 = square (as on the original hardware)
+
+:subGain a val:Gain ;
+    val:gain -12.0 .         # start at -12 dB; raise via param
+
+:noise a val:Noise ;
+    val:colour 0.0 .         # 0 = white noise
+
+:noiseGain a val:Gain ;
+    val:gain -60.0 .         # near-silent by default; raise via param
+
+# ── Mixer (VCO + sub-oscillator + noise → VCF) ───────────────────────────────
+
+:vcfMix a val:Mixer .
 
 # ── Filter ───────────────────────────────────────────────────────────────────
 
@@ -53,8 +93,6 @@
     val:release 300.0 .
 
 # Scale maps the 0–1 envelope to a cutoff range [min, max].
-# min is the resting cutoff (with envelope=0); max is the open cutoff (env=1).
-# Both are exposed as host parameters so the user can tune the sweep range.
 :envScale a val:Scale ;
     val:min 400.0 ;          # Hz — base cutoff when envelope is silent
     val:max 8000.0 .         # Hz — cutoff at envelope peak
@@ -67,9 +105,21 @@
 
 # ── Audio arcs ───────────────────────────────────────────────────────────────
 
-:aOscVcf a val:Arc ;
-    val:from [ val:node :osc ; val:port "out" ] ;
-    val:to   [ val:node :vcf ; val:port "in"  ] .
+:aOscMix a val:Arc ;
+    val:from [ val:node :osc     ; val:port "out" ] ;
+    val:to   [ val:node :vcfMix  ; val:port "in"  ] .
+
+:aSubGainMix a val:Arc ;
+    val:from [ val:node :subGain ; val:port "out" ] ;
+    val:to   [ val:node :vcfMix  ; val:port "in"  ] .
+
+:aNoiseGainMix a val:Arc ;
+    val:from [ val:node :noiseGain ; val:port "out" ] ;
+    val:to   [ val:node :vcfMix    ; val:port "in"  ] .
+
+:aMixVcf a val:Arc ;
+    val:from [ val:node :vcfMix ; val:port "out" ] ;
+    val:to   [ val:node :vcf    ; val:port "in"  ] .
 
 :aVcfVca a val:Arc ;
     val:from [ val:node :vcf ; val:port "out" ] ;
@@ -79,12 +129,30 @@
     val:from [ val:node :vca ; val:port "out" ] ;
     val:to   [ val:node :out ; val:port "in"  ] .
 
+# Sub-oscillator audio path
+:aSubOscGain a val:Arc ;
+    val:from [ val:node :subOsc  ; val:port "out" ] ;
+    val:to   [ val:node :subGain ; val:port "in"  ] .
+
+:aNoiseGain a val:Arc ;
+    val:from [ val:node :noise     ; val:port "out" ] ;
+    val:to   [ val:node :noiseGain ; val:port "in"  ] .
+
 # ── Control arcs ─────────────────────────────────────────────────────────────
 
 # MidiPitch → VCO frequency
 :aPitchOsc a val:ControlArc ;
     val:from [ val:node :pitch ; val:port "out" ] ;
     val:to   [ val:node :osc   ; val:port "frequency" ] .
+
+# MidiPitch × 0.5 → sub-oscillator frequency (one octave below)
+:aPitchSubMult a val:ControlArc ;
+    val:from [ val:node :pitch   ; val:port "out" ] ;
+    val:to   [ val:node :subMult ; val:port "a"   ] .
+
+:aSubMultSubOsc a val:ControlArc ;
+    val:from [ val:node :subMult ; val:port "out"       ] ;
+    val:to   [ val:node :subOsc  ; val:port "frequency" ] .
 
 # LFO → VCO frequency (vibrato); depth=0 = off, raise to taste
 :aLfoOsc a val:ControlArc ; val:depth 0.0 ;
@@ -110,6 +178,14 @@
 
 :p0 a val:Param ; val:slot 0 ; val:target :osc ; val:property val:shape ;
     lv2:name "Osc Shape" ; lv2:symbol "osc_shape" ; val:section "Oscillator" .
+
+:p9 a val:Param ; val:slot 9 ; val:target :subGain ; val:property val:gain ;
+    lv2:name "Sub Level" ; lv2:symbol "sub_level" ; val:section "Oscillator" ;
+    units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 6.0 .
+
+:p10 a val:Param ; val:slot 10 ; val:target :noiseGain ; val:property val:gain ;
+    lv2:name "Noise Level" ; lv2:symbol "noise_level" ; val:section "Oscillator" ;
+    units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 6.0 .
 
 # p1 targets Scale.min — the filter's resting frequency (envelope closed).
 # lv2:minimum/maximum here override Scale's generic ±1e6 port range.

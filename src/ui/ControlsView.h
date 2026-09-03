@@ -12,11 +12,8 @@ namespace valis {
 
 class ValisProcessor;
 
-/// Knobs for the circuit's bound parameter slots, and nothing else.
-///
-/// The host's parameter list is fixed at 64 slots, but only those a val:Param
-/// binds mean anything, so unbound slots are not shown at all. Loading a new
-/// circuit rebuilds the panel.
+/// Knobs for the circuit's bound parameter slots, and read-only meters for any
+/// val:Oscilloscope elements. Loading a new circuit rebuilds the panel.
 class ControlsView final : public juce::Component,
                            public juce::ChangeListener,
                            private juce::Timer
@@ -55,10 +52,23 @@ private:
         juce::String readout() const;
     };
 
+    /// Read-only display for a val:Oscilloscope element's peak/rms/frequency.
+    struct Meter
+    {
+        std::string nodeId;
+        std::unique_ptr<juce::Label> name;
+        std::unique_ptr<juce::Label> readout;
+        std::unique_ptr<juce::Label> sectionLabel;   ///< non-null on the first meter
+
+        static constexpr int kHeight = 72;
+    };
+
     ValisProcessor& processor;
     std::vector<Knob> knobs;
+    std::vector<Meter> meters;
     juce::Label emptyMessage;
     int lastBindingCount = -1;
+    int lastElementCount = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlsView)
 };

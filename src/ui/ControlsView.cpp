@@ -35,7 +35,7 @@ ControlsView::ControlsView(ValisProcessor& p) : processor(p)
     emptyMessage.setColour(juce::Label::textColourId, juce::Colours::grey);
     emptyMessage.setFont(juce::FontOptions(15.0f));
     emptyMessage.setText("This circuit declares no val:Param bindings.\n"
-                         "Add one in the Turtle view to put a knob here.",
+                         "Add one in the Code tab to put a knob here.",
                          juce::dontSendNotification);
     addAndMakeVisible(emptyMessage);
 
@@ -58,17 +58,39 @@ void ControlsView::changeListenerCallback(juce::ChangeBroadcaster*)
 void ControlsView::timerCallback()
 {
     // Cheap poll: the panel only has to change when the circuit does.
-    const auto count = static_cast<int>(processor.circuit().params().size());
-    if (count != lastBindingCount)
+    const auto& model = processor.circuit();
+    const auto bindCount = static_cast<int>(model.params().size());
+    const auto elemCount = static_cast<int>(model.elements().size());
+    if (bindCount != lastBindingCount || elemCount != lastElementCount)
         rebuild();
+
+    // Refresh meter readouts from the engine's control store.
+    for (auto& m : meters)
+    {
+        const auto peak = processor.getControlOutput(m.nodeId, "peak");
+        const auto rms  = processor.getControlOutput(m.nodeId, "rms");
+        const auto freq = processor.getControlOutput(m.nodeId, "frequency");
+
+        const auto fmt = [](std::optional<float> v, const char* unit, int decimals)
+        {
+            return v ? juce::String(*v, decimals) + unit : juce::String("--");
+        };
+
+        m.readout->setText("Peak: " + fmt(peak, "", 3) +
+                           "   RMS: " + fmt(rms, "", 3) +
+                           "   Freq: " + fmt(freq, " Hz", 0),
+                           juce::dontSendNotification);
+    }
 }
 
 void ControlsView::rebuild()
 {
     knobs.clear();
+    meters.clear();
 
     const auto& model = processor.circuit();
     lastBindingCount = static_cast<int>(model.params().size());
+    lastElementCount = static_cast<int>(model.elements().size());
 
     std::string currentSection;
 
@@ -144,7 +166,49 @@ void ControlsView::rebuild()
         knobs.push_back(std::move(knob));
     }
 
-    emptyMessage.setVisible(knobs.empty());
+    // Build meters for any Oscilloscope elements in the circuit.
+    bool firstMeter = true;
+    for (const auto& elem : model.elements())
+    {
+        if (elem.type == nullptr || elem.type->implementation != "Oscilloscope")
+            continue;
+
+        Meter m;
+        m.nodeId = elem.id;
+
+        const juce::String label = elem.label.empty()
+            ? juce::String(vocab::shortName(elem.id))
+            : juce::String(elem.label);
+
+        m.name = std::make_unique<juce::Label>();
+        m.name->setJustificationType(juce::Justification::centred);
+        m.name->setColour(juce::Label::textColourId, juce::Colour(0xffabb2bf));
+        m.name->setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        m.name->setText(label, juce::dontSendNotification);
+        addAndMakeVisible(*m.name);
+
+        m.readout = std::make_unique<juce::Label>();
+        m.readout->setJustificationType(juce::Justification::centred);
+        m.readout->setColour(juce::Label::textColourId, juce::Colour(0xff98c379));
+        m.readout->setFont(juce::FontOptions(12.0f));
+        m.readout->setText("Peak: --   RMS: --   Freq: --", juce::dontSendNotification);
+        addAndMakeVisible(*m.readout);
+
+        if (firstMeter)
+        {
+            m.sectionLabel = std::make_unique<juce::Label>();
+            m.sectionLabel->setJustificationType(juce::Justification::centredLeft);
+            m.sectionLabel->setColour(juce::Label::textColourId, juce::Colour(0xff61afef));
+            m.sectionLabel->setFont(juce::FontOptions(12.0f, juce::Font::bold));
+            m.sectionLabel->setText("Monitors", juce::dontSendNotification);
+            addAndMakeVisible(*m.sectionLabel);
+            firstMeter = false;
+        }
+
+        meters.push_back(std::move(m));
+    }
+
+    emptyMessage.setVisible(knobs.empty() && meters.empty());
     resized();
     repaint();
 }
@@ -182,6 +246,23 @@ void ControlsView::paint(juce::Graphics& g)
                    area.getX(), area.getBottom(), area.getWidth(), kTargetHeight,
                    juce::Justification::centred, true);
     }
+
+    for (const auto& m : meters)
+    {
+        if (m.sectionLabel)
+        {
+            const auto& b = m.sectionLabel->getBounds();
+            g.setColour(juce::Colour(0xff3a3f4b));
+            g.fillRect(b.getX(), b.getBottom() - 1, b.getWidth(), 1);
+        }
+
+        if (m.readout)
+        {
+            const auto& rb = m.readout->getBounds();
+            g.setColour(juce::Colour(0xff2a2d35));
+            g.fillRoundedRectangle(rb.toFloat().reduced(2.0f), 4.0f);
+        }
+    }
 }
 
 void ControlsView::parentSizeChanged()
@@ -213,7 +294,13 @@ void ControlsView::resized()
             ++colInRow;
             if (colInRow >= perRow) { y += kKnobHeight; colInRow = 0; }
         }
-        if (colInRow > 0 || knobs.empty()) y += kKnobHeight;
+        if (colInRow > 0 || (knobs.empty() && meters.empty())) y += kKnobHeight;
+        if (colInRow > 0 && !meters.empty()) { y += kKnobHeight; colInRow = 0; }
+        for (const auto& m : meters)
+        {
+            if (m.sectionLabel) y += kSectionHeight;
+            y += Meter::kHeight;
+        }
         return y + 24;
     };
 
@@ -254,6 +341,23 @@ void ControlsView::resized()
 
         ++colInRow;
         if (colInRow >= perRow) { curY += kKnobHeight; colInRow = 0; }
+    }
+
+    // Flush the last partial knob row before meters.
+    if (colInRow > 0 && !meters.empty())
+        curY += kKnobHeight;
+
+    for (auto& m : meters)
+    {
+        if (m.sectionLabel)
+        {
+            m.sectionLabel->setBounds(originX, curY, w - 24, kSectionHeight);
+            curY += kSectionHeight;
+        }
+        m.name->setBounds(originX, curY, w - 24, kNameHeight);
+        curY += kNameHeight;
+        m.readout->setBounds(originX, curY, w - 24, Meter::kHeight - kNameHeight);
+        curY += Meter::kHeight - kNameHeight;
     }
 }
 

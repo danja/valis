@@ -16,15 +16,15 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     auto* knobsPort = new juce::Viewport();
     knobsPort->setViewedComponent(new ControlsView(p), true);
     knobsPort->setScrollBarsShown(true, false);
-    tabs.addTab("Knobs", bg, knobsPort, true);
+    tabs.addTab("Controls", bg, knobsPort, true);
 
     auto* graphPort = new juce::Viewport();
     graphView = new GraphView(p);
     graphPort->setViewedComponent(graphView, true);
     graphPort->setScrollBarsShown(true, true);
-    tabs.addTab("Graph", bg, graphPort, true);
+    tabs.addTab("Circuit", bg, graphPort, true);
 
-    tabs.addTab("Turtle", bg, new TurtleView(p), true);
+    tabs.addTab("Code", bg, new TurtleView(p), true);
 
     statusLabel.setFont(juce::FontOptions(13.0f));
     statusLabel.setJustificationType(juce::Justification::centredLeft);

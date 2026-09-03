@@ -78,6 +78,13 @@ public:
     std::optional<float> getControl(const std::string& nodeId,
                                     const std::string& portSymbol) const;
 
+    /// Message thread. Reads the current value of a control output port (e.g. an
+    /// Oscilloscope's peak, rms, or frequency) from the active graph's control
+    /// store. Returns nullopt if the node or port is not found. A plain float
+    /// read from the store — acceptable for meter display; no lock required.
+    std::optional<float> getControlOutput(const std::string& nodeId,
+                                          const std::string& portSymbol) const;
+
 private:
     /// Everything one circuit needs, allocated together and freed together.
     struct Graph

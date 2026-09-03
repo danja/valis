@@ -4,7 +4,7 @@ The instruments will respond to note messages corresponding to General MIDI stan
 
 New elements will probably be needed in the C++ code, design these to be reusable in other circuit scenarios. 
 
-New terms need to be added to the RDF to allow sectioned blocks (per instrument in this case) and labels in the Knobs view of the UI.
+New terms need to be added to the RDF to allow sectioned blocks (per instrument in this case) and labels in the Controls view of the UI.
 
 Use MCP tools for integration testing.
 

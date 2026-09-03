@@ -59,6 +59,7 @@ to confirm a running instance before using MCP tools that require a host.
 - When designing a circuit, check whether a control arc targets a port before setting a fixed value on it. If an arc reaches that port, the baked value is unreachable.
 - The resting value for a controlled port must live in the control path (e.g., in a Scale's `val:min`), not on the element instance.
 - The compiler's topological sort uses two adjacency graphs: `cycleAdj` (audio only, for cycle detection) and `orderAdj` (audio + control, for processing order). Control sources are guaranteed to run before their destinations in the same block.
+- For drum voices using `val:TwinTBridge`, connect the amp envelope directly to the VCA cv. Route the `val:NoteGate` velocity to the TwinTBridge `velocity` port. Do not route velocity through the VCA cv path (e.g. via `val:ControlMultiply`) — velocity goes to 0 on note-off, closing the VCA before the oscillator's decay finishes.
 
 ## Conventions
 
@@ -69,6 +70,7 @@ to confirm a running instance before using MCP tools that require a host.
 - C++20. Match surrounding idiom and comment density. Every file starts with `// path/filename`.
 - Comments describe purpose only where intent is non-obvious. No effect descriptions.
 - Leave `TODO:` comments where further work is needed; don't leave them unactioned.
+- Never call a function with observable side effects inside `assert()`. In Release builds `NDEBUG` expands `assert(expr)` to `((void)0)`, silently skipping the call. Pattern: `const bool ok = store.parse(...); assert(ok);`
 
 ## RDF
 
@@ -83,7 +85,7 @@ to confirm a running instance before using MCP tools that require a host.
 
 - RDF: serd (parse/serialise), sord (in-memory store) — pinned to ≥ 0.32.0; system packages older than that have an incompatible `SerdError` struct layout that causes a SEGFAULT in the error callback. `cmake/FindOrFetchSerd.cmake` enforces this and fetches a known-good version if the system package is absent or too old.
 - DSP: `juce_dsp` — `StateVariableTPTFilter`, `LadderFilter`, `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `FastMathApproximations`
-- GUI: `juce_gui_basics`, `CodeEditorComponent` for the Turtle view
+- GUI: `juce_gui_basics`, `CodeEditorComponent` for the Code tab
 - HTTP: cpp-httplib; JSON: `juce::JSON` / `juce::var`
 
 ## Change workflow

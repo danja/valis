@@ -69,7 +69,7 @@ struct ParamBinding
     /// is used in circuits where the physical range differs.
     std::optional<double> minimum, maximum;
 
-    /// Optional heading for the Knobs panel. Bindings with the same section string
+    /// Optional heading for the Controls panel. Bindings with the same section string
     /// are grouped together under that label.
     std::string section;
 };

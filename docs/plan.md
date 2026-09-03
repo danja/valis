@@ -36,7 +36,7 @@ Two deviations from the brief, both deliberate and agreed:
 | RDF library | **serd + sord** (not librdf/raptor, deviating from the brief) | Zero transitive deps, ISC/MIT, the LV2 ecosystem's own stack; small enough to vendor, so VST3/CLAP stay portable. No SPARQL - hand-written traversals over `sord_search` |
 | MCP location | **In-process, in MVP** | Background thread inside the plugin; sits on the same Ops layer as the UI |
 | Formats | **Standalone, VST3, LV2, CLAP** | CLAP needs `clap-juce-extensions`; LV2 and VST3 run helper binaries post-build |
-| Graph-view write-back | **Staged: render+drag → arcs → nodes**, full re-serialise | Turtle view is authoritative for prose/comments; graph view for topology. Comments are lost on structural graph edit - warn on first use |
+| Graph-view write-back | **Staged: render+drag → arcs → nodes**, full re-serialise | Code tab is authoritative for prose/comments; Circuit view for topology. Comments are lost on structural graph edit - warn on first use |
 
 ---
 
@@ -60,7 +60,7 @@ Four layers, with two hard boundaries. The layering is lifted from `/home/danny/
 
 ```
   ┌─ ui/ ────────────────┐   ┌─ mcp/ ──────┐
-  │ Turtle │ Graph │ Knobs│   │ HTTP/JSON-RPC│
+  │  Code  │Circuit│Controls│   │ HTTP/JSON-RPC│
   └───────────┬──────────┘   └──────┬───────┘
               └────────┬────────────┘
                   ┌────▼─────┐   ops/ - the headless command surface.
@@ -296,7 +296,7 @@ Also fixed: some serd diagnostics - a CURIE that will not expand, for one - are 
 
 *Done:* `TurtleCodeTokeniser` classifies comments, directives, IRIs, prefixed names, blank nodes, strings, numbers, keywords and punctuation. Its test asserts that **every call consumes at least one character** on half-written input - a highlighter that loops on an unterminated string freezes the UI, and the fragments it is fed are exactly what a user types mid-edit. Edits are debounced 400 ms; the status line carries the first diagnostic and moves the caret to its line.
 
-### M8 - Knobs view *(complete)*
+### M8 - Controls view *(complete)*
 Rotary sliders generated from the bound param slots. Only bound slots appear; the panel rebuilds when the circuit changes.
 
 *Done:* readouts are drawn directly rather than through `Slider`'s text box, which would not render - the value shows in the property's own units. That exposed a gap worth fixing: unit symbols were falling back to the local name of the IRI (`hz`), so the vendored `vocabs/lv2/units.ttl` is now **loaded at runtime** and supplies the real symbol (`Hz`). The vendored vocabularies are load-bearing, not decorative.
@@ -391,7 +391,7 @@ curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
 
 It also makes the project's argument concretely: Scream carries five abandoned saturators commented out in its inner loop, and choosing between them means editing C and rebuilding. In Valis that is one word in a Turtle file with the audio running, and a preset can differ in topology rather than only in values.
 
-**Acceptance for the MVP as a whole:** load `examples/basic.ttl` in the standalone app, hear it; edit the cutoff in the Turtle view and hear it change; see the same circuit rendered in the graph view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure - bad Turtle, unknown element, cycle - surface a located, recoverable error instead of silence or a crash.
+**Acceptance for the MVP as a whole:** load `examples/basic.ttl` in the standalone app, hear it; edit the cutoff in the Code tab and hear it change; see the same circuit rendered in the Circuit view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure - bad Turtle, unknown element, cycle - surface a located, recoverable error instead of silence or a crash.
 
 
 ---

@@ -11,7 +11,7 @@
 //   3. add and delete nodes
 //
 // Structural edits go through OpDispatcher, so they take exactly the path the
-// Turtle view and the MCP server take. That path re-serialises the document,
+// Code tab and the MCP server take. That path re-serialises the document,
 // which loses hand formatting and comments - hence the warning on first use.
 
 #pragma once

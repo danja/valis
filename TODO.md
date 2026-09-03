@@ -6,6 +6,8 @@ Review examples/sh101.ttl and make it more faithful to the hardware original.
 
 Invent a totally new instrument or processor that producers will find indispensible. 
 
+When I add an Oscilloscope element to the graph, it should show up in the Controls view.
+
 ## Recurring - check periodically
 
 * remove tasks that have been done from this file

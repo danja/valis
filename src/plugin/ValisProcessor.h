@@ -114,6 +114,15 @@ public:
     const CircuitModel& circuit() const { return model; }
     const Ontology& ontology() const { return vocabulary; }
 
+    /// Current value of an element's control output port (e.g. Oscilloscope
+    /// peak/rms/frequency). Safe to call on the message thread; returns nullopt
+    /// if the node or port is absent from the active circuit.
+    std::optional<float> getControlOutput(const std::string& nodeId,
+                                          const std::string& portSymbol) const
+    {
+        return engine.getControlOutput(nodeId, portSymbol);
+    }
+
     /// Builds the op surface over this processor. The three views and the MCP
     /// server all go through here.
     OpDispatcher ops();
