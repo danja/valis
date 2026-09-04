@@ -60,6 +60,7 @@ jobs:
       - name: Convert the manual
         run: |
           mkdir -p _site
+          cp -r docs/images _site/images
           cat > _site/style.css <<'CSS'
           :root { color-scheme: light dark; }
           body { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 6rem;

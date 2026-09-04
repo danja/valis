@@ -8,7 +8,7 @@ can read, edit and hand to a language model.
 
 | Controls | Circuit | Code |
 |----------|---------|------|
-| [![Controls view](../images/controls-thumb.jpeg)](../images/controls.jpeg) | [![Circuit view](../images/circuit-thumb.jpeg)](../images/circuit.jpeg) | [![Code view](../images/code-thumb.jpeg)](../images/code.jpeg) |
+| [![Controls view](images/controls-thumb.jpeg)](images/controls.jpeg) | [![Circuit view](images/circuit-thumb.jpeg)](images/circuit.jpeg) | [![Code view](images/code-thumb.jpeg)](images/code.jpeg) |
 
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
 - [Element reference](elements.md) : every class the ontology declares
