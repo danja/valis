@@ -75,8 +75,8 @@ atomic pointer swap.
 ```
   ┌─ ui/ ──────────────────────┐   ┌─ mcp/ ───────┐
   │  Code  │ Circuit │ Controls│   │ HTTP/JSON-RPC│
-  └───────────┬───────────┘   └──────┬───────┘
-              └────────┬─────────────┘
+  └───────────┬────────────────┘   └──────┬───────┘
+              └────────┬──────────────────┘
                   ┌────▼─────┐   ops/ - the headless command surface.
                   │   Ops    │   Every key operation is one Op. UI and MCP
                   └────┬─────┘   are both thin adapters over it.
