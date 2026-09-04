@@ -34,6 +34,10 @@ struct Options
     int    blockSize  = 512;
     double toneHz     = 0.0;   ///< synthesise a test tone as the input
     bool   listElements = false;
+    int    midiNote   = -1;    ///< -1 means no MIDI; otherwise note-on fires at gate-on time
+    float  velocity   = 1.0f;
+    double gateOnSec  = 0.0;
+    double gateOffSec = -1.0;  ///< -1 means 80 % of seconds
 };
 
 /// Prints the element reference as markdown, straight from the ontology, so
@@ -103,7 +107,13 @@ void usage()
         "  --rate <hz>      sample rate (default 48000)\n"
         "  --block <n>      block size (default 512)\n"
         "  --vocabs <file>  ontology to load (default the shipped vocabs/valis.ttl)\n"
-        "  --elements       print the element reference as markdown and exit");
+        "  --elements       print the element reference as markdown and exit\n"
+        "\n"
+        "MIDI (for circuits driven by note events):\n"
+        "  --note <n>       send a note-on for MIDI note n (0-127) at --gate-on time\n"
+        "  --velocity <v>   note velocity 0.0-1.0 (default 1.0)\n"
+        "  --gate-on <s>    time in seconds when the note fires (default 0.0)\n"
+        "  --gate-off <s>   time in seconds when the note is released (default 80% of --seconds)");
 }
 
 bool parse(int argc, char** argv, Options& options)
@@ -122,6 +132,10 @@ bool parse(int argc, char** argv, Options& options)
         else if (arg == "--block")               options.blockSize  = std::stoi(next());
         else if (arg == "--vocabs")              options.vocabsPath = next();
         else if (arg == "--elements")            options.listElements = true;
+        else if (arg == "--note")                options.midiNote   = std::stoi(next());
+        else if (arg == "--velocity")            options.velocity   = std::stof(next());
+        else if (arg == "--gate-on")             options.gateOnSec  = std::stod(next());
+        else if (arg == "--gate-off")            options.gateOffSec = std::stod(next());
         else if (! arg.empty() && arg[0] == '-') { std::fprintf(stderr, "unknown option %s\n", arg.c_str()); return false; }
         else                                     options.circuitPath = arg;
     }
@@ -255,8 +269,27 @@ int main(int argc, char** argv)
     std::vector<float> outputL(input.size(), 0.0f);
     std::vector<float> outputR(input.size(), 0.0f);
 
+    const int noteOnSample = options.midiNote >= 0
+        ? static_cast<int>(options.gateOnSec * options.sampleRate)
+        : -1;
+    const double gateOff = options.gateOffSec >= 0.0
+        ? options.gateOffSec
+        : options.seconds * 0.8;
+    const int noteOffSample = options.midiNote >= 0
+        ? static_cast<int>(gateOff * options.sampleRate)
+        : -1;
+
     for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(options.blockSize))
     {
+        const auto sample = static_cast<int>(at);
+        if (options.midiNote >= 0)
+        {
+            if (sample == noteOnSample)
+                engine.noteOn(options.midiNote, options.velocity);
+            if (noteOffSample > noteOnSample && sample == noteOffSample)
+                engine.noteOff(options.midiNote);
+        }
+
         const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
                                                  input.size() - at));
         engine.process(input.data() + at, outputL.data() + at, outputR.data() + at, n);
