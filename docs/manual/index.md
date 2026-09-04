@@ -6,9 +6,11 @@ can read, edit and hand to a language model.
 
 [Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
 
-| Controls | Circuit | Code |
-|----------|---------|------|
-| [![Controls view](images/controls-thumb.jpeg)](images/controls.jpeg) | [![Circuit view](images/circuit-thumb.jpeg)](images/circuit.jpeg) | [![Code view](images/code-thumb.jpeg)](images/code.jpeg) |
+<div class="screenshots">
+  <a href="images/controls.jpeg"><img src="images/controls-thumb.jpeg" alt="Controls view"></a>
+  <a href="images/circuit.jpeg"><img src="images/circuit-thumb.jpeg" alt="Circuit view"></a>
+  <a href="images/code.jpeg"><img src="images/code-thumb.jpeg" alt="Code view"></a>
+</div>
 
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
 - [Element reference](elements.md) : every class the ontology declares
