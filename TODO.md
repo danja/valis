@@ -1,3 +1,5 @@
+Modify plugin metadata entry so it shows  "danja" instead of "Danny Ayers"
+
 ## Recurring - check periodically
 
 * remove tasks that have been done from this file

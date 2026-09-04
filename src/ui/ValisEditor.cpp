@@ -34,6 +34,10 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     addAndMakeVisible(tabs);
     addAndMakeVisible(statusLabel);
     addAndMakeVisible(revertButton);
+    addChildComponent(keyboard);  // starts hidden; shown when circuit has MIDI
+
+    // Route keyboard clicks to the processor's virtual MIDI queue.
+    keyboardState.addListener(this);
 
     p.addChangeListener(this);
     addKeyListener(this);
@@ -46,6 +50,7 @@ ValisEditor::ValisEditor(ValisProcessor& p)
 
 ValisEditor::~ValisEditor()
 {
+    keyboardState.removeListener(this);
     removeKeyListener(this);
     processor.removeChangeListener(this);
     menuBar.setModel(nullptr);
@@ -71,6 +76,9 @@ void ValisEditor::resized()
     revertButton.setBounds(bar.removeFromRight(64));
     bar.removeFromRight(6);
     statusLabel.setBounds(bar);
+
+    if (keyboardVisible)
+        keyboard.setBounds(bounds.removeFromBottom(72));
 
     tabs.setBounds(bounds);
 }
@@ -189,6 +197,14 @@ void ValisEditor::updateStatusBar()
                 hasInput = true;
         }
 
+        const bool showKeyboard = hasMidi && !hasInput;
+        if (showKeyboard != keyboardVisible)
+        {
+            keyboardVisible = showKeyboard;
+            keyboard.setVisible(keyboardVisible);
+            resized();
+        }
+
         juce::String msg;
         if (loadedFile != juce::File{})
         {
@@ -199,7 +215,7 @@ void ValisEditor::updateStatusBar()
         }
         msg += "Circuit OK";
         if (hasMidi && !hasInput)
-            msg += "  \u2014  Synthesizer \u2014 play MIDI notes";
+            msg += "  \u2014  Synthesizer";
 
         const auto textColour = fileModified ? juce::Colour(0xffe5c07b)
                                              : juce::Colour(0xff98c379);
@@ -208,6 +224,12 @@ void ValisEditor::updateStatusBar()
     }
     else
     {
+        if (keyboardVisible)
+        {
+            keyboardVisible = false;
+            keyboard.setVisible(false);
+            resized();
+        }
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe06c75));
         juce::String text = diags.front().toString();
         if (diags.size() > 1)
@@ -215,6 +237,16 @@ void ValisEditor::updateStatusBar()
         statusLabel.setText(text, juce::dontSendNotification);
     }
     repaint();
+}
+
+void ValisEditor::handleNoteOn(juce::MidiKeyboardState*, int, int noteNumber, float velocity)
+{
+    processor.injectNoteOn(noteNumber, velocity);
+}
+
+void ValisEditor::handleNoteOff(juce::MidiKeyboardState*, int, int noteNumber, float)
+{
+    processor.injectNoteOff(noteNumber);
 }
 
 bool ValisEditor::keyPressed(const juce::KeyPress& key, juce::Component*)

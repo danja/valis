@@ -5,6 +5,7 @@
 #include "ui/GraphView.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_utils/juce_audio_utils.h>
 
 namespace valis {
 
@@ -15,6 +16,7 @@ class ValisProcessor;
 class ValisEditor final : public juce::AudioProcessorEditor,
                           public juce::MenuBarModel,
                           public juce::KeyListener,
+                          public juce::MidiKeyboardState::Listener,
                           private juce::ChangeListener
 {
 public:
@@ -46,6 +48,10 @@ private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void updateStatusBar();
 
+    // MidiKeyboardState::Listener — routes virtual keyboard clicks to the processor.
+    void handleNoteOn(juce::MidiKeyboardState*, int midiChannel, int noteNumber, float velocity) override;
+    void handleNoteOff(juce::MidiKeyboardState*, int midiChannel, int noteNumber, float velocity) override;
+
     ValisProcessor& processor;
     juce::MenuBarComponent menuBar{this};
     juce::TabbedComponent tabs{juce::TabbedButtonBar::TabsAtTop};
@@ -60,6 +66,12 @@ private:
     juce::File   loadedFile;
     juce::String loadedFileTurtle;
     bool         fileModified = false;
+
+    // Shown below the tabs when the loaded circuit has MIDI elements but no audio
+    // input — i.e. it is a synthesizer that cannot be heard without note events.
+    juce::MidiKeyboardState keyboardState;
+    juce::MidiKeyboardComponent keyboard{keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard};
+    bool keyboardVisible = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisEditor)
 };

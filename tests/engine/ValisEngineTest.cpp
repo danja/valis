@@ -628,6 +628,18 @@ void testSh101CompileAndProducesSound()
     assert(engine.load(circuit, registry, error));
 
     std::vector<float> block(256, 0.0f);
+
+    // Verify the envelope→VCA control arc is wired: no gate must mean silence.
+    float silencePeak = 0.0f;
+    for (int i = 0; i < 4; ++i)
+    {
+        std::fill(block.begin(), block.end(), 0.0f);
+        engine.process(nullptr, block.data(), 256);
+        silencePeak = std::max(silencePeak, peakOf(block));
+    }
+    std::printf("  sh101 no-note peak (should be ~0): %.6f\n", silencePeak);
+    assert(silencePeak < 1.0e-4f && "sh101 is loud without a MIDI note — Envelope→VCA arc not wired");
+
     engine.noteOn(60, 1.0f);
     float peak = 0.0f;
     for (int i = 0; i < 8; ++i)
@@ -638,6 +650,62 @@ void testSh101CompileAndProducesSound()
     }
     std::printf("  sh101 note-on peak after 8 blocks: %.4f\n", peak);
     assert(peak > 1.0e-4f && "sh101 produced no audio on note-on");
+}
+
+// Replicates the UI's exact loading path: file read as string, parsed with the
+// same base URI that setTurtle uses, and processed via the stereo engine path
+// that processBlock uses. If this passes but the standalone is silent, the issue
+// is in the standalone's audio/MIDI device setup, not the engine.
+void testClarinetUiLoadPathProducesSound()
+{
+    // Read the file as a string the way JUCE's f.loadFileAsString() would.
+    const std::string path = std::string(VALIS_EXAMPLES_DIR) + "/clarinet.ttl";
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    assert(f != nullptr);
+    std::string content;
+    char buf[4096];
+    while (const auto n = std::fread(buf, 1, sizeof(buf), f))
+        content.append(buf, n);
+    std::fclose(f);
+
+    // Parse with the same base URI that setTurtle uses.
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+    const bool parsed = store.parse(content, "urn:valis:circuit", parseErrors);
+    for (const auto& e : parseErrors)
+        std::fprintf(stderr, "  parse: %s\n", e.toString().c_str());
+    assert(parsed && "clarinet.ttl failed to parse via UI path");
+
+    CircuitModel model;
+    std::vector<Diagnostic> diags;
+    assert(model.build(store, ontology(), diags) && "clarinet.ttl failed to build via UI path");
+
+    CompiledCircuit circuit;
+    CircuitCompiler compiler;
+    const bool compiled = compiler.compile(model, ontology(), circuit, diags);
+    for (const auto& d : diags)
+        std::fprintf(stderr, "  diag: %s\n", d.toString().c_str());
+    assert(compiled && "clarinet.ttl failed to compile via UI path");
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    // Use the stereo process path that processBlock uses.
+    std::vector<float> blockL(512, 0.0f), blockR(512, 0.0f);
+    engine.noteOn(60, 1.0f);
+    float peak = 0.0f;
+    for (int i = 0; i < 20; ++i)
+    {
+        std::fill(blockL.begin(), blockL.end(), 0.0f);
+        std::fill(blockR.begin(), blockR.end(), 0.0f);
+        engine.process(nullptr, blockL.data(), blockR.data(), 512);
+        peak = std::max(peak, peakOf(blockL));
+    }
+    std::printf("  clarinet UI-path stereo peak after 20 blocks: %.4f\n", peak);
+    assert(peak > 1.0e-4f && "clarinet produced no audio via UI parse+stereo path");
 }
 
 }  // namespace
@@ -659,6 +727,7 @@ int main()
     testSh101CompileAndProducesSound();
     testModulationCompileAndPassesAudio();
     testClarinetCompileAndProducesSound();
+    testClarinetUiLoadPathProducesSound();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

@@ -160,6 +160,28 @@ private:
     std::vector<Diagnostic> diagnostics;
     juce::AudioBuffer<float> monoScratch;
 
+    // Virtual keyboard state. The editor writes these atomics from the message
+    // thread; processBlock reads and clears them on the audio thread. At most
+    // one pending note-on and one pending note-off per block — sufficient for
+    // a click-to-play keyboard where only one key is held at a time.
+    std::atomic<int> pendingNoteOn{-1};   // note number, or -1 if none
+    std::atomic<int> pendingNoteOff{-1};
+    std::atomic<float> pendingVelocity{1.0f};
+
+public:
+    /// Message thread. Schedule a note-on or note-off for the next audio block.
+    void injectNoteOn(int note, float vel)
+    {
+        pendingVelocity.store(vel, std::memory_order_relaxed);
+        pendingNoteOn.store(note, std::memory_order_release);
+    }
+    void injectNoteOff(int note)
+    {
+        pendingNoteOff.store(note, std::memory_order_release);
+    }
+
+private:
+
    #if VALIS_WITH_MCP
     std::unique_ptr<McpServer> mcpServer;
    #endif

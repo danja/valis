@@ -224,6 +224,15 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
 {
     juce::ScopedNoDenormals noDenormals;
 
+    // Drain any virtual-keyboard events posted from the editor.
+    if (const int note = pendingNoteOn.exchange(-1, std::memory_order_acquire); note >= 0)
+    {
+        const float vel = pendingVelocity.load(std::memory_order_relaxed);
+        engine.noteOn(note, vel);
+    }
+    if (const int note = pendingNoteOff.exchange(-1, std::memory_order_acquire); note >= 0)
+        engine.noteOff(note);
+
     // Note events reach the engine before the block runs. Sample-accurate
     // placement within the block is a later refinement; the control grid is
     // 32 samples, so the error is bounded by that.
