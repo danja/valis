@@ -102,8 +102,6 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
        #if VALIS_WITH_MCP
         const bool running = processor.isMcpRunning();
         menu.addItem(settingsMcpToggle, "MCP Server", true, running);
-        if (running)
-            menu.addSectionHeader("Listening on port " + juce::String(processor.mcpPort()));
        #else
         menu.addItem(settingsMcpToggle, "MCP Server (not built)", false, false);
        #endif
