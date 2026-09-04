@@ -6,6 +6,10 @@
 
 Valis is a standalone app and a DAW plugin for building virtual analog circuits. It can be seen as a factory for instruments and effects processors.
 
+| Controls | Circuit | Code |
+|----------|---------|------|
+| [![Controls view](docs/images/controls-thumb.jpeg)](docs/images/controls.jpeg) | [![Circuit view](docs/images/circuit-thumb.jpeg)](docs/images/circuit.jpeg) | [![Code view](docs/images/code-thumb.jpeg)](docs/images/code.jpeg) |
+
 Circuits are built from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view **Controls** with knobs etc, a node-and-arc network of components **Circuit** and a syntax-highlighted Turtle editor **Code**.
 
 Functionality is also supported through MCP, so an LLM can drive every operation the UI can. You can ask AI to design and build circuits.

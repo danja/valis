@@ -6,6 +6,10 @@ can read, edit and hand to a language model.
 
 [Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
 
+| Controls | Circuit | Code |
+|----------|---------|------|
+| [![Controls view](../images/controls-thumb.jpeg)](../images/controls.jpeg) | [![Circuit view](../images/circuit-thumb.jpeg)](../images/circuit.jpeg) | [![Code view](../images/code-thumb.jpeg)](../images/code.jpeg) |
+
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
 - [Element reference](elements.md) : every class the ontology declares
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
