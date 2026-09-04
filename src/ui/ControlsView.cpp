@@ -9,12 +9,14 @@
 namespace valis {
 
 namespace {
-constexpr int kKnobWidth      = 104;
-constexpr int kKnobHeight     = 152;
-constexpr int kNameHeight     = 18;
-constexpr int kValueHeight    = 20;
-constexpr int kTargetHeight   = 14;
-constexpr int kSectionSepHeight = 16;  // thin row separator with section name
+constexpr int kKnobWidth          = 104;
+constexpr int kKnobHeight         = 152;
+constexpr int kNameHeight         = 18;
+constexpr int kValueHeight        = 20;
+constexpr int kTargetHeight       = 14;
+constexpr int kSectionLabelHeight = 18;  // label drawn above each row of knobs
+constexpr int kRowHeight          = kSectionLabelHeight + kKnobHeight;
+constexpr int kMargin             = 12;
 }
 
 juce::String ControlsView::Knob::readout() const
@@ -196,18 +198,21 @@ void ControlsView::paint(juce::Graphics& g)
 
     const int w = getWidth();
 
-    for (const auto& sep : sectionSeps)
+    // Vertical dividers between adjacent sections on the same row.
+    g.setColour(juce::Colour(0xff3a3f4b));
+    for (const auto& d : vertDivs)
+        g.fillRect(d.x, d.yTop, 1, d.yBot - d.yTop);
+
+    // Section label above each group.
+    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    for (const auto& h : sectionHeaders)
     {
         g.setColour(juce::Colour(0xff3a3f4b));
-        g.fillRect(12, sep.y + kSectionSepHeight / 2, w - 24, 1);
+        g.fillRect(h.x, h.y + kSectionLabelHeight - 1, h.w, 1);
 
-        if (sep.name.isNotEmpty())
-        {
-            g.setColour(juce::Colour(0xff61afef));
-            g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
-            g.drawText(sep.name, 16, sep.y, w - 32, kSectionSepHeight,
-                       juce::Justification::centredLeft, true);
-        }
+        g.setColour(juce::Colour(0xff61afef));
+        g.drawText(h.name, h.x + 6, h.y, h.w - 6, kSectionLabelHeight - 2,
+                   juce::Justification::centredLeft, true);
     }
 
     for (const auto& knob : knobs)
@@ -241,6 +246,8 @@ void ControlsView::paint(juce::Graphics& g)
             g.fillRoundedRectangle(rb.toFloat().reduced(2.0f), 4.0f);
         }
     }
+
+    (void)w;
 }
 
 void ControlsView::parentSizeChanged()
@@ -255,47 +262,107 @@ void ControlsView::resized()
     if (w <= 0)
         return;
 
-    const int perRow = juce::jmax(1, (w - 24) / kKnobWidth);
+    const int perRow = juce::jmax(1, (w - 2 * kMargin) / kKnobWidth);
 
-    // Returns true when a section separator should appear before knob index i
-    // (i.e. it starts a new named section and is the first knob in its row).
-    auto needsSep = [&](int i, int colAtI) -> bool
+    // Group consecutive knobs that share the same sectionName.
+    struct Group { juce::String sec; int start, count; };
+    std::vector<Group> groups;
+    for (int i = 0; i < static_cast<int>(knobs.size()); ++i)
     {
-        if (colAtI != 0)
-            return false;
         const auto& sec = knobs[static_cast<std::size_t>(i)].sectionName;
-        if (sec.isEmpty())
-            return false;
-        if (i == 0)
-            return true;
-        return knobs[static_cast<std::size_t>(i - 1)].sectionName != sec;
-    };
+        if (groups.empty() || groups.back().sec != sec)
+            groups.push_back({ sec, i, 1 });
+        else
+            ++groups.back().count;
+    }
 
-    // --- measure pass ---
-    auto measure = [&]() -> int
+    // Shared measure/layout pass. When apply is true, sets component bounds
+    // and populates sectionHeaders and vertDivs.
+    auto pass = [&](bool apply) -> int
     {
-        int y = 0, col = 0;
-        for (int i = 0; i < static_cast<int>(knobs.size()); ++i)
+        int curY = kMargin;
+        int col  = 0;
+
+        for (auto& g : groups)
         {
-            if (needsSep(i, col)) y += kSectionSepHeight;
-            ++col;
-            if (col >= perRow) { y += kKnobHeight; col = 0; }
+            // Flush to a new row if this group would straddle the boundary.
+            // This keeps every section wholly on one row (unless it is wider
+            // than perRow, in which case wrapping is unavoidable).
+            if (col > 0 && col + g.count > perRow)
+            {
+                curY += kRowHeight;
+                col = 0;
+            }
+
+            if (apply)
+            {
+                // Section label spanning this group's column range.
+                if (g.sec.isNotEmpty())
+                {
+                    const int hW = juce::jmin(g.count, perRow - col) * kKnobWidth;
+                    sectionHeaders.push_back({ kMargin + col * kKnobWidth, curY, hW, g.sec });
+                }
+
+                // Vertical divider before mid-row group starts.
+                if (col > 0)
+                    vertDivs.push_back({ kMargin + col * kKnobWidth,
+                                         curY, curY + kRowHeight });
+            }
+
+            // Place each knob in the group.
+            for (int ki = g.start; ki < g.start + g.count; ++ki)
+            {
+                if (apply)
+                {
+                    auto& knob = knobs[static_cast<std::size_t>(ki)];
+                    const int x = kMargin + col * kKnobWidth;
+                    const int y = curY + kSectionLabelHeight;
+                    juce::Rectangle<int> cell(x, y, kKnobWidth, kKnobHeight);
+
+                    knob.name->setBounds(cell.removeFromTop(kNameHeight));
+                    cell.removeFromBottom(kTargetHeight);
+
+                    if (knob.isEnum())
+                        knob.comboBox->setBounds(cell.removeFromTop(28).reduced(4, 2));
+                    else
+                        knob.slider->setBounds(cell.reduced(2, 2));
+                }
+
+                ++col;
+                if (col >= perRow)
+                {
+                    curY += kRowHeight;
+                    col = 0;
+                }
+            }
         }
-        if (col > 0 || (knobs.empty() && meters.empty())) y += kKnobHeight;
+
+        // Flush the last partial row, or reserve space for the empty message.
+        if (col > 0 || (groups.empty() && meters.empty()))
+            curY += kRowHeight;
 
         if (!meters.empty())
         {
-            if (col > 0) y += kKnobHeight;   // flush last knob row
-            y += kSectionSepHeight;           // "Monitors" separator
-            for (std::size_t i = 0; i < meters.size(); ++i)
-                y += Meter::kHeight;
+            if (apply)
+                sectionHeaders.push_back({ kMargin, curY, w - 2 * kMargin, "Monitors" });
+            curY += kSectionLabelHeight;
+            for (auto& m : meters)
+            {
+                if (apply)
+                {
+                    m.name->setBounds(kMargin, curY, w - 2 * kMargin, kNameHeight);
+                    m.readout->setBounds(kMargin, curY + kNameHeight,
+                                         w - 2 * kMargin, Meter::kHeight - kNameHeight);
+                }
+                curY += Meter::kHeight;
+            }
         }
-        return y + 24;
+
+        return curY + kMargin;
     };
 
-    sectionSeps.clear();
-
-    const int needed = measure();
+    // Measure first to get the required height.
+    const int needed = pass(false);
     if (needed != getHeight())
     {
         setSize(w, needed);
@@ -304,52 +371,9 @@ void ControlsView::resized()
 
     emptyMessage.setBounds(getLocalBounds().reduced(40));
 
-    const int originX = getLocalBounds().reduced(12).getX();
-    const int originY = getLocalBounds().reduced(12).getY();
-
-    int curY = originY;
-    int col  = 0;
-
-    for (int i = 0; i < static_cast<int>(knobs.size()); ++i)
-    {
-        auto& knob = knobs[static_cast<std::size_t>(i)];
-
-        if (needsSep(i, col))
-        {
-            sectionSeps.push_back({ curY, knob.sectionName });
-            curY += kSectionSepHeight;
-        }
-
-        const int x = originX + col * kKnobWidth;
-        juce::Rectangle<int> cell(x, curY, kKnobWidth, kKnobHeight);
-
-        knob.name->setBounds(cell.removeFromTop(kNameHeight));
-        cell.removeFromBottom(kTargetHeight);
-
-        if (knob.isEnum())
-            knob.comboBox->setBounds(cell.removeFromTop(28).reduced(4, 2));
-        else
-            knob.slider->setBounds(cell.reduced(2, 2));
-
-        ++col;
-        if (col >= perRow) { curY += kKnobHeight; col = 0; }
-    }
-    if (col > 0) curY += kKnobHeight;
-
-    if (!meters.empty())
-    {
-        sectionSeps.push_back({ curY, "Monitors" });
-        curY += kSectionSepHeight;
-
-        for (auto& m : meters)
-        {
-            m.name->setBounds(originX, curY, w - 24, kNameHeight);
-            curY += kNameHeight;
-            m.readout->setBounds(originX, curY, w - 24, Meter::kHeight - kNameHeight);
-            curY += Meter::kHeight - kNameHeight;
-        }
-    }
-
+    sectionHeaders.clear();
+    vertDivs.clear();
+    pass(true);
     repaint();
 }
 

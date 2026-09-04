@@ -49,8 +49,11 @@ private:
         juce::String readout() const;
     };
 
-    /// A horizontal separator drawn between rows at a section boundary.
-    struct SectionSep { int y; juce::String name; };
+    /// Label drawn above a section's column span.
+    struct SectionHeader { int x, y, w; juce::String name; };
+
+    /// Vertical divider drawn between two adjacent sections that share a row.
+    struct VertDiv { int x, yTop, yBot; };
 
     /// Read-only display for a val:Oscilloscope element's peak/rms/frequency.
     struct Meter
@@ -65,7 +68,8 @@ private:
     ValisProcessor& processor;
     std::vector<Knob> knobs;
     std::vector<Meter> meters;
-    std::vector<SectionSep> sectionSeps;
+    std::vector<SectionHeader> sectionHeaders;
+    std::vector<VertDiv> vertDivs;
     juce::Label emptyMessage;
     int lastBindingCount = -1;
     int lastElementCount = -1;
