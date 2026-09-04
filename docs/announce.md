@@ -10,7 +10,7 @@ It can be seen as a factory for instruments and effects processors. Existing exa
 * Massive synth "scream" filter
 * TR-909 drum voices
 
-These are all simplified to some extent, but goodenough to be fun, imho.
+These are all simplified to some extent, but good enough to be fun, imho.
 
 It's at an alpha stage of development, I'm still working through known bugs, the builds are still rather hit & miss. But I wanted to post about it now to ask for suggestions for things to try with it, any other thoughts..?
 
