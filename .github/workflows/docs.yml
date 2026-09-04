@@ -90,7 +90,7 @@ jobs:
           }
           CSS
 
-          for src in docs/manual/*.md docs/skream.md; do
+          for src in docs/manual/*.md docs/skream.md docs/guide-for-agents.md; do
             name=$(basename "$src" .md)
             out="_site/$name.html"
             title=$(head -1 "$src" | sed 's/^#* *//')
