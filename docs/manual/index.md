@@ -4,6 +4,8 @@ Valis is a DAW plugin that builds virtual-analog circuits from RDF/Turtle
 descriptions. The circuit is not compiled into the plugin: it is a document you
 can read, edit and hand to a language model.
 
+[Releases](https://github.com/danja/valis/releases)
+
 [Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
 
 <div class="screenshots">

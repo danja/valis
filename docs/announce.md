@@ -1,6 +1,6 @@
 # Valis : Virtual Analog LLM Integrated System
 
-Valis is a standalone app and a DAW plugin for building virtual analog circuits. Free, open source. Built on JUCE so supports a variety of systems, but currently only tested on Linux.
+Valis is a standalone app and a DAW plugin for building virtual analog circuits. Free, open source. Built on JUCE so should support a variety of systems, but currently only tested on Linux.
 
 It can be viewed as a factory for instruments and effects processors. Existing examples include :
 
