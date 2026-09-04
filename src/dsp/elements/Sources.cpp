@@ -407,6 +407,9 @@ public:
 
         const float dampCoeff = damping * 0.9f;
         const float k         = 1.0f + stiffness * 3.0f;   // reed responsiveness
+        // Per-sample bore loss: ensures the waveguide decays naturally during
+        // release rather than ringing into the next note indefinitely.
+        const float loss = 1.0f - damping * 0.004f;
 
         float* out = args.audioOut[0];
 
@@ -423,13 +426,15 @@ public:
             filterState = dampCoeff * filterState + (1.0f - dampCoeff) * p_back;
 
             // Reed junction: valve opens proportionally to pressure differential.
+            // Closes completely when blowing pressure is absent so that stored
+            // bore oscillation decays rather than sustaining without a breath.
             const float delta    = pressure - filterState;
-            const float reedOpen = delta > 0.0f
+            const float reedOpen = (delta > 0.0f && pressure > 0.01f)
                                  ? std::min(1.5f, std::sqrt(delta) * k)
                                  : 0.0f;
 
             const float p_new = std::clamp(filterState + reedOpen, -1.0f, 1.0f);
-            buffer[static_cast<std::size_t>(writePos)] = p_new;
+            buffer[static_cast<std::size_t>(writePos)] = p_new * loss;
             out[i] = p_new * 0.25f;
 
             if (++writePos >= bufSize)

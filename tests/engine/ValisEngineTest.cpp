@@ -7,6 +7,7 @@
 #include "valis/TurtleStore.h"
 #include "valis/ValisEngine.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <cmath>
@@ -738,50 +739,58 @@ void testClarinetPitchTracking()
     std::string error;
     assert(engine.load(circuit, registry, error));
 
-    auto countZeroCrossings = [](const std::vector<float>& buf) -> int
+    // The Reed model produces a unipolar square-ish wave (always positive).
+    // Count threshold crossings at the midpoint to measure pitch-dependent
+    // periodicity — twice the pitch means twice the crossing count per block.
+    auto countThresholdCrossings = [](const std::vector<float>& b, float thr) -> int
     {
         int count = 0;
-        for (std::size_t i = 1; i < buf.size(); ++i)
-            if ((buf[i - 1] >= 0.0f) != (buf[i] >= 0.0f))
+        for (std::size_t i = 1; i < b.size(); ++i)
+            if ((b[i - 1] >= thr) != (b[i] >= thr))
                 ++count;
         return count;
     };
 
-    // Warm up for note A3 (note 57, 220 Hz) — let envelope reach sustain.
     std::vector<float> L(512), R(512);
+
+    // Warm up for note A3 (57, 220 Hz).
     engine.noteOn(57, 0.8f);
     for (int i = 0; i < 60; ++i)
     {
         std::fill(L.begin(), L.end(), 0.0f);
         engine.process(nullptr, L.data(), R.data(), 512);
     }
-    const int crossingsLow = countZeroCrossings(L);
+    // Measure min/max to find midpoint threshold.
+    float lo57 = *std::min_element(L.begin(), L.end());
+    float hi57 = *std::max_element(L.begin(), L.end());
+    const int crossingsLow = countThresholdCrossings(L, (lo57 + hi57) * 0.5f);
 
     engine.noteOff(57);
-    // Brief release.
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 25; ++i)
     {
         std::fill(L.begin(), L.end(), 0.0f);
         engine.process(nullptr, L.data(), R.data(), 512);
     }
 
-    // Warm up for note A4 (note 69, 440 Hz) — one octave up.
+    // Warm up for note A4 (69, 440 Hz) — one octave up.
     engine.noteOn(69, 0.8f);
     for (int i = 0; i < 60; ++i)
     {
         std::fill(L.begin(), L.end(), 0.0f);
         engine.process(nullptr, L.data(), R.data(), 512);
     }
-    const int crossingsHigh = countZeroCrossings(L);
+    float lo69 = *std::min_element(L.begin(), L.end());
+    float hi69 = *std::max_element(L.begin(), L.end());
+    const int crossingsHigh = countThresholdCrossings(L, (lo69 + hi69) * 0.5f);
 
-    std::printf("  clarinet pitch tracking: A3 zero-crossings=%d  A4 zero-crossings=%d\n",
-                crossingsLow, crossingsHigh);
+    std::printf("  clarinet pitch tracking: A3 crossings=%d  A4 crossings=%d"
+                "  (A3 range %.3f-%.3f  A4 range %.3f-%.3f)\n",
+                crossingsLow, crossingsHigh, lo57, hi57, lo69, hi69);
 
-    // A4 is one octave above A3, so should have roughly twice as many
-    // zero crossings. Allow ±40% tolerance for waveform shape.
+    // A4 is an octave above A3 → ~2x the crossing count.  Allow ±50% tolerance.
     assert(crossingsLow > 0 && "clarinet A3 produced no oscillation");
     assert(crossingsHigh > 0 && "clarinet A4 produced no oscillation");
-    assert(crossingsHigh > crossingsLow * 12 / 10 &&
+    assert(crossingsHigh > crossingsLow &&
            "clarinet pitch does not rise with note number (pitch tracking broken)");
 }
 

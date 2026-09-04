@@ -7,6 +7,8 @@
 #include "ui/GraphView.h"
 #include "ui/TurtleView.h"
 
+#include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+
 namespace valis {
 
 ValisEditor::ValisEditor(ValisProcessor& p)
@@ -144,14 +146,8 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
             if (graphView != nullptr) graphView->autolayout();
             break;
         case settingsAudioMidi:
-            // Reveal the standalone Options button just long enough to trigger
-            // its built-in audio/MIDI settings dialog, then hide it again.
-            if (standaloneOptionsButton != nullptr)
-            {
-                standaloneOptionsButton->setVisible(true);
-                standaloneOptionsButton->triggerClick();
-                standaloneOptionsButton->setVisible(false);
-            }
+            if (auto* holder = juce::StandalonePluginHolder::getInstance())
+                holder->showAudioSettingsDialog();
             break;
         default: break;
     }

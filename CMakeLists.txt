@@ -86,7 +86,7 @@ if(VALIS_BUILD_PLUGIN)
   juce_add_plugin(valis_plugin
     PRODUCT_NAME                "Valis"
     PLUGIN_NAME                 "Valis"
-    COMPANY_NAME                "Danny Ayers"
+    COMPANY_NAME                "danja"
     COMPANY_WEBSITE             "https://github.com/danja/valis"
     BUNDLE_ID                   "org.purl.stuff.valis"
     # Both codes must be set explicitly: JUCE randomises PLUGIN_CODE on every

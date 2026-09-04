@@ -1,7 +1,3 @@
-Modify plugin metadata entry so it shows  "danja" instead of "Danny Ayers"
-
-Clarinet gives low output with lots of DC offset
-
 ## Recurring - check periodically
 
 * remove tasks that have been done from this file
