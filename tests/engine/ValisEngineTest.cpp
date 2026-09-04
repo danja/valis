@@ -708,6 +708,83 @@ void testClarinetUiLoadPathProducesSound()
     assert(peak > 1.0e-4f && "clarinet produced no audio via UI parse+stereo path");
 }
 
+void testClarinetPitchTracking()
+{
+    // Load clarinet via string-parse (same path as the UI).
+    const std::string path = std::string(VALIS_EXAMPLES_DIR) + "/clarinet.ttl";
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    assert(f != nullptr);
+    std::string content;
+    char buf[4096];
+    while (const auto n = std::fread(buf, 1, sizeof(buf), f))
+        content.append(buf, n);
+    std::fclose(f);
+
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+    assert(store.parse(content, "urn:valis:circuit", parseErrors));
+
+    CircuitModel model;
+    std::vector<Diagnostic> diags;
+    assert(model.build(store, ontology(), diags));
+
+    CompiledCircuit circuit;
+    CircuitCompiler compiler;
+    assert(compiler.compile(model, ontology(), circuit, diags));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(44100.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    auto countZeroCrossings = [](const std::vector<float>& buf) -> int
+    {
+        int count = 0;
+        for (std::size_t i = 1; i < buf.size(); ++i)
+            if ((buf[i - 1] >= 0.0f) != (buf[i] >= 0.0f))
+                ++count;
+        return count;
+    };
+
+    // Warm up for note A3 (note 57, 220 Hz) — let envelope reach sustain.
+    std::vector<float> L(512), R(512);
+    engine.noteOn(57, 0.8f);
+    for (int i = 0; i < 60; ++i)
+    {
+        std::fill(L.begin(), L.end(), 0.0f);
+        engine.process(nullptr, L.data(), R.data(), 512);
+    }
+    const int crossingsLow = countZeroCrossings(L);
+
+    engine.noteOff(57);
+    // Brief release.
+    for (int i = 0; i < 20; ++i)
+    {
+        std::fill(L.begin(), L.end(), 0.0f);
+        engine.process(nullptr, L.data(), R.data(), 512);
+    }
+
+    // Warm up for note A4 (note 69, 440 Hz) — one octave up.
+    engine.noteOn(69, 0.8f);
+    for (int i = 0; i < 60; ++i)
+    {
+        std::fill(L.begin(), L.end(), 0.0f);
+        engine.process(nullptr, L.data(), R.data(), 512);
+    }
+    const int crossingsHigh = countZeroCrossings(L);
+
+    std::printf("  clarinet pitch tracking: A3 zero-crossings=%d  A4 zero-crossings=%d\n",
+                crossingsLow, crossingsHigh);
+
+    // A4 is one octave above A3, so should have roughly twice as many
+    // zero crossings. Allow ±40% tolerance for waveform shape.
+    assert(crossingsLow > 0 && "clarinet A3 produced no oscillation");
+    assert(crossingsHigh > 0 && "clarinet A4 produced no oscillation");
+    assert(crossingsHigh > crossingsLow * 12 / 10 &&
+           "clarinet pitch does not rise with note number (pitch tracking broken)");
+}
+
 }  // namespace
 
 int main()
@@ -728,6 +805,7 @@ int main()
     testModulationCompileAndPassesAudio();
     testClarinetCompileAndProducesSound();
     testClarinetUiLoadPathProducesSound();
+    testClarinetPitchTracking();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

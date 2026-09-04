@@ -9,12 +9,12 @@
 namespace valis {
 
 namespace {
-constexpr int kKnobWidth    = 104;
-constexpr int kKnobHeight   = 152;
-constexpr int kNameHeight   = 18;
-constexpr int kValueHeight  = 20;
-constexpr int kTargetHeight = 14;
-constexpr int kSectionHeight = 28;
+constexpr int kKnobWidth      = 104;
+constexpr int kKnobHeight     = 152;
+constexpr int kNameHeight     = 18;
+constexpr int kValueHeight    = 20;
+constexpr int kTargetHeight   = 14;
+constexpr int kSectionSepHeight = 16;  // thin row separator with section name
 }
 
 juce::String ControlsView::Knob::readout() const
@@ -92,8 +92,6 @@ void ControlsView::rebuild()
     lastBindingCount = static_cast<int>(model.params().size());
     lastElementCount = static_cast<int>(model.elements().size());
 
-    std::string currentSection;
-
     for (const auto& binding : model.params())
     {
         const auto* element = model.findElement(binding.targetNode);
@@ -121,16 +119,7 @@ void ControlsView::rebuild()
                            juce::dontSendNotification);
         addAndMakeVisible(*knob.name);
 
-        if (!binding.section.empty() && binding.section != currentSection)
-        {
-            currentSection = binding.section;
-            knob.sectionLabel = std::make_unique<juce::Label>();
-            knob.sectionLabel->setJustificationType(juce::Justification::centredLeft);
-            knob.sectionLabel->setColour(juce::Label::textColourId, juce::Colour(0xff61afef));
-            knob.sectionLabel->setFont(juce::FontOptions(12.0f, juce::Font::bold));
-            knob.sectionLabel->setText(binding.section, juce::dontSendNotification);
-            addAndMakeVisible(*knob.sectionLabel);
-        }
+        knob.sectionName = binding.section;
 
         const auto paramId = "p" + juce::String(binding.slot).paddedLeft('0', 2);
 
@@ -167,7 +156,6 @@ void ControlsView::rebuild()
     }
 
     // Build meters for any Oscilloscope elements in the circuit.
-    bool firstMeter = true;
     for (const auto& elem : model.elements())
     {
         if (elem.type == nullptr || elem.type->implementation != "Oscilloscope")
@@ -194,17 +182,6 @@ void ControlsView::rebuild()
         m.readout->setText("Peak: --   RMS: --   Freq: --", juce::dontSendNotification);
         addAndMakeVisible(*m.readout);
 
-        if (firstMeter)
-        {
-            m.sectionLabel = std::make_unique<juce::Label>();
-            m.sectionLabel->setJustificationType(juce::Justification::centredLeft);
-            m.sectionLabel->setColour(juce::Label::textColourId, juce::Colour(0xff61afef));
-            m.sectionLabel->setFont(juce::FontOptions(12.0f, juce::Font::bold));
-            m.sectionLabel->setText("Monitors", juce::dontSendNotification);
-            addAndMakeVisible(*m.sectionLabel);
-            firstMeter = false;
-        }
-
         meters.push_back(std::move(m));
     }
 
@@ -217,16 +194,24 @@ void ControlsView::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff1e1e22));
 
+    const int w = getWidth();
+
+    for (const auto& sep : sectionSeps)
+    {
+        g.setColour(juce::Colour(0xff3a3f4b));
+        g.fillRect(12, sep.y + kSectionSepHeight / 2, w - 24, 1);
+
+        if (sep.name.isNotEmpty())
+        {
+            g.setColour(juce::Colour(0xff61afef));
+            g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+            g.drawText(sep.name, 16, sep.y, w - 32, kSectionSepHeight,
+                       juce::Justification::centredLeft, true);
+        }
+    }
+
     for (const auto& knob : knobs)
     {
-        if (knob.sectionLabel)
-        {
-            const auto& b = knob.sectionLabel->getBounds();
-            g.setColour(juce::Colour(0xff3a3f4b));
-            g.fillRect(b.getX(), b.getBottom() - 1, b.getWidth(), 1);
-        }
-
-        // Enum knobs use a ComboBox that labels itself; only dials need a readout.
         const juce::Rectangle<int> area = knob.isEnum()
             ? knob.comboBox->getBounds()
             : knob.slider->getBounds();
@@ -249,13 +234,6 @@ void ControlsView::paint(juce::Graphics& g)
 
     for (const auto& m : meters)
     {
-        if (m.sectionLabel)
-        {
-            const auto& b = m.sectionLabel->getBounds();
-            g.setColour(juce::Colour(0xff3a3f4b));
-            g.fillRect(b.getX(), b.getBottom() - 1, b.getWidth(), 1);
-        }
-
         if (m.readout)
         {
             const auto& rb = m.readout->getBounds();
@@ -279,30 +257,43 @@ void ControlsView::resized()
 
     const int perRow = juce::jmax(1, (w - 24) / kKnobWidth);
 
-    // Measure total height needed by simulating the layout pass.
+    // Returns true when a section separator should appear before knob index i
+    // (i.e. it starts a new named section and is the first knob in its row).
+    auto needsSep = [&](int i, int colAtI) -> bool
+    {
+        if (colAtI != 0)
+            return false;
+        const auto& sec = knobs[static_cast<std::size_t>(i)].sectionName;
+        if (sec.isEmpty())
+            return false;
+        if (i == 0)
+            return true;
+        return knobs[static_cast<std::size_t>(i - 1)].sectionName != sec;
+    };
+
+    // --- measure pass ---
     auto measure = [&]() -> int
     {
-        int y        = 0;
-        int colInRow = 0;
-        for (const auto& knob : knobs)
+        int y = 0, col = 0;
+        for (int i = 0; i < static_cast<int>(knobs.size()); ++i)
         {
-            if (knob.sectionLabel)
-            {
-                if (colInRow > 0) { y += kKnobHeight; colInRow = 0; }
-                y += kSectionHeight;
-            }
-            ++colInRow;
-            if (colInRow >= perRow) { y += kKnobHeight; colInRow = 0; }
+            if (needsSep(i, col)) y += kSectionSepHeight;
+            ++col;
+            if (col >= perRow) { y += kKnobHeight; col = 0; }
         }
-        if (colInRow > 0 || (knobs.empty() && meters.empty())) y += kKnobHeight;
-        if (colInRow > 0 && !meters.empty()) { y += kKnobHeight; colInRow = 0; }
-        for (const auto& m : meters)
+        if (col > 0 || (knobs.empty() && meters.empty())) y += kKnobHeight;
+
+        if (!meters.empty())
         {
-            if (m.sectionLabel) y += kSectionHeight;
-            y += Meter::kHeight;
+            if (col > 0) y += kKnobHeight;   // flush last knob row
+            y += kSectionSepHeight;           // "Monitors" separator
+            for (std::size_t i = 0; i < meters.size(); ++i)
+                y += Meter::kHeight;
         }
         return y + 24;
     };
+
+    sectionSeps.clear();
 
     const int needed = measure();
     if (needed != getHeight())
@@ -316,19 +307,20 @@ void ControlsView::resized()
     const int originX = getLocalBounds().reduced(12).getX();
     const int originY = getLocalBounds().reduced(12).getY();
 
-    int curY     = originY;
-    int colInRow = 0;
+    int curY = originY;
+    int col  = 0;
 
-    for (auto& knob : knobs)
+    for (int i = 0; i < static_cast<int>(knobs.size()); ++i)
     {
-        if (knob.sectionLabel)
+        auto& knob = knobs[static_cast<std::size_t>(i)];
+
+        if (needsSep(i, col))
         {
-            if (colInRow > 0) { curY += kKnobHeight; colInRow = 0; }
-            knob.sectionLabel->setBounds(originX, curY, w - 24, kSectionHeight);
-            curY += kSectionHeight;
+            sectionSeps.push_back({ curY, knob.sectionName });
+            curY += kSectionSepHeight;
         }
 
-        const int x = originX + colInRow * kKnobWidth;
+        const int x = originX + col * kKnobWidth;
         juce::Rectangle<int> cell(x, curY, kKnobWidth, kKnobHeight);
 
         knob.name->setBounds(cell.removeFromTop(kNameHeight));
@@ -339,26 +331,26 @@ void ControlsView::resized()
         else
             knob.slider->setBounds(cell.reduced(2, 2));
 
-        ++colInRow;
-        if (colInRow >= perRow) { curY += kKnobHeight; colInRow = 0; }
+        ++col;
+        if (col >= perRow) { curY += kKnobHeight; col = 0; }
     }
+    if (col > 0) curY += kKnobHeight;
 
-    // Flush the last partial knob row before meters.
-    if (colInRow > 0 && !meters.empty())
-        curY += kKnobHeight;
-
-    for (auto& m : meters)
+    if (!meters.empty())
     {
-        if (m.sectionLabel)
+        sectionSeps.push_back({ curY, "Monitors" });
+        curY += kSectionSepHeight;
+
+        for (auto& m : meters)
         {
-            m.sectionLabel->setBounds(originX, curY, w - 24, kSectionHeight);
-            curY += kSectionHeight;
+            m.name->setBounds(originX, curY, w - 24, kNameHeight);
+            curY += kNameHeight;
+            m.readout->setBounds(originX, curY, w - 24, Meter::kHeight - kNameHeight);
+            curY += Meter::kHeight - kNameHeight;
         }
-        m.name->setBounds(originX, curY, w - 24, kNameHeight);
-        curY += kNameHeight;
-        m.readout->setBounds(originX, curY, w - 24, Meter::kHeight - kNameHeight);
-        curY += Meter::kHeight - kNameHeight;
     }
+
+    repaint();
 }
 
 }  // namespace valis

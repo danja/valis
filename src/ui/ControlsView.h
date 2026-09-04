@@ -40,11 +40,8 @@ private:
         std::unique_ptr<juce::Label>    name;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   attachment;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> comboAttachment;
-        juce::String target, unit;
+        juce::String target, unit, sectionName;
         double minimum = 0.0, maximum = 1.0;
-
-        // Non-null when this knob is the first in a new val:section group.
-        std::unique_ptr<juce::Label> sectionLabel;
 
         bool isEnum() const { return comboBox != nullptr; }
 
@@ -52,13 +49,15 @@ private:
         juce::String readout() const;
     };
 
+    /// A horizontal separator drawn between rows at a section boundary.
+    struct SectionSep { int y; juce::String name; };
+
     /// Read-only display for a val:Oscilloscope element's peak/rms/frequency.
     struct Meter
     {
         std::string nodeId;
         std::unique_ptr<juce::Label> name;
         std::unique_ptr<juce::Label> readout;
-        std::unique_ptr<juce::Label> sectionLabel;   ///< non-null on the first meter
 
         static constexpr int kHeight = 72;
     };
@@ -66,6 +65,7 @@ private:
     ValisProcessor& processor;
     std::vector<Knob> knobs;
     std::vector<Meter> meters;
+    std::vector<SectionSep> sectionSeps;
     juce::Label emptyMessage;
     int lastBindingCount = -1;
     int lastElementCount = -1;

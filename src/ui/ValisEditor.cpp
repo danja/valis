@@ -28,13 +28,20 @@ ValisEditor::ValisEditor(ValisProcessor& p)
 
     statusLabel.setFont(juce::FontOptions(13.0f));
     statusLabel.setJustificationType(juce::Justification::centredLeft);
-    revertButton.onClick = [this] { processor.revert(); };
+    revertButton.onClick    = [this] { processor.revert(); };
+    keyboardButton.onClick  = [this]
+    {
+        keyboardVisible = !keyboardVisible;
+        keyboard.setVisible(keyboardVisible);
+        resized();
+    };
 
     addAndMakeVisible(menuBar);
     addAndMakeVisible(tabs);
     addAndMakeVisible(statusLabel);
     addAndMakeVisible(revertButton);
-    addChildComponent(keyboard);  // starts hidden; shown when circuit has MIDI
+    addAndMakeVisible(keyboardButton);
+    addChildComponent(keyboard);  // starts hidden; toggled by the MIDI Kbd button
 
     // Route keyboard clicks to the processor's virtual MIDI queue.
     keyboardState.addListener(this);
@@ -74,6 +81,8 @@ void ValisEditor::resized()
 
     auto bar = bounds.removeFromBottom(28).reduced(8, 4);
     revertButton.setBounds(bar.removeFromRight(64));
+    bar.removeFromRight(6);
+    keyboardButton.setBounds(bar.removeFromRight(72));
     bar.removeFromRight(6);
     statusLabel.setBounds(bar);
 
@@ -195,13 +204,8 @@ void ValisEditor::updateStatusBar()
                 hasInput = true;
         }
 
-        const bool showKeyboard = hasMidi && !hasInput;
-        if (showKeyboard != keyboardVisible)
-        {
-            keyboardVisible = showKeyboard;
-            keyboard.setVisible(keyboardVisible);
-            resized();
-        }
+        keyboardButton.setEnabled(hasMidi && !hasInput);
+        keyboardButton.setButtonText(keyboardVisible ? "MIDI Kbd ON" : "MIDI Kbd");
 
         juce::String msg;
         if (loadedFile != juce::File{})
@@ -222,12 +226,7 @@ void ValisEditor::updateStatusBar()
     }
     else
     {
-        if (keyboardVisible)
-        {
-            keyboardVisible = false;
-            keyboard.setVisible(false);
-            resized();
-        }
+        keyboardButton.setEnabled(false);
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe06c75));
         juce::String text = diags.front().toString();
         if (diags.size() > 1)

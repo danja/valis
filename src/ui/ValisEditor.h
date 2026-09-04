@@ -60,6 +60,7 @@ private:
 
     juce::Label  statusLabel;
     juce::TextButton revertButton{"Revert"};
+    juce::TextButton keyboardButton{"MIDI Kbd"};
 
     GraphView*   graphView = nullptr;
 
