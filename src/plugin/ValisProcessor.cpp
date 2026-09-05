@@ -340,6 +340,10 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
                 }
                 autoSaveTicks = 90;  // ~3 s at 30 Hz — save after brief idle
                 sendChangeMessage();
+                // Notify the VST3 host that non-realtime state has changed so
+                // that Transmission (and similar hosts) can sync the audio
+                // processor instance with the editor instance's new state.
+                updateHostDisplay(ChangeDetails().withLatencyChanged(true));
                 return true;
             }
             out.push_back({error, {}});

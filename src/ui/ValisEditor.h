@@ -42,6 +42,7 @@ private:
 
     using juce::Component::keyPressed;
     bool keyPressed(const juce::KeyPress&, juce::Component*) override;
+    void reloadCircuit();
     void loadCircuit();
     void saveCircuit();
     void parentHierarchyChanged() override;
@@ -59,6 +60,7 @@ private:
     juce::Button* standaloneOptionsButton = nullptr;
 
     juce::Label  statusLabel;
+    juce::TextButton reloadButton{"Reload"};
     juce::TextButton revertButton{"Revert"};
     juce::TextButton keyboardButton{"MIDI Kbd"};
 

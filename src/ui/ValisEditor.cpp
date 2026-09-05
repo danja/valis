@@ -30,6 +30,7 @@ ValisEditor::ValisEditor(ValisProcessor& p)
 
     statusLabel.setFont(juce::FontOptions(13.0f));
     statusLabel.setJustificationType(juce::Justification::centredLeft);
+    reloadButton.onClick    = [this] { reloadCircuit(); };
     revertButton.onClick    = [this] { processor.revert(); };
     keyboardButton.onClick  = [this]
     {
@@ -41,6 +42,7 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     addAndMakeVisible(menuBar);
     addAndMakeVisible(tabs);
     addAndMakeVisible(statusLabel);
+    addAndMakeVisible(reloadButton);
     addAndMakeVisible(revertButton);
     addAndMakeVisible(keyboardButton);
     addChildComponent(keyboard);  // starts hidden; toggled by the MIDI Kbd button
@@ -83,6 +85,8 @@ void ValisEditor::resized()
 
     auto bar = bounds.removeFromBottom(28).reduced(8, 4);
     revertButton.setBounds(bar.removeFromRight(64));
+    bar.removeFromRight(6);
+    reloadButton.setBounds(bar.removeFromRight(64));
     bar.removeFromRight(6);
     keyboardButton.setBounds(bar.removeFromRight(72));
     bar.removeFromRight(6);
@@ -200,6 +204,7 @@ void ValisEditor::updateStatusBar()
                 hasInput = true;
         }
 
+        reloadButton.setEnabled(loadedFile != juce::File{});
         keyboardButton.setEnabled(hasMidi && !hasInput);
         keyboardButton.setButtonText(keyboardVisible ? "MIDI Kbd ON" : "MIDI Kbd");
 
@@ -222,6 +227,7 @@ void ValisEditor::updateStatusBar()
     }
     else
     {
+        reloadButton.setEnabled(loadedFile != juce::File{});
         keyboardButton.setEnabled(false);
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe06c75));
         juce::String text = diags.front().toString();
@@ -261,6 +267,17 @@ bool ValisEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
         return true;
     }
     return false;
+}
+
+void ValisEditor::reloadCircuit()
+{
+    if (loadedFile == juce::File{} || !loadedFile.existsAsFile())
+        return;
+    const auto turtle = loadedFile.loadFileAsString();
+    processor.setTurtle(turtle);
+    loadedFileTurtle = turtle;
+    fileModified     = false;
+    updateStatusBar();
 }
 
 void ValisEditor::loadCircuit()

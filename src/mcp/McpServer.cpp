@@ -306,6 +306,9 @@ const ToolSpec kTools[] = {
 
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, and its latency.",
      R"({"type":"object","properties":{}})"},
+
+    {"load_file", "Load a Turtle circuit from a file path on the server machine.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"absolute path to a .ttl file"}},"required":["path"]})"},
 };
 
 }  // namespace
@@ -382,6 +385,15 @@ juce::var McpServer::callTool(const juce::String& name, const juce::var& argumen
         if (name == "set_param")
             return resultOf(ops.setParam(static_cast<int>(arguments["slot"]),
                                          static_cast<double>(arguments["value"])));
+
+        if (name == "load_file")
+        {
+            const juce::File f(juce::String(string("path")));
+            if (!f.existsAsFile())
+                return textContent("file not found: " + juce::String(string("path")), true);
+            const auto content = f.loadFileAsString();
+            return resultOf(ops.setTurtle(content.toStdString()));
+        }
 
         if (name == "list_element_types")
         {
