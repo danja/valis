@@ -1,3 +1,7 @@
+See console.md
+
+Look and feel : the UI should look like a piece of Cold War era electronic test equipment. Two themes choosable from settings : light & dark.
+
 ## New instruments
 
 * create a synth that makes jawdropping sounds nobody has heard before 
@@ -5,9 +9,6 @@
 * create a synth for realistic flutes - support both orchestral and bamboo with various adjustable parameters
 * create a realistic cello
 * create a vocal enhancer, featuring voice-oriented EQ and compression
-
-
-
 
 ## Recurring - check periodically
 
