@@ -5,6 +5,7 @@
 #include <juce_core/juce_core.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 
 namespace valis {
@@ -102,10 +103,28 @@ std::string formatHttpError(int status, const std::string& body)
                           : ": " + detail;
 
     if (status == 429)
-        out += " - rate limited. Free-tier keys allow very few requests per "
-               "minute, so wait a minute before retrying and avoid rapid "
-               "repeats. If it persists, check usage and limits at "
-               "console.mistral.ai and outages at status.mistral.ai";
+    {
+        // The server's own wording says which budget was exhausted. A token
+        // (TPM) limit can reject a single oversized request outright, so the
+        // "wait it out" advice that fits a request (RPM) limit is actively
+        // wrong there: shrinking the request is what actually helps.
+        std::string lower = detail;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (lower.find("token") != std::string::npos)
+            out += " - rate limited on tokens per minute. The request itself "
+                   "(system prompt plus the loaded circuit) may already be too "
+                   "large for this tier's per-minute token budget, so waiting "
+                   "will not always help - try a shorter prompt, a smaller "
+                   "circuit, or a provider/model with a higher limit under "
+                   "Settings > AI Provider.";
+        else
+            out += " - rate limited. Free-tier keys allow very few requests "
+                   "per minute, so wait a minute before retrying and avoid "
+                   "rapid repeats.";
+        out += " Check the provider's own usage dashboard for its current "
+               "limits and any outage status.";
+    }
     else if (status == 401 || status == 403)
         out += " - check the API key under Settings";
     else if (status >= 500)
