@@ -129,6 +129,17 @@ ValisProcessor::ValisProcessor()
     opts.folderName      = "Valis";
     appProperties.setStorageParameters(opts);
 
+    // Restore the console's AI settings. The key never touches DAW state, so a
+    // saved project cannot leak it; the environment wins over nothing stored.
+    if (auto* settings = appProperties.getUserSettings())
+    {
+        aiEndpoint = settings->getValue("aiEndpoint", aiEndpoint);
+        aiModel    = settings->getValue("aiModel", aiModel);
+        aiApiKey   = settings->getValue("aiApiKey", aiApiKey);
+    }
+    if (aiApiKey.isEmpty())
+        aiApiKey = juce::SystemStats::getEnvironmentVariable("VALIS_MISTRAL_API_KEY", {});
+
     // Try to restore the last session; fall back to the bundled example.
     bool restored = false;
     if (auto* settings = appProperties.getUserSettings())
@@ -368,6 +379,39 @@ void ValisProcessor::revert()
     }
     if (good.isNotEmpty())
         setTurtle(good);
+}
+
+void ValisProcessor::setAiEndpoint(const juce::String& endpoint)
+{
+    aiEndpoint = endpoint.trim();
+    if (aiEndpoint.isEmpty())
+        aiEndpoint = "https://api.mistral.ai/v1/chat/completions";
+    saveAiSettings();
+}
+
+void ValisProcessor::setAiModel(const juce::String& name)
+{
+    aiModel = name.trim();
+    if (aiModel.isEmpty())
+        aiModel = "mistral-small-latest";
+    saveAiSettings();
+}
+
+void ValisProcessor::setAiApiKey(const juce::String& key)
+{
+    aiApiKey = key.trim();
+    saveAiSettings();
+}
+
+void ValisProcessor::saveAiSettings()
+{
+    if (auto* settings = appProperties.getUserSettings())
+    {
+        settings->setValue("aiEndpoint", aiEndpoint);
+        settings->setValue("aiModel", aiModel);
+        settings->setValue("aiApiKey", aiApiKey);
+        settings->saveIfNeeded();
+    }
 }
 
 std::vector<Diagnostic> ValisProcessor::lastDiagnostics() const

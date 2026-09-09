@@ -16,6 +16,7 @@ can read, edit and hand to a language model.
 
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
 - [Element reference](elements.md) : every class the ontology declares
+- [Console](console.md) : the REPL tab and the AI circuit designer
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
 - [Building](building.md) : prerequisites and the build
 - [Guide for agents](guide-for-agents.md) : how to build instruments and processors via MCP

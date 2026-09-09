@@ -7,6 +7,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
+#include <functional>
+
 namespace valis {
 
 class ValisProcessor;
@@ -38,6 +40,9 @@ private:
         settingsMcpToggle = 100,
         settingsAudioMidi,
         settingsAutolayout,
+        settingsAiKey,
+        settingsAiModel,
+        settingsAiEndpoint,
     };
 
     using juce::Component::keyPressed;
@@ -45,6 +50,8 @@ private:
     void reloadCircuit();
     void loadCircuit();
     void saveCircuit();
+    void promptForAiSetting(const juce::String& title, const juce::String& current,
+                            std::function<void(const juce::String&)> apply);
     void parentHierarchyChanged() override;
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void updateStatusBar();

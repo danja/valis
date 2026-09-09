@@ -11,7 +11,8 @@ set(VALIS_TESTS
   dsp/ElementRegistryTest.cpp
   dsp/ElementBehaviourTest.cpp
   engine/ValisEngineTest.cpp
-  ops/OpDispatcherTest.cpp)
+  ops/OpDispatcherTest.cpp
+  console/ConsoleTest.cpp)
 
 # The tokeniser lives in the plugin's UI layer, so its test needs the GUI
 # module. It constructs no Component and opens no window, so it still runs
@@ -31,3 +32,12 @@ foreach(_src ${VALIS_TESTS})
   target_include_directories(${_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   add_test(NAME ${_name} COMMAND ${_name})
 endforeach()
+
+# The Mistral client lives in the plugin's AI layer and uses juce_core JSON and
+# ChildProcess. It makes no network calls here: the transport is stubbed.
+add_executable(ai_MistralClientTest ai/MistralClientTest.cpp
+                                    ${CMAKE_SOURCE_DIR}/src/ai/MistralClient.cpp)
+target_link_libraries(ai_MistralClientTest PRIVATE valis_core juce::juce_core)
+target_include_directories(ai_MistralClientTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(ai_MistralClientTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+add_test(NAME ai_MistralClientTest COMMAND ai_MistralClientTest)

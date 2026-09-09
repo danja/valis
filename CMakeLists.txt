@@ -43,7 +43,8 @@ add_library(valis_core STATIC
   src/dsp/elements/Dynamics.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
-  src/ops/OpDispatcher.cpp)
+  src/ops/OpDispatcher.cpp
+  src/console/Console.cpp)
 
 target_include_directories(valis_core
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -116,7 +117,9 @@ if(VALIS_BUILD_PLUGIN)
 
   target_sources(valis_plugin PRIVATE
     src/plugin/ValisProcessor.cpp
+    src/ai/MistralClient.cpp
     src/ui/ValisEditor.cpp
+    src/ui/ConsoleView.cpp
     src/ui/TurtleCodeTokeniser.cpp
     src/ui/TurtleView.cpp
     src/ui/ControlsView.cpp

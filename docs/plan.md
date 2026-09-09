@@ -327,6 +327,12 @@ One bug this found: `set_param` then `get_param` disagreed, because `listParams`
 
 `docs/manual/elements.md` is **generated from the ontology** by `valis-render --elements`, via `scripts/generate-docs.sh`. That is the direct fix for the drift found in the reference project, where a hand-maintained vocabulary file listed implementation paths that no longer existed.
 
+### M12 - Console tab with AI mode *(complete)*
+
+Specified in `docs/console.md`: a fourth tab holding a terminal attached to a REPL. Local commands (`stats`, `turtle`, `types`, `params`, `get`/`set`, `validate`) are thin adapters over `OpDispatcher`, like the MCP tools. `ai <prompt>` sends the prompt with a system prompt to a chat-completions endpoint (Mistral by default, any OpenAI-compatible URL by configuration) and prints the reply inline. Only fenced Turtle blocks count as circuits; each is validated on arrival and installed only via `apply`, which revalidates. The system prompt's element catalogue is generated from `listElementTypes`, so it cannot drift from the compiler.
+
+*Done:* `ConsoleSession` lives in `valis_core` with no UI dependency; the HTTP round-trip (`src/ai/MistralClient.cpp`) runs on a worker thread as one `curl` child process per request, so HTTPS works with no new link dependency and the audio thread is never involved. At most one request is in flight. Endpoint, model and key persist in `ApplicationProperties` (never in DAW state); the key also honours `VALIS_MISTRAL_API_KEY`. Two new test binaries (`console_ConsoleTest`, `ai_MistralClientTest`) pass alongside the existing nine; all plugin formats build.
+
 ---
 
 ## Critical files

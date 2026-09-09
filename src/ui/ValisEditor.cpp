@@ -3,6 +3,7 @@
 #include "ui/ValisEditor.h"
 
 #include "plugin/ValisProcessor.h"
+#include "ui/ConsoleView.h"
 #include "ui/ControlsView.h"
 #include "ui/GraphView.h"
 #include "ui/TurtleView.h"
@@ -27,6 +28,8 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     tabs.addTab("Circuit", bg, graphPort, true);
 
     tabs.addTab("Code", bg, new TurtleView(p), true);
+
+    tabs.addTab("Console", bg, new ConsoleView(p), true);
 
     statusLabel.setFont(juce::FontOptions(13.0f));
     statusLabel.setJustificationType(juce::Justification::centredLeft);
@@ -124,6 +127,11 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
         menu.addSeparator();
         menu.addItem(settingsAutolayout, "Autolayout Graph");
 
+        menu.addSeparator();
+        menu.addItem(settingsAiKey, "Set Mistral API Key...");
+        menu.addItem(settingsAiModel, "Set AI Model...");
+        menu.addItem(settingsAiEndpoint, "Set AI Endpoint...");
+
         if (standaloneOptionsButton != nullptr)
         {
             menu.addSeparator();
@@ -148,6 +156,18 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
        #endif
         case settingsAutolayout:
             if (graphView != nullptr) graphView->autolayout();
+            break;
+        case settingsAiKey:
+            promptForAiSetting("Mistral API Key", processor.getAiApiKey(),
+                               [this](const juce::String& v) { processor.setAiApiKey(v); });
+            break;
+        case settingsAiModel:
+            promptForAiSetting("AI Model", processor.getAiModel(),
+                               [this](const juce::String& v) { processor.setAiModel(v); });
+            break;
+        case settingsAiEndpoint:
+            promptForAiSetting("AI Endpoint", processor.getAiEndpoint(),
+                               [this](const juce::String& v) { processor.setAiEndpoint(v); });
             break;
         case settingsAudioMidi:
             if (auto* holder = juce::StandalonePluginHolder::getInstance())
@@ -278,6 +298,23 @@ void ValisEditor::reloadCircuit()
     loadedFileTurtle = turtle;
     fileModified     = false;
     updateStatusBar();
+}
+
+void ValisEditor::promptForAiSetting(const juce::String& title, const juce::String& current,
+                                     std::function<void(const juce::String&)> apply)
+{
+    auto* window = new juce::AlertWindow(title, "Stored locally, never saved into a DAW project.",
+                                         juce::MessageBoxIconType::NoIcon);
+    window->addTextEditor("value", current);
+    window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    juce::Component::SafePointer<ValisEditor> safe(this);
+    window->enterModalState(true, juce::ModalCallbackFunction::create([safe, apply, window](int result)
+    {
+        if (result != 0 && safe != nullptr)
+            apply(window->getTextEditorContents("value"));
+    }), true);
 }
 
 void ValisEditor::loadCircuit()

@@ -127,6 +127,17 @@ public:
     /// server all go through here.
     OpDispatcher ops();
 
+    /// Console AI settings. Kept in the local ApplicationProperties rather than
+    /// in DAW state, so the API key never leaks into a saved project. The key
+    /// also honours the VALIS_MISTRAL_API_KEY environment variable when no
+    /// stored key exists.
+    juce::String getAiEndpoint() const { return aiEndpoint; }
+    juce::String getAiModel() const { return aiModel; }
+    juce::String getAiApiKey() const { return aiApiKey; }
+    void setAiEndpoint(const juce::String& endpoint);
+    void setAiModel(const juce::String& model);
+    void setAiApiKey(const juce::String& key);
+
    #if VALIS_WITH_MCP
     McpServer& mcp() { return *mcpServer; }
 
@@ -194,6 +205,11 @@ private:
     juce::String turtleSource;
     juce::String lastGoodTurtle;
 
+    // Console AI settings. Message thread only; persisted to ApplicationProperties.
+    juce::String aiEndpoint = "https://api.mistral.ai/v1/chat/completions";
+    juce::String aiModel = "mistral-small-latest";
+    juce::String aiApiKey;
+    void saveAiSettings();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisProcessor)
 };
 

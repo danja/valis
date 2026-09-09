@@ -1,5 +1,3 @@
-See console.md
-
 Look and feel : the UI should look like a piece of Cold War era electronic test equipment. Two themes choosable from settings : light & dark.
 
 ## New instruments
