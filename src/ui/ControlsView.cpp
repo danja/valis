@@ -2,6 +2,8 @@
 
 #include "ui/ControlsView.h"
 
+#include "ui/ScopeBox.h"
+#include "ui/SpectrumBox.h"
 #include "plugin/ValisProcessor.h"
 #include "valis/Ontology.h"
 #include "valis/Vocabulary.h"
@@ -58,7 +60,7 @@ ControlsView::ControlsView(ValisProcessor& p) : processor(p)
     addAndMakeVisible(emptyMessage);
 
     rebuild();
-    startTimerHz(2);
+    startTimerHz(30);
 }
 
 void ControlsView::applyTheme()
@@ -82,44 +84,43 @@ void ControlsView::changeListenerCallback(juce::ChangeBroadcaster*)
 
 void ControlsView::timerCallback()
 {
-    // Cheap poll: the panel only has to change when the circuit does.
+    // Cheap poll: the panel only has to change when the circuit does. Identity
+    // is the ordered element and binding lists, not just their sizes, so a new
+    // circuit with the same shape still rebuilds the boxes.
     const auto& model = processor.circuit();
-    const auto bindCount = static_cast<int>(model.params().size());
-    const auto elemCount = static_cast<int>(model.elements().size());
-    if (bindCount != lastBindingCount || elemCount != lastElementCount)
+    std::vector<std::string> elementIds, paramKeys;
+    for (const auto& elem : model.elements())
+        elementIds.push_back(elem.id);
+    for (const auto& binding : model.params())
+        paramKeys.push_back(binding.targetNode + "." + binding.propertySymbol +
+                            "#" + std::to_string(binding.slot));
+    if (elementIds != lastElementIds || paramKeys != lastParamKeys)
         rebuild();
 
-    // Refresh meter readouts from the engine's control store.
-    for (auto& m : meters)
-    {
-        const auto peak = processor.getControlOutput(m.nodeId, "peak");
-        const auto rms  = processor.getControlOutput(m.nodeId, "rms");
-        const auto freq = processor.getControlOutput(m.nodeId, "frequency");
-
-        const auto fmt = [](std::optional<float> v, const char* unit, int decimals)
-        {
-            return v ? juce::String(*v, decimals) + unit : juce::String("--");
-        };
-
-        m.readout->setText("Peak: " + fmt(peak, "", 3) +
-                           "   RMS: " + fmt(rms, "", 3) +
-                           "   Freq: " + fmt(freq, " Hz", 0),
-                           juce::dontSendNotification);
-    }
+    for (auto& scope : scopes)
+        scope->refresh();
+    for (auto& spectrum : spectrums)
+        spectrum->refresh();
 }
 
 void ControlsView::rebuild()
 {
     applyTheme();
     knobs.clear();
-    meters.clear();
+    scopes.clear();
+    spectrums.clear();
 
     const auto& model = processor.circuit();
-    lastBindingCount = static_cast<int>(model.params().size());
-    lastElementCount = static_cast<int>(model.elements().size());
+    lastElementIds.clear();
+    lastParamKeys.clear();
+    for (const auto& elem : model.elements())
+        lastElementIds.push_back(elem.id);
 
     for (const auto& binding : model.params())
     {
+        lastParamKeys.push_back(binding.targetNode + "." + binding.propertySymbol +
+                                "#" + std::to_string(binding.slot));
+
         const auto* element = model.findElement(binding.targetNode);
         if (element == nullptr || element->type == nullptr)
             continue;
@@ -178,37 +179,37 @@ void ControlsView::rebuild()
         knobs.push_back(std::move(knob));
     }
 
-    // Build meters for any Oscilloscope elements in the circuit.
+    // Graphic boxes for monitor elements: an oscilloscope per Oscilloscope
+    // node, a spectrum analyzer per FreqAnalyzer node. Each takes the
+    // footprint of two knobs.
+    static_assert(ScopeBox::kWidth == SpectrumBox::kWidth, "monitor boxes share a column");
+    static_assert(ScopeBox::kHeight == SpectrumBox::kHeight, "monitor boxes share a row height");
     for (const auto& elem : model.elements())
     {
-        if (elem.type == nullptr || elem.type->implementation != "Oscilloscope")
+        if (elem.type == nullptr)
             continue;
-
-        Meter m;
-        m.nodeId = elem.id;
 
         const juce::String label = elem.label.empty()
             ? juce::String(vocab::shortName(elem.id))
             : juce::String(elem.label);
 
-        m.name = std::make_unique<juce::Label>();
-        m.name->setJustificationType(juce::Justification::centred);
-        m.name->setColour(juce::Label::textColourId, juce::Colour(theme.labelText));
-        m.name->setFont(juce::FontOptions(13.0f, juce::Font::bold));
-        m.name->setText(label, juce::dontSendNotification);
-        addAndMakeVisible(*m.name);
-
-        m.readout = std::make_unique<juce::Label>();
-        m.readout->setJustificationType(juce::Justification::centred);
-        m.readout->setColour(juce::Label::textColourId, juce::Colour(theme.meterText));
-        m.readout->setFont(juce::FontOptions(12.0f));
-        m.readout->setText("Peak: --   RMS: --   Freq: --", juce::dontSendNotification);
-        addAndMakeVisible(*m.readout);
-
-        meters.push_back(std::move(m));
+        if (elem.type->implementation == "Oscilloscope")
+        {
+            auto box = std::make_unique<ScopeBox>(processor, elem.id, label);
+            box->setTheme(theme);
+            addAndMakeVisible(*box);
+            scopes.push_back(std::move(box));
+        }
+        else if (elem.type->implementation == "FreqAnalyzer")
+        {
+            auto box = std::make_unique<SpectrumBox>(processor, elem.id, label);
+            box->setTheme(theme);
+            addAndMakeVisible(*box);
+            spectrums.push_back(std::move(box));
+        }
     }
 
-    emptyMessage.setVisible(knobs.empty() && meters.empty());
+    emptyMessage.setVisible(knobs.empty() && scopes.empty() && spectrums.empty());
     resized();
     repaint();
 }
@@ -315,22 +316,6 @@ void ControlsView::paint(juce::Graphics& g)
                    area.getX(), area.getBottom(), area.getWidth(), kTargetHeight,
                    juce::Justification::centred, true);
     }
-
-    // Meters sit behind dark glass.
-    for (const auto& m : meters)
-    {
-        if (m.readout)
-        {
-            const auto glass = m.readout->getBounds().toFloat().reduced(2.0f);
-            g.setColour(juce::Colour(theme.meterBg));
-            g.fillRoundedRectangle(glass, 4.0f);
-            g.setColour(edgeDark);
-            g.drawRoundedRectangle(glass, 4.0f, 1.0f);
-            g.setColour(edgeLight.withAlpha(0.3f));
-            g.drawLine(glass.getX() + 6.0f, glass.getY() + 1.5f,
-                       glass.getRight() - 6.0f, glass.getY() + 1.5f, 1.0f);
-        }
-    }
 }
 
 void ControlsView::parentSizeChanged()
@@ -422,24 +407,36 @@ void ControlsView::resized()
         }
 
         // Flush the last partial row, or reserve space for the empty message.
-        if (col > 0 || (groups.empty() && meters.empty()))
+        if (col > 0 || (groups.empty() && scopes.empty() && spectrums.empty()))
             curY += kRowHeight;
 
-        if (!meters.empty())
+        // Monitor boxes flow left to right, each two knob cells wide.
+        const int boxCount = static_cast<int>(scopes.size() + spectrums.size());
+        if (boxCount > 0)
         {
             if (apply)
                 sectionHeaders.push_back({ kMargin, curY, w - 2 * kMargin, "Monitors" });
             curY += kSectionLabelHeight;
-            for (auto& m : meters)
+
+            const int boxCols = juce::jmax(1, (w - 2 * kMargin) / ScopeBox::kWidth);
+            int boxCol = 0;
+            const auto place = [&](juce::Component& box)
             {
                 if (apply)
+                    box.setBounds(kMargin + boxCol * ScopeBox::kWidth, curY,
+                                  ScopeBox::kWidth, ScopeBox::kHeight);
+                if (++boxCol >= boxCols)
                 {
-                    m.name->setBounds(kMargin, curY, w - 2 * kMargin, kNameHeight);
-                    m.readout->setBounds(kMargin, curY + kNameHeight,
-                                         w - 2 * kMargin, Meter::kHeight - kNameHeight);
+                    curY += ScopeBox::kHeight;
+                    boxCol = 0;
                 }
-                curY += Meter::kHeight;
-            }
+            };
+            for (auto& scope : scopes)
+                place(*scope);
+            for (auto& spectrum : spectrums)
+                place(*spectrum);
+            if (boxCol > 0)
+                curY += ScopeBox::kHeight;
         }
 
         return curY + kMargin;

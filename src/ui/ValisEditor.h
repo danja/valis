@@ -52,6 +52,7 @@ private:
     void reloadCircuit();
     void loadCircuit();
     void saveCircuit();
+    juce::File circuitDialogStart(bool forSave) const;
     void promptForAiSetting(const juce::String& title, const juce::String& current,
                              std::function<void(const juce::String&)> apply,
                              const juce::String& message = "Stored locally, never saved into a DAW project.");

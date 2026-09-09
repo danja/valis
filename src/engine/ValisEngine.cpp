@@ -111,6 +111,26 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
     graph->controlIn.assign(maxControlIn, 0.0f);
     graph->controlOut.assign(maxControlOut, 0.0f);
 
+    // Waveform taps observe the audio output of monitor elements. Everything
+    // is allocated here so process() only performs a bounded copy.
+    graph->nodeTap.assign(circuit.nodes.size(), -1);
+    for (std::size_t i = 0; i < circuit.nodes.size(); ++i)
+    {
+        const auto& node = circuit.nodes[i];
+        const bool isTap = node.implementation == "Oscilloscope"
+            || node.implementation == "FreqAnalyzer";
+        if (! isTap || node.audioOutBuffers.empty())
+            continue;
+
+        auto tap = std::make_unique<Graph::Tap>();
+        tap->nodeId      = node.id;
+        tap->nodeIndex   = static_cast<int>(i);
+        tap->bufferIndex = node.audioOutBuffers[0];
+        tap->ring.assign(kTapRingSize, 0.0f);
+        graph->nodeTap[i] = static_cast<int>(graph->taps.size());
+        graph->taps.push_back(std::move(tap));
+    }
+
     reportedLatency.store(latency, std::memory_order_relaxed);
 
     Graph* installed = graph.release();
@@ -242,6 +262,43 @@ std::optional<float> ValisEngine::getControlOutput(const std::string& nodeId,
         break;
     }
     return std::nullopt;
+}
+
+std::vector<std::string> ValisEngine::tapNodes() const
+{
+    const auto* graph = active.load(std::memory_order_acquire);
+    if (graph == nullptr)
+        return {};
+
+    std::vector<std::string> ids;
+    for (const auto& tap : graph->taps)
+        ids.push_back(tap->nodeId);
+    return ids;
+}
+
+int ValisEngine::readTap(const std::string& nodeId, float* dest, int maxSamples) const
+{
+    if (dest == nullptr || maxSamples <= 0)
+        return 0;
+
+    const auto* graph = active.load(std::memory_order_acquire);
+    if (graph == nullptr)
+        return 0;
+
+    for (const auto& tap : graph->taps)
+    {
+        if (tap->nodeId != nodeId)
+            continue;
+
+        const auto written = tap->written.load(std::memory_order_relaxed);
+        const auto cap = static_cast<std::uint64_t>(kTapRingSize);
+        const auto count = std::min({static_cast<std::uint64_t>(maxSamples), written, cap});
+        const auto start = written - count;
+        for (std::uint64_t k = 0; k < count; ++k)
+            dest[k] = tap->ring[(start + k) % cap];
+        return static_cast<int>(count);
+    }
+    return 0;
 }
 
 void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
@@ -406,6 +463,25 @@ void ValisEngine::processSlice(Graph& graph,
         args.numControlOut = static_cast<int>(node.controlOutSlots.size());
 
         graph.elements[i]->process(args);
+
+        // Waveform tap: bounded copy of this slice into the tap's ring. No
+        // allocation, no lock; the message thread reads `written` to find it.
+        if (i < graph.nodeTap.size())
+        {
+            const int tapIndex = graph.nodeTap[i];
+            if (tapIndex >= 0
+                && static_cast<std::size_t>(tapIndex) < graph.taps.size())
+            {
+                auto& tap = *graph.taps[static_cast<std::size_t>(tapIndex)];
+                const float* from = graph.buffer(tap.bufferIndex);
+                const auto at = tap.written.load(std::memory_order_relaxed);
+                const auto cap = static_cast<std::uint64_t>(kTapRingSize);
+                for (int s = 0; s < numSamples; ++s)
+                    tap.ring[(at + static_cast<std::uint64_t>(s)) % cap] = from[s];
+                tap.written.store(at + static_cast<std::uint64_t>(numSamples),
+                                  std::memory_order_relaxed);
+            }
+        }
 
         // Publish this node's control outputs for downstream arcs.
         for (std::size_t c = 0; c < node.controlOutSlots.size(); ++c)

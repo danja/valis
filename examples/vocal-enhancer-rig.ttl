@@ -1,0 +1,80 @@
+# examples/vocal-enhancer-rig.ttl
+#
+# Test rig for the vocal enhancer device under test (examples/vocal-enhancer.ttl).
+# A signal generator feeds the DUT chain through an input oscilloscope, and an
+# output oscilloscope watches the result before the audio output:
+#
+#   gen -> scopeIn -> vcf -> tanh -> comp -> scopeOut -> spectrum -> out
+#
+# Both scopes pass audio through untouched; their peak, RMS and frequency
+# control outputs drive the meters in the Controls view, so the input and
+# output levels can be compared while the circuit runs. The spectrum analyzer
+# likewise passes audio through and draws the output spectrum. Render offline with:
+#   valis_render examples/vocal-enhancer-rig.ttl -o /tmp/rig.wav
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:vocal-enhancer-rig#> .
+
+:rig a val:Circuit ;
+    rdfs:label "Vocal Enhancer Rig" ;
+    rdfs:comment "Test rig: signal generator, vocal enhancer DUT, input and output oscilloscopes, spectrum analyzer." ;
+    val:element :gen , :scopeIn , :vcf , :tanh , :comp , :scopeOut , :spectrum , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 .
+
+# Test source. Shape 0 sine, 1 square, 2 saw, 3 triangle, 4 white noise, 5 impulse.
+:gen a val:SignalGenerator ;
+    rdfs:label "Test Source" ;
+    val:frequency 440.0 ;
+    val:amplitude 0.5 ;
+    val:shape 0 .
+
+:scopeIn a val:Oscilloscope ;
+    rdfs:label "Input Scope" .
+
+# Device under test: the vocal enhancer chain from examples/vocal-enhancer.ttl.
+:vcf a val:Ladder ; val:cutoff 2000.0 ; val:resonance 0.5 .
+:tanh a val:Tanh ; val:gain 3.0 .
+:comp a val:Compressor ; val:threshold -20.0 ; val:ratio 3.0 .
+
+:scopeOut a val:Oscilloscope ;
+    rdfs:label "Output Scope" .
+
+:spectrum a val:FreqAnalyzer ;
+    rdfs:label "Output Spectrum" .
+
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :gen ; val:port "out" ] ;
+                val:to   [ val:node :scopeIn ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :scopeIn ; val:port "out" ] ;
+                val:to   [ val:node :vcf ; val:port "in" ] .
+:a3 a val:Arc ; val:from [ val:node :vcf ; val:port "out" ] ;
+                val:to   [ val:node :tanh ; val:port "in" ] .
+:a4 a val:Arc ; val:from [ val:node :tanh ; val:port "out" ] ;
+                val:to   [ val:node :comp ; val:port "in" ] .
+:a5 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+                val:to   [ val:node :scopeOut ; val:port "in" ] .
+:a6 a val:Arc ; val:from [ val:node :scopeOut ; val:port "out" ] ;
+                val:to   [ val:node :spectrum ; val:port "in" ] .
+:a7 a val:Arc ; val:from [ val:node :spectrum ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :gen ; val:property val:frequency ;
+    lv2:name "Test Freq" ; lv2:symbol "testfreq" ; units:unit units:hz .
+:p1 a val:Param ; val:slot 1 ; val:target :gen ; val:property val:amplitude ;
+    lv2:name "Test Level" ; lv2:symbol "testlevel" .
+:p2 a val:Param ; val:slot 2 ; val:target :gen ; val:property val:shape ;
+    lv2:name "Test Shape" ; lv2:symbol "testshape" .
+:p3 a val:Param ; val:slot 3 ; val:target :vcf ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+:p4 a val:Param ; val:slot 4 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+:p5 a val:Param ; val:slot 5 ; val:target :tanh ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" .
+:p6 a val:Param ; val:slot 6 ; val:target :comp ; val:property val:threshold ;
+    lv2:name "Threshold" ; lv2:symbol "threshold" ; units:unit units:dB .
+:p7 a val:Param ; val:slot 7 ; val:target :comp ; val:property val:ratio ;
+    lv2:name "Ratio" ; lv2:symbol "ratio" .

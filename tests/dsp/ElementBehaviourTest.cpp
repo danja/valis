@@ -1070,6 +1070,28 @@ void testSignalGeneratorProducesWaves()
     assert(ElementTestFixture::measurePeak(sine) <= 0.51f);
 }
 
+void testSignalGeneratorImpulseTrainIsBlockIndependent()
+{
+    ElementTestFixture gen("SignalGenerator");
+    const std::vector<float> silence(1024, 0.0f);
+
+    gen.set("shape", 5.0f);
+    gen.set("frequency", 440.0f);
+    gen.set("amplitude", 0.5f);
+    const auto out = gen.run(silence);
+
+    // One impulse per period: 440 Hz at 48 kHz over 1024 samples fires 10
+    // times. The count must not depend on block alignment, so every nonzero
+    // sample carries the full amplitude and everything else is silent.
+    int impulses = 0;
+    for (float s : out)
+    {
+        if (s > 0.25f) { ++impulses; assert(std::abs(s - 0.5f) < 1e-6f); }
+        else           { assert(std::abs(s) < 1e-6f); }
+    }
+    assert(impulses == 10);
+}
+
 void testOscilloscopeMeasuresPeakAndRms()
 {
     ElementTestFixture scope("Oscilloscope");
@@ -1131,6 +1153,7 @@ int main()
     testPanPositionsSignal();
     testChokeMutesGateOnTrigger();
     testSignalGeneratorProducesWaves();
+    testSignalGeneratorImpulseTrainIsBlockIndependent();
     testOscilloscopeMeasuresPeakAndRms();
     testFreqAnalyzerSplitsBands();
 

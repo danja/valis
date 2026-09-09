@@ -1,0 +1,35 @@
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:circuit#> .
+
+:main a val:Circuit ;
+    val:element :in , :vcf , :tanh , :comp , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 .
+
+:in a val:Input .
+:vcf a val:Ladder ; val:cutoff 2000.0 ; val:resonance 0.5 .
+:tanh a val:Tanh ; val:gain 3.0 .
+:comp a val:Compressor ; val:threshold -20.0 ; val:ratio 3.0 .
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :tanh ; val:port "in" ] .
+:a3 a val:Arc ; val:from [ val:node :tanh ; val:port "out" ] ;
+    val:to   [ val:node :comp ; val:port "in" ] .
+:a4 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :vcf ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
+:p1 a val:Param ; val:slot 1 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" .
+:p2 a val:Param ; val:slot 2 ; val:target :tanh ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" .
+:p3 a val:Param ; val:slot 3 ; val:target :comp ; val:property val:threshold ;
+    lv2:name "Threshold" ; lv2:symbol "threshold" ; units:unit units:dB .
+:p4 a val:Param ; val:slot 4 ; val:target :comp ; val:property val:ratio ;
+    lv2:name "Ratio" ; lv2:symbol "ratio" .

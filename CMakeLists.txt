@@ -125,6 +125,8 @@ if(VALIS_BUILD_PLUGIN)
     src/ui/TurtleCodeTokeniser.cpp
     src/ui/TurtleView.cpp
     src/ui/ControlsView.cpp
+    src/ui/ScopeBox.cpp
+    src/ui/SpectrumBox.cpp
     src/ui/GraphView.cpp)
 
   target_include_directories(valis_plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

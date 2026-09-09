@@ -373,7 +373,7 @@ void ValisEditor::promptForAiSetting(const juce::String& title, const juce::Stri
 void ValisEditor::loadCircuit()
 {
     fileChooser = std::make_unique<juce::FileChooser>("Load Circuit",
-                                                      juce::File{}, "*.ttl");
+                                                      circuitDialogStart(false), "*.ttl");
     fileChooser->launchAsync(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [this](const juce::FileChooser& chooser)
@@ -386,6 +386,7 @@ void ValisEditor::loadCircuit()
                 loadedFile       = f;
                 loadedFileTurtle = turtle;
                 fileModified     = false;
+                processor.setLastCircuitDir(f.getParentDirectory().getFullPathName());
             }
         });
 }
@@ -393,7 +394,7 @@ void ValisEditor::loadCircuit()
 void ValisEditor::saveCircuit()
 {
     fileChooser = std::make_unique<juce::FileChooser>("Save Circuit",
-                                                      juce::File{}, "*.ttl");
+                                                      circuitDialogStart(true), "*.ttl");
     fileChooser->launchAsync(
         juce::FileBrowserComponent::saveMode |
         juce::FileBrowserComponent::canSelectFiles |
@@ -408,9 +409,23 @@ void ValisEditor::saveCircuit()
                 loadedFile       = f;
                 loadedFileTurtle = turtle;
                 fileModified     = false;
+                processor.setLastCircuitDir(f.getParentDirectory().getFullPathName());
                 updateStatusBar();
             }
         });
+}
+
+juce::File ValisEditor::circuitDialogStart(bool forSave) const
+{
+    // Prefer the active file so Save suggests its name in its own folder.
+    if (loadedFile != juce::File{})
+        return forSave ? loadedFile : loadedFile.getParentDirectory();
+
+    const juce::File remembered(processor.getLastCircuitDir());
+    if (remembered != juce::File{} && remembered.isDirectory())
+        return remembered;
+
+    return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
 }
 
 }  // namespace valis

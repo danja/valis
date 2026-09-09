@@ -364,7 +364,7 @@ public:
                     s = static_cast<float>(seed) * (2.0f / 4294967296.0f) - 1.0f;
                     break;
                 }
-                case 5: s = (i == 0 && phase < inc) ? 1.0f : 0.0f; break;  // Impulse
+                case 5: s = (phase < inc) ? 1.0f : 0.0f; break;  // Impulse train at frequency
                 default: s = std::sin(6.283185307179586 * phase); break;
             }
             out[i] = s * amp;

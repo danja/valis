@@ -5,7 +5,6 @@
 * create a synth for realistic flutes - support both orchestral and bamboo with various adjustable parameters
 * create a realistic cello
 * make clarinet.ttl more realistic
-* create a vocal enhancer, featuring harmonic enhancement, simple voice-oriented EQ, compression
 
 ## Recurring - check periodically
 

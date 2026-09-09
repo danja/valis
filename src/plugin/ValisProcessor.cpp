@@ -138,6 +138,7 @@ ValisProcessor::ValisProcessor()
         aiModel    = settings->getValue("aiModel", aiModel);
         aiApiKey   = settings->getValue("aiApiKey", aiApiKey);
         uiTheme    = settings->getValue("uiTheme", uiTheme);
+        lastCircuitDir = settings->getValue("lastCircuitDir", lastCircuitDir);
     }
     if (aiApiKey.isEmpty())
         aiApiKey = juce::SystemStats::getEnvironmentVariable("VALIS_MISTRAL_API_KEY", {});
@@ -413,6 +414,12 @@ void ValisProcessor::setUiTheme(const juce::String& name)
     sendChangeMessage();
 }
 
+void ValisProcessor::setLastCircuitDir(const juce::String& dir)
+{
+    lastCircuitDir = dir;
+    saveAiSettings();
+}
+
 void ValisProcessor::saveAiSettings()
 {
     if (auto* settings = appProperties.getUserSettings())
@@ -421,6 +428,7 @@ void ValisProcessor::saveAiSettings()
         settings->setValue("aiModel", aiModel);
         settings->setValue("aiApiKey", aiApiKey);
         settings->setValue("uiTheme", uiTheme);
+        settings->setValue("lastCircuitDir", lastCircuitDir);
         settings->saveIfNeeded();
     }
 }

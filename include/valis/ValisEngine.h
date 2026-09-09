@@ -85,6 +85,21 @@ public:
     std::optional<float> getControlOutput(const std::string& nodeId,
                                           const std::string& portSymbol) const;
 
+    /// Message thread. Ids of the nodes carrying a waveform tap
+    /// (val:Oscilloscope and val:FreqAnalyzer), in circuit order.
+    std::vector<std::string> tapNodes() const;
+
+    /// Message thread. Copies the most recent samples observed at the node's
+    /// audio output into `dest` (at most `maxSamples`) and returns how many
+    /// were copied. Returns 0 when the node has no tap or nothing has run yet.
+    /// The audio thread may be writing concurrently; a torn frame is acceptable
+    /// for display, and every index stays inside the ring by construction.
+    int readTap(const std::string& nodeId, float* dest, int maxSamples) const;
+
+    /// The sample rate the engine is running at, for display scaling.
+    /// Written by prepare() on the message thread; read-only afterwards.
+    double currentSampleRate() const { return sampleRate; }
+
 private:
     /// Everything one circuit needs, allocated together and freed together.
     struct Graph
@@ -113,6 +128,24 @@ private:
         {
             return audio.data() + static_cast<std::size_t>(index) * static_cast<std::size_t>(blockSize);
         }
+
+        /// Waveform tap on one node's audio output. The ring is written by the
+        /// audio thread and read by the message thread; `written` counts every
+        /// sample ever stored, so readers derive bounded indices from it.
+        /// Heap-held because the counter is atomic and therefore not movable.
+        struct Tap
+        {
+            std::string nodeId;
+            int nodeIndex = -1;
+            int bufferIndex = -1;
+            std::vector<float> ring;
+            std::atomic<std::uint64_t> written{0};
+        };
+
+        /// One entry per Oscilloscope/FreqAnalyzer node, created at load().
+        std::vector<std::unique_ptr<Tap>> taps;
+        /// Per node, the index into `taps`, or -1. Sized alongside circuit.nodes.
+        std::vector<int> nodeTap;
     };
 
     void processSlice(Graph&, const float* input, float* outputL, float* outputR, int numSamples) noexcept;
@@ -122,6 +155,10 @@ private:
     /// rather than to host block boundaries, so the circuit sounds the same
     /// whatever buffer size the host chooses.
     static constexpr int kControlBlock = 32;
+
+    /// Waveform tap ring capacity, in samples. At 48 kHz this holds ~85 ms:
+    /// enough for a scope window and a 2048-point spectrum.
+    static constexpr std::size_t kTapRingSize = 4096;
 
     std::atomic<Graph*> active{nullptr};
     std::atomic<std::uint64_t> blockCounter{0};

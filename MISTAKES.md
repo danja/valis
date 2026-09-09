@@ -35,3 +35,23 @@ you need to assert on must be called before the assert. Rule promoted to CLAUDE.
 A second flaw: `TwinTBridge` read `args.velocity` (the global last-note velocity) for initial amplitude at trigger time. In a polyphonic drum kit this picks up whichever note fired most recently, not necessarily the bass drum.
 
 **Prevention:** For a drum voice, the VCA should be controlled by the amp envelope alone — the envelope provides the gate shape, and the oscillator's internal amplitude provides velocity sensitivity. When wiring a TwinTBridge voice, connect the amp envelope directly to the VCA cv and route the NoteGate velocity to the TwinTBridge velocity input port (added in this fix). Avoid ControlMultiply in the VCA cv path unless both inputs stay non-zero for the full decay duration. Rule promoted to CLAUDE.md.
+
+---
+
+## SignalGenerator impulse shape depended on block alignment
+
+**What happened:** The `val:SignalGenerator` impulse shape (shape 5) only emitted
+when a period wrapped exactly on the first sample of a process block
+(`i == 0 && phase < inc`). Most periods produced nothing, and the output changed
+with the host's block size — the same class of bug as the M4 control-rate fix,
+where rendering at 128 vs 512 samples must be bit-identical.
+
+**Root cause:** The per-sample phase accumulator already tracks period wraps
+exactly (`phase < inc` fires once per period). Gating it on the block index
+threw that away and reintroduced block-boundary dependence.
+
+**Prevention:** Any per-sample condition in `process` must depend only on the
+sample position within the stream (phase, counters carried in members), never on
+the index within the current block. A test renders the impulse train over 1024
+samples and asserts the exact impulse count and amplitude, so a regression fails
+the build.

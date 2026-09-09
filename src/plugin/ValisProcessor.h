@@ -123,6 +123,20 @@ public:
         return engine.getControlOutput(nodeId, portSymbol);
     }
 
+    /// Ids of the nodes carrying a waveform tap (Oscilloscope/FreqAnalyzer).
+    /// Safe on the message thread; empty when no circuit is loaded.
+    std::vector<std::string> tapNodes() const { return engine.tapNodes(); }
+
+    /// Copies the most recent samples observed at the node's audio output.
+    /// Returns how many were copied, or 0 when the node has no tap.
+    int readTap(const std::string& nodeId, float* dest, int maxSamples) const
+    {
+        return engine.readTap(nodeId, dest, maxSamples);
+    }
+
+    /// Sample rate the engine is running at, for display scaling.
+    double engineSampleRate() const { return engine.currentSampleRate(); }
+
     /// Builds the op surface over this processor. The three views and the MCP
     /// server all go through here.
     OpDispatcher ops();
@@ -142,6 +156,11 @@ public:
     /// persistence as the AI settings: never part of DAW state.
     juce::String getUiTheme() const { return uiTheme; }
     void setUiTheme(const juce::String& name);
+
+    /// Last directory used by the Load/Save circuit dialogs. Persisted
+    /// locally so the file chooser reopens where the user left off.
+    juce::String getLastCircuitDir() const { return lastCircuitDir; }
+    void setLastCircuitDir(const juce::String& dir);
 
    #if VALIS_WITH_MCP
     McpServer& mcp() { return *mcpServer; }
@@ -216,6 +235,8 @@ private:
     juce::String aiApiKey;
     // Controls theme. Message thread only; persisted to ApplicationProperties.
     juce::String uiTheme = "Dark";
+    // Last circuit file directory. Message thread only; same persistence.
+    juce::String lastCircuitDir;
     void saveAiSettings();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisProcessor)
 };

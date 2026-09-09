@@ -794,6 +794,57 @@ void testClarinetPitchTracking()
            "clarinet pitch does not rise with note number (pitch tracking broken)");
 }
 
+const char* kScopeTap = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :gen , :scope , :out ; val:arc :a1 , :a2 .
+:gen a val:SignalGenerator ; val:frequency 440.0 ; val:amplitude 0.5 ; val:shape 0 .
+:scope a val:Oscilloscope .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :gen ; val:port "out" ] ;
+                val:to   [ val:node :scope ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :scope ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)";
+
+/// Waveform taps feed the Controls tab scopes: the engine observes monitor
+/// nodes without disturbing the audio, and the message thread reads back
+/// the most recent samples.
+void testTapCapturesRecentSamples()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(kScopeTap, circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::string scopeId = "urn:valis:t#scope";
+
+    const auto taps = engine.tapNodes();
+    assert(taps.size() == 1 && taps[0] == scopeId);
+
+    // No audio has run yet, and unknown nodes have no tap.
+    std::vector<float> frame(1024, 0.0f);
+    assert(engine.readTap(scopeId, frame.data(), 1024) == 0);
+    assert(engine.readTap("urn:valis:t#nosuch", frame.data(), 1024) == 0);
+
+    // Run a second of the generator's sine through the scope.
+    const std::vector<float> silence(48000, 0.0f);
+    render(engine, silence, 512);
+
+    const int n = engine.readTap(scopeId, frame.data(), 1024);
+    assert(n == 1024);
+    assert(std::abs(peakOf(frame) - 0.5f) < 0.01f);
+
+    // The frame ends at the stream end: sample 47999 of a 440 Hz sine.
+    const double expected = 0.5 * std::sin(2.0 * M_PI * 440.0 * 47999 / 48000.0);
+    assert(std::abs(frame[1023] - expected) < 0.02f);
+}
+
 }  // namespace
 
 int main()
@@ -815,6 +866,7 @@ int main()
     testClarinetCompileAndProducesSound();
     testClarinetUiLoadPathProducesSound();
     testClarinetPitchTracking();
+    testTapCapturesRecentSamples();
 
     std::puts("ValisEngineTest PASSED");
     return 0;
