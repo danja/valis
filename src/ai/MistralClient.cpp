@@ -4,6 +4,9 @@
 
 #include <juce_core/juce_core.h>
 
+#include <algorithm>
+#include <cstdlib>
+
 namespace valis {
 namespace ai {
 
@@ -76,6 +79,40 @@ bool parseChatReply(const std::string& responseJson,
     return true;
 }
 
+/// Best-effort pull of the server's message out of an error body, which is
+/// usually {"error":{"message":...}} or {"message":"..."}.
+std::string errorBodyMessage(const std::string& body)
+{
+    const auto parsed = juce::JSON::parse(juce::String(body));
+    if (! parsed.isObject())
+        return {};
+    if (const auto apiError = parsed["error"]; ! apiError.isVoid())
+        return (apiError.isObject() ? apiError["message"].toString()
+                                    : apiError.toString()).toStdString();
+    if (const auto message = parsed["message"]; message.isString())
+        return message.toString().toStdString();
+    return {};
+}
+
+std::string formatHttpError(int status, const std::string& body)
+{
+    const std::string detail = errorBodyMessage(body);
+    std::string out = "HTTP " + std::to_string(status);
+    out += detail.empty() ? ": the API refused the request"
+                          : ": " + detail;
+
+    if (status == 429)
+        out += " - rate limited. Free-tier keys allow very few requests per "
+               "minute, so wait a minute before retrying and avoid rapid "
+               "repeats. If it persists, check usage and limits at "
+               "console.mistral.ai and outages at status.mistral.ai";
+    else if (status == 401 || status == 403)
+        out += " - check the API key under Settings";
+    else if (status >= 500)
+        out += " - the server failed; try again later";
+    return out;
+}
+
 bool curlPost(const std::string& url,
               const std::string& body,
               const std::string& apiKey,
@@ -114,6 +151,12 @@ bool curlPost(const std::string& url,
     }
     args.add("--data-binary");
     args.add("@" + bodyFile.getFile().getFullPathName());
+    // Append the status on its own marked line: without --fail curl exits 0
+    // for HTTP error pages, and the body alone cannot tell a 429 from a 200
+    // that carries an error payload. Args pass through with no shell, so the
+    // %{...} placeholder reaches curl verbatim.
+    args.add("-w");
+    args.add("\nVALIS_HTTP_CODE:%{http_code}\n");
 
     juce::ChildProcess curl;
     if (! curl.start(args, juce::ChildProcess::wantStdOut))
@@ -137,6 +180,31 @@ bool curlPost(const std::string& url,
                    (responseOut.empty() ? "" : ": " + responseOut);
         responseOut.clear();
         return false;
+    }
+    // Split off curl's marked status trailer. It is only honoured at the very
+    // end of the output, so a body that happens to mention the marker is
+    // left alone. When the trailer is missing (an unexpected curl build),
+    // fall through to the old body-only behaviour.
+    constexpr const char* kCodeMarker = "\nVALIS_HTTP_CODE:";
+    if (const auto marker = responseOut.rfind(kCodeMarker); marker != std::string::npos)
+    {
+        const std::string tail = responseOut.substr(marker + 17);
+        const int status = std::atoi(tail.c_str());
+        const bool isTrailer = status >= 100 && status <= 599 && tail.size() >= 3 &&
+            std::all_of(tail.begin() + 3, tail.end(), [](char c)
+            {
+                return c == '\n' || c == '\r' || c == ' ' || c == '\t';
+            });
+        if (isTrailer)
+        {
+            responseOut.erase(marker);
+            if (status < 200 || status >= 300)
+            {
+                errorOut = formatHttpError(status, responseOut);
+                responseOut.clear();
+                return false;
+            }
+        }
     }
     if (responseOut.empty())
     {

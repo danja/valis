@@ -24,6 +24,11 @@ target_include_directories(ui_TurtleCodeTokeniserTest PRIVATE ${CMAKE_SOURCE_DIR
 target_compile_definitions(ui_TurtleCodeTokeniserTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 add_test(NAME ui_TurtleCodeTokeniserTest COMMAND ui_TurtleCodeTokeniserTest)
 
+# The equipment schemes are header-only pure data: no GUI needed.
+add_executable(ui_UiThemeTest ui/UiThemeTest.cpp)
+target_link_libraries(ui_UiThemeTest PRIVATE valis_core)
+add_test(NAME ui_UiThemeTest COMMAND ui_UiThemeTest)
+
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})
   string(REPLACE ".cpp" "" _name ${_name})
@@ -41,3 +46,10 @@ target_link_libraries(ai_MistralClientTest PRIVATE valis_core juce::juce_core)
 target_include_directories(ai_MistralClientTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(ai_MistralClientTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 add_test(NAME ai_MistralClientTest COMMAND ai_MistralClientTest)
+
+# The provider presets are pure data with no JUCE dependency.
+add_executable(ai_AiProvidersTest ai/AiProvidersTest.cpp
+                                  ${CMAKE_SOURCE_DIR}/src/ai/AiProviders.cpp)
+target_link_libraries(ai_AiProvidersTest PRIVATE valis_core)
+target_include_directories(ai_AiProvidersTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME ai_AiProvidersTest COMMAND ai_AiProvidersTest)

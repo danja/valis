@@ -118,8 +118,10 @@ if(VALIS_BUILD_PLUGIN)
   target_sources(valis_plugin PRIVATE
     src/plugin/ValisProcessor.cpp
     src/ai/MistralClient.cpp
+    src/ai/AiProviders.cpp
     src/ui/ValisEditor.cpp
     src/ui/ConsoleView.cpp
+    src/ui/EquipmentLookAndFeel.cpp
     src/ui/TurtleCodeTokeniser.cpp
     src/ui/TurtleView.cpp
     src/ui/ControlsView.cpp

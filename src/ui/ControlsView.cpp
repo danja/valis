@@ -17,6 +17,19 @@ constexpr int kTargetHeight       = 14;
 constexpr int kSectionLabelHeight = 18;  // label drawn above each row of knobs
 constexpr int kRowHeight          = kSectionLabelHeight + kKnobHeight;
 constexpr int kMargin             = 12;
+constexpr int kTopBand            = 30;  // brand plate and pilot jewel
+constexpr int kPlateInset          = 6;  // chassis edge around the faceplate
+}
+
+void drawScrew(juce::Graphics& g, juce::Point<float> centre, float angle,
+               const EquipmentTheme& theme)
+{
+    g.setColour(juce::Colour(theme.screw));
+    g.fillEllipse(centre.x - 5.0f, centre.y - 5.0f, 10.0f, 10.0f);
+    g.setColour(juce::Colour(theme.screwSlot));
+    const juce::Line<float> slot(centre.getPointOnCircumference(3.5f, angle),
+                                 centre.getPointOnCircumference(3.5f, angle + juce::MathConstants<float>::pi));
+    g.drawLine(slot, 1.8f);
 }
 
 juce::String ControlsView::Knob::readout() const
@@ -33,8 +46,11 @@ juce::String ControlsView::Knob::readout() const
 ControlsView::ControlsView(ValisProcessor& p) : processor(p)
 {
     p.addChangeListener(this);
+    // The dial LookAndFeel on this view covers the whole tab: children with
+    // no LookAndFeel of their own inherit it.
+    setLookAndFeel(&equipmentLnf);
+    applyTheme();
     emptyMessage.setJustificationType(juce::Justification::centred);
-    emptyMessage.setColour(juce::Label::textColourId, juce::Colours::grey);
     emptyMessage.setFont(juce::FontOptions(15.0f));
     emptyMessage.setText("This circuit declares no val:Param bindings.\n"
                          "Add one in the Code tab to put a knob here.",
@@ -43,6 +59,13 @@ ControlsView::ControlsView(ValisProcessor& p) : processor(p)
 
     rebuild();
     startTimerHz(2);
+}
+
+void ControlsView::applyTheme()
+{
+    theme = themeByName(processor.getUiTheme().toStdString());
+    equipmentLnf.setScheme(theme);
+    emptyMessage.setColour(juce::Label::textColourId, juce::Colour(theme.dimText));
 }
 
 ControlsView::~ControlsView()
@@ -87,6 +110,7 @@ void ControlsView::timerCallback()
 
 void ControlsView::rebuild()
 {
+    applyTheme();
     knobs.clear();
     meters.clear();
 
@@ -115,7 +139,7 @@ void ControlsView::rebuild()
 
         knob.name = std::make_unique<juce::Label>();
         knob.name->setJustificationType(juce::Justification::centred);
-        knob.name->setColour(juce::Label::textColourId, juce::Colour(0xffabb2bf));
+        knob.name->setColour(juce::Label::textColourId, juce::Colour(theme.labelText));
         knob.name->setFont(juce::FontOptions(13.0f, juce::Font::bold));
         knob.name->setText(binding.name.empty() ? port->name : binding.name,
                            juce::dontSendNotification);
@@ -128,10 +152,10 @@ void ControlsView::rebuild()
         if (port->enumeration && ! port->scalePoints.empty())
         {
             knob.comboBox = std::make_unique<juce::ComboBox>();
-            knob.comboBox->setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff2a2d35));
-            knob.comboBox->setColour(juce::ComboBox::textColourId, juce::Colour(0xffabb2bf));
-            knob.comboBox->setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3a3f4b));
-            knob.comboBox->setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff61afef));
+            knob.comboBox->setColour(juce::ComboBox::backgroundColourId, juce::Colour(theme.comboBg));
+            knob.comboBox->setColour(juce::ComboBox::textColourId, juce::Colour(theme.labelText));
+            knob.comboBox->setColour(juce::ComboBox::outlineColourId, juce::Colour(theme.edgeDark));
+            knob.comboBox->setColour(juce::ComboBox::arrowColourId, juce::Colour(theme.accent));
             for (const auto& [value, label] : port->scalePoints)
                 knob.comboBox->addItem(label, static_cast<int>(value) + 1);
             addAndMakeVisible(*knob.comboBox);
@@ -142,11 +166,8 @@ void ControlsView::rebuild()
         else
         {
             knob.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag,
-                                                         juce::Slider::NoTextBox);
-            knob.slider->setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xff61afef));
-            knob.slider->setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff3a3f4b));
-            knob.slider->setColour(juce::Slider::thumbColourId, juce::Colour(0xffabb2bf));
-            knob.slider->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+                                                          juce::Slider::NoTextBox);
+            // Drawn by EquipmentLookAndFeel; no per-slider colours needed.
             addAndMakeVisible(*knob.slider);
             knob.attachment =
                 std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -172,14 +193,14 @@ void ControlsView::rebuild()
 
         m.name = std::make_unique<juce::Label>();
         m.name->setJustificationType(juce::Justification::centred);
-        m.name->setColour(juce::Label::textColourId, juce::Colour(0xffabb2bf));
+        m.name->setColour(juce::Label::textColourId, juce::Colour(theme.labelText));
         m.name->setFont(juce::FontOptions(13.0f, juce::Font::bold));
         m.name->setText(label, juce::dontSendNotification);
         addAndMakeVisible(*m.name);
 
         m.readout = std::make_unique<juce::Label>();
         m.readout->setJustificationType(juce::Justification::centred);
-        m.readout->setColour(juce::Label::textColourId, juce::Colour(0xff98c379));
+        m.readout->setColour(juce::Label::textColourId, juce::Colour(theme.meterText));
         m.readout->setFont(juce::FontOptions(12.0f));
         m.readout->setText("Peak: --   RMS: --   Freq: --", juce::dontSendNotification);
         addAndMakeVisible(*m.readout);
@@ -194,27 +215,85 @@ void ControlsView::rebuild()
 
 void ControlsView::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff1e1e22));
+    const juce::Colour panel(theme.panel);
+    const juce::Colour face(theme.faceplate);
+    const juce::Colour edgeDark(theme.edgeDark);
+    const juce::Colour edgeLight(theme.edgeLight);
+    const juce::Colour ink(theme.labelText);
+    const juce::Colour dim(theme.dimText);
+    const juce::Colour accent(theme.accent);
+    const juce::Colour glow(theme.glow);
 
-    const int w = getWidth();
+    g.fillAll(panel);
 
-    // Vertical dividers between adjacent sections on the same row.
-    g.setColour(juce::Colour(0xff3a3f4b));
+    // Faceplate with an engraved edge and a raised inner highlight.
+    const auto plate = getLocalBounds().reduced(kPlateInset).toFloat();
+    g.setColour(face);
+    g.fillRoundedRectangle(plate, 6.0f);
+    g.setColour(edgeDark);
+    g.drawRoundedRectangle(plate, 6.0f, 2.0f);
+    g.setColour(edgeLight.withAlpha(0.35f));
+    g.drawRoundedRectangle(plate.reduced(3.0f), 4.0f, 1.0f);
+
+    // Chassis screws in the faceplate corners.
+    if (plate.getWidth() > 60.0f && plate.getHeight() > 60.0f)
+    {
+        drawScrew(g, plate.getTopLeft() + juce::Point<float>(14.0f, 14.0f), 0.7f, theme);
+        drawScrew(g, plate.getTopRight() + juce::Point<float>(-14.0f, 14.0f), 2.1f, theme);
+        drawScrew(g, plate.getBottomLeft() + juce::Point<float>(14.0f, -14.0f), 1.4f, theme);
+        drawScrew(g, plate.getBottomRight() + juce::Point<float>(-14.0f, -14.0f), 2.8f, theme);
+    }
+
+    // Brand plate and pilot jewel.
+    const float bandBottom = plate.getY() + kTopBand;
+    g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
+    g.setColour(ink);
+    g.drawText("VALIS", plate.getX() + 26.0f, plate.getY() + 2.0f,
+               120.0f, kTopBand - 4.0f, juce::Justification::centredLeft, true);
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+    g.setColour(dim);
+    g.drawText("PARAMETER CONTROLLER", plate.getX() + 86.0f, plate.getY() + 2.0f,
+               220.0f, kTopBand - 4.0f, juce::Justification::centredLeft, true);
+    const auto jewel = juce::Point<float>(plate.getRight() - 26.0f, plate.getY() + kTopBand * 0.5f);
+    g.setColour(glow);
+    g.fillEllipse(jewel.x - 8.0f, jewel.y - 8.0f, 16.0f, 16.0f);
+    g.setColour(accent);
+    g.fillEllipse(jewel.x - 4.5f, jewel.y - 4.5f, 9.0f, 9.0f);
+    g.setColour(edgeDark);
+    g.drawLine(jewel.x + 8.0f, jewel.y, plate.getRight() - 10.0f, jewel.y, 1.0f);
+    g.setColour(edgeDark);
+    g.drawLine(plate.getX() + 10.0f, bandBottom, jewel.x - 8.0f, bandBottom, 1.0f);
+    g.setColour(edgeLight.withAlpha(0.5f));
+    g.drawLine(plate.getX() + 10.0f, bandBottom + 1.0f, jewel.x - 8.0f, bandBottom + 1.0f, 1.0f);
+
+    // Engraved grooves between adjacent sections on the same row.
     for (const auto& d : vertDivs)
+    {
+        g.setColour(edgeDark);
         g.fillRect(d.x, d.yTop, 1, d.yBot - d.yTop);
+        g.setColour(edgeLight.withAlpha(0.5f));
+        g.fillRect(d.x + 1, d.yTop, 1, d.yBot - d.yTop);
+    }
 
-    // Section label above each group.
+    // Section name plates.
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     for (const auto& h : sectionHeaders)
     {
-        g.setColour(juce::Colour(0xff3a3f4b));
-        g.fillRect(h.x, h.y + kSectionLabelHeight - 1, h.w, 1);
-
-        g.setColour(juce::Colour(0xff61afef));
-        g.drawText(h.name, h.x + 6, h.y, h.w - 6, kSectionLabelHeight - 2,
+        const auto strip = juce::Rectangle<float>(static_cast<float>(h.x), static_cast<float>(h.y),
+                                                  static_cast<float>(h.w),
+                                                  kSectionLabelHeight - 2.0f);
+        g.setColour(juce::Colour(theme.plateBg));
+        g.fillRoundedRectangle(strip, 2.0f);
+        g.setColour(edgeDark);
+        g.drawRoundedRectangle(strip, 2.0f, 1.0f);
+        g.setColour(ink);
+        g.drawText(h.name.toUpperCase(), strip.getX() + 6.0f, strip.getY(),
+                   strip.getWidth() - 6.0f, strip.getHeight(),
                    juce::Justification::centredLeft, true);
     }
 
+    const auto mono = juce::FontOptions(juce::Font::getDefaultMonospacedFontName(),
+                                        13.0f, juce::Font::bold);
     for (const auto& knob : knobs)
     {
         const juce::Rectangle<int> area = knob.isEnum()
@@ -223,31 +302,35 @@ void ControlsView::paint(juce::Graphics& g)
 
         if (! knob.isEnum())
         {
-            g.setColour(juce::Colour(0xffabb2bf));
-            g.setFont(juce::FontOptions(13.0f));
+            g.setColour(accent);
+            g.setFont(mono);
             g.drawText(knob.readout(),
                        area.getX(), area.getBottom() - kValueHeight, area.getWidth(), kValueHeight,
                        juce::Justification::centred, false);
         }
 
-        g.setColour(juce::Colour(0xff5a6070));
+        g.setColour(dim);
         g.setFont(juce::FontOptions(11.0f));
         g.drawText(knob.target,
                    area.getX(), area.getBottom(), area.getWidth(), kTargetHeight,
                    juce::Justification::centred, true);
     }
 
+    // Meters sit behind dark glass.
     for (const auto& m : meters)
     {
         if (m.readout)
         {
-            const auto& rb = m.readout->getBounds();
-            g.setColour(juce::Colour(0xff2a2d35));
-            g.fillRoundedRectangle(rb.toFloat().reduced(2.0f), 4.0f);
+            const auto glass = m.readout->getBounds().toFloat().reduced(2.0f);
+            g.setColour(juce::Colour(theme.meterBg));
+            g.fillRoundedRectangle(glass, 4.0f);
+            g.setColour(edgeDark);
+            g.drawRoundedRectangle(glass, 4.0f, 1.0f);
+            g.setColour(edgeLight.withAlpha(0.3f));
+            g.drawLine(glass.getX() + 6.0f, glass.getY() + 1.5f,
+                       glass.getRight() - 6.0f, glass.getY() + 1.5f, 1.0f);
         }
     }
-
-    (void)w;
 }
 
 void ControlsView::parentSizeChanged()
@@ -280,7 +363,8 @@ void ControlsView::resized()
     // and populates sectionHeaders and vertDivs.
     auto pass = [&](bool apply) -> int
     {
-        int curY = kMargin;
+        // Content starts below the brand band painted at the top.
+        int curY = kMargin + kTopBand;
         int col  = 0;
 
         for (auto& g : groups)

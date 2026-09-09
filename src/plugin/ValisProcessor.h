@@ -138,6 +138,11 @@ public:
     void setAiModel(const juce::String& model);
     void setAiApiKey(const juce::String& key);
 
+    /// Controls-tab faceplate scheme ("Dark" or "Light"). Same local-only
+    /// persistence as the AI settings: never part of DAW state.
+    juce::String getUiTheme() const { return uiTheme; }
+    void setUiTheme(const juce::String& name);
+
    #if VALIS_WITH_MCP
     McpServer& mcp() { return *mcpServer; }
 
@@ -209,6 +214,8 @@ private:
     juce::String aiEndpoint = "https://api.mistral.ai/v1/chat/completions";
     juce::String aiModel = "mistral-small-latest";
     juce::String aiApiKey;
+    // Controls theme. Message thread only; persisted to ApplicationProperties.
+    juce::String uiTheme = "Dark";
     void saveAiSettings();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ValisProcessor)
 };

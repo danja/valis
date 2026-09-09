@@ -24,9 +24,10 @@
 namespace valis {
 namespace ai {
 
-/// Posts `body` to `url` and captures the response. Returns true on HTTP
-/// transport success (even for an API-level error payload, which the caller
-/// parses); false with `errorOut` set when the request never completed.
+/// Posts `body` to `url` and captures the response. Returns true with
+/// `responseOut` set on HTTP 2xx (even for an API-level error payload, which
+/// the caller parses); false with `errorOut` set when the request never
+/// completed or the status is not 2xx.
 using HttpPost = std::function<bool(const std::string& url,
                                     const std::string& body,
                                     const std::string& apiKey,
@@ -44,6 +45,12 @@ std::string buildChatRequest(const std::string& model,
 bool parseChatReply(const std::string& responseJson,
                     std::string& replyOut,
                     std::string& errorOut);
+
+/// Turns a non-2xx HTTP status plus the response body into an actionable
+/// error: the server's message when the body holds one, plus what to do
+/// about the status (slow down on 429, check the key on 401, ...). Pure and
+/// unit-tested; the transport calls it, the parser never sees error pages.
+std::string formatHttpError(int status, const std::string& body);
 
 /// The default transport: one `curl` child process, body via a temporary file.
 bool curlPost(const std::string& url,

@@ -61,9 +61,10 @@ in its own ```` ```turtle ```` block, no invented classes or ports.
 
 ### Setup
 
-Settings menu: `Set Mistral API Key...`, `Set AI Model...`, `Set AI
-Endpoint...`. Values persist in the local `ApplicationProperties` between
-sessions. The key also honours the `VALIS_MISTRAL_API_KEY` environment
+Settings menu: `AI Provider` picks a preset endpoint and model (Mistral,
+Groq, Gemini, OpenRouter, or a local Ollama server), then `Set API Key...`,
+`Set AI Model...` and `Set AI Endpoint...` refine it. Values persist in the
+local `ApplicationProperties` between sessions. The key also honours the `VALIS_MISTRAL_API_KEY` environment
 variable when nothing is stored. The key is never written to DAW state, so a
 saved project cannot leak it.
 

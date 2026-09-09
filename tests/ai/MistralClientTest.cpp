@@ -56,6 +56,28 @@ void testParseChatReply()
     assert(! parseChatReply("not json at all", reply, error));
 }
 
+void testFormatHttpError()
+{
+    // OpenAI shape inside a 429: the message survives, with rate guidance.
+    const auto limited = formatHttpError(
+        429, R"({"error":{"message":"Rate limit exceeded","type":"rate_limit"}})");
+    assert(contains(limited, "429"));
+    assert(contains(limited, "Rate limit exceeded"));
+    assert(contains(limited, "wait"));
+
+    // Mistral shape: {"object":"error","message":"..."}.
+    const auto mistral = formatHttpError(
+        429, R"({"object":"error","message":"Rate limit exceeded"})");
+    assert(contains(mistral, "Rate limit exceeded"));
+
+    // Auth failures point at the key, server failures at retrying later.
+    assert(contains(formatHttpError(401, R"({"message":"Unauthorized"})"), "API key"));
+    assert(contains(formatHttpError(500, ""), "try again later"));
+
+    // A non-JSON body still reports the status rather than nothing.
+    assert(contains(formatHttpError(503, "<html>down</html>"), "503"));
+}
+
 void testChatWithStubTransport()
 {
     HttpPost stub = [](const std::string& url, const std::string& body,
@@ -93,6 +115,7 @@ int main()
 {
     testBuildChatRequest();
     testParseChatReply();
+    testFormatHttpError();
     testChatWithStubTransport();
     return 0;
 }

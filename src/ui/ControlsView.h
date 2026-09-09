@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "ui/EquipmentLookAndFeel.h"
+#include "valis/UiTheme.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -31,6 +34,7 @@ public:
 
 private:
     void timerCallback() override;
+    void applyTheme();
 
     struct Knob
     {
@@ -66,6 +70,8 @@ private:
     };
 
     ValisProcessor& processor;
+    EquipmentLookAndFeel equipmentLnf;  ///< knob dials; set on this view
+    EquipmentTheme theme = themeByName("Dark");
     std::vector<Knob> knobs;
     std::vector<Meter> meters;
     std::vector<SectionHeader> sectionHeaders;

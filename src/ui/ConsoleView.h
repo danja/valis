@@ -32,6 +32,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void visibilityChanged() override;
 
 private:
     void sendLine(const juce::String& line);

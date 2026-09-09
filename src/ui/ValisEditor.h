@@ -43,6 +43,8 @@ private:
         settingsAiKey,
         settingsAiModel,
         settingsAiEndpoint,
+        settingsAiProvider = 200,  ///< + index into ai::aiProviders()
+        settingsTheme = 300,       ///< + index into equipmentThemes()
     };
 
     using juce::Component::keyPressed;
@@ -51,7 +53,8 @@ private:
     void loadCircuit();
     void saveCircuit();
     void promptForAiSetting(const juce::String& title, const juce::String& current,
-                            std::function<void(const juce::String&)> apply);
+                             std::function<void(const juce::String&)> apply,
+                             const juce::String& message = "Stored locally, never saved into a DAW project.");
     void parentHierarchyChanged() override;
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void updateStatusBar();

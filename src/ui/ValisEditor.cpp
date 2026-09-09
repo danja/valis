@@ -7,6 +7,8 @@
 #include "ui/ControlsView.h"
 #include "ui/GraphView.h"
 #include "ui/TurtleView.h"
+#include "valis/AiProviders.h"
+#include "valis/UiTheme.h"
 
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 
@@ -128,9 +130,30 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
         menu.addItem(settingsAutolayout, "Autolayout Graph");
 
         menu.addSeparator();
-        menu.addItem(settingsAiKey, "Set Mistral API Key...");
+        juce::PopupMenu providers;
+        const auto& all = ai::aiProviders();
+        for (int i = 0; i < static_cast<int>(all.size()); ++i)
+        {
+            const bool active = processor.getAiEndpoint() == juce::String(all[static_cast<std::size_t>(i)].endpoint);
+            providers.addItem(settingsAiProvider + i, all[static_cast<std::size_t>(i)].name,
+                              true, active);
+        }
+        menu.addSubMenu("AI Provider", providers);
+        menu.addItem(settingsAiKey, "Set API Key...");
         menu.addItem(settingsAiModel, "Set AI Model...");
         menu.addItem(settingsAiEndpoint, "Set AI Endpoint...");
+
+        menu.addSeparator();
+        juce::PopupMenu look;
+        const auto& schemes = equipmentThemes();
+        for (int i = 0; i < static_cast<int>(schemes.size()); ++i)
+        {
+            const bool active = processor.getUiTheme() ==
+                juce::String(schemes[static_cast<std::size_t>(i)].name);
+            look.addItem(settingsTheme + i, schemes[static_cast<std::size_t>(i)].name,
+                         true, active);
+        }
+        menu.addSubMenu("Theme", look);
 
         if (standaloneOptionsButton != nullptr)
         {
@@ -144,6 +167,28 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
 
 void ValisEditor::menuItemSelected(int menuItemID, int)
 {
+    // Provider presets set endpoint and model together. The key is left
+    // alone: it belongs to the active provider, so set it next when the
+    // preset needs one (the console says so when it is missing).
+    const auto& presets = ai::aiProviders();
+    if (menuItemID >= settingsAiProvider &&
+        menuItemID < settingsAiProvider + static_cast<int>(presets.size()))
+    {
+        const auto& preset = presets[static_cast<std::size_t>(menuItemID - settingsAiProvider)];
+        processor.setAiEndpoint(juce::String(preset.endpoint));
+        processor.setAiModel(juce::String(preset.model));
+        return;
+    }
+
+    // Faceplate schemes for the Controls tab.
+    const auto& schemes = equipmentThemes();
+    if (menuItemID >= settingsTheme &&
+        menuItemID < settingsTheme + static_cast<int>(schemes.size()))
+    {
+        processor.setUiTheme(juce::String(schemes[static_cast<std::size_t>(menuItemID - settingsTheme)].name));
+        return;
+    }
+
     switch (menuItemID)
     {
         case fileLoad: loadCircuit(); break;
@@ -158,9 +203,16 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
             if (graphView != nullptr) graphView->autolayout();
             break;
         case settingsAiKey:
-            promptForAiSetting("Mistral API Key", processor.getAiApiKey(),
-                               [this](const juce::String& v) { processor.setAiApiKey(v); });
+        {
+            juce::String message = "Stored locally, never saved into a DAW project.";
+            if (const auto* preset = ai::findAiProvider(processor.getAiEndpoint().toStdString());
+                preset != nullptr && ! preset->keyHint.empty())
+                message = "Get one at " + juce::String(preset->keyHint) + ". " + message;
+            promptForAiSetting("API Key", processor.getAiApiKey(),
+                               [this](const juce::String& v) { processor.setAiApiKey(v); },
+                               message);
             break;
+        }
         case settingsAiModel:
             promptForAiSetting("AI Model", processor.getAiModel(),
                                [this](const juce::String& v) { processor.setAiModel(v); });
@@ -301,9 +353,10 @@ void ValisEditor::reloadCircuit()
 }
 
 void ValisEditor::promptForAiSetting(const juce::String& title, const juce::String& current,
-                                     std::function<void(const juce::String&)> apply)
+                                     std::function<void(const juce::String&)> apply,
+                                     const juce::String& message)
 {
-    auto* window = new juce::AlertWindow(title, "Stored locally, never saved into a DAW project.",
+    auto* window = new juce::AlertWindow(title, message,
                                          juce::MessageBoxIconType::NoIcon);
     window->addTextEditor("value", current);
     window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));

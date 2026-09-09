@@ -1,12 +1,11 @@
-Look and feel : the UI should look like a piece of Cold War era electronic test equipment. Two themes choosable from settings : light & dark.
-
 ## New instruments
 
 * create a synth that makes jawdropping sounds nobody has heard before 
 * Model the Oberheim DMX drum sounds as faithfully as possible, creating new elements as needed.
 * create a synth for realistic flutes - support both orchestral and bamboo with various adjustable parameters
 * create a realistic cello
-* create a vocal enhancer, featuring voice-oriented EQ and compression
+* make clarinet.ttl more realistic
+* create a vocal enhancer, featuring harmonic enhancement, simple voice-oriented EQ, compression
 
 ## Recurring - check periodically
 

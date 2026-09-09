@@ -4,6 +4,7 @@
 
 #include "ui/ValisEditor.h"
 #include "valis/TurtleStore.h"
+#include "valis/UiTheme.h"
 
 namespace valis {
 
@@ -136,6 +137,7 @@ ValisProcessor::ValisProcessor()
         aiEndpoint = settings->getValue("aiEndpoint", aiEndpoint);
         aiModel    = settings->getValue("aiModel", aiModel);
         aiApiKey   = settings->getValue("aiApiKey", aiApiKey);
+        uiTheme    = settings->getValue("uiTheme", uiTheme);
     }
     if (aiApiKey.isEmpty())
         aiApiKey = juce::SystemStats::getEnvironmentVariable("VALIS_MISTRAL_API_KEY", {});
@@ -403,6 +405,14 @@ void ValisProcessor::setAiApiKey(const juce::String& key)
     saveAiSettings();
 }
 
+void ValisProcessor::setUiTheme(const juce::String& name)
+{
+    // Unknown names fall back to the default rather than persisting junk.
+    uiTheme = juce::String(themeByName(name.trim().toStdString()).name);
+    saveAiSettings();
+    sendChangeMessage();
+}
+
 void ValisProcessor::saveAiSettings()
 {
     if (auto* settings = appProperties.getUserSettings())
@@ -410,6 +420,7 @@ void ValisProcessor::saveAiSettings()
         settings->setValue("aiEndpoint", aiEndpoint);
         settings->setValue("aiModel", aiModel);
         settings->setValue("aiApiKey", aiApiKey);
+        settings->setValue("uiTheme", uiTheme);
         settings->saveIfNeeded();
     }
 }

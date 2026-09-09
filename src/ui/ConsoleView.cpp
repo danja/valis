@@ -4,6 +4,7 @@
 
 #include "ai/MistralClient.h"
 #include "plugin/ValisProcessor.h"
+#include "valis/AiProviders.h"
 
 #include <thread>
 
@@ -54,6 +55,17 @@ void ConsoleView::resized()
     output.setBounds(bounds);
 }
 
+void ConsoleView::visibilityChanged()
+{
+    // Switching tabs parks keyboard focus on the tab button, and clicking
+    // Send parks it on the button. A console is useless without a focused
+    // entry line, so claim focus whenever the tab is shown. Hosts that gate
+    // key delivery per-FX (e.g. Reaper) only forward keys to the focused
+    // client component, so without this typed text never reaches the input.
+    if (isShowing())
+        input.grabKeyboardFocus();
+}
+
 void ConsoleView::print(const juce::String& text)
 {
     if (text.isEmpty())
@@ -72,6 +84,9 @@ void ConsoleView::sendLine(const juce::String& rawLine)
     history.push_back(line.toStdString());
     historyIndex = -1;
     input.clear();
+    // Clicking Send moves focus to the button; hand it back so the next
+    // line can be typed without re-clicking the entry box.
+    input.grabKeyboardFocus();
 
     print("> " + line);
 
@@ -103,11 +118,18 @@ void ConsoleView::startAiRequest(const std::string& prompt)
         return;
     }
 
-    if (processor.getAiApiKey().isEmpty() &&
-        processor.getAiEndpoint().contains("api.mistral.ai"))
+    // A missing key fails a round-trip against a keyed endpoint, and each
+    // attempt costs free-tier budget, so refuse before sending.
+    const auto* preset = ai::findAiProvider(processor.getAiEndpoint().toStdString());
+    const bool needsKey = preset != nullptr ? preset->needsKey
+        : processor.getAiEndpoint().contains("api.mistral.ai");
+    if (needsKey && processor.getAiApiKey().isEmpty())
     {
         aiBusy.store(false);
-        print("[no API key set - Settings > Set Mistral API Key...]");
+        juce::String hint = "Settings > Set API Key...";
+        if (preset != nullptr && ! preset->keyHint.empty())
+            hint = juce::String(preset->keyHint) + " (" + hint + ")";
+        print("[no API key set - " + hint + "]");
         return;
     }
 
