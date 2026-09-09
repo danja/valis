@@ -361,6 +361,23 @@ std::string ConsoleSession::noteAiResponse(const std::string& reply)
 // System prompt
 // ---------------------------------------------------------------------------
 
+std::string ConsoleSession::buildUserPrompt(const std::string& currentTurtle,
+                                            const std::string& request)
+{
+    const auto turtle = trim(currentTurtle);
+    if (turtle.empty())
+        return request;
+    return "The circuit currently loaded is:\n"
+           "```turtle\n" +
+           turtle +
+           "\n```\n"
+           "Modify it as the request asks, and return the complete updated "
+           "circuit in a ```turtle block.\n"
+           "\n"
+           "Request: " +
+           request;
+}
+
 std::string ConsoleSession::buildSystemPrompt(const std::vector<ElementTypeInfo>& types)
 {
     std::string prompt =

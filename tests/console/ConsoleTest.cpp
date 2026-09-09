@@ -186,6 +186,20 @@ void testSystemPrompt()
     assert(contains(prompt, "REPLACES"));
 }
 
+void testUserPromptIncludesCircuit()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    const auto turtle = host.ops().getTurtle().value;
+
+    const auto withCircuit = ConsoleSession::buildUserPrompt(turtle, "make it brighter");
+    assert(contains(withCircuit, "make it brighter"));
+    assert(contains(withCircuit, "```turtle"));
+    assert(contains(withCircuit, "val:Circuit"));
+
+    const auto withoutCircuit = ConsoleSession::buildUserPrompt("", "make it brighter");
+    assert(withoutCircuit == "make it brighter");
+}
+
 void testAiReplyFlow()
 {
     const std::string basic = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
@@ -233,6 +247,7 @@ int main()
     testStatsParamsAndValidate();
     testExtractTurtleBlocks();
     testSystemPrompt();
+    testUserPromptIncludesCircuit();
     testAiReplyFlow();
     return 0;
 }

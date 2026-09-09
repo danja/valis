@@ -68,6 +68,13 @@ public:
     /// teaches.
     static std::string buildSystemPrompt(const std::vector<ElementTypeInfo>& types);
 
+    /// Formats the per-request user message: the raw request plus the
+    /// circuit's current Turtle source as context, so the model can modify
+    /// rather than start from scratch. An empty turtle passes through
+    /// unchanged; no circuit is loaded yet in that case.
+    static std::string buildUserPrompt(const std::string& currentTurtle,
+                                       const std::string& request);
+
 private:
     OpDispatcher ops;
     std::vector<PendingBlock> pending;

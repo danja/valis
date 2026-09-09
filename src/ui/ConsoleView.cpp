@@ -140,13 +140,16 @@ void ConsoleView::startAiRequest(const std::string& prompt)
     const std::string apiKey   = processor.getAiApiKey().toStdString();
     const std::string model    = processor.getAiModel().toStdString();
     const std::string system   = ConsoleSession::buildSystemPrompt(processor.ops().listElementTypes());
+    const auto turtleResult    = processor.ops().getTurtle();
+    const std::string userPrompt = ConsoleSession::buildUserPrompt(
+        turtleResult.ok ? turtleResult.value : std::string{}, prompt);
 
     print("[asking " + juce::String(model) + " ...]");
 
     juce::Component::SafePointer<ConsoleView> safe(this);
-    std::thread([safe, endpoint, apiKey, model, system, prompt]
+    std::thread([safe, endpoint, apiKey, model, system, userPrompt]
     {
-        const auto result = ai::chat(endpoint, apiKey, model, system, prompt);
+        const auto result = ai::chat(endpoint, apiKey, model, system, userPrompt);
 
         juce::MessageManager::callAsync([safe, result]
         {
