@@ -58,7 +58,8 @@ void testParseChatReply()
 
 void testFormatHttpError()
 {
-    // OpenAI shape inside a 429: the message survives, with rate guidance.
+    // OpenAI shape inside a 429 with no "token" wording: treated as a
+    // request-rate (RPM) limit, worth waiting out.
     const auto limited = formatHttpError(
         429, R"({"error":{"message":"Rate limit exceeded","type":"rate_limit"}})");
     assert(contains(limited, "429"));
@@ -69,6 +70,18 @@ void testFormatHttpError()
     const auto mistral = formatHttpError(
         429, R"({"object":"error","message":"Rate limit exceeded"})");
     assert(contains(mistral, "Rate limit exceeded"));
+
+    // A 429 whose own message names tokens (TPM, as Groq and other
+    // OpenAI-compatible providers report) gets different advice: waiting
+    // does not help when a single request already exceeds the budget, so
+    // the guidance is to shrink the request instead of to wait.
+    const auto tokenLimited = formatHttpError(
+        429, R"({"error":{"message":"Rate limit reached for model `x` on )"
+             R"(tokens per minute (TPM): Limit 6000, Used 5500, Requested 700."}})");
+    assert(contains(tokenLimited, "429"));
+    assert(contains(tokenLimited, "tokens per minute"));
+    assert(contains(tokenLimited, "shorter prompt"));
+    assert(! contains(tokenLimited, "avoid rapid repeats"));
 
     // Auth failures point at the key, server failures at retrying later.
     assert(contains(formatHttpError(401, R"({"message":"Unauthorized"})"), "API key"));

@@ -48,8 +48,12 @@ bool parseChatReply(const std::string& responseJson,
 
 /// Turns a non-2xx HTTP status plus the response body into an actionable
 /// error: the server's message when the body holds one, plus what to do
-/// about the status (slow down on 429, check the key on 401, ...). Pure and
-/// unit-tested; the transport calls it, the parser never sees error pages.
+/// about the status (check the key on 401, retry later on 5xx, ...). A 429
+/// is split by what the server's own message says was exhausted: a request
+/// (RPM) limit is worth waiting out, but a token (TPM) limit can reject a
+/// single oversized request outright, so the advice there is to shrink the
+/// prompt or circuit instead. Pure and unit-tested; the transport calls it,
+/// the parser never sees error pages.
 std::string formatHttpError(int status, const std::string& body);
 
 /// The default transport: one `curl` child process, body via a temporary file.

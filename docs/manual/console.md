@@ -50,12 +50,20 @@ it proposes matches what the compiler accepts.
 
 ## When the AI refuses
 
-An `HTTP 429` reply means the API is rate-limiting the key, not a problem in
-the circuit. Free-tier keys allow very few requests per minute, so wait a
-minute before retrying and avoid rapid repeats. If refusals persist, check
-usage and limits at console.mistral.ai and outages at status.mistral.ai. An
-`HTTP 401` reply means the key itself is wrong or missing: re-enter it under
-Settings. Either way the loaded circuit keeps playing; only the request fails.
+An `HTTP 429` reply means the provider is rate-limiting the key, not a
+problem in the circuit, and the reply text says which budget was hit. A
+requests-per-minute limit is worth waiting out: free-tier keys allow very
+few requests per minute, so wait a minute before retrying and avoid rapid
+repeats. A tokens-per-minute (TPM) limit is different: the system prompt
+(the full element catalogue) plus the loaded circuit's Turtle travel with
+every request, so on a low-TPM free tier a single request can already be
+too large, and waiting will not help. Shorten the request, work on a
+smaller circuit, or switch to a provider or model with a higher limit under
+Settings > AI Provider. Either way, check the current provider's own usage
+dashboard for its limits and outage status - the URL differs per provider.
+An `HTTP 401` reply means the key itself is wrong or missing: re-enter it
+under Settings. Whatever the failure, the loaded circuit keeps playing;
+only the request fails.
 
 An `HTTP 404` naming the model means the provider retired that model id
 (free-tier rosters change often). Pick the current one with Settings > Set AI
