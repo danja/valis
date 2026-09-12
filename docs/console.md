@@ -145,7 +145,8 @@ The AI mode is experimental and stays out of the audio path by construction:
 
 | File | Role |
 |---|---|
-| `include/valis/Console.h`, `src/console/Console.cpp` | `ConsoleSession`: commands, extraction, validation, system prompt. In `valis_core`, no UI dependency, covered by `tests/console/ConsoleTest.cpp` |
+| `include/valis/Console.h`, `src/console/Console.cpp` | `ConsoleSession`: commands, extraction, validation. In `valis_core`, no UI dependency, covered by `tests/console/ConsoleTest.cpp` |
+| `src/console/AiPrompt.cpp` | the same class's prompt building: system prompt, user message, and the trimming that fits both to a budget |
 | `src/ai/ChatClient.h/.cpp` | request builder, reply parser, curl transport with injectable stub. Plugin target only, covered by `tests/ai/ChatClientTest.cpp` |
 | `include/valis/RateLimits.h`, `src/ai/RateLimits.cpp` | token estimate, status classification, response-header parsing. Pure, in `valis_core` because the console sizes prompts with it; covered by `tests/ai/RateLimitsTest.cpp` |
 | `include/valis/ProviderBudgets.h`, `src/ai/ProviderBudgets.cpp` | what each provider reported this session, and whether a request can be afforded |
