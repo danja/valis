@@ -1,3 +1,5 @@
+The code naming references to Mistral should be renamed to something more generic
+
 ## New instruments
 
 * create a synth that makes jawdropping sounds nobody has heard before 
