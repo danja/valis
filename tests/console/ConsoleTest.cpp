@@ -200,6 +200,66 @@ void testUserPromptIncludesCircuit()
     assert(withoutCircuit == "make it brighter");
 }
 
+void testPromptFitsABudget()
+{
+    // 909.ttl is the case the whole exercise is about: roughly 17,000 tokens of
+    // Turtle, against Groq's measured 8,000 per minute. No amount of waiting
+    // sends it, so the prompt has to get smaller instead.
+    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    const auto types = host.ops().listElementTypes();
+    const auto turtle = host.ops().getTurtle().value;
+
+    // No measured budget: the whole thing goes out, as before.
+    const auto full = ConsoleSession::buildPrompt(types, turtle, "make the snare shorter");
+    assert(! full.catalogueCondensed);
+    assert(! full.circuitExcerpted);
+    assert(contains(full.user, "val:Circuit"));
+    assert(full.estimatedTokens > 8000);
+
+    // A budget that the catalogue alone can be trimmed to fit.
+    const auto tight = ConsoleSession::buildPrompt(types, turtle, "make the snare shorter", 6000);
+    assert(tight.catalogueCondensed);
+    assert(tight.circuitExcerpted);
+    assert(tight.estimatedTokens < full.estimatedTokens);
+    assert(! tight.note.empty());
+    // The reply is an edit, and the console has to say so, because a block
+    // that redefines four of fifty elements is not a circuit.
+    assert(contains(tight.user, "Do not"));
+    assert(contains(tight.user, "make the snare shorter"));
+
+    // A small circuit is never cut, whatever the budget.
+    Host small(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    const auto plain = ConsoleSession::buildPrompt(
+        small.ops().listElementTypes(), small.ops().getTurtle().value, "brighter", 6000);
+    assert(! plain.circuitExcerpted);
+}
+
+void testExcerptKeepsTheFrameAndNamesWhatIsMissing()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    const auto turtle = host.ops().getTurtle().value;
+
+    std::string summary;
+    const auto excerpt = ConsoleSession::excerptCircuit(turtle, "brighten the hihat", 6000, summary);
+
+    assert(excerpt.size() < turtle.size());
+    // Prefixes and the circuit declaration are what make the excerpt readable
+    // as a document rather than as a heap of statements.
+    assert(contains(excerpt, "@prefix val:"));
+    assert(contains(excerpt, "val:Circuit"));
+    assert(contains(excerpt, "val:Output"));
+    // Naming what was left out costs a dozen tokens and stops the model
+    // assuming the circuit is what it can see.
+    assert(contains(summary, "elements are shown in full"));
+    assert(contains(summary, "val:"));
+
+    // A document that already fits comes back untouched, with no summary.
+    std::string none;
+    const auto whole = ConsoleSession::excerptCircuit(turtle, "anything", turtle.size(), none);
+    assert(whole == turtle);
+    assert(none.empty());
+}
+
 void testAiReplyFlow()
 {
     const std::string basic = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
@@ -248,6 +308,8 @@ int main()
     testExtractTurtleBlocks();
     testSystemPrompt();
     testUserPromptIncludesCircuit();
+    testPromptFitsABudget();
+    testExcerptKeepsTheFrameAndNamesWhatIsMissing();
     testAiReplyFlow();
     return 0;
 }

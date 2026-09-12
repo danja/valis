@@ -44,7 +44,11 @@ add_library(valis_core STATIC
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
-  src/console/Console.cpp)
+  src/console/Console.cpp
+  src/console/AiPrompt.cpp
+  # Pure rate-limit arithmetic, no JUCE and no I/O. It lives here rather than
+  # in the plugin because the console sizes its prompts with it.
+  src/ai/RateLimits.cpp)
 
 target_include_directories(valis_core
   PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -117,8 +121,10 @@ if(VALIS_BUILD_PLUGIN)
 
   target_sources(valis_plugin PRIVATE
     src/plugin/ValisProcessor.cpp
-    src/ai/MistralClient.cpp
+    src/ai/ChatClient.cpp
     src/ai/AiProviders.cpp
+    src/ai/ProviderBudgets.cpp
+    src/ai/AiRouter.cpp
     src/ui/ValisEditor.cpp
     src/ui/ConsoleView.cpp
     src/ui/EquipmentLookAndFeel.cpp

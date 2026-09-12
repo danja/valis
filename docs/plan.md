@@ -198,7 +198,7 @@ This is the single most important thing to get right in M6; retrofitting it is p
 
 **All milestones are complete**, and the two gaps left `TODO:` in the code have since been closed - see *After the milestones* at the end.
 
-**All milestones are complete.** Nine test binaries pass; all four plugin formats build.
+**All milestones are complete.** Fifteen test binaries pass; all four plugin formats build.
 
 Each is independently verifiable and leaves the build green. `docs/plan.md` gets an inline status annotation per milestone as it completes - the plan doubles as the progress tracker, the convention used in `transmission/docs/plan.md`.
 
@@ -331,7 +331,13 @@ One bug this found: `set_param` then `get_param` disagreed, because `listParams`
 
 Specified in `docs/console.md`: a fourth tab holding a terminal attached to a REPL. Local commands (`stats`, `turtle`, `types`, `params`, `get`/`set`, `validate`) are thin adapters over `OpDispatcher`, like the MCP tools. `ai <prompt>` sends the prompt with a system prompt to a chat-completions endpoint (Mistral by default, any OpenAI-compatible URL by configuration) and prints the reply inline. Only fenced Turtle blocks count as circuits; each is validated on arrival and installed only via `apply`, which revalidates. The system prompt's element catalogue is generated from `listElementTypes`, so it cannot drift from the compiler.
 
-*Done:* `ConsoleSession` lives in `valis_core` with no UI dependency; the HTTP round-trip (`src/ai/MistralClient.cpp`) runs on a worker thread as one `curl` child process per request, so HTTPS works with no new link dependency and the audio thread is never involved. At most one request is in flight. Endpoint, model and key persist in `ApplicationProperties` (never in DAW state); the key also honours `VALIS_MISTRAL_API_KEY`. Two new test binaries (`console_ConsoleTest`, `ai_MistralClientTest`) pass alongside the existing nine; all plugin formats build.
+*Done:* `ConsoleSession` lives in `valis_core` with no UI dependency; the HTTP round-trip (`src/ai/ChatClient.cpp`) runs on a worker thread as one `curl` child process per request, so HTTPS works with no new link dependency and the audio thread is never involved. At most one request is in flight. Endpoint, model and keys persist in `ApplicationProperties` (never in DAW state), one key per provider. Two new test binaries (`console_ConsoleTest`, `ai_ChatClientTest`) pass alongside the existing nine; all plugin formats build.
+
+### M13 - Rate limits and provider rotation *(complete)*
+
+Specified in `docs/rate-limit-advice.md`, which measured every figure against live endpoints rather than quoting documentation. The point of it: a free tier's per-minute token budget caps a single request, so a circuit larger than the budget is unsendable no matter how long the console waits, and that failure has to be told apart from one that waiting fixes.
+
+*Done:* `curl -D` captures the response headers, and `include/valis/RateLimits.h` turns them into a budget (per-provider header names, Groq's `1m26.4s` duration strings, a reported limit of zero treated as a symptom rather than a fact, unknown kept distinguishable from zero). `ProviderBudgets` holds what each provider reported and refuses an impossible request locally, naming both numbers; the character-count estimate uses the measured 0.42 tokens per character for code and corrects itself against `usage.prompt_tokens`. `formatHttpError` gained 413 and 402 branches. `AiRouter` walks the provider list on 413, 429, 401/402/403 and 5xx, and never on 400. `ConsoleSession::buildPrompt` trims the catalogue and then sends the circuit as a subgraph rather than in full, with a line naming what was left out. Three new test binaries (`ai_RateLimitsTest`, `ai_AiRouterTest`, plus the renamed `ai_ChatClientTest`); 15 tests pass, all formats build.
 
 ---
 

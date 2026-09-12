@@ -3,12 +3,26 @@
 #include "plugin/ValisProcessor.h"
 
 #include "ui/ValisEditor.h"
+#include "valis/AiProviders.h"
+#include "valis/ProviderBudgets.h"
 #include "valis/TurtleStore.h"
 #include "valis/UiTheme.h"
 
 namespace valis {
 
 namespace {
+
+/// Where one provider's API key is stored. Keys are per provider so the
+/// console can move on to another when the chosen one will not serve a
+/// request; an endpoint with no preset shares the legacy single-key slot.
+juce::String aiKeyId(const juce::String& endpoint)
+{
+    if (const auto* preset = ai::findAiProvider(endpoint.toStdString()); preset != nullptr)
+        return "aiApiKey." + juce::String(preset->name).retainCharacters(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    return "aiApiKey";
+}
+
 juce::String slotId(int i)   { return "p" + juce::String(i).paddedLeft('0', 2); }
 juce::String slotName(int i) { return "Param " + juce::String(i); }
 }  // namespace
@@ -139,9 +153,13 @@ ValisProcessor::ValisProcessor()
         aiApiKey   = settings->getValue("aiApiKey", aiApiKey);
         uiTheme    = settings->getValue("uiTheme", uiTheme);
         lastCircuitDir = settings->getValue("lastCircuitDir", lastCircuitDir);
+
+        // Keys used to be one shared value. Whatever is stored belongs to the
+        // endpoint that was selected when it was entered.
+        if (aiApiKey.isNotEmpty() && settings->getValue(aiKeyId(aiEndpoint)).isEmpty())
+            settings->setValue(aiKeyId(aiEndpoint), aiApiKey);
     }
-    if (aiApiKey.isEmpty())
-        aiApiKey = juce::SystemStats::getEnvironmentVariable("VALIS_MISTRAL_API_KEY", {});
+    aiApiKey = getAiApiKeyFor(aiEndpoint);
 
     // Try to restore the last session; fall back to the bundled example.
     bool restored = false;
@@ -389,6 +407,9 @@ void ValisProcessor::setAiEndpoint(const juce::String& endpoint)
     aiEndpoint = endpoint.trim();
     if (aiEndpoint.isEmpty())
         aiEndpoint = "https://api.mistral.ai/v1/chat/completions";
+    // The key belongs to the provider, not to the console: switching provider
+    // must never send one provider's key to another.
+    aiApiKey = getAiApiKeyFor(aiEndpoint);
     saveAiSettings();
 }
 
@@ -400,9 +421,32 @@ void ValisProcessor::setAiModel(const juce::String& name)
     saveAiSettings();
 }
 
+juce::String ValisProcessor::getAiApiKeyFor(const juce::String& endpoint)
+{
+    const auto* preset = ai::findAiProvider(endpoint.toStdString());
+
+    if (auto* settings = appProperties.getUserSettings())
+        if (preset != nullptr)
+            if (const auto stored = settings->getValue(aiKeyId(endpoint)); stored.isNotEmpty())
+                return stored;
+
+    if (preset != nullptr && ! preset->keyEnvVar.empty())
+        if (const auto fromEnv = juce::SystemStats::getEnvironmentVariable(
+                juce::String(preset->keyEnvVar), {}); fromEnv.isNotEmpty())
+            return fromEnv;
+
+    if (endpoint == aiEndpoint)
+        return juce::SystemStats::getEnvironmentVariable("VALIS_MISTRAL_API_KEY", {});
+    return {};
+}
+
 void ValisProcessor::setAiApiKey(const juce::String& key)
 {
     aiApiKey = key.trim();
+    if (auto* settings = appProperties.getUserSettings())
+        settings->setValue(aiKeyId(aiEndpoint), aiApiKey);
+    // A new key may fix whatever made a provider refuse to serve us.
+    ai::ProviderBudgets::instance().clearDisabled();
     saveAiSettings();
 }
 

@@ -2,10 +2,12 @@
 
 #include "ui/ConsoleView.h"
 
-#include "ai/MistralClient.h"
+#include "ai/AiRouter.h"
 #include "plugin/ValisProcessor.h"
 #include "valis/AiProviders.h"
+#include "valis/ProviderBudgets.h"
 
+#include <map>
 #include <thread>
 
 namespace valis {
@@ -97,7 +99,7 @@ void ConsoleView::sendLine(const juce::String& rawLine)
         const auto prompt = line.fromFirstOccurrenceOf(" ", false, false).trim();
         if (prompt.isEmpty())
         {
-            print("usage: ai <prompt>  (needs a Mistral API key - see Settings)");
+            print("usage: ai <prompt>  (needs an API key for a provider - see Settings)");
             return;
         }
         startAiRequest(prompt.toStdString());
@@ -118,12 +120,27 @@ void ConsoleView::startAiRequest(const std::string& prompt)
         return;
     }
 
-    // A missing key fails a round-trip against a keyed endpoint, and each
-    // attempt costs free-tier budget, so refuse before sending.
-    const auto* preset = ai::findAiProvider(processor.getAiEndpoint().toStdString());
-    const bool needsKey = preset != nullptr ? preset->needsKey
-        : processor.getAiEndpoint().contains("api.mistral.ai");
-    if (needsKey && processor.getAiApiKey().isEmpty())
+    const auto& budgets = ai::ProviderBudgets::instance();
+    const std::string endpoint = processor.getAiEndpoint().toStdString();
+    const auto* preset = ai::findAiProvider(endpoint);
+
+    // Keys are read here, on the message thread, for every provider the router
+    // may fall through to.
+    std::map<std::string, std::string> keys;
+    keys[endpoint] = processor.getAiApiKey().toStdString();
+    for (const auto& provider : ai::aiProviders())
+        keys[provider.endpoint] = processor.getAiApiKeyFor(
+            juce::String(provider.endpoint)).toStdString();
+
+    // A request needs a key somewhere: the chosen provider's, or another
+    // provider's to fall through to. Each attempt costs free-tier budget, so
+    // refuse before sending when there is none at all. A keyless local server
+    // does not count towards that: the router may still try it, but the hint
+    // about where to get a key is worth printing when nothing else is set up.
+    bool anyKey = ! keys[endpoint].empty() || (preset != nullptr && ! preset->needsKey);
+    for (const auto& provider : ai::aiProviders())
+        anyKey = anyKey || (provider.needsKey && ! keys[provider.endpoint].empty());
+    if (! anyKey)
     {
         aiBusy.store(false);
         juce::String hint = "Settings > Set API Key...";
@@ -136,36 +153,67 @@ void ConsoleView::startAiRequest(const std::string& prompt)
     // Snapshot everything the background thread needs while still on the
     // message thread; it must not touch the processor, the session or JUCE
     // components afterwards.
-    const std::string endpoint = processor.getAiEndpoint().toStdString();
-    const std::string apiKey   = processor.getAiApiKey().toStdString();
-    const std::string model    = processor.getAiModel().toStdString();
-    const std::string system   = ConsoleSession::buildSystemPrompt(processor.ops().listElementTypes());
-    const auto turtleResult    = processor.ops().getTurtle();
-    const std::string userPrompt = ConsoleSession::buildUserPrompt(
-        turtleResult.ok ? turtleResult.value : std::string{}, prompt);
+    const std::string model  = processor.getAiModel().toStdString();
+    const auto turtleResult  = processor.ops().getTurtle();
 
-    print("[asking " + juce::String(model) + " ...]");
+    // Size the prompt against whatever this provider's headers said its budget
+    // is, leaving a quarter of it for the reply. Nothing measured yet means the
+    // whole prompt goes out and the first response says what the limit is.
+    const auto measured = budgets.budget(endpoint);
+    const long long allowance = measured.limitKnown()
+        ? static_cast<long long>(static_cast<double>(measured.limitTokens) * 0.75)
+        : -1;
+    const auto built = ConsoleSession::buildPrompt(
+        processor.ops().listElementTypes(),
+        turtleResult.ok ? turtleResult.value : std::string{},
+        prompt, allowance);
+
+    if (! built.note.empty())
+        print("[" + juce::String(built.note) + "]");
+
+    ai::RouteRequest request{endpoint, model, built.system, built.user};
+
+    print("[asking " + juce::String(model) + " (about " +
+          juce::String(built.estimatedTokens) + " tokens) ...]");
 
     juce::Component::SafePointer<ConsoleView> safe(this);
-    std::thread([safe, endpoint, apiKey, model, system, userPrompt]
+    const bool partial = built.circuitExcerpted;
+    std::thread([safe, request, keys, partial]
     {
-        const auto result = ai::chat(endpoint, apiKey, model, system, userPrompt);
+        const auto lookup = [&keys](const ai::AiProvider& provider) -> std::string
+        {
+            const auto found = keys.find(provider.endpoint);
+            return found == keys.end() ? std::string{} : found->second;
+        };
+        const auto result = ai::route(request, lookup, ai::ProviderBudgets::instance());
 
-        juce::MessageManager::callAsync([safe, result]
+        juce::MessageManager::callAsync([safe, result, partial]
         {
             if (safe != nullptr)
-                safe->finishAiRequest(result);
+                safe->finishAiRequest(result, partial);
         });
     }).detach();
 }
 
-void ConsoleView::finishAiRequest(const ai::ChatResult& result)
+void ConsoleView::finishAiRequest(const ai::RouteResult& result, bool partialContext)
 {
     aiBusy.store(false);
-    if (result.ok)
-        print(session.noteAiResponse(result.reply));
+
+    // The trace says which providers were skipped and why. It is empty on the
+    // ordinary path, where the chosen provider answered first time.
+    for (const auto& line : result.trace)
+        print(juce::String(line));
+
+    if (result.result.ok)
+    {
+        if (! result.trace.empty())
+            print("[answered by " + juce::String(result.providerName) + "]");
+        print(session.noteAiResponse(result.result.reply, partialContext));
+    }
     else
-        print("[AI request failed: " + juce::String(result.error) + "]");
+    {
+        print("[AI request failed: " + juce::String(result.result.error) + "]");
+    }
 }
 
 bool ConsoleView::keyPressed(const juce::KeyPress& key, juce::Component*)

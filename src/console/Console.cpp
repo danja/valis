@@ -327,13 +327,18 @@ std::vector<std::string> ConsoleSession::extractTurtleBlocks(const std::string& 
     return blocks;
 }
 
-std::string ConsoleSession::noteAiResponse(const std::string& reply)
+std::string ConsoleSession::noteAiResponse(const std::string& reply, bool partialContext)
 {
     pending.clear();
 
     std::string out = trim(reply);
     if (out.empty())
         out = "(the model returned an empty reply)";
+
+    if (partialContext)
+        out += "\n\n[the model was sent part of the circuit, not all of it: its "
+               "Turtle is an edit to paste into the Code tab, not a complete "
+               "circuit, so a block that fails validation here is expected]";
 
     const auto blocks = extractTurtleBlocks(reply);
     if (blocks.empty())
@@ -355,129 +360,6 @@ std::string ConsoleSession::noteAiResponse(const std::string& reply)
         out += "]";
     }
     return out;
-}
-
-// ---------------------------------------------------------------------------
-// System prompt
-// ---------------------------------------------------------------------------
-
-std::string ConsoleSession::buildUserPrompt(const std::string& currentTurtle,
-                                            const std::string& request)
-{
-    const auto turtle = trim(currentTurtle);
-    if (turtle.empty())
-        return request;
-    return "The circuit currently loaded is:\n"
-           "```turtle\n" +
-           turtle +
-           "\n```\n"
-           "Modify it as the request asks, and return the complete updated "
-           "circuit in a ```turtle block.\n"
-           "\n"
-           "Request: " +
-           request;
-}
-
-std::string ConsoleSession::buildSystemPrompt(const std::vector<ElementTypeInfo>& types)
-{
-    std::string prompt =
-        "You design virtual-analog audio circuits for Valis, a DAW plugin whose "
-        "circuits are Turtle RDF documents. Reply conversationally, and put each "
-        "complete Turtle circuit in its own ```turtle fenced block. A circuit the "
-        "user accepts is validated and installed as-is, so every block must be a "
-        "complete document on its own, not a fragment.\n"
-        "\n"
-        "Document shape:\n"
-        "- One `val:Circuit` naming its elements (`val:element`) and arcs (`val:arc`).\n"
-        "- An element is `:id a val:Class ;` plus one `val:property value` per "
-        "control port to set. A property matching a control port overrides its default.\n"
-        "- An arc is `:a a val:Arc ; val:from [ val:node :src ; val:port \"out\" ] ; "
-        "val:to [ val:node :dst ; val:port \"in\" ] .` From an output port to an "
-        "input port, audio to audio, control to control.\n"
-        "- A `val:Param` binds a host slot to an element property: `:p0 a val:Param ; "
-        "val:slot 0 ; val:target :vcf ; val:property val:cutoff ;` plus lv2:name, "
-        "lv2:symbol and units:unit. Expose the musically important controls.\n"
-        "\n"
-        "Rules the validator enforces - breaking one rejects the circuit:\n"
-        "- Exactly one `val:Output`. Audio fan-in onto one input is an error unless "
-        "the destination is a `val:Mixer`.\n"
-        "- A feedback cycle must pass through a `val:UnitDelay`.\n"
-        "- A control arc REPLACES the destination port's value each block: a fixed "
-        "`val:cutoff` on an element is unreachable when a control arc also targets "
-        "cutoff. Put the resting value in the control path (e.g. a Scale's `val:min`).\n"
-        "- Control sources run before their destinations; an `val:Envelope` output "
-        "is control-rate and drives control arcs, never audio inputs.\n"
-        "- For drum voices with `val:TwinTBridge`, connect the amp envelope directly "
-        "to the VCA cv and route `val:NoteGate` velocity to the TwinTBridge velocity "
-        "port. Never route velocity through the VCA cv path: velocity is 0 on "
-        "note-off and would close the VCA before the decay finishes.\n"
-        "\n"
-        "Always declare these prefixes:\n"
-        "@prefix val: <http://purl.org/stuff/valis/> .\n"
-        "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n"
-        "@prefix units: <http://lv2plug.in/ns/extensions/units#> .\n"
-        "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
-        "@prefix : <urn:valis:circuit#> .\n"
-        "\n"
-        "Element catalogue (class, linearity, ports with defaults and ranges):\n";
-
-    for (const auto& type : types)
-    {
-        prompt += "- val:" + vocab::shortName(type.classIri) +
-                  (type.linear ? " (linear)" : " (nonlinear)") + ":";
-        bool first = true;
-        for (const auto& port : type.ports)
-        {
-            prompt += first ? " " : ", ";
-            first = false;
-            prompt += port.symbol + " " + (port.control ? "control" : "audio") +
-                      (port.input ? "-in" : "-out");
-            if (port.control && port.input)
-            {
-                std::ostringstream range;
-                range << " [" << port.minimum << "," << port.maximum
-                      << " default " << port.defaultValue << "]";
-                prompt += range.str();
-                if (! port.unit.empty())
-                    prompt += " " + port.unit;
-            }
-        }
-        prompt += "\n";
-    }
-
-    prompt +=
-        "\n"
-        "Minimal example (input, resonant filter, saturator, output):\n"
-        "```turtle\n"
-        "@prefix val: <http://purl.org/stuff/valis/> .\n"
-        "@prefix lv2: <http://lv2plug.in/ns/lv2core#> .\n"
-        "@prefix units: <http://lv2plug.in/ns/extensions/units#> .\n"
-        "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
-        "@prefix : <urn:valis:circuit#> .\n"
-        "\n"
-        ":main a val:Circuit ;\n"
-        "    val:element :in , :vcf , :drive , :out ;\n"
-        "    val:arc :a1 , :a2 , :a3 .\n"
-        "\n"
-        ":in a val:Input .\n"
-        ":vcf a val:Ladder ; val:cutoff 800.0 ; val:resonance 0.4 .\n"
-        ":drive a val:Tanh ; val:gain 4.0 .\n"
-        ":out a val:Output .\n"
-        "\n"
-        ":a1 a val:Arc ; val:from [ val:node :in ; val:port \"out\" ] ;\n"
-        "    val:to [ val:node :vcf ; val:port \"in\" ] .\n"
-        ":a2 a val:Arc ; val:from [ val:node :vcf ; val:port \"out\" ] ;\n"
-        "    val:to [ val:node :drive ; val:port \"in\" ] .\n"
-        ":a3 a val:Arc ; val:from [ val:node :drive ; val:port \"out\" ] ;\n"
-        "    val:to [ val:node :out ; val:port \"in\" ] .\n"
-        "\n"
-        ":p0 a val:Param ; val:slot 0 ; val:target :vcf ; val:property val:cutoff ;\n"
-        "    lv2:name \"Cutoff\" ; lv2:symbol \"cutoff\" ; units:unit units:hz .\n"
-        "```\n"
-        "Keep replies short. Explain the design in a sentence or two, then the "
-        "circuit. Never invent element classes or ports outside the catalogue above.";
-
-    return prompt;
 }
 
 }  // namespace valis

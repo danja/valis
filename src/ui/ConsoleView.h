@@ -4,13 +4,13 @@
 // mode that asks a language model to design circuits.
 //
 // Threading: local commands run on the message thread through the session's
-// ops. An `ai` request runs ai::chat on a short-lived background thread with
-// snapshots taken on the message thread - the audio thread is never involved,
-// and at most one request is ever in flight.
+// ops. An `ai` request runs the provider router on a short-lived background
+// thread with snapshots taken on the message thread - the audio thread is
+// never involved, and at most one request is ever in flight.
 
 #pragma once
 
-#include "ai/MistralClient.h"
+#include "ai/AiRouter.h"
 #include "valis/Console.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -37,7 +37,7 @@ public:
 private:
     void sendLine(const juce::String& line);
     void startAiRequest(const std::string& prompt);
-    void finishAiRequest(const ai::ChatResult& result);
+    void finishAiRequest(const ai::RouteResult& result, bool partialContext);
     void print(const juce::String& text);
 
     bool keyPressed(const juce::KeyPress&, juce::Component*) override;

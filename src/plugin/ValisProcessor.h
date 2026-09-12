@@ -142,12 +142,19 @@ public:
     OpDispatcher ops();
 
     /// Console AI settings. Kept in the local ApplicationProperties rather than
-    /// in DAW state, so the API key never leaks into a saved project. The key
-    /// also honours the VALIS_MISTRAL_API_KEY environment variable when no
-    /// stored key exists.
+    /// in DAW state, so the API key never leaks into a saved project.
     juce::String getAiEndpoint() const { return aiEndpoint; }
     juce::String getAiModel() const { return aiModel; }
-    juce::String getAiApiKey() const { return aiApiKey; }
+    juce::String getAiApiKey() { return getAiApiKeyFor(aiEndpoint); }
+
+    /// The key for one endpoint. Keys are stored per provider so the console
+    /// can fall through to another one when the chosen provider will not serve
+    /// a request; a provider with no key is skipped rather than asked. Nothing
+    /// stored falls back to the provider's own environment variable
+    /// (MISTRAL_API_KEY, GROQ_API_KEY, ...), then to VALIS_MISTRAL_API_KEY,
+    /// which earlier versions used for the single shared key.
+    juce::String getAiApiKeyFor(const juce::String& endpoint);
+
     void setAiEndpoint(const juce::String& endpoint);
     void setAiModel(const juce::String& model);
     void setAiApiKey(const juce::String& key);

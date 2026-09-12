@@ -38,14 +38,14 @@ foreach(_src ${VALIS_TESTS})
   add_test(NAME ${_name} COMMAND ${_name})
 endforeach()
 
-# The Mistral client lives in the plugin's AI layer and uses juce_core JSON and
+# The chat client lives in the plugin's AI layer and uses juce_core JSON and
 # ChildProcess. It makes no network calls here: the transport is stubbed.
-add_executable(ai_MistralClientTest ai/MistralClientTest.cpp
-                                    ${CMAKE_SOURCE_DIR}/src/ai/MistralClient.cpp)
-target_link_libraries(ai_MistralClientTest PRIVATE valis_core juce::juce_core)
-target_include_directories(ai_MistralClientTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_compile_definitions(ai_MistralClientTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-add_test(NAME ai_MistralClientTest COMMAND ai_MistralClientTest)
+add_executable(ai_ChatClientTest ai/ChatClientTest.cpp
+                                 ${CMAKE_SOURCE_DIR}/src/ai/ChatClient.cpp)
+target_link_libraries(ai_ChatClientTest PRIVATE valis_core juce::juce_core)
+target_include_directories(ai_ChatClientTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(ai_ChatClientTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+add_test(NAME ai_ChatClientTest COMMAND ai_ChatClientTest)
 
 # The provider presets are pure data with no JUCE dependency.
 add_executable(ai_AiProvidersTest ai/AiProvidersTest.cpp
@@ -53,3 +53,23 @@ add_executable(ai_AiProvidersTest ai/AiProvidersTest.cpp
 target_link_libraries(ai_AiProvidersTest PRIVATE valis_core)
 target_include_directories(ai_AiProvidersTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 add_test(NAME ai_AiProvidersTest COMMAND ai_AiProvidersTest)
+
+# Rate-limit arithmetic is part of valis_core; the budget store that holds what
+# each provider reported is not, so it is compiled in here.
+add_executable(ai_RateLimitsTest ai/RateLimitsTest.cpp
+                                 ${CMAKE_SOURCE_DIR}/src/ai/ProviderBudgets.cpp)
+target_link_libraries(ai_RateLimitsTest PRIVATE valis_core)
+target_include_directories(ai_RateLimitsTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_test(NAME ai_RateLimitsTest COMMAND ai_RateLimitsTest)
+
+# The router walks the provider order. Every endpoint is stubbed, so no test
+# here reaches the network or waits for a real rate-limit window.
+add_executable(ai_AiRouterTest ai/AiRouterTest.cpp
+                               ${CMAKE_SOURCE_DIR}/src/ai/AiRouter.cpp
+                               ${CMAKE_SOURCE_DIR}/src/ai/ChatClient.cpp
+                               ${CMAKE_SOURCE_DIR}/src/ai/AiProviders.cpp
+                               ${CMAKE_SOURCE_DIR}/src/ai/ProviderBudgets.cpp)
+target_link_libraries(ai_AiRouterTest PRIVATE valis_core juce::juce_core)
+target_include_directories(ai_AiRouterTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(ai_AiRouterTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+add_test(NAME ai_AiRouterTest COMMAND ai_AiRouterTest)
