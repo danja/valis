@@ -131,7 +131,7 @@ Recent additions since milestones closed: new elements including `val:Scale`,
 `val:CombFilter`, `val:StiffString`, `val:ModalBank`, `val:Reed`, `val:TwinTBridge`,
 `val:NoteGate`, `val:Oscilloscope`, `val:FreqAnalyzer`, `val:Chorus`, `val:Flanger`,
 and `val:Phaser`; worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl`,
-`modulation.ttl`, `clarinet.ttl` with matching case-study docs); session state
+`modulation.ttl`, `clarinet.ttl`, `granular.ttl` with matching case-study docs); session state
 persisted to a platform settings file on a 3-second debounce; topological ordering
 includes control arcs so control sources such as `MidiPitch` and `Envelope` are always
 processed before their destinations; parameter slots support logarithmic taper and
@@ -139,6 +139,20 @@ integer/enum ranges; the status bar shows the loaded filename and turns amber wh
 there are unsaved edits; `val:Oscilloscope` elements appear in the Controls view with
 live peak, RMS and frequency readouts; the Circuit view now refreshes immediately when
 a new circuit is loaded (previously relied on element-count polling).
+
+The host transport now reaches the circuit. `ProcessArgs` carries the tempo and
+the position in quarter notes, advanced one control slice at a time so a musical
+phase stays continuous inside a buffer, and `val:Transport` exposes it as a
+phase ramp and a pulse at a division of the bar. `valis-render` synthesises a
+transport from `--tempo` and `--rolling`, so a tempo-locked circuit renders
+offline exactly as it plays.
+
+`val:Granulator` is a granular synthesiser and processor: one circular buffer
+filled from a sound file or from live audio, and up to 64 overlapping windowed
+grains read from it, with position, size, density, transposition, scatter,
+window shape, stereo spread and reverse all separate control ports. Grain onsets
+either free-run or follow the transport. `examples/granular.ttl` is the playable
+instrument built from it; see [the case study](docs/manual/granular.md).
 
 Remaining rough edges: the graph view's structural edits re-serialise the
 document, so hand formatting and comments are lost (it warns on first use), and

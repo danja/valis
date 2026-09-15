@@ -15,6 +15,21 @@ namespace valis {
 
 struct ElementType;
 
+/// The host's timeline for the current block. `ppqPosition` counts quarter
+/// notes from the start of the timeline and advances across the block, so an
+/// element can derive a musical phase from it without counting samples itself.
+/// When the host is stopped, or provides no timeline at all, `playing` is false
+/// and `tempoBpm` is the last value the host reported.
+struct TransportInfo
+{
+    bool   playing            = false;
+    double tempoBpm           = 120.0;
+    double ppqPosition        = 0.0;
+    double ppqPositionOfBar   = 0.0;
+    int    timeSigNumerator   = 4;
+    int    timeSigDenominator = 4;
+};
+
 /// Buffers for one block. Audio arrays are indexed by the element type's audio
 /// port declaration order; control arrays by its control port order. An input
 /// with no arc attached points at a block of silence, never at null.
@@ -32,6 +47,9 @@ struct ProcessArgs
     float        velocity       = 0.0f;
     int          noteNumber     = 69;   ///< default A4 so MidiPitch outputs 440 Hz before any note
     const float* noteVelocities = nullptr;  ///< Array of 128 per-MIDI-note velocities (0..127)
+
+    /// The host timeline, already advanced to the start of this block.
+    TransportInfo transport;
 
     /// One value per control input, already resolved for this block: the
     /// element's own property, overridden by any control arc reaching it.
@@ -58,9 +76,15 @@ public:
     /// An option set on this instance in the Turtle, applied after prepare()
     /// and before the element runs. Keys are val: local names; an element
     /// ignores what it does not recognise.
-    virtual void setOption(std::string_view key, std::string_view value)
+    ///
+    /// Returns false only when the key was recognised and could not be applied
+    /// - a sample file that does not exist, say - and writes the reason into
+    /// `error`. The circuit then fails to load with that message rather than
+    /// running silently wrong. An unknown key is not a failure.
+    virtual bool setOption(std::string_view key, std::string_view value, std::string& error)
     {
-        (void) key; (void) value;
+        (void) key; (void) value; (void) error;
+        return true;
     }
 
     /// Clear state without reallocating. Called when the transport relocates.

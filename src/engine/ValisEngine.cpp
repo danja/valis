@@ -63,9 +63,18 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
         element->prepare(*node.type, sampleRate, maxBlockSize);
 
         // Options after prepare: they can change what the element does, and
-        // therefore how much latency it reports.
+        // therefore how much latency it reports. An option the element
+        // recognises but cannot apply fails the load, located at the node, so
+        // the failure is visible rather than a circuit that runs wrong.
         for (const auto& [key, value] : node.options)
-            element->setOption(key, value);
+        {
+            std::string optionError;
+            if (! element->setOption(key, value, optionError))
+            {
+                error = node.id + ": val:" + key + " - " + optionError;
+                return false;
+            }
+        }
 
         element->reset();
         latency += element->latencyInSamples();
@@ -357,6 +366,12 @@ void ValisEngine::process(const float* input, float* outputL, float* outputR, in
         return;
     }
 
+    // The host reports one position per block. Carrying it forward a slice at a
+    // time from the tempo keeps a musical phase continuous inside the block,
+    // which is the same reason control values run on their own grid.
+    TransportInfo sliceTransport = transport;
+    const double ppqPerSample = transport.tempoBpm / (60.0 * sampleRate);
+
     int done = 0;
     while (done < numSamples)
     {
@@ -364,10 +379,14 @@ void ValisEngine::process(const float* input, float* outputL, float* outputR, in
         const int slice = std::min(numSamples - done, kControlBlock - intoSlice);
 
         processSlice(*graph,
+                     sliceTransport,
                      input != nullptr ? input + done : nullptr,
                      outputL != nullptr ? outputL + done : nullptr,
                      outputR != nullptr ? outputR + done : nullptr,
                      slice);
+
+        if (transport.playing)
+            sliceTransport.ppqPosition += ppqPerSample * static_cast<double>(slice);
 
         streamPosition += static_cast<std::uint64_t>(slice);
         done += slice;
@@ -377,6 +396,7 @@ void ValisEngine::process(const float* input, float* outputL, float* outputR, in
 }
 
 void ValisEngine::processSlice(Graph& graph,
+                               const TransportInfo& sliceTransport,
                                const float* input,
                                float* outputL,
                                float* outputR,
@@ -452,6 +472,7 @@ void ValisEngine::processSlice(Graph& graph,
         args.velocity       = lastVelocity;
         args.noteNumber     = lastNoteNumber;
         args.noteVelocities = graph.currentNoteVelocities.data();
+        args.transport      = sliceTransport;
         args.audioIn        = graph.audioInPtrs.data();
         args.audioOut       = graph.audioOutPtrs.data();
         args.numAudioIn    = static_cast<int>(node.audioInBuffers.size());

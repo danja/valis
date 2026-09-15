@@ -436,3 +436,41 @@ The general fix matters more than the specific one. The ontology↔registry test
 ### Catalogue profile
 
 `profile.ttl` describes Valis in the `trn:PluginProfile` shape that `/home/danny/github/downspout` uses for its plugin catalogue, so it can appear alongside them. It is covered by the parse test like every other Turtle file in the repository.
+
+### Host transport
+
+`ProcessArgs` now carries a `TransportInfo`: whether the host is playing, its
+tempo, and the position in quarter notes. `ValisProcessor` reads it from the
+play head each block and `valis-render` synthesises one from `--tempo` and
+`--rolling`, so a transport-driven circuit renders offline exactly as it plays.
+
+The engine carries the position forward one control slice at a time from the
+tempo rather than holding the host's single per-block figure, for the same
+reason control values run on their own 32-sample grid: a musical phase that
+stepped once per buffer would sound different at different buffer sizes.
+
+`val:Transport` exposes that as control signals - `playing`, `tempo`, a `phase`
+ramp across a division measured in quarter notes, a `trigger` pulse where it
+wraps, and the resulting `rate` in Hz. When the host is stopped the phase
+free-runs at the same rate, so a circuit still behaves in the standalone app.
+
+### Granular synthesis
+
+`val:Granulator` holds one circular buffer, filled either from a sound file
+named by `val:file` or from live audio at its input, and plays up to 64
+overlapping windowed grains from it. Position, size, density, transposition,
+position and timing randomisation, per-grain detune, window shape, stereo
+spread and reverse probability are all separate control ports, and grain onsets
+either free-run at the density rate or follow a control arc into `trigger`.
+`val:MidiInterval` supplies the transposition from a keyboard as an interval
+from a root note, which is what a granulator needs where an oscillator needs a
+frequency.
+
+`examples/granular.ttl` wires all of that into a playable instrument, covered
+end to end in `tests/engine/ValisEngineTest.cpp`: it compiles, loads the sample
+it names, plays in stereo under a MIDI note, and allocates nothing in
+`process()`.
+
+File reading is the one thing here that could not be done with `juce_dsp`
+alone, so `valis_core` gained a PRIVATE link against `juce_audio_formats`. It is
+console-safe and opens no window, so every test remains a plain console binary.

@@ -38,6 +38,8 @@ struct Options
     float  velocity   = 1.0f;
     double gateOnSec  = 0.0;
     double gateOffSec = -1.0;  ///< -1 means 80 % of seconds
+    double tempo      = 120.0; ///< the transport tempo reported to the circuit
+    bool   rolling    = false; ///< whether the transport is running
 };
 
 /// Prints the element reference as markdown, straight from the ontology, so
@@ -113,7 +115,11 @@ void usage()
         "  --note <n>       send a note-on for MIDI note n (0-127) at --gate-on time\n"
         "  --velocity <v>   note velocity 0.0-1.0 (default 1.0)\n"
         "  --gate-on <s>    time in seconds when the note fires (default 0.0)\n"
-        "  --gate-off <s>   time in seconds when the note is released (default 80% of --seconds)");
+        "  --gate-off <s>   time in seconds when the note is released (default 80% of --seconds)\n"
+        "\n"
+        "Transport (for circuits that take their timing from the host):\n"
+        "  --tempo <bpm>    tempo reported to the circuit (default 120)\n"
+        "  --rolling        report the transport as playing from 0:00 (default stopped)");
 }
 
 bool parse(int argc, char** argv, Options& options)
@@ -136,6 +142,8 @@ bool parse(int argc, char** argv, Options& options)
         else if (arg == "--velocity")            options.velocity   = std::stof(next());
         else if (arg == "--gate-on")             options.gateOnSec  = std::stod(next());
         else if (arg == "--gate-off")            options.gateOffSec = std::stod(next());
+        else if (arg == "--tempo")               options.tempo      = std::stod(next());
+        else if (arg == "--rolling")             options.rolling    = true;
         else if (! arg.empty() && arg[0] == '-') { std::fprintf(stderr, "unknown option %s\n", arg.c_str()); return false; }
         else                                     options.circuitPath = arg;
     }
@@ -282,16 +290,30 @@ int main(int argc, char** argv)
     for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(options.blockSize))
     {
         const auto sample = static_cast<int>(at);
+        const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
+                                                 input.size() - at));
+
+        // The event fires in the block that contains it. Comparing the block
+        // start for equality would silently drop every note whose time is not
+        // a multiple of the block size.
         if (options.midiNote >= 0)
         {
-            if (sample == noteOnSample)
+            if (noteOnSample >= sample && noteOnSample < sample + n)
                 engine.noteOn(options.midiNote, options.velocity);
-            if (noteOffSample > noteOnSample && sample == noteOffSample)
+            if (noteOffSample > noteOnSample && noteOffSample >= sample && noteOffSample < sample + n)
                 engine.noteOff(options.midiNote);
         }
 
-        const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
-                                                 input.size() - at));
+        // A host reports one timeline position per block; this reproduces that
+        // so a transport-driven circuit renders here exactly as it plays.
+        valis::TransportInfo transport;
+        transport.playing     = options.rolling;
+        transport.tempoBpm    = options.tempo;
+        transport.ppqPosition = options.rolling
+            ? static_cast<double>(at) / options.sampleRate * options.tempo / 60.0
+            : 0.0;
+        engine.setTransport(transport);
+
         engine.process(input.data() + at, outputL.data() + at, outputR.data() + at, n);
     }
 

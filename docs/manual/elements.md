@@ -263,6 +263,32 @@ Linear.
 |---|---|---|---|---|
 | `gain` | Gain | 0 | -60 to 24 | dB |
 
+## val:Granulator
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`, `left`, `right`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `position` | Position | 0 | 0 to 1 |  |
+| `size` | Size | 120 | 1 to 2000 | ms |
+| `density` | Density | 20 | 0.01 to 200 | Hz |
+| `pitch` | Pitch | 0 | -48 to 48 |  |
+| `spray` | Spray | 0 | 0 to 1 |  |
+| `jitter` | Jitter | 0 | 0 to 1 |  |
+| `pitchJitter` | Pitch Jitter | 0 | 0 to 24 |  |
+| `shape` | Shape | 0.5 | 0 to 1 |  |
+| `spread` | Spread | 0.5 | 0 to 1 |  |
+| `reverse` | Reverse | 0 | 0 to 1 |  |
+| `scan` | Scan | 0 | -4 to 4 |  |
+| `freeze` | Freeze | -1 | -1 to 1 |  |
+| `trigger` | Trigger | -1 | -1 to 1 |  |
+
 ## val:HardClip
 
 Nonlinear.
@@ -311,6 +337,18 @@ Nonlinear.
 | `cutoff` | Cutoff | 1000 | 20 to 20000 | Hz |
 | `resonance` | Resonance | 0 | 0 to 1 |  |
 | `drive` | Drive | 1 | 1 to 20 |  |
+
+## val:MidiInterval
+
+Nonlinear.
+
+**Control out**: `semitones`, `ratio`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `root` | Root | 60 | 0 to 127 |  |
 
 ## val:MidiPitch
 
@@ -564,6 +602,18 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `gain` | Gain | 1 | 0.1 to 100 |  |
+
+## val:Transport
+
+Nonlinear.
+
+**Control out**: `playing`, `tempo`, `phase`, `trigger`, `rate`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `division` | Division | 1 | 0.015625 to 64 |  |
 
 ## val:Triode
 

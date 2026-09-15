@@ -970,6 +970,168 @@ NoteGate per drum instrument to route per-note triggers inside a circuit.""" ;
         lv2:name "Velocity" ; lv2:default 0.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
+################################################################
+# Granular                                                     #
+#                                                              #
+# A granulator is a source and a processor at once: it records  #
+# what arrives at its audio input, or loads a sound file, and   #
+# plays short windowed reads of that buffer back. The two       #
+# control sources beside it are what a granular instrument      #
+# needs and an oscillator does not: the host timeline, and a    #
+# MIDI note expressed as an interval rather than a frequency.   #
+################################################################
+
+val:file a rdf:Property ;
+    rdfs:label "file" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """Path to a sound file an element loads on the message thread.
+Relative paths resolve against the working directory, then examples/, then the
+repository root. A path that does not resolve fails the load with an error
+rather than leaving the element silent.""" .
+
+val:seconds a rdf:Property ;
+    rdfs:label "seconds" ;
+    rdfs:range xsd:double ;
+    rdfs:comment "Length of an element's internal buffer, in seconds." .
+
+val:Granulator a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Granulator" ;
+    rdfs:comment """Granular synthesiser and processor. One circular buffer
+holds the material: audio arriving at the input is recorded at the write head
+unless the element is frozen, and val:file replaces the contents with a sound
+file summed to mono and resampled to the engine's rate. val:seconds sets the
+buffer length (default 8, maximum 60).
+
+Grains are short windowed reads of that buffer, up to 64 at once, each with its
+own position, playback rate, window and stereo placement. Onsets either free-run
+at the density rate or follow a control arc into the trigger port, which is how
+a val:Transport drives grains in time with the host.
+
+position is measured forward from the write head. With a file loaded the write
+head sits at the start of the file, so 0 is the beginning and 1 the end. While
+recording live input the write head is the present moment, so values near 1
+granulate the most recent audio and lower values reach further back.
+
+See Roads, Microsound (MIT Press, 2001)
+<https://mitpress.mit.edu/9780262681544/microsound/> for the technique.""" ;
+    val:implementation "Granulator" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;    lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;   lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "position" ;
+        lv2:name "Position" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Read point as a fraction of the buffer, measured forward from the write head." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "size" ;
+        lv2:name "Size" ; lv2:default 120.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 2000.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Grain length. Below 50 ms the grain rate itself becomes the pitch; above it, grains blur into a pad." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "density" ;
+        lv2:name "Density" ; lv2:default 20.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 200.0 ; units:unit units:hz ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Grain onsets per second when trigger is -1. Independent of size, so it sets how far grains overlap." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "pitch" ;
+        lv2:name "Pitch" ; lv2:default 0.0 ;
+        lv2:minimum -48.0 ; lv2:maximum 48.0 ;
+        rdfs:comment "Grain transposition in semitones. Connect val:MidiInterval here to play the buffer from a keyboard." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "spray" ;
+        lv2:name "Spray" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random spread of each grain's start point, as a fraction of the buffer." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "jitter" ;
+        lv2:name "Jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random spread of the interval between onsets. Breaks up the periodicity a fixed density produces." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "pitchJitter" ;
+        lv2:name "Pitch Jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ;
+        rdfs:comment "Random detune per grain, in semitones. A little gives chorus; an octave gives shimmer." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Grain window. 0 is nearly rectangular and keeps transients; 1 is a full rise and fall with no audible edge." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "spread" ;
+        lv2:name "Spread" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random stereo placement per grain. 0 is centred, 1 is the full width." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "reverse" ;
+        lv2:name "Reverse" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Probability that a grain plays backwards." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "scan" ;
+        lv2:name "Scan" ; lv2:default 0.0 ;
+        lv2:minimum -4.0 ; lv2:maximum 4.0 ;
+        rdfs:comment "Drift of the read point through the buffer, in buffer lengths per second. 0 holds still." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "freeze" ;
+        lv2:name "Freeze" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = keep a loaded file, record live input otherwise; 0 = record; 1 = freeze." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = free-run at the density rate; otherwise each rising edge fires one grain." ] .
+
+val:Transport a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Transport" ;
+    rdfs:comment """The host timeline as control signals. division is measured
+in quarter notes, so 0.25 is a sixteenth and 4 is one bar of four-four. phase
+ramps 0 to 1 across each division and trigger is 1 for the one control block in
+which it wraps, which is what a val:Granulator trigger port expects.
+
+When the host is stopped, or is a host with no timeline at all, phase free-runs
+at the same rate from the last tempo reported, so a circuit still behaves in the
+standalone app.""" ;
+    val:implementation "Transport" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "division" ;
+        lv2:name "Division" ; lv2:default 1.0 ;
+        lv2:minimum 0.015625 ; lv2:maximum 64.0 ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Length of one pulse in quarter notes." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "playing" ;
+        lv2:name "Playing" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "tempo" ;
+        lv2:name "Tempo" ; lv2:default 120.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 999.0 ; units:unit units:bpm ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "phase" ;
+        lv2:name "Phase" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "rate" ;
+        lv2:name "Rate" ; lv2:default 2.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1000.0 ; units:unit units:hz ;
+        rdfs:comment "Pulses per second at the current tempo and division." ] .
+
+val:MidiInterval a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "MidiInterval" ;
+    rdfs:comment """The most recent MIDI note as an interval from a root note.
+val:MidiPitch answers what frequency to oscillate at; a sampler or granulator
+needs how far from the root to transpose, which is this. semitones drives a
+val:Granulator pitch port directly; ratio is the same interval as a playback
+speed multiplier.""" ;
+    val:implementation "MidiInterval" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "root" ;
+        lv2:name "Root" ; lv2:default 60.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 127.0 ; lv2:portProperty lv2:integer ;
+        rdfs:comment "The note that plays the material untransposed. 60 is middle C." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "semitones" ;
+        lv2:name "Semitones" ; lv2:default 0.0 ;
+        lv2:minimum -127.0 ; lv2:maximum 127.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "ratio" ;
+        lv2:name "Ratio" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1000.0 ] .
+
 val:DryWet a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "DryWet" ;
     rdfs:comment "Crossfades a processed signal against the untouched one." ;

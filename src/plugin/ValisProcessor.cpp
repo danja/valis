@@ -280,6 +280,29 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
             engine.allNotesOff();
     }
 
+    // The host timeline, if this host offers one. A host that reports no
+    // position leaves the engine's transport where it was, so an element
+    // driving grains from it free-runs at the last known tempo.
+    if (auto* host = getPlayHead())
+    {
+        if (const auto position = host->getPosition())
+        {
+            valis::TransportInfo info;
+            info.playing     = position->getIsPlaying();
+            info.tempoBpm    = position->getBpm().orFallback(120.0);
+            info.ppqPosition = position->getPpqPosition().orFallback(0.0);
+            info.ppqPositionOfBar = position->getPpqPositionOfLastBarStart().orFallback(0.0);
+
+            if (const auto signature = position->getTimeSignature())
+            {
+                info.timeSigNumerator   = signature->numerator;
+                info.timeSigDenominator = signature->denominator;
+            }
+
+            engine.setTransport(info);
+        }
+    }
+
     const int numSamples = buffer.getNumSamples();
     const int numIn      = getTotalNumInputChannels();
     const int numOut     = getTotalNumOutputChannels();

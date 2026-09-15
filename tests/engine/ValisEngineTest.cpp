@@ -810,6 +810,196 @@ const char* kScopeTap = R"(
 /// Waveform taps feed the Controls tab scopes: the engine observes monitor
 /// nodes without disturbing the audio, and the message thread reads back
 /// the most recent samples.
+/// The granular instrument end to end: it compiles, it loads the sample file it
+/// names, it plays under a MIDI note, and process() allocates nothing while it
+/// does so - a granulator that allocated per grain would be the easiest way to
+/// break the real-time contract.
+void testGranularCircuitProducesSound()
+{
+    CompiledCircuit circuit;
+    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/granular.ttl", circuit);
+    assert(compiled);
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    const bool loaded = engine.load(circuit, registry, error);
+    if (! loaded)
+        std::printf("  granular.ttl failed to load: %s\n", error.c_str());
+    assert(loaded);
+
+    std::vector<float> left(512, 0.0f), right(512, 0.0f);
+
+    // The envelope is closed before any note, so the cloud is inaudible.
+    for (int i = 0; i < 4; ++i)
+        engine.process(nullptr, left.data(), right.data(), 512);
+    assert(peakOf(left) == 0.0f);
+
+    engine.noteOn(60, 1.0f);
+
+    allocationCount.store(0, std::memory_order_relaxed);
+    trackingEnabled.store(true, std::memory_order_relaxed);
+
+    float peak = 0.0f;
+    bool  stereo = false;
+    for (int i = 0; i < 60; ++i)
+    {
+        engine.process(nullptr, left.data(), right.data(), 512);
+        peak = std::max(peak, peakOf(left));
+
+        // Grains are placed at random across the image, so the two sides differ.
+        for (int k = 0; k < 512; ++k)
+            if (std::abs(left[k] - right[k]) > 1.0e-4f)
+                stereo = true;
+    }
+
+    trackingEnabled.store(false, std::memory_order_relaxed);
+
+    std::printf("  granular: peak %.4f, %d allocations in process()\n",
+                peak, allocationCount.load(std::memory_order_relaxed));
+
+    assert(peak > 0.01f);
+    assert(stereo);
+    assert(allocationCount.load(std::memory_order_relaxed) == 0);
+}
+
+/// The host timeline reaches elements, and advances inside a block rather than
+/// stepping once per buffer.
+void testTransportReachesElements()
+{
+    const char* kClock = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :t , :in , :out ; val:arc :a1 .
+:t a val:Transport ; val:division 1.0 .
+:in a val:Input .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)";
+
+    CompiledCircuit circuit;
+    assert(compileTurtle(kClock, circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::string clockId = "urn:valis:t#t";
+    const std::vector<float> silence(512, 0.0f);
+    std::vector<float> out(512, 0.0f);
+
+    TransportInfo info;
+    info.playing     = true;
+    info.tempoBpm    = 120.0;
+    info.ppqPosition = 0.0;
+    engine.setTransport(info);
+    engine.process(silence.data(), out.data(), 512);
+
+    const auto tempo = engine.getControlOutput(clockId, "tempo");
+    assert(tempo.has_value() && std::abs(*tempo - 120.0f) < 1.0e-3f);
+
+    // 512 samples at 48 kHz and 120 bpm is 0.02133 of a quarter note. The host
+    // reported position 0 for the whole block; what the element last saw is the
+    // end of it, because the engine carries the position forward per slice.
+    const auto phase = engine.getControlOutput(clockId, "phase");
+    assert(phase.has_value());
+    std::printf("  transport: phase after one block %.5f\n", *phase);
+    assert(*phase > 0.015f && *phase < 0.025f);
+
+    // Stopped, the phase keeps moving at the same rate rather than freezing.
+    info.playing = false;
+    engine.setTransport(info);
+    const auto before = *engine.getControlOutput(clockId, "phase");
+    engine.process(silence.data(), out.data(), 512);
+    const auto after = *engine.getControlOutput(clockId, "phase");
+    assert(after > before);
+
+    const auto playing = engine.getControlOutput(clockId, "playing");
+    assert(playing.has_value() && *playing == 0.0f);
+}
+
+/// Grain onsets follow the transport when a control arc reaches the trigger
+/// port: at 120 bpm a division of a sixteenth is eight grains a second, and
+/// that is what comes out. Also the only test that loads a sample file through
+/// the whole model, compiler and engine path.
+void testTransportDrivesGrainOnsets()
+{
+    const char* kClocked = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :clock , :gate , :gran , :out ;
+   val:arc :a1 , :a2 , :a3 .
+:clock a val:Transport ; val:division 0.25 .
+:gate a val:Scale ; val:min 0.0 ; val:max 1.0 .
+:gran a val:Granulator ; val:file "samples/bell.wav" ; val:seconds 4.0 ;
+       val:position 0.1 ; val:size 12.0 ; val:shape 1.0 ; val:spread 0.0 .
+:out a val:Output .
+:a1 a val:ControlArc ; val:from [ val:node :clock ; val:port "trigger" ] ;
+                       val:to   [ val:node :gate  ; val:port "in" ] .
+:a2 a val:ControlArc ; val:from [ val:node :gate ; val:port "out" ] ;
+                       val:to   [ val:node :gran ; val:port "trigger" ] .
+:a3 a val:Arc ; val:from [ val:node :gran ; val:port "left" ] ;
+                val:to   [ val:node :out  ; val:port "left" ] .
+)";
+
+    CompiledCircuit circuit;
+    assert(compileTurtle(kClocked, circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    const bool loaded = engine.load(circuit, registry, error);
+    if (! loaded)
+        std::printf("  clocked granulator failed to load: %s\n", error.c_str());
+    assert(loaded);
+
+    TransportInfo info;
+    info.playing  = true;
+    info.tempoBpm = 120.0;
+
+    // Two seconds of timeline, which at a sixteenth note is sixteen pulses.
+    std::vector<float> left(512, 0.0f), right(512, 0.0f), all;
+    const std::vector<float> silence(512, 0.0f);
+    for (int block = 0; block < 188; ++block)
+    {
+        info.ppqPosition = static_cast<double>(block) * 512.0 / 48000.0 * 2.0;
+        engine.setTransport(info);
+        engine.process(silence.data(), left.data(), right.data(), 512);
+        all.insert(all.end(), left.begin(), left.end());
+    }
+
+    // Count bursts: a grain is 12 ms, the gap between onsets 125 ms, so a
+    // simple envelope with hysteresis separates them cleanly.
+    int onsets = 0;
+    bool sounding = false;
+    for (std::size_t at = 0; at + 64 < all.size(); at += 64)
+    {
+        float peak = 0.0f;
+        for (std::size_t k = at; k < at + 64; ++k)
+            peak = std::max(peak, std::abs(all[k]));
+
+        if (! sounding && peak > 0.02f)
+        {
+            ++onsets;
+            sounding = true;
+        }
+        else if (sounding && peak < 0.005f)
+        {
+            sounding = false;
+        }
+    }
+
+    std::printf("  transport-clocked grains: %d onsets in 2 s at 120 bpm\n", onsets);
+
+    // Sixteen pulses, plus the one the transport fires when it starts.
+    assert(onsets >= 16 && onsets <= 17);
+}
+
 void testTapCapturesRecentSamples()
 {
     CompiledCircuit circuit;
@@ -867,6 +1057,9 @@ int main()
     testClarinetUiLoadPathProducesSound();
     testClarinetPitchTracking();
     testTapCapturesRecentSamples();
+    testGranularCircuitProducesSound();
+    testTransportReachesElements();
+    testTransportDrivesGrainOnsets();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

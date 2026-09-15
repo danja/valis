@@ -1,5 +1,30 @@
 # Mistakes log
 
+## valis-render dropped every note not on a block boundary
+
+**What happened:** `valis-render --note 60 --gate-on 0.02` rendered silence from
+`clarinet.ttl`, `sh101.ttl` and `rings-modal.ttl`, while the same circuits made
+sound under `tests/engine/ValisEngineTest.cpp`. The circuits were fine.
+
+**Root cause:** the render loop compared the note time to the **start of each
+block** for equality: `if (sample == noteOnSample)`. A note at 0.02 s is sample
+960, which is not a multiple of the 512-sample block size, so the comparison was
+never true and no note-on was ever sent. Only `--gate-on 0.0` worked, which is
+why the bug survived: every existing use passed a time that happened to land on
+sample 0.
+
+This is the same class of error as the SignalGenerator impulse below, from the
+opposite direction: there a per-sample event was gated on the block index, here
+a stream-position event was compared against one.
+
+**Prevention:** an event fires in the block that **contains** it:
+`if (at >= blockStart && at < blockStart + n)`. Any comparison between a stream
+position and a block boundary must be a range test, never equality. The
+granular case study renders with `--gate-off`, so a regression shows up as a
+silent example.
+
+---
+
 ## `assert(side_effect())` silenced by NDEBUG in Release builds
 
 **What happened:** `rdf_TurtleStoreTest` SEGFAULTed only in CI Release builds

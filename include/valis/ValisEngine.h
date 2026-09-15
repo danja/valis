@@ -54,6 +54,13 @@ public:
     void noteOff(int noteNumber) noexcept;
     void allNotesOff() noexcept;
 
+    /// Audio thread, before process(). The host's timeline for the block about
+    /// to run. Elements see it advance across the block: process() carries the
+    /// position forward one control slice at a time from the tempo, so a
+    /// musical phase does not step at buffer boundaries.
+    void setTransport(const TransportInfo& info) noexcept { transport = info; }
+    const TransportInfo& currentTransport() const noexcept { return transport; }
+
     /// Audio thread. `input` may be null when the host gives us no input.
     void process(const float* input, float* output, int numSamples) noexcept;
     void process(const float* input, float* outputL, float* outputR, int numSamples) noexcept;
@@ -148,7 +155,8 @@ private:
         std::vector<int> nodeTap;
     };
 
-    void processSlice(Graph&, const float* input, float* outputL, float* outputR, int numSamples) noexcept;
+    void processSlice(Graph&, const TransportInfo& sliceTransport,
+                      const float* input, float* outputL, float* outputR, int numSamples) noexcept;
     void retire(Graph* graph);
 
     /// Control values are recomputed on this grid, aligned to stream position
@@ -169,6 +177,10 @@ private:
     int   lastNoteNumber = 69;
     float lastVelocity   = 0.0f;
     bool  gate           = false;
+
+    /// Written by setTransport on the audio thread, read by process() there.
+    TransportInfo transport;
+
     std::array<float, 128> activeNoteVelocities{};
     std::array<float, 128> triggeredNoteVelocities{};
     std::atomic<int> reportedLatency{0};

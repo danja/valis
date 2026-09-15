@@ -1,0 +1,258 @@
+# examples/granular.ttl
+#
+# A granular synthesiser. It plays a sound file, granulates live audio from the
+# plugin's input, tracks MIDI pitch, and can take its grain timing from the host
+# transport.
+#
+# Signal path (stereo from the granulator onward):
+#
+#   Input ──► Granulator ─┬─► Ladder L ──► VCA L ──► Output.left
+#                         └─► Ladder R ──► VCA R ──► Output.right
+#
+# Modulation:
+#
+#   Transport.trigger ──► clockGate (Scale) ──► Granulator.trigger
+#   MidiInterval.semitones ─────────────────► Granulator.pitch
+#   Envelope ───────────────────────────────► VCA L.cv, VCA R.cv
+#   Envelope ──► toneScale (Scale) ─────────► Ladder L.cutoff, Ladder R.cutoff
+#
+# The buffer. val:file loads samples/bell.wav, itself rendered from
+# examples/rings-modal.ttl by valis-render. Because a file is loaded, val:freeze
+# rests at -1, which means "keep what was loaded". Set the Freeze parameter to
+# its lowest position (0) and the granulator records the plugin's audio input
+# over the buffer instead, which is how to granulate live sound.
+#
+# The grain clock. Transport.trigger is 1 for one control block on each
+# division and 0 in between. Scale maps that 0-1 pulse onto [min, 1]:
+#
+#   Grain Clock = 0   the trigger port rests at 0, so grains fire only on the
+#                     pulse - grain onsets lock to the host's tempo.
+#   Grain Clock = -1  the trigger port rests at -1, which the granulator reads
+#                     as "free-run", so grains fire at the Density rate instead.
+#
+# Pitch. MidiInterval gives the interval from the root note in semitones, which
+# is what the granulator transposes by. Playing the root note plays the material
+# at its recorded pitch; an octave up plays the grains twice as fast without
+# changing how often they start.
+#
+# A control arc REPLACES the value of the port it reaches every block, so
+# val:pitch, val:trigger, val:cutoff and val:cv carry no fixed value here: those
+# live in the control path, in the Scale elements and in MidiInterval's root.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:granular#> .
+
+:granular a val:Circuit ;
+    rdfs:label "Granular" ;
+    val:element :in , :gran ,
+                :clock , :clockGate ,
+                :key , :env , :toneScale ,
+                :toneL , :toneR , :vcaL , :vcaR , :out ;
+    val:arc :aInGran ,
+            :aGranToneL , :aGranToneR ,
+            :aToneVcaL , :aToneVcaR ,
+            :aVcaOutL , :aVcaOutR ,
+            :aClockGate , :aGateTrigger ,
+            :aKeyPitch ,
+            :aEnvVcaL , :aEnvVcaR ,
+            :aEnvTone , :aToneCutoffL , :aToneCutoffR .
+
+# ── Source ───────────────────────────────────────────────────────────────────
+
+:in a val:Input .
+
+:gran a val:Granulator ;
+    val:file     "samples/bell.wav" ;
+    val:seconds  8.0 ;         # buffer length; the file is shorter than this
+    val:position 0.0 ;         # start of the file
+    val:size     140.0 ;       # ms per grain
+    val:density  22.0 ;        # grains per second when free-running
+    val:spray    0.08 ;
+    val:jitter   0.35 ;        # breaks up the periodicity of a fixed density
+    val:pitchJitter 0.0 ;
+    val:shape    0.6 ;
+    val:spread   0.8 ;         # wide stereo placement
+    val:reverse  0.0 ;
+    val:scan     0.05 .        # a slow drift through the buffer
+# val:pitch and val:trigger are intentionally absent: control arcs set them.
+
+# ── Grain clock ──────────────────────────────────────────────────────────────
+
+:clock a val:Transport ;
+    val:division 0.25 .        # a sixteenth note
+
+# min is the resting value of the trigger port: -1 free-runs, 0 waits for the
+# transport's pulse.
+:clockGate a val:Scale ;
+    val:min -1.0 ;
+    val:max  1.0 .
+
+# ── Pitch ────────────────────────────────────────────────────────────────────
+
+:key a val:MidiInterval ;
+    val:root 60.0 .            # middle C plays the material untransposed
+
+# ── Amplitude and tone ───────────────────────────────────────────────────────
+
+:env a val:Envelope ;
+    val:attack  40.0 ;
+    val:decay   600.0 ;
+    val:sustain 0.85 ;
+    val:release 900.0 .
+
+:toneScale a val:Scale ;
+    val:min 700.0 ;            # Hz — cutoff with the envelope closed
+    val:max 14000.0 .          # Hz — cutoff at the envelope's peak
+
+:toneL a val:Ladder ;
+    val:resonance 0.12 ;
+    val:drive     1.0 .
+
+:toneR a val:Ladder ;
+    val:resonance 0.12 ;
+    val:drive     1.0 .
+
+:vcaL a val:VCA .
+:vcaR a val:VCA .
+
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aInGran a val:Arc ;
+    val:from [ val:node :in   ; val:port "out" ] ;
+    val:to   [ val:node :gran ; val:port "in"  ] .
+
+:aGranToneL a val:Arc ;
+    val:from [ val:node :gran  ; val:port "left" ] ;
+    val:to   [ val:node :toneL ; val:port "in"   ] .
+
+:aGranToneR a val:Arc ;
+    val:from [ val:node :gran  ; val:port "right" ] ;
+    val:to   [ val:node :toneR ; val:port "in"    ] .
+
+:aToneVcaL a val:Arc ;
+    val:from [ val:node :toneL ; val:port "out" ] ;
+    val:to   [ val:node :vcaL  ; val:port "in"  ] .
+
+:aToneVcaR a val:Arc ;
+    val:from [ val:node :toneR ; val:port "out" ] ;
+    val:to   [ val:node :vcaR  ; val:port "in"  ] .
+
+:aVcaOutL a val:Arc ;
+    val:from [ val:node :vcaL ; val:port "out"  ] ;
+    val:to   [ val:node :out  ; val:port "left" ] .
+
+:aVcaOutR a val:Arc ;
+    val:from [ val:node :vcaR ; val:port "out"   ] ;
+    val:to   [ val:node :out  ; val:port "right" ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aClockGate a val:ControlArc ;
+    val:from [ val:node :clock     ; val:port "trigger" ] ;
+    val:to   [ val:node :clockGate ; val:port "in"      ] .
+
+:aGateTrigger a val:ControlArc ;
+    val:from [ val:node :clockGate ; val:port "out"     ] ;
+    val:to   [ val:node :gran      ; val:port "trigger" ] .
+
+:aKeyPitch a val:ControlArc ;
+    val:from [ val:node :key  ; val:port "semitones" ] ;
+    val:to   [ val:node :gran ; val:port "pitch"     ] .
+
+:aEnvVcaL a val:ControlArc ;
+    val:from [ val:node :env  ; val:port "out" ] ;
+    val:to   [ val:node :vcaL ; val:port "cv"  ] .
+
+:aEnvVcaR a val:ControlArc ;
+    val:from [ val:node :env  ; val:port "out" ] ;
+    val:to   [ val:node :vcaR ; val:port "cv"  ] .
+
+:aEnvTone a val:ControlArc ;
+    val:from [ val:node :env       ; val:port "out" ] ;
+    val:to   [ val:node :toneScale ; val:port "in"  ] .
+
+:aToneCutoffL a val:ControlArc ;
+    val:from [ val:node :toneScale ; val:port "out"    ] ;
+    val:to   [ val:node :toneL     ; val:port "cutoff" ] .
+
+:aToneCutoffR a val:ControlArc ;
+    val:from [ val:node :toneScale ; val:port "out"    ] ;
+    val:to   [ val:node :toneR     ; val:port "cutoff" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :gran ; val:property val:position ;
+    lv2:name "Position" ; lv2:symbol "position" ; val:section "Grains" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :gran ; val:property val:size ;
+    lv2:name "Size" ; lv2:symbol "size" ; val:section "Grains" ;
+    units:unit units:ms ; lv2:minimum 5.0 ; lv2:maximum 1000.0 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :gran ; val:property val:density ;
+    lv2:name "Density" ; lv2:symbol "density" ; val:section "Grains" ;
+    units:unit units:hz ; lv2:minimum 0.5 ; lv2:maximum 120.0 .
+
+:p3 a val:Param ; val:slot 3 ; val:target :gran ; val:property val:shape ;
+    lv2:name "Shape" ; lv2:symbol "shape" ; val:section "Grains" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :gran ; val:property val:spray ;
+    lv2:name "Spray" ; lv2:symbol "spray" ; val:section "Scatter" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :gran ; val:property val:jitter ;
+    lv2:name "Jitter" ; lv2:symbol "jitter" ; val:section "Scatter" .
+
+:p6 a val:Param ; val:slot 6 ; val:target :gran ; val:property val:pitchJitter ;
+    lv2:name "Detune" ; lv2:symbol "detune" ; val:section "Scatter" ;
+    lv2:minimum 0.0 ; lv2:maximum 12.0 .
+
+:p7 a val:Param ; val:slot 7 ; val:target :gran ; val:property val:reverse ;
+    lv2:name "Reverse" ; lv2:symbol "reverse" ; val:section "Scatter" .
+
+:p8 a val:Param ; val:slot 8 ; val:target :gran ; val:property val:spread ;
+    lv2:name "Width" ; lv2:symbol "width" ; val:section "Scatter" .
+
+:p9 a val:Param ; val:slot 9 ; val:target :gran ; val:property val:scan ;
+    lv2:name "Scan" ; lv2:symbol "scan" ; val:section "Buffer" ;
+    lv2:minimum -1.0 ; lv2:maximum 1.0 .
+
+# -1 keeps the loaded file, 0 records the audio input, 1 freezes what is there.
+:p10 a val:Param ; val:slot 10 ; val:target :gran ; val:property val:freeze ;
+    lv2:name "Freeze" ; lv2:symbol "freeze" ; val:section "Buffer" .
+
+:p11 a val:Param ; val:slot 11 ; val:target :clock ; val:property val:division ;
+    lv2:name "Division" ; lv2:symbol "division" ; val:section "Clock" ;
+    lv2:minimum 0.0625 ; lv2:maximum 4.0 .
+
+# 0 locks grain onsets to the transport; -1 free-runs them at Density.
+:p12 a val:Param ; val:slot 12 ; val:target :clockGate ; val:property val:min ;
+    lv2:name "Grain Clock" ; lv2:symbol "grain_clock" ; val:section "Clock" ;
+    lv2:minimum -1.0 ; lv2:maximum 0.0 .
+
+:p13 a val:Param ; val:slot 13 ; val:target :key ; val:property val:root ;
+    lv2:name "Root Note" ; lv2:symbol "root_note" ; val:section "Pitch" ;
+    lv2:minimum 24.0 ; lv2:maximum 96.0 .
+
+:p14 a val:Param ; val:slot 14 ; val:target :toneScale ; val:property val:min ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Filter" ;
+    units:unit units:hz ; lv2:minimum 100.0 ; lv2:maximum 18000.0 .
+
+:p15 a val:Param ; val:slot 15 ; val:target :toneScale ; val:property val:max ;
+    lv2:name "Tone Peak" ; lv2:symbol "tone_peak" ; val:section "Filter" ;
+    units:unit units:hz ; lv2:minimum 100.0 ; lv2:maximum 20000.0 .
+
+:p16 a val:Param ; val:slot 16 ; val:target :env ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ; val:section "Envelope" ; units:unit units:ms .
+
+:p17 a val:Param ; val:slot 17 ; val:target :env ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Envelope" ; units:unit units:ms .
+
+:p18 a val:Param ; val:slot 18 ; val:target :env ; val:property val:sustain ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Envelope" .
+
+:p19 a val:Param ; val:slot 19 ; val:target :env ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ; val:section "Envelope" ; units:unit units:ms .

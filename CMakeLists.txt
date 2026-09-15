@@ -41,6 +41,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Filters.cpp
   src/dsp/elements/Transfers.cpp
   src/dsp/elements/Dynamics.cpp
+  src/dsp/elements/Granular.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
@@ -59,6 +60,10 @@ target_link_libraries(valis_core
     valis::sord
     juce::juce_dsp
   PRIVATE
+    # val:Granulator reads sound files from disk on the message thread. This is
+    # the one module beyond juce_dsp that valis_core needs; it is console-safe,
+    # opens no window, and stays PRIVATE so nothing downstream inherits it.
+    juce::juce_audio_formats
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
 

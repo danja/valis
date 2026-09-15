@@ -159,8 +159,11 @@ void testListElementTypes()
     Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
     auto ops = host.ops();
 
+    // Every instantiable class the ontology declares, which is the same set the
+    // registry can construct. Comparing against the registry rather than a
+    // number means adding an element does not mean editing this test.
     const auto types = ops.listElementTypes();
-    assert(types.size() == 45);
+    assert(types.size() == makeDefaultRegistry().size());
 
     const auto ladder = std::find_if(types.begin(), types.end(),
                                      [](const ElementTypeInfo& t) { return t.implementation == "Ladder"; });

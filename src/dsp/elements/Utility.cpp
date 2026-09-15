@@ -510,6 +510,7 @@ void registerSources(ElementRegistry&);
 void registerFilters(ElementRegistry&);
 void registerTransfers(ElementRegistry&);
 void registerDynamics(ElementRegistry&);
+void registerGranular(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -518,6 +519,7 @@ ElementRegistry makeDefaultRegistry()
     registerFilters(registry);
     registerTransfers(registry);
     registerDynamics(registry);
+    registerGranular(registry);
     registerUtility(registry);
     return registry;
 }

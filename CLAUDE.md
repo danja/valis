@@ -38,13 +38,20 @@ to confirm a running instance before using MCP tools that require a host.
 - RDF parsing, model building, and compilation happen on the message thread only.
 - `CompiledCircuit` is fully preallocated on the message thread and handed to the engine by atomic pointer swap; the retired one is freed on the message thread.
 - Surface failures (bad Turtle, unknown element, cycle) as located, recoverable errors. Never silence, never crash.
+- Anything that happens at a point in time is located by stream position, never by the index
+  within the current block and never by equality with a block boundary. Both MISTAKES.md
+  entries on this are the same bug from opposite directions: a per-sample event gated on the
+  block index, and a stream-position event compared for equality against one. An event fires
+  in the block that contains it.
 
 ## Architecture rules
 
 - UI never mutates the engine directly: changes go model → compiler → engine.
 - Editor metadata (`val:x`, `val:y`, colours) lives in a separate graph from execution metadata. Dragging a node must not invalidate the compiled circuit.
 - Every operation is an `Op` in `src/ops/`. UI views and the MCP server are thin adapters — never a second implementation.
-- `valis_core` links `juce_dsp` and serd/sord only; no `juce_gui_*`. The whole model and DSP layer is testable as plain console executables.
+- `valis_core` links `juce_dsp`, `juce_audio_formats` and serd/sord only; no `juce_gui_*`. The
+  whole model and DSP layer is testable as plain console executables. `juce_audio_formats` is
+  linked PRIVATE and exists only so `val:Granulator` can read a sound file on the message thread.
 - The parameter list is fixed at construction (64 normalised slots). `val:Param` declarations bind slots to element properties.
 
 ## Documentation rules
@@ -52,6 +59,14 @@ to confirm a running instance before using MCP tools that require a host.
 - documents should be written in technical plain English
 - do not use em dashes or novel jargon
 - any references to concepts that aren't common knowledge should contain links to further information
+
+## Transport
+
+- The host timeline reaches elements as `ProcessArgs::transport`. `ValisProcessor` reads it from
+  the play head, `valis-render` synthesises one from `--tempo` and `--rolling`, and the engine
+  carries `ppqPosition` forward one control slice at a time so a musical phase stays continuous
+  inside a block.
+- An element must derive musical timing from `ppqPosition`, never by counting host blocks.
 
 ## Control arc semantics
 
@@ -70,6 +85,9 @@ to confirm a running instance before using MCP tools that require a host.
 - C++20. Match surrounding idiom and comment density. Every file starts with `// path/filename`.
 - Comments describe purpose only where intent is non-obvious. No effect descriptions.
 - Leave `TODO:` comments where further work is needed; don't leave them unactioned.
+- `DspElement::setOption` returns false when it recognises a key and cannot apply it, writing
+  the reason into `error`; the engine turns that into a located load failure. An unknown key
+  is not a failure.
 - Never call a function with observable side effects inside `assert()`. In Release builds `NDEBUG` expands `assert(expr)` to `((void)0)`, silently skipping the call. Pattern: `const bool ok = store.parse(...); assert(ok);`
 
 ## RDF
@@ -86,6 +104,7 @@ to confirm a running instance before using MCP tools that require a host.
 - RDF: serd (parse/serialise), sord (in-memory store) — pinned to ≥ 0.32.0; system packages older than that have an incompatible `SerdError` struct layout that causes a SEGFAULT in the error callback. `cmake/FindOrFetchSerd.cmake` enforces this and fetches a known-good version if the system package is absent or too old.
 - DSP: `juce_dsp` — `StateVariableTPTFilter`, `LadderFilter`, `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `FastMathApproximations`
 - GUI: `juce_gui_basics`, `CodeEditorComponent` for the Code tab
+- Sound files: `juce_audio_formats` - WAV, AIFF, FLAC, Ogg and MP3. Message thread only.
 - HTTP: cpp-httplib; JSON: `juce::JSON` / `juce::var`
 
 ## Change workflow

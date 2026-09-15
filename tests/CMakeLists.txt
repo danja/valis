@@ -10,6 +10,7 @@ set(VALIS_TESTS
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
   dsp/ElementBehaviourTest.cpp
+  dsp/GranulatorTest.cpp
   engine/ValisEngineTest.cpp
   ops/OpDispatcherTest.cpp
   console/ConsoleTest.cpp)

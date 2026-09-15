@@ -51,10 +51,11 @@ protected:
     }
 
 public:
-    void setOption(std::string_view key, std::string_view value) override
+    bool setOption(std::string_view key, std::string_view value, std::string&) override
     {
         if (key == "antialiasing")
             strategy = parseStrategy(std::string(value));
+        return true;
     }
 
 private:

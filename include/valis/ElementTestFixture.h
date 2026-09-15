@@ -68,6 +68,15 @@ public:
         gate       = g;
     }
 
+    /// The host timeline the element sees. The engine advances this a control
+    /// slice at a time; a fixture run is one slice, so the caller advances it.
+    void setTransport(bool playing, double tempoBpm, double ppqPosition)
+    {
+        transport.playing     = playing;
+        transport.tempoBpm    = tempoBpm;
+        transport.ppqPosition = ppqPosition;
+    }
+
     std::vector<float> run(const std::vector<float>& input, std::string_view outPort = "out")
     {
         const int n = static_cast<int>(input.size());
@@ -95,6 +104,7 @@ public:
         args.gate          = gate;
         args.velocity      = velocity;
         args.noteNumber    = noteNumber;
+        args.transport     = transport;
         args.controlIn     = controls.data();
         args.numControlIn  = static_cast<int>(controls.size());
         args.controlOut    = ctrlOut.data();
@@ -184,6 +194,7 @@ public:
     std::vector<float> controls, lastControlOut;
     int numAudioIn = 0, numAudioOut = 0, numCtrlOut = 0;
     bool  gate       = false;
+    TransportInfo transport;
     float velocity   = 1.0f;
     int   noteNumber = 69;
     double rate      = 48000.0;
