@@ -78,6 +78,13 @@ struct OpContext
 
     /// The model matching the Turtle currently installed.
     std::function<const CircuitModel*()> readModel;
+
+    /// Reads and replaces the sound file a val:SampleLoad node is playing. The
+    /// document declares one with val:file; this is the session's choice on top
+    /// of it, exactly as a turned knob sits on top of a declared value.
+    std::function<std::string(const std::string& nodeId)> readSample;
+    std::function<bool(const std::string& nodeId, const std::string& path,
+                       std::string& error)> writeSample;
 };
 
 /// The operations. Each is deliberately small and total: it either does the
@@ -104,6 +111,12 @@ public:
                      std::optional<double> depth = std::nullopt);
     OpResult disconnect(const std::string& fromNode, const std::string& fromPort,
                         const std::string& toNode,   const std::string& toPort);
+
+    // -- samples -----------------------------------------------------------
+    /// The sound file a node is playing, or a failure if it is not a node that
+    /// plays one.
+    OpResult getSample(const std::string& nodeId) const;
+    OpResult setSample(const std::string& nodeId, const std::string& path);
 
     // -- parameters --------------------------------------------------------
     std::vector<ParamInfo> listParams() const;

@@ -242,8 +242,53 @@ void testRejectsMalformedOntology()
 
 }  // namespace
 
+/// The Controls view decides what to draw from these, so a port that declares
+/// a binary choice must report one whichever way it was spelled.
+void testPortChoiceFlags()
+{
+    Ontology ontology;
+    std::vector<std::string> errors;
+    const bool ok = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
+    assert(ok);
+
+    // lv2:toggled: two positions, named by its scale points.
+    const auto* select = ontology.find(vocab::valTerm("Select"));
+    assert(select != nullptr);
+    const auto* selectPort = select->findProperty("select");
+    assert(selectPort != nullptr);
+    assert(selectPort->toggled);
+    assert(selectPort->isBinary());
+    assert(selectPort->isChoice());
+    assert(selectPort->scalePoints.size() == 2);
+
+    // An enumeration with more than two points is a choice but not binary.
+    const auto* granulator = ontology.find(vocab::valTerm("Granulator"));
+    assert(granulator != nullptr);
+    const auto* freeze = granulator->findProperty("freeze");
+    assert(freeze != nullptr);
+    assert(freeze->enumeration);
+    assert(freeze->isChoice());
+    assert(! freeze->isBinary());
+    assert(freeze->scalePoints.size() == 3);
+
+    // An enumeration with exactly two points is binary without being toggled.
+    const auto* follower = ontology.find(vocab::valTerm("EnvelopeFollower"));
+    assert(follower != nullptr);
+    const auto* mode = follower->findProperty("mode");
+    assert(mode != nullptr);
+    assert(! mode->toggled);
+    assert(mode->isBinary());
+
+    // A plain range is neither.
+    const auto* size = granulator->findProperty("size");
+    assert(size != nullptr);
+    assert(! size->isChoice());
+    assert(! size->isBinary());
+}
+
 int main()
 {
+    testPortChoiceFlags();
     testLoadsEveryImplementableClass();
     testImplementationKeysAreUnique();
     testLadder();

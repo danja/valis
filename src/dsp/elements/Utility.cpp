@@ -187,6 +187,39 @@ private:
     int aIndex = -1, bIndex = -1;
 };
 
+/// Two-way control switch. `select` picks `a` when it is off and `b` when it is
+/// on, which turns one binary choice in the Controls view into any two values a
+/// circuit needs, rather than only 0 and 1.
+///
+/// `thru` repeats the resolved switch position, so one switch can reach several
+/// destinations: chain it into another Select's `select`, or into a
+/// val:ControlMultiply to gate a control path off.
+class Select final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        aIndex      = controlIndex(type, "a");
+        bIndex      = controlIndex(type, "b");
+        selectIndex = controlIndex(type, "select");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 2)
+            return;
+
+        const bool on = controlAt(args, selectIndex, 0.0f) > 0.5f;
+
+        args.controlOut[0] = on ? controlAt(args, bIndex, 1.0f)
+                                : controlAt(args, aIndex, 0.0f);
+        args.controlOut[1] = on ? 1.0f : 0.0f;
+    }
+
+private:
+    int aIndex = -1, bIndex = -1, selectIndex = -1;
+};
+
 /// Single-tap delay line with feedback. Preallocated in prepare(); process()
 /// never allocates. Maximum delay: 5 seconds at the current sample rate.
 class Delay final : public DspElement
@@ -494,6 +527,7 @@ void registerUtility(ElementRegistry& registry)
     registry.add("VCA",             &make<elements::VCA>);
     registry.add("Scale",           &make<elements::Scale>);
     registry.add("ControlMultiply", &make<elements::ControlMultiply>);
+    registry.add("Select",          &make<elements::Select>);
     registry.add("Delay",           &make<elements::Delay>);
     registry.add("Mixer",           &make<elements::Mixer>);
     registry.add("DryWet",          &make<elements::DryWet>);

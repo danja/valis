@@ -245,6 +245,12 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
         paramList.push_back(std::move(binding));
     }
 
+    // RDF has no order, so the store returns the bindings in whatever order it
+    // holds them. Slot order is the author's own, and it is what keeps a
+    // val:section together as one run of consecutive knobs in the Controls view.
+    std::sort(paramList.begin(), paramList.end(),
+              [](const ParamBinding& a, const ParamBinding& b) { return a.slot < b.slot; });
+
     return true;
 }
 

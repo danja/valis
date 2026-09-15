@@ -16,6 +16,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <atomic>
+#include <map>
+#include <string>
 
 namespace valis {
 
@@ -137,6 +139,18 @@ public:
     /// Sample rate the engine is running at, for display scaling.
     double engineSampleRate() const { return engine.currentSampleRate(); }
 
+    /// The sound file a val:SampleLoad node is playing. The document declares
+    /// one with val:file; choosing another from the Controls view overrides it
+    /// for the session without rewriting the circuit, which is how a turned
+    /// knob already treats a value the document declared. Message thread only.
+    std::string sampleFor(const std::string& nodeId) const;
+
+    /// Installs a different sound file on one node. Reinstalls the circuit, so
+    /// the new file is read on this thread and handed over by the usual atomic
+    /// swap. Returns false and leaves the previous file playing if it will not
+    /// load; `error` then says why.
+    bool setSample(const std::string& nodeId, const std::string& path, std::string& error);
+
     /// Builds the op surface over this processor. The three views and the MCP
     /// server all go through here.
     OpDispatcher ops();
@@ -188,6 +202,11 @@ private:
 
     ValisParameter* slot(int index);
     void rebindParameters();
+
+    /// Sample choices as one saved string, "node id, tab, path" per line.
+    juce::String samplesAsString() const;
+    void samplesFromString(const juce::String&);
+
     void applyParameterBindings();
 
     std::atomic<bool> parametersDirty{false};
@@ -199,6 +218,12 @@ private:
     ElementRegistry registry;
     ValisEngine engine;
     CircuitModel model;
+
+    /// Per-node sound file overrides, applied to the compiled circuit before it
+    /// is installed. Kept beside the model rather than in it: the document is
+    /// what the circuit is, and this is what the session has chosen.
+    std::map<std::string, std::string> sampleOverrides;
+
     std::vector<Diagnostic> diagnostics;
     juce::AudioBuffer<float> monoScratch;
 

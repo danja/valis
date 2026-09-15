@@ -169,6 +169,8 @@ ValisProcessor::ValisProcessor()
         if (saved.isNotEmpty())
         {
             restored = true;
+            // Before the circuit is installed, so the chosen files load with it.
+            samplesFromString(settings->getValue("samples"));
             setTurtle(saved);
 
             // Restore knob positions on top of the circuit's own defaults.
@@ -217,6 +219,9 @@ OpDispatcher ValisProcessor::ops()
         return setTurtle(juce::String(turtle), out);
     };
     ctx.readModel = [this]() -> const CircuitModel* { return &model; };
+    ctx.readSample  = [this](const std::string& nodeId) { return sampleFor(nodeId); };
+    ctx.writeSample = [this](const std::string& nodeId, const std::string& path,
+                             std::string& error) { return setSample(nodeId, path, error); };
     return OpDispatcher(ctx);
 }
 
@@ -381,6 +386,23 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
 
         if (compiler.compile(candidate, vocabulary, compiled, out))
         {
+            // Whatever the session has chosen for a val:SampleLoad replaces the
+            // file the document names. This happens on the compiled circuit, so
+            // the file is read here and handed to the engine already loaded.
+            for (auto& node : compiled.nodes)
+            {
+                const auto chosen = sampleOverrides.find(node.id);
+                if (chosen == sampleOverrides.end())
+                    continue;
+
+                auto option = std::find_if(node.options.begin(), node.options.end(),
+                                           [](const auto& o) { return o.first == "file"; });
+                if (option != node.options.end())
+                    option->second = chosen->second;
+                else
+                    node.options.emplace_back("file", chosen->second);
+            }
+
             std::string error;
             if (engine.load(compiled, registry, error))
             {
@@ -411,6 +433,72 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
         diagnostics = out;
     }
     sendChangeMessage();
+    return false;
+}
+
+juce::String ValisProcessor::samplesAsString() const
+{
+    juce::String out;
+    for (const auto& [nodeId, path] : sampleOverrides)
+        out << juce::String(nodeId) << "\t" << juce::String(path) << "\n";
+    return out;
+}
+
+void ValisProcessor::samplesFromString(const juce::String& text)
+{
+    sampleOverrides.clear();
+    for (const auto& line : juce::StringArray::fromLines(text))
+    {
+        const auto tab = line.indexOfChar('\t');
+        if (tab > 0)
+            sampleOverrides[line.substring(0, tab).toStdString()] =
+                line.substring(tab + 1).toStdString();
+    }
+}
+
+std::string ValisProcessor::sampleFor(const std::string& nodeId) const
+{
+    if (const auto chosen = sampleOverrides.find(nodeId); chosen != sampleOverrides.end())
+        return chosen->second;
+
+    if (const auto* element = model.findElement(nodeId))
+        if (const auto declared = element->options.find("file"); declared != element->options.end())
+            return declared->second;
+
+    return {};
+}
+
+bool ValisProcessor::setSample(const std::string& nodeId, const std::string& path,
+                               std::string& error)
+{
+    if (model.findElement(nodeId) == nullptr)
+    {
+        error = "no element with id " + nodeId;
+        return false;
+    }
+
+    const auto previous = sampleOverrides.find(nodeId) != sampleOverrides.end()
+        ? std::optional<std::string>(sampleOverrides[nodeId])
+        : std::nullopt;
+
+    sampleOverrides[nodeId] = path;
+
+    std::vector<Diagnostic> installErrors;
+    if (setTurtle(getTurtle(), installErrors))
+        return true;
+
+    // The file would not load. Put back what was playing before, and reinstall
+    // so the circuit is not left holding a file it could not read.
+    if (previous.has_value())
+        sampleOverrides[nodeId] = *previous;
+    else
+        sampleOverrides.erase(nodeId);
+
+    std::vector<Diagnostic> ignored;
+    setTurtle(getTurtle(), ignored);
+
+    error = installErrors.empty() ? "the file could not be loaded"
+                                  : installErrors.front().message;
     return false;
 }
 
@@ -598,6 +686,7 @@ void ValisProcessor::timerCallback()
         if (auto* settings = appProperties.getUserSettings())
         {
             settings->setValue("turtle", getTurtle());
+            settings->setValue("samples", samplesAsString());
 
             // Save the APVTS state so knob positions survive focus loss.
             if (const auto xml = apvts.copyState().createXml())
@@ -612,6 +701,7 @@ void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto tree = apvts.copyState();
     tree.setProperty("turtle", getTurtle(), nullptr);
+    tree.setProperty("samples", samplesAsString(), nullptr);
    #if VALIS_WITH_MCP
     tree.setProperty("mcpEnabled", isMcpRunning(), nullptr);
     tree.setProperty("mcpPort",    mcpPort(),       nullptr);
@@ -627,6 +717,8 @@ void ValisProcessor::setStateInformation(const void* data, int sizeInBytes)
         return;
 
     auto tree = juce::ValueTree::fromXml(*xml);
+    // Before the circuit is installed, so the chosen files are read with it.
+    samplesFromString(tree.getProperty("samples", juce::String()).toString());
     setTurtle(tree.getProperty("turtle", juce::String()).toString());
     apvts.replaceState(tree);
     autoSaveTicks = -1;  // setTurtle already scheduled save; don't double-fire

@@ -304,6 +304,12 @@ const ToolSpec kTools[] = {
     {"set_param", "Set one parameter slot, in the property's own units. Out-of-range values are clamped and reported.",
      R"({"type":"object","properties":{"slot":{"type":"integer"},"value":{"type":"number"}},"required":["slot","value"]})"},
 
+    {"get_sample", "The sound file a val:SampleLoad node is playing.",
+     R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
+
+    {"set_sample", "Load a different sound file into a val:SampleLoad node. The previous file keeps playing if the new one will not load.",
+     R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/"}},"required":["node","path"]})"},
+
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, and its latency.",
      R"({"type":"object","properties":{}})"},
 
@@ -385,6 +391,12 @@ juce::var McpServer::callTool(const juce::String& name, const juce::var& argumen
         if (name == "set_param")
             return resultOf(ops.setParam(static_cast<int>(arguments["slot"]),
                                          static_cast<double>(arguments["value"])));
+
+        if (name == "get_sample")
+            return resultOf(ops.getSample(string("node")));
+
+        if (name == "set_sample")
+            return resultOf(ops.setSample(string("node"), string("path")));
 
         if (name == "load_file")
         {

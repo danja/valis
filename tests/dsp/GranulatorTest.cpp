@@ -331,6 +331,83 @@ void testMidiInterval()
     assert(std::abs(rig.lastControlOut[1] - 1.0f) < 1.0e-5f);
 }
 
+/// val:SampleLoad reads a file and plays it. The file it is given here is the
+/// one the granular example ships with.
+void testSampleLoadPlaysAFile()
+{
+    ElementTestFixture rig("SampleLoad", kRate);
+
+    std::string error;
+    const bool loaded = rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error);
+    if (! loaded)
+        std::printf("  SampleLoad: %s\n", error.c_str());
+    assert(loaded);
+    assert(error.empty());
+
+    const std::vector<float> silence(4096, 0.0f);
+    const auto out = rig.run(silence);
+
+    assert(ElementTestFixture::measureRms(out) > 0.01f);
+    for (float sample : out)
+        assert(std::isfinite(sample));
+
+    // Nothing to read is silence, not noise.
+    ElementTestFixture empty("SampleLoad", kRate);
+    assert(ElementTestFixture::measurePeak(empty.run(silence)) == 0.0f);
+
+    std::string missing;
+    assert(! empty.element->setOption("file", "no/such/sample.wav", missing));
+    assert(! missing.empty());
+}
+
+/// Looping wraps back to the start; one-shot stops at the end and stays stopped
+/// until a trigger restarts it.
+void testSampleLoadLoopAndOneShot()
+{
+    // The shipped sample is 2.6 seconds, so six of these blocks run well past
+    // its end at the engine's rate.
+    const int blocks = 6;
+    const int blockSize = 32768;
+
+    auto levelAfterPlayingPast = [&](float loop)
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+        rig.set("loop", loop);
+
+        const std::vector<float> silence(static_cast<std::size_t>(blockSize), 0.0f);
+        float last = 0.0f;
+        for (int i = 0; i < blocks; ++i)
+            last = ElementTestFixture::measureRms(rig.run(silence));
+        return last;
+    };
+
+    assert(levelAfterPlayingPast(1.0f) > 0.01f);    // still going round
+    assert(levelAfterPlayingPast(0.0f) == 0.0f);    // played once and stopped
+}
+
+/// val:Select passes one of two values, and repeats the switch position on thru
+/// so one switch can drive more than one destination.
+void testSelectSwitchesBetweenTwoValues()
+{
+    ElementTestFixture rig("Select", kRate);
+    rig.set("a", 1.0f);
+    rig.set("b", -1.0f);
+
+    const std::vector<float> block(32, 0.0f);
+
+    rig.set("select", 0.0f);
+    rig.run(block);
+    assert(rig.lastControlOut[0] == 1.0f);
+    assert(rig.lastControlOut[1] == 0.0f);
+
+    rig.set("select", 1.0f);
+    rig.run(block);
+    assert(rig.lastControlOut[0] == -1.0f);
+    assert(rig.lastControlOut[1] == 1.0f);
+}
+
 }  // namespace
 
 int main()
@@ -345,6 +422,9 @@ int main()
     testTransportPhaseAndPulse();
     testExternalTriggerFiresGrains();
     testMidiInterval();
+    testSampleLoadPlaysAFile();
+    testSampleLoadLoopAndOneShot();
+    testSelectSwitchesBetweenTwoValues();
 
     std::printf("GranulatorTest PASSED\n");
     return 0;

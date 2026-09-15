@@ -663,6 +663,38 @@ val:ControlMultiply a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:name "Out" ; lv2:default 0.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
 
+val:Select a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Select" ;
+    rdfs:comment """Two-way control switch. select picks a when it is off and b
+when it is on, so one toggle in the Controls view can supply whatever pair of
+values a circuit needs rather than only 0 and 1.
+
+thru repeats the resolved switch position, so one switch can reach several
+destinations: chain it into another Select's select, or into a
+val:ControlMultiply to gate a control path off.""" ;
+    val:implementation "Select" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "a" ;
+        lv2:name "A" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "b" ;
+        lv2:name "B" ; lv2:default 1.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "select" ;
+        lv2:name "Select" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Off" ; rdf:value 0 ] ,
+                       [ rdfs:label "On"  ; rdf:value 1 ] ;
+        rdfs:comment "Off passes a, on passes b. The Controls view draws this as a switch." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "thru" ;
+        lv2:name "Thru" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:Pan a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Pan" ;
     rdfs:comment "Equal-power stereo panner. Maps mono audio in to left, right, and combined out." ;
@@ -1070,11 +1102,49 @@ See Roads, Microsound (MIT Press, 2001)
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "freeze" ;
         lv2:name "Freeze" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Override: -1 = keep a loaded file, record live input otherwise; 0 = record; 1 = freeze." ] ,
+        lv2:portProperty lv2:enumeration ;
+        lv2:scalePoint [ rdfs:label "Auto"   ; rdf:value -1 ] ,
+                       [ rdfs:label "Record" ; rdf:value 0 ] ,
+                       [ rdfs:label "Freeze" ; rdf:value 1 ] ;
+        rdfs:comment "Auto keeps a loaded file and records live input otherwise; Record writes the input into the buffer; Freeze holds what is there." ] ,
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
         rdfs:comment "Override: -1 = free-run at the density rate; otherwise each rising edge fires one grain." ] .
+
+val:SampleLoad a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "SampleLoad" ;
+    rdfs:comment """Plays the sound file named by val:file, summed to mono and
+resampled to the engine's rate. The Controls view draws one of these as a file
+slot with a Load button, so the sample can be changed without editing the
+document.
+
+Feed it into a val:Granulator's audio input to granulate a recording, or use it
+on its own as a one-shot player. Where val:Granulator's own val:file loads
+material directly into its buffer, a SampleLoad plays the file as audio, which
+is what lets the sample be swapped while the circuit runs.""" ;
+    val:implementation "SampleLoad" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "speed" ;
+        lv2:name "Speed" ; lv2:default 1.0 ;
+        lv2:minimum -4.0 ; lv2:maximum 4.0 ;
+        rdfs:comment "Playback rate. 1 is the recorded speed, 2 an octave up, negative plays backwards." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "start" ;
+        lv2:name "Start" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Where a trigger starts playback, as a fraction of the file." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "loop" ;
+        lv2:name "Loop" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "One shot" ; rdf:value 0 ] ,
+                       [ rdfs:label "Loop"     ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = play free-running; otherwise each rising edge restarts from start." ] .
 
 val:Transport a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Transport" ;

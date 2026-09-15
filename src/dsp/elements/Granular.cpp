@@ -42,6 +42,106 @@ private:
     std::uint32_t state = 0x9e3779b9u;
 };
 
+/// Reads a sound file into a mono buffer at the engine's rate. Message thread
+/// only: it opens a file and allocates, so it belongs nowhere near process().
+///
+/// Shared by val:Granulator and val:SampleLoad, which differ in what they do
+/// with the samples, not in how they get them.
+struct SampleFile
+{
+    std::vector<float> samples;
+    std::string name;      ///< the file's own name, for the Controls view
+
+    bool load(std::string_view path, double sampleRate, std::string& error)
+    {
+        const auto file = resolve(path);
+        if (! file.existsAsFile())
+        {
+            error = "no such file: " + file.getFullPathName().toStdString();
+            return false;
+        }
+
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+
+        std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+        if (reader == nullptr)
+        {
+            error = "unreadable audio file: " + file.getFullPathName().toStdString();
+            return false;
+        }
+
+        const auto frames = static_cast<int>(std::min<juce::int64>(
+            reader->lengthInSamples, static_cast<juce::int64>(sampleRate * 60.0)));
+        if (frames <= 0)
+        {
+            error = "audio file is empty: " + file.getFullPathName().toStdString();
+            return false;
+        }
+
+        juce::AudioBuffer<float> source(static_cast<int>(reader->numChannels), frames);
+        reader->read(&source, 0, frames, 0, true, true);
+
+        // The circuit model is mono; a stereo file is summed rather than having
+        // one of its channels dropped.
+        std::vector<float> mono(static_cast<std::size_t>(frames), 0.0f);
+        for (int c = 0; c < source.getNumChannels(); ++c)
+        {
+            const float* channel = source.getReadPointer(c);
+            for (int i = 0; i < frames; ++i)
+                mono[static_cast<std::size_t>(i)] += channel[i];
+        }
+        if (source.getNumChannels() > 1)
+            for (auto& sample : mono)
+                sample /= static_cast<float>(source.getNumChannels());
+
+        const double ratio = reader->sampleRate > 0.0 ? reader->sampleRate / sampleRate : 1.0;
+        const auto resampled = static_cast<int>(static_cast<double>(frames) / ratio);
+
+        samples.assign(static_cast<std::size_t>(std::max(resampled, 1)), 0.0f);
+        for (int i = 0; i < resampled; ++i)
+        {
+            const double at = static_cast<double>(i) * ratio;
+            const auto   i0 = static_cast<int>(at);
+            const auto   f  = static_cast<float>(at - static_cast<double>(i0));
+            const float  y0 = mono[static_cast<std::size_t>(std::min(i0, frames - 1))];
+            const float  y1 = mono[static_cast<std::size_t>(std::min(i0 + 1, frames - 1))];
+            samples[static_cast<std::size_t>(i)] = y0 + f * (y1 - y0);
+        }
+
+        name = file.getFileName().toStdString();
+        return true;
+    }
+
+    /// A relative path is resolved against the working directory first, then
+    /// the shipped examples, so a circuit can name a sample next to itself.
+    static juce::File resolve(std::string_view path)
+    {
+        const juce::String text{std::string(path)};
+
+        if (text.startsWith("~/"))
+            return juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+                       .getChildFile(text.substring(2));
+
+        if (juce::File::isAbsolutePath(text))
+            return juce::File(text);
+
+        const auto relative = juce::File::getCurrentWorkingDirectory().getChildFile(text);
+        if (relative.existsAsFile())
+            return relative;
+
+        const auto shipped = juce::File(VALIS_EXAMPLES_DIR).getChildFile(text);
+        if (shipped.existsAsFile())
+            return shipped;
+
+        const auto root = juce::File(VALIS_ROOT_DIR).getChildFile(text);
+        if (root.existsAsFile())
+            return root;
+
+        return relative;
+    }
+};
+
 /// Granular synthesiser and processor.
 ///
 /// One circular buffer holds the material: live audio arrives at the audio
@@ -182,7 +282,7 @@ public:
         // the current wait to what it now asks for. Only a change does this:
         // clamping on every block would cut the long half off jitter, and would
         // make the result depend on where the block boundaries fell.
-        if (interval != lastInterval)
+        if (std::abs(interval - lastInterval) > 1.0e-6f * std::max(1.0f, interval))
         {
             untilNextGrain = std::min(untilNextGrain, static_cast<double>(interval));
             lastInterval = interval;
@@ -409,101 +509,22 @@ private:
         }
     }
 
-    /// Message thread only. Reads the whole file into the buffer, summed to
-    /// mono and resampled to the engine's rate, and remembers it so reset()
-    /// can restore it after the buffer is cleared.
+    /// Message thread only. The samples become the buffer's contents, and are
+    /// kept so reset() can restore them after the buffer is cleared.
     bool loadFile(std::string_view path, std::string& error)
     {
-        const auto file = resolve(path);
-        if (! file.existsAsFile())
-        {
-            error = "no such file: " + file.getFullPathName().toStdString();
+        SampleFile file;
+        if (! file.load(path, sampleRate, error))
             return false;
-        }
 
-        juce::AudioFormatManager formats;
-        formats.registerBasicFormats();
-
-        std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
-        if (reader == nullptr)
-        {
-            error = "unreadable audio file: " + file.getFullPathName().toStdString();
-            return false;
-        }
-
-        const auto frames = static_cast<int>(std::min<juce::int64>(reader->lengthInSamples,
-                                                                   static_cast<juce::int64>(sampleRate * 60.0)));
-        if (frames <= 0)
-        {
-            error = "audio file is empty: " + file.getFullPathName().toStdString();
-            return false;
-        }
-
-        juce::AudioBuffer<float> source(static_cast<int>(reader->numChannels), frames);
-        reader->read(&source, 0, frames, 0, true, true);
-
-        // The circuit model is mono; a stereo file is summed rather than
-        // dropping a channel.
-        std::vector<float> mono(static_cast<std::size_t>(frames), 0.0f);
-        for (int c = 0; c < source.getNumChannels(); ++c)
-        {
-            const float* channel = source.getReadPointer(c);
-            for (int i = 0; i < frames; ++i)
-                mono[static_cast<std::size_t>(i)] += channel[i];
-        }
-        if (source.getNumChannels() > 1)
-            for (auto& sample : mono)
-                sample /= static_cast<float>(source.getNumChannels());
-
-        const double ratio = reader->sampleRate > 0.0 ? reader->sampleRate / sampleRate : 1.0;
-        const auto resampledLength = static_cast<int>(static_cast<double>(frames) / ratio);
-
-        fileContent.assign(static_cast<std::size_t>(std::max(resampledLength, 1)), 0.0f);
-        for (int i = 0; i < resampledLength; ++i)
-        {
-            const double at = static_cast<double>(i) * ratio;
-            const auto   i0 = static_cast<int>(at);
-            const auto   f  = static_cast<float>(at - static_cast<double>(i0));
-            const float  y0 = mono[static_cast<std::size_t>(std::min(i0, frames - 1))];
-            const float  y1 = mono[static_cast<std::size_t>(std::min(i0 + 1, frames - 1))];
-            fileContent[static_cast<std::size_t>(i)] = y0 + f * (y1 - y0);
-        }
-
-        fileLength = static_cast<int>(fileContent.size());
+        fileContent = std::move(file.samples);
+        fileLength  = static_cast<int>(fileContent.size());
 
         if (fileLength + 4 > static_cast<int>(buffer.size()))
             allocateBuffer(static_cast<double>(fileLength) / sampleRate + 0.1);
 
         reset();
         return true;
-    }
-
-    /// A relative path is resolved against the working directory first, then
-    /// the shipped examples, so a circuit can name a sample next to itself.
-    static juce::File resolve(std::string_view path)
-    {
-        const juce::String text{std::string(path)};
-
-        if (text.startsWith("~/"))
-            return juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-                       .getChildFile(text.substring(2));
-
-        if (juce::File::isAbsolutePath(text))
-            return juce::File(text);
-
-        const auto relative = juce::File::getCurrentWorkingDirectory().getChildFile(text);
-        if (relative.existsAsFile())
-            return relative;
-
-        const auto shipped = juce::File(VALIS_EXAMPLES_DIR).getChildFile(text);
-        if (shipped.existsAsFile())
-            return shipped;
-
-        const auto root = juce::File(VALIS_ROOT_DIR).getChildFile(text);
-        if (root.existsAsFile())
-            return root;
-
-        return relative;
     }
 
     std::vector<float> buffer;      ///< the circular recording buffer
@@ -528,6 +549,126 @@ private:
     int spreadIndex = -1, reverseIndex = -1, freezeIndex = -1, triggerIndex = -1;
     int scanIndex = -1;
     int outIndex = -1, leftIndex = -1, rightIndex = -1;
+};
+
+/// Plays a sound file named by val:file.
+///
+/// The file is read on the message thread when the circuit is installed. The
+/// element is what a circuit points at when it wants a sample: the Controls
+/// view draws one of these as a file slot with a Load button, so the sample can
+/// be changed without editing the document.
+///
+/// Feed it into a val:Granulator's audio input to granulate a recording, or use
+/// it on its own as a one-shot player.
+class SampleLoad final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate   = rate;
+        triggerIndex = controlIndex(type, "trigger");
+        speedIndex   = controlIndex(type, "speed");
+        startIndex   = controlIndex(type, "start");
+        loopIndex    = controlIndex(type, "loop");
+        reset();
+    }
+
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "file")
+            return true;
+
+        SampleFile file;
+        if (! file.load(value, sampleRate, error))
+            return false;
+
+        samples = std::move(file.samples);
+        reset();
+        return true;
+    }
+
+    void reset() override
+    {
+        readPos     = 0.0;
+        playing     = ! samples.empty();
+        lastTrigger = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        float* out = args.audioOut[0];
+        const int n = args.numSamples;
+        std::fill(out, out + n, 0.0f);
+
+        const auto length = static_cast<int>(samples.size());
+        if (length <= 0)
+            return;
+
+        const float speed   = std::clamp(controlAt(args, speedIndex, 1.0f), -4.0f, 4.0f);
+        const float startCtl= std::clamp(controlAt(args, startIndex, 0.0f), 0.0f, 1.0f);
+        const bool  looping = controlAt(args, loopIndex, 1.0f) > 0.5f;
+        const float trigger = controlAt(args, triggerIndex, -1.0f);
+
+        // -1 leaves the element free-running, which for a looping player means
+        // it simply plays. Any other value makes each rising edge a restart.
+        if (trigger >= -0.5f)
+        {
+            if (trigger > 0.5f && lastTrigger <= 0.5f)
+            {
+                readPos = static_cast<double>(startCtl) * static_cast<double>(length);
+                playing = true;
+            }
+            lastTrigger = trigger;
+        }
+
+        if (! playing)
+            return;
+
+        for (int i = 0; i < n; ++i)
+        {
+            out[i] = read(readPos, length);
+            readPos += static_cast<double>(speed);
+
+            if (readPos >= static_cast<double>(length) || readPos < 0.0)
+            {
+                if (! looping)
+                {
+                    playing = false;
+                    break;
+                }
+
+                while (readPos >= static_cast<double>(length)) readPos -= static_cast<double>(length);
+                while (readPos < 0.0)                          readPos += static_cast<double>(length);
+            }
+        }
+    }
+
+private:
+    /// Linear interpolation is enough here: unlike a grain, a player usually
+    /// runs at or near its recorded rate.
+    float read(double position, int length) const noexcept
+    {
+        auto i0 = static_cast<int>(position);
+        if (i0 < 0 || i0 >= length)
+            i0 = 0;
+        int i1 = i0 + 1;
+        if (i1 >= length)
+            i1 = 0;
+
+        const auto f = static_cast<float>(position - std::floor(position));
+        return samples[static_cast<std::size_t>(i0)]
+             + f * (samples[static_cast<std::size_t>(i1)] - samples[static_cast<std::size_t>(i0)]);
+    }
+
+    std::vector<float> samples;
+    double sampleRate = 44100.0;
+    double readPos    = 0.0;
+    bool   playing    = false;
+    float  lastTrigger = 0.0f;
+    int triggerIndex = -1, speedIndex = -1, startIndex = -1, loopIndex = -1;
 };
 
 /// The host timeline as control signals.
@@ -648,6 +789,7 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 void registerGranular(ElementRegistry& registry)
 {
     registry.add("Granulator",   &make<elements::Granulator>);
+    registry.add("SampleLoad",   &make<elements::SampleLoad>);
     registry.add("Transport",    &make<elements::Transport>);
     registry.add("MidiInterval", &make<elements::MidiInterval>);
 }

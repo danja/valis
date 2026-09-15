@@ -397,6 +397,41 @@ OpResult OpDispatcher::disconnect(const std::string& fromNode, const std::string
 // Parameters
 // ---------------------------------------------------------------------------
 
+OpResult OpDispatcher::getSample(const std::string& nodeId) const
+{
+    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
+    if (model == nullptr)
+        return OpResult::failure("no circuit is loaded");
+
+    if (model->findElement(nodeId) == nullptr)
+        return OpResult::failure("no element with id " + nodeId);
+
+    if (! ctx.readSample)
+        return OpResult::failure("this host cannot report sample files");
+
+    return OpResult::success(ctx.readSample(nodeId));
+}
+
+OpResult OpDispatcher::setSample(const std::string& nodeId, const std::string& path)
+{
+    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
+    if (model == nullptr)
+        return OpResult::failure("no circuit is loaded");
+
+    const auto* element = model->findElement(nodeId);
+    if (element == nullptr)
+        return OpResult::failure("no element with id " + nodeId);
+
+    if (! ctx.writeSample)
+        return OpResult::failure("this host cannot load sample files");
+
+    std::string error;
+    if (! ctx.writeSample(nodeId, path, error))
+        return OpResult::failure(error);
+
+    return OpResult::success(path);
+}
+
 std::vector<ParamInfo> OpDispatcher::listParams() const
 {
     std::vector<ParamInfo> result;

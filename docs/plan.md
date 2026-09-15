@@ -315,7 +315,7 @@ Structural edits mutate the sord model and re-serialise the whole document. Surf
 
 *Acceptance:* `curl` an `initialize`, then `tools/list`, then `tools/call` for `setTurtle` and hear the circuit change; a bad Turtle payload returns a JSON-RPC error with line and column rather than crashing.
 
-*Done and verified against the running plugin:* 13 tools, all adapters over `OpDispatcher`. Work is marshalled onto the message thread, because the ops mutate the model the editor also reads. Loopback only, off unless `VALIS_MCP` is set, optional bearer token.
+*Done and verified against the running plugin:* 16 tools, all adapters over `OpDispatcher`. Work is marshalled onto the message thread, because the ops mutate the model the editor also reads. Loopback only, off unless `VALIS_MCP` is set, optional bearer token.
 
 The acceptance run inserted a `val:Tanh` between two elements over HTTP - `add_node`, `disconnect`, two `connect` calls - and **the graph view redrew with the new node in place while the audio kept running**. Diagnostics arrive over the wire with position: `4:0: missing ';' or '.'`, `Tanh has no port 'nosuch'`, `feedback loop with no val:UnitDelay to break it: g -> m`.
 

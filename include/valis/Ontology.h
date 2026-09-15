@@ -34,6 +34,14 @@ struct PortDesc
 
     bool logarithmic = false;  ///< lv2:portProperty lv2:logarithmic
     bool enumeration = false;  ///< lv2:portProperty lv2:enumeration
+    bool toggled     = false;  ///< lv2:portProperty lv2:toggled - a binary choice
+
+    /// Whether the port offers a fixed set of choices rather than a range, and
+    /// how many. A binary port counts as two choices whether it was declared
+    /// lv2:toggled or as an enumeration with two scale points, so the view that
+    /// draws it does not have to know which spelling was used.
+    bool isChoice() const { return toggled || (enumeration && scalePoints.size() > 1); }
+    bool isBinary() const { return toggled || (enumeration && scalePoints.size() == 2); }
 
     /// Named integer values, sorted by value. Present when enumeration is true.
     std::vector<std::pair<double, std::string>> scalePoints;

@@ -61,6 +61,7 @@ namespace lv2 {
   inline const std::string logarithmic  = std::string(LV2) + "logarithmic";
   inline const std::string enumeration  = std::string(LV2) + "enumeration";
   inline const std::string integer_     = std::string(LV2) + "integer";
+  inline const std::string toggled      = std::string(LV2) + "toggled";
   inline const std::string scalePoint   = std::string(LV2) + "scalePoint";
 }
 

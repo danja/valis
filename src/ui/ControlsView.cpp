@@ -2,6 +2,7 @@
 
 #include "ui/ControlsView.h"
 
+#include "ui/SampleBox.h"
 #include "ui/ScopeBox.h"
 #include "ui/SpectrumBox.h"
 #include "plugin/ValisProcessor.h"
@@ -34,12 +35,20 @@ void drawScrew(juce::Graphics& g, juce::Point<float> centre, float angle,
     g.drawLine(slot, 1.8f);
 }
 
+juce::Component* ControlsView::Knob::control() const
+{
+    if (slider   != nullptr) return slider.get();
+    if (toggle   != nullptr) return toggle.get();
+    return selector.get();
+}
+
 juce::String ControlsView::Knob::readout() const
 {
     if (slider == nullptr)
         return {};
 
-    const auto real = minimum + slider->getValue() * (maximum - minimum);
+    const auto real = bound != nullptr ? bound->realValue()
+                                       : minimum + slider->getValue() * (maximum - minimum);
     const auto span = maximum - minimum;
     const int decimals = span > 100.0 ? 0 : (span > 1.0 ? 2 : 3);
     return juce::String(real, decimals) + unit;
@@ -101,6 +110,8 @@ void ControlsView::timerCallback()
         scope->refresh();
     for (auto& spectrum : spectrums)
         spectrum->refresh();
+    for (auto& sample : samples)
+        sample->refresh();
 }
 
 void ControlsView::rebuild()
@@ -109,6 +120,7 @@ void ControlsView::rebuild()
     knobs.clear();
     scopes.clear();
     spectrums.clear();
+    samples.clear();
 
     const auto& model = processor.circuit();
     lastElementIds.clear();
@@ -131,8 +143,11 @@ void ControlsView::rebuild()
 
         Knob knob;
 
-        knob.minimum = port->minimum;
-        knob.maximum = port->maximum;
+        // The binding may narrow the port's range, and the processor binds the
+        // slot to that same narrowed range, so the readout and the selector
+        // have to measure against it rather than against the port.
+        knob.minimum = binding.minimum.value_or(port->minimum);
+        knob.maximum = binding.maximum.value_or(port->maximum);
         knob.unit    = port->unitSymbol.empty() ? juce::String()
                                                 : " " + juce::String(port->unitSymbol);
         knob.target  = juce::String(vocab::shortName(binding.targetNode)) + "." +
@@ -150,19 +165,32 @@ void ControlsView::rebuild()
 
         const auto paramId = "p" + juce::String(binding.slot).paddedLeft('0', 2);
 
-        if (port->enumeration && ! port->scalePoints.empty())
+        auto* parameter = processor.state().getParameter(paramId);
+        knob.bound = dynamic_cast<const ValisParameter*>(parameter);
+
+        if (port->isBinary() && parameter != nullptr)
         {
-            knob.comboBox = std::make_unique<juce::ComboBox>();
-            knob.comboBox->setColour(juce::ComboBox::backgroundColourId, juce::Colour(theme.comboBg));
-            knob.comboBox->setColour(juce::ComboBox::textColourId, juce::Colour(theme.labelText));
-            knob.comboBox->setColour(juce::ComboBox::outlineColourId, juce::Colour(theme.edgeDark));
-            knob.comboBox->setColour(juce::ComboBox::arrowColourId, juce::Colour(theme.accent));
+            // A binary port is a switch, never a dial: a dial invites a sweep
+            // where there are only two places to be, and shows a number where
+            // the port has a name for each position.
+            const auto& points = port->scalePoints;
+            const auto offLabel = points.size() == 2 ? juce::String(points[0].second) : juce::String("Off");
+            const auto onLabel  = points.size() == 2 ? juce::String(points[1].second) : juce::String("On");
+
+            knob.toggle = std::make_unique<ToggleSwitch>(*parameter, offLabel, onLabel);
+            knob.toggle->setTheme(theme);
+            addAndMakeVisible(*knob.toggle);
+        }
+        else if (port->isChoice() && parameter != nullptr)
+        {
+            std::vector<std::pair<double, juce::String>> choices;
             for (const auto& [value, label] : port->scalePoints)
-                knob.comboBox->addItem(label, static_cast<int>(value) + 1);
-            addAndMakeVisible(*knob.comboBox);
-            knob.comboAttachment =
-                std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-                    processor.state(), paramId, *knob.comboBox);
+                choices.emplace_back(value, juce::String(label));
+
+            knob.selector = std::make_unique<SelectorStrip>(*parameter, std::move(choices),
+                                                            knob.minimum, knob.maximum);
+            knob.selector->setTheme(theme);
+            addAndMakeVisible(*knob.selector);
         }
         else
         {
@@ -207,9 +235,17 @@ void ControlsView::rebuild()
             addAndMakeVisible(*box);
             spectrums.push_back(std::move(box));
         }
+        else if (elem.type->implementation == "SampleLoad")
+        {
+            auto box = std::make_unique<SampleBox>(processor, elem.id, label);
+            box->setTheme(theme);
+            addAndMakeVisible(*box);
+            samples.push_back(std::move(box));
+        }
     }
 
-    emptyMessage.setVisible(knobs.empty() && scopes.empty() && spectrums.empty());
+    emptyMessage.setVisible(knobs.empty() && scopes.empty() && spectrums.empty()
+                            && samples.empty());
     resized();
     repaint();
 }
@@ -297,11 +333,13 @@ void ControlsView::paint(juce::Graphics& g)
                                         13.0f, juce::Font::bold);
     for (const auto& knob : knobs)
     {
-        const juce::Rectangle<int> area = knob.isEnum()
-            ? knob.comboBox->getBounds()
-            : knob.slider->getBounds();
+        const auto* control = knob.control();
+        if (control == nullptr)
+            continue;
 
-        if (! knob.isEnum())
+        const juce::Rectangle<int> area = control->getBounds();
+
+        if (knob.isDial())
         {
             g.setColour(accent);
             g.setFont(mono);
@@ -391,8 +429,12 @@ void ControlsView::resized()
                     knob.name->setBounds(cell.removeFromTop(kNameHeight));
                     cell.removeFromBottom(kTargetHeight);
 
-                    if (knob.isEnum())
-                        knob.comboBox->setBounds(cell.removeFromTop(28).reduced(4, 2));
+                    if (knob.toggle != nullptr)
+                        knob.toggle->setBounds(cell.removeFromTop(64).reduced(12, 4));
+                    else if (knob.selector != nullptr)
+                        knob.selector->setBounds(cell.removeFromTop(
+                            juce::jmin(cell.getHeight(), 30 + 18 * static_cast<int>(
+                                knob.selector->getNumChoices()))).reduced(8, 4));
                     else
                         knob.slider->setBounds(cell.reduced(2, 2));
                 }
@@ -407,15 +449,16 @@ void ControlsView::resized()
         }
 
         // Flush the last partial row, or reserve space for the empty message.
-        if (col > 0 || (groups.empty() && scopes.empty() && spectrums.empty()))
+        if (col > 0 || (groups.empty() && scopes.empty() && spectrums.empty() && samples.empty()))
             curY += kRowHeight;
 
         // Monitor boxes flow left to right, each two knob cells wide.
-        const int boxCount = static_cast<int>(scopes.size() + spectrums.size());
+        const int boxCount = static_cast<int>(scopes.size() + spectrums.size() + samples.size());
         if (boxCount > 0)
         {
             if (apply)
-                sectionHeaders.push_back({ kMargin, curY, w - 2 * kMargin, "Monitors" });
+                sectionHeaders.push_back({ kMargin, curY, w - 2 * kMargin,
+                                           scopes.empty() && spectrums.empty() ? "Samples" : "Monitors" });
             curY += kSectionLabelHeight;
 
             const int boxCols = juce::jmax(1, (w - 2 * kMargin) / ScopeBox::kWidth);
@@ -435,6 +478,8 @@ void ControlsView::resized()
                 place(*scope);
             for (auto& spectrum : spectrums)
                 place(*spectrum);
+            for (auto& sample : samples)
+                place(*sample);
             if (boxCol > 0)
                 curY += ScopeBox::kHeight;
         }

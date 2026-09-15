@@ -80,6 +80,7 @@ std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node&
         const auto iri = std::string(prop.string());
         if (iri == vocab::lv2::logarithmic) desc.logarithmic = true;
         if (iri == vocab::lv2::enumeration) desc.enumeration = true;
+        if (iri == vocab::lv2::toggled)     desc.toggled     = true;
     }
 
     for (const auto& sp : store.objects(port, vocab::lv2::scalePoint))

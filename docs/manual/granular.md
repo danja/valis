@@ -18,17 +18,46 @@ The full Turtle is at `examples/granular.ttl`, and the sample it loads is
 ## Signal path
 
 ```
-Input ──► Granulator ─┬─► Ladder L ──► VCA L ──► Output.left
-                      └─► Ladder R ──► VCA R ──► Output.right
+SampleLoad ──► Granulator ─┬─► Ladder L ──► VCA L ──► DryWet L ──► Output.left
+                           └─► Ladder R ──► VCA R ──► DryWet R ──► Output.right
 
-Transport.trigger ──► clockGate (Scale) ──► Granulator.trigger
-MidiInterval.semitones ────────────────────► Granulator.pitch
-Envelope ──────────────────────────────────► VCA L.cv, VCA R.cv
-Envelope ──► toneScale (Scale) ────────────► Ladder L.cutoff, Ladder R.cutoff
+Input ───────────────────────────────────────► DryWet L.dry, DryWet R.dry
+
+Transport.trigger ──► clockGate (Scale) ─────► Granulator.trigger
+MidiInterval.semitones ──► pitchGate ────────► Granulator.pitch
+midi (Select) ──► Envelope.gate, thru ───────► pitchGate.b
+Envelope ────────────────────────────────────► VCA L.cv, VCA R.cv
+Envelope ──► toneScale (Scale) ──────────────► Ladder L.cutoff, Ladder R.cutoff
+mixScale (Scale) ────────────────────────────► DryWet L.mix, DryWet R.mix
 ```
 
-Play a note to hear it: the envelope gates the VCAs, so the circuit is silent
-until a note-on arrives.
+Play a note to hear it: with MIDI In on, the envelope gates the VCAs, so the
+circuit is silent until a note-on arrives.
+
+## The sample slot
+
+`:sample` is a `val:SampleLoad`. It plays `samples/bell.wav` on a loop into the
+granulator's audio input, and the granulator records what arrives there, so the
+buffer holds the sample.
+
+The Controls view draws it as a file slot: the name of the file it is playing,
+and a Load button that opens a file chooser. Choosing another file reads it on
+the message thread and reinstalls the circuit, so the swap happens through the
+same preallocate-then-hand-over path as any other change. If the new file will
+not read, the old one keeps playing and the box says why.
+
+The choice is a session setting, not a document edit, in the same way a turned
+knob is: the Turtle keeps declaring `val:file "samples/bell.wav"`, and what the
+session has chosen sits on top of it. It is saved with the plugin state, so a
+project reopens with the sample it was using. Over MCP the same thing is
+`get_sample` and `set_sample`.
+
+```turtle
+:sample a val:SampleLoad ;
+    val:file  "samples/bell.wav" ;
+    val:loop  1 ;               # a switch in the Controls view, not a dial
+    val:speed 1.0 .
+```
 
 ## Where the material comes from
 
@@ -47,13 +76,19 @@ located error rather than leaving the element silent.
 ```
 
 **Live audio.** Anything arriving at the audio input is written at the write
-head. This is off by default when a file is loaded: `val:freeze` rests at -1,
-which means "keep what was loaded". Set the Freeze parameter to 0 and the
-element records the plugin's input over the buffer instead, which is how to
-granulate a live instrument or another track.
+head, which is how the example fills its buffer from `:sample`. Point the
+`:aInGran` arc at `:in` instead and the granulator records the plugin's own
+input, which is how to granulate a live instrument or another track.
 
-**Frozen.** Set `val:freeze` to 1 and recording stops with the last few seconds
-still in the buffer, which is then granulated indefinitely.
+**Frozen.** `val:freeze` decides between the two, and the Controls view draws it
+as a three-position selector rather than a dial, because it has three named
+positions and nothing in between them:
+
+| Freeze | What the buffer does |
+|---|---|
+| Auto | Keeps a file loaded with `val:file`, records the input otherwise. |
+| Record | Writes the input into the buffer. |
+| Freeze | Holds what is already there, ignoring the input. |
 
 `val:position` is measured forward from the write head. With a file loaded the
 write head sits at the start of the file, so 0 is the beginning and 1 the end.
@@ -119,6 +154,18 @@ With Grain Clock at 0, the port rests at 0 and only the transport's pulses fire
 grains, so onsets land on the beat. With it at -1 the port rests at -1, the
 element free-runs, and Density is back in charge.
 
+## The dry/wet mix
+
+The granulated signal is the wet side of a `val:DryWet` per channel, and the
+plugin's own audio input is the dry one. The Mix knob runs from the input alone
+at 0 to the granulator alone at 1, and rests in the middle, so the same circuit
+is an instrument, an effect, or any blend of the two.
+
+One knob reaches both channels because the parameter is bound to a `val:Scale`
+whose output feeds each DryWet's `mix` port. A parameter binds one slot to one
+property, so anything stereo needs a control path that fans out rather than two
+knobs that have to be kept in step.
+
 ## Playing it from a keyboard
 
 `val:MidiPitch` answers "what frequency?", which is what an oscillator needs.
@@ -129,8 +176,30 @@ A granulator needs "how far from the root?", which is `val:MidiInterval`:
     val:root 60.0 .     # middle C plays the material untransposed
 ```
 
-`semitones` drives the granulator's `pitch` port directly. `ratio` carries the
-same interval as a playback speed multiplier, for anything that wants one.
+`semitones` drives the granulator's `pitch` port through `:pitchGate`. `ratio`
+carries the same interval as a playback speed multiplier, for anything that
+wants one.
+
+**MIDI In** is a switch, drawn as a two-position rocker rather than a dial,
+because it chooses between two things and a dial would invite a sweep between
+them. It is a `val:Select`:
+
+```turtle
+:midi a val:Select ;
+    val:a  1.0 ;        # off: hold the envelope open
+    val:b -1.0 ;        # on:  follow the host's note gate
+    val:select 1.0 .
+```
+
+With MIDI In on, `out` is -1, which `val:Envelope` reads as "use the host MIDI
+gate", and `thru` is 1, so the played interval reaches the granulator. With it
+off, `out` is 1, which holds the envelope open so the circuit drones and works
+as an effect on whatever is at the audio input, and `thru` is 0, so the material
+stays at its recorded pitch however hard the keyboard is played.
+
+`thru` is what lets one switch do both jobs: a parameter binds one slot to one
+property, so a switch that has to reach two places has to carry its position
+along a control arc.
 
 Note that a control arc **replaces** the value of the port it reaches every
 block. `val:pitch`, `val:trigger`, `val:cutoff` and `val:cv` therefore carry no
@@ -162,3 +231,8 @@ does when it is not playing.
   the sense of direction from the material entirely.
 - Grain Clock at 0 with Division at 0.25 and Size at 60 ms: a rhythmic stutter
   locked to the host.
+- MIDI In off, Mix around 0.7, and a track playing into the plugin: the circuit
+  becomes a granular effect on whatever arrives, with the dry signal still
+  audible underneath.
+- Load a spoken word recording through the sample slot, Size at 300 ms and
+  Density at 4: the words come apart into overlapping syllables.

@@ -78,6 +78,37 @@ supplies the name the host displays:
 The range and unit come from the element's port declaration, so the host's knob
 covers exactly the range the element accepts.
 
+### What the Controls view draws
+
+The port also decides the shape of the control, so a choice never appears as a
+dial:
+
+| The port declares | The panel shows |
+|---|---|
+| `lv2:portProperty lv2:toggled`, or an enumeration with two scale points | a two-position switch, labelled with the scale points |
+| an enumeration with more scale points | a strip with every option named and one lit |
+| anything else | a dial, with the value in the property's own units |
+
+So a binary port is declared `lv2:toggled` with a scale point per position:
+
+```turtle
+[ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "loop" ;
+  lv2:name "Loop" ; lv2:default 1.0 ;
+  lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+  lv2:portProperty lv2:toggled ;
+  lv2:scalePoint [ rdfs:label "One shot" ; rdf:value 0 ] ,
+                 [ rdfs:label "Loop"     ; rdf:value 1 ] ]
+```
+
+A switch that has to supply some other pair of values, or reach more than one
+destination, is a `val:Select`: its `select` port is the switch, `a` and `b` are
+the two values it chooses between, and `thru` repeats the switch position for
+anything else that needs it.
+
+A `val:SampleLoad` element draws a file slot with a Load button beside the
+monitor boxes, so the sound file it plays can be changed without editing the
+document.
+
 ## Options
 
 A `val:` property that is not a control port configures the element rather than

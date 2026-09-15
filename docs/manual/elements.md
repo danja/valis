@@ -501,6 +501,21 @@ Nonlinear.
 | `stiffness` | Stiffness | 0.5 | 0 to 1 |  |
 | `damping` | Damping | 0.2 | 0 to 1 |  |
 
+## val:SampleLoad
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `speed` | Speed | 1 | -4 to 4 |  |
+| `start` | Start | 0 | 0 to 1 |  |
+| `loop` | Loop | 1 | 0 to 1 |  |
+| `trigger` | Trigger | -1 | -1 to 1 |  |
+
 ## val:Scale
 
 Linear.
@@ -514,6 +529,20 @@ Linear.
 | `in` | In | 0 | 0 to 1 |  |
 | `min` | Min | 0 | -1e+06 to 1e+06 |  |
 | `max` | Max | 1 | -1e+06 to 1e+06 |  |
+
+## val:Select
+
+Linear.
+
+**Control out**: `out`, `thru`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `a` | A | 0 | -1e+06 to 1e+06 |  |
+| `b` | B | 1 | -1e+06 to 1e+06 |  |
+| `select` | Select | 0 | 0 to 1 |  |
 
 ## val:SignalGenerator
 

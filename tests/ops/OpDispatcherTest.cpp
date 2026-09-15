@@ -15,6 +15,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -41,6 +42,9 @@ struct Host
     CircuitModel model;
     std::string turtle;
     bool loaded = false;
+
+    /// Stands in for the plugin's per-node sample choices.
+    std::map<std::string, std::string> samples;
 
     explicit Host(const std::string& source)
     {
@@ -98,6 +102,31 @@ struct Host
         ctx.readTurtle = [this] { return turtle; };
         ctx.writeTurtle = [this](const std::string& s, std::vector<Diagnostic>& d) { return write(s, d); };
         ctx.readModel = [this]() -> const CircuitModel* { return loaded ? &model : nullptr; };
+        ctx.readSample = [this](const std::string& nodeId)
+        {
+            const auto found = samples.find(nodeId);
+            if (found != samples.end())
+                return found->second;
+
+            if (const auto* element = model.findElement(nodeId))
+                if (const auto declared = element->options.find("file"); declared != element->options.end())
+                    return declared->second;
+            return std::string{};
+        };
+        ctx.writeSample = [this](const std::string& nodeId, const std::string& path,
+                                 std::string& error)
+        {
+            // The real host reinstalls the circuit, which is what would refuse
+            // an unreadable file. Here the element does the refusing directly.
+            auto element = makeDefaultRegistry().create("SampleLoad");
+            const auto* type = ontology.find(vocab::valTerm("SampleLoad"));
+            element->prepare(*type, 48000.0, 512);
+            if (! element->setOption("file", path, error))
+                return false;
+
+            samples[nodeId] = path;
+            return true;
+        };
         return OpDispatcher(ctx);
     }
 };
@@ -342,12 +371,40 @@ void testEditsSurviveAReparse()
 
 }  // namespace
 
+void testSampleOps()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/granular.ttl"));
+    auto ops = host.ops();
+
+    const std::string node = "urn:valis:granular#sample";
+
+    // What the document declares, until something replaces it.
+    const auto declared = ops.getSample(node);
+    assert(declared.ok);
+    assert(declared.value == "samples/bell.wav");
+
+    // A node that plays no sample, and a node that does not exist.
+    assert(ops.getSample("urn:valis:granular#gran").ok);
+    assert(! ops.getSample("urn:valis:granular#nosuch").ok);
+
+    // A file that will not load leaves the previous one in place.
+    const auto bad = ops.setSample(node, "no/such/sample.wav");
+    assert(! bad.ok);
+    assert(! bad.diagnostics.empty());
+    assert(ops.getSample(node).value == "samples/bell.wav");
+
+    const auto good = ops.setSample(node, VALIS_EXAMPLES_DIR "/samples/bell.wav");
+    assert(good.ok);
+    assert(ops.getSample(node).value == VALIS_EXAMPLES_DIR "/samples/bell.wav");
+}
+
 int main()
 {
     testTurtleRoundTrip();
     testValidateReportsWithoutInstalling();
     testBadTurtleLeavesTheCircuitRunning();
     testListElementTypes();
+    testSampleOps();
     testGetGraph();
     testGraphEditing();
     testParameters();

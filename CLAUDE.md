@@ -60,6 +60,20 @@ to confirm a running instance before using MCP tools that require a host.
 - do not use em dashes or novel jargon
 - any references to concepts that aren't common knowledge should contain links to further information
 
+## Controls view
+
+- A control port is drawn by its shape, not by default. A port that declares
+  `lv2:portProperty lv2:toggled`, or an enumeration with exactly two scale points, is a
+  two-position switch (`src/ui/ToggleSwitch.*`). An enumeration with more is a selector strip
+  with every option named on the panel (`src/ui/SelectorStrip.*`). Everything else is a dial.
+- So declare a binary port `lv2:toggled` with a scale point per position, and give every
+  enumeration scale points. `PortDesc::isBinary()` and `isChoice()` answer which is which; no
+  view should test `enumeration` or `toggled` itself.
+- An element that needs a UI of its own gets a box in the Controls view beside the monitors,
+  as `val:Oscilloscope`, `val:FreqAnalyzer` and `val:SampleLoad` do.
+- A binary choice a circuit needs as two arbitrary values is a `val:Select`, not a dial with
+  two meaningful positions.
+
 ## Transport
 
 - The host timeline reaches elements as `ProcessArgs::transport`. `ValisProcessor` reads it from
@@ -85,6 +99,10 @@ to confirm a running instance before using MCP tools that require a host.
 - C++20. Match surrounding idiom and comment density. Every file starts with `// path/filename`.
 - Comments describe purpose only where intent is non-obvious. No effect descriptions.
 - Leave `TODO:` comments where further work is needed; don't leave them unactioned.
+- A sound file a session chooses (`val:SampleLoad`) is an override held by the processor and
+  applied to the compiled circuit before it is installed, never an edit to the document. The
+  document declares the initial file; the session's choice sits on top of it, exactly as a
+  turned knob sits on top of a declared value.
 - `DspElement::setOption` returns false when it recognises a key and cannot apply it, writing
   the reason into `error`; the engine turns that into a located load failure. An unknown key
   is not a failure.

@@ -113,7 +113,7 @@ What works:
 - All three views: a syntax-highlighted Turtle editor with diagnostics, a
   node-and-arc graph with drag-to-connect and an ontology-driven palette, and
   knobs generated from the circuit's parameter bindings.
-- An HTTP MCP server exposing 13 tools, all adapters over the same `Op` surface
+- An HTTP MCP server exposing 16 tools, all adapters over the same `Op` surface
   the views use. Inserting an element over MCP redraws the graph view while the
   audio keeps running.
 - `valis-render`, a headless renderer that needs no host, GUI or audio device.
@@ -147,12 +147,22 @@ phase ramp and a pulse at a division of the bar. `valis-render` synthesises a
 transport from `--tempo` and `--rolling`, so a tempo-locked circuit renders
 offline exactly as it plays.
 
+The Controls view now draws a control by the shape of the port behind it. A
+port declared `lv2:toggled`, or an enumeration with two scale points, is a
+two-position switch; an enumeration with more is a strip with every option named
+on the panel; everything else stays a dial. A `val:SampleLoad` element draws a
+file slot with a Load button, so the sound file a circuit plays can be changed
+without editing the document, and `val:Select` turns one switch into whatever
+pair of values a circuit needs.
+
 `val:Granulator` is a granular synthesiser and processor: one circular buffer
 filled from a sound file or from live audio, and up to 64 overlapping windowed
 grains read from it, with position, size, density, transposition, scatter,
 window shape, stereo spread and reverse all separate control ports. Grain onsets
 either free-run or follow the transport. `examples/granular.ttl` is the playable
-instrument built from it; see [the case study](docs/manual/granular.md).
+instrument built from it: a sample slot, a MIDI In switch that decides whether
+notes play it or it drones as an effect, and a Mix knob from the plugin's own
+input to the granulated signal. See [the case study](docs/manual/granular.md).
 
 Remaining rough edges: the graph view's structural edits re-serialise the
 document, so hand formatting and comments are lost (it warns on first use), and

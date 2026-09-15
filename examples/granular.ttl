@@ -1,26 +1,38 @@
 # examples/granular.ttl
 #
-# A granular synthesiser. It plays a sound file, granulates live audio from the
-# plugin's input, tracks MIDI pitch, and can take its grain timing from the host
-# transport.
+# A granular synthesiser. It granulates a sound file, which can be changed from
+# the Controls view, blends the result against the plugin's own audio input,
+# tracks MIDI pitch when the MIDI In switch is on, and can take its grain timing
+# from the host transport.
 #
 # Signal path (stereo from the granulator onward):
 #
-#   Input ──► Granulator ─┬─► Ladder L ──► VCA L ──► Output.left
-#                         └─► Ladder R ──► VCA R ──► Output.right
+#   SampleLoad ──► Granulator ─┬─► Ladder L ──► VCA L ──► DryWet L ──► Output.left
+#                              └─► Ladder R ──► VCA R ──► DryWet R ──► Output.right
+#
+#   Input ──────────────────────────────────────────► DryWet L.dry, DryWet R.dry
+#
+# The Mix knob crossfades each DryWet between the plugin's own input at 0 and
+# the granulated signal at 1, and rests in the middle.
 #
 # Modulation:
 #
 #   Transport.trigger ──► clockGate (Scale) ──► Granulator.trigger
-#   MidiInterval.semitones ─────────────────► Granulator.pitch
+#   MidiInterval.semitones ──► pitchGate ────► Granulator.pitch
+#   midi (Select) ──► Envelope.gate, and its thru ──► pitchGate.b
 #   Envelope ───────────────────────────────► VCA L.cv, VCA R.cv
 #   Envelope ──► toneScale (Scale) ─────────► Ladder L.cutoff, Ladder R.cutoff
+#   mixScale (Scale) ───────────────────────► DryWet L.mix, DryWet R.mix
 #
-# The buffer. val:file loads samples/bell.wav, itself rendered from
-# examples/rings-modal.ttl by valis-render. Because a file is loaded, val:freeze
-# rests at -1, which means "keep what was loaded". Set the Freeze parameter to
-# its lowest position (0) and the granulator records the plugin's audio input
-# over the buffer instead, which is how to granulate live sound.
+# The buffer. :sample is a val:SampleLoad playing samples/bell.wav on a loop,
+# itself rendered from examples/rings-modal.ttl by valis-render. It appears in
+# the Controls view as a file slot with a Load button, so the sample can be
+# changed while the circuit runs. Its audio goes to the granulator's input, and
+# the granulator records what arrives there, so the buffer holds the sample.
+#
+# Freeze decides what the buffer does with the input: Auto and Record write it
+# in, Freeze holds what is already there. Set the plugin's own input as the
+# granulator's source instead, by rewiring :aInGran, to granulate live sound.
 #
 # The grain clock. Transport.trigger is 1 for one control block on each
 # division and 0 in between. Scale maps that 0-1 pulse onto [min, 1]:
@@ -35,6 +47,14 @@
 # at its recorded pitch; an octave up plays the grains twice as fast without
 # changing how often they start.
 #
+# MIDI In. One switch decides whether notes reach the instrument at all. :midi
+# is a val:Select: its out is the envelope's gate, 1 when the switch is off,
+# which holds the envelope open so the circuit drones and works as an effect on
+# whatever is at the audio input, and -1 when it is on, which returns the
+# envelope to the host's own note gate. Its thru repeats the switch position as
+# 0 or 1, and :pitchGate multiplies the played interval by it, so with MIDI off
+# the material also stays at its recorded pitch.
+#
 # A control arc REPLACES the value of the port it reaches every block, so
 # val:pitch, val:trigger, val:cutoff and val:cv carry no fixed value here: those
 # live in the control path, in the Scale elements and in MidiInterval's root.
@@ -47,27 +67,36 @@
 
 :granular a val:Circuit ;
     rdfs:label "Granular" ;
-    val:element :in , :gran ,
+    val:element :in , :sample , :gran ,
                 :clock , :clockGate ,
-                :key , :env , :toneScale ,
-                :toneL , :toneR , :vcaL , :vcaR , :out ;
+                :key , :midi , :pitchGate ,
+                :env , :toneScale ,
+                :toneL , :toneR , :vcaL , :vcaR ,
+                :mixScale , :mixL , :mixR , :out ;
     val:arc :aInGran ,
             :aGranToneL , :aGranToneR ,
             :aToneVcaL , :aToneVcaR ,
-            :aVcaOutL , :aVcaOutR ,
+            :aVcaMixL , :aVcaMixR , :aInMixL , :aInMixR ,
+            :aMixOutL , :aMixOutR ,
             :aClockGate , :aGateTrigger ,
-            :aKeyPitch ,
+            :aKeyPitch , :aPitchGateGran , :aMidiEnv , :aMidiThru ,
             :aEnvVcaL , :aEnvVcaR ,
-            :aEnvTone , :aToneCutoffL , :aToneCutoffR .
+            :aEnvTone , :aToneCutoffL , :aToneCutoffR ,
+            :aMixL , :aMixR .
 
 # ── Source ───────────────────────────────────────────────────────────────────
 
 :in a val:Input .
 
+# The Controls view draws this as a file slot with a Load button.
+:sample a val:SampleLoad ;
+    val:file  "samples/bell.wav" ;
+    val:loop  1 ;              # a toggle in the Controls view
+    val:speed 1.0 .
+
 :gran a val:Granulator ;
-    val:file     "samples/bell.wav" ;
-    val:seconds  8.0 ;         # buffer length; the file is shorter than this
-    val:position 0.0 ;         # start of the file
+    val:seconds  4.0 ;         # buffer length, longer than the sample
+    val:position 0.5 ;         # half a buffer behind the write head
     val:size     140.0 ;       # ms per grain
     val:density  22.0 ;        # grains per second when free-running
     val:spray    0.08 ;
@@ -90,10 +119,20 @@
     val:min -1.0 ;
     val:max  1.0 .
 
-# ── Pitch ────────────────────────────────────────────────────────────────────
+# ── Pitch and the MIDI switch ────────────────────────────────────────────────
 
 :key a val:MidiInterval ;
     val:root 60.0 .            # middle C plays the material untransposed
+
+# out goes to the envelope's gate: 1 holds it open, -1 returns it to the host's
+# MIDI gate. thru is the same switch as 0 or 1, for the pitch path.
+:midi a val:Select ;
+    val:a 1.0 ;
+    val:b -1.0 ;
+    val:select 1.0 .           # on: the instrument starts out playable
+
+# The played interval, multiplied by the switch: 0 semitones when MIDI is off.
+:pitchGate a val:ControlMultiply .
 
 # ── Amplitude and tone ───────────────────────────────────────────────────────
 
@@ -118,13 +157,25 @@
 :vcaL a val:VCA .
 :vcaR a val:VCA .
 
+# ── Dry/wet ──────────────────────────────────────────────────────────────────
+
+# mix rests at 0.5 in the Scale rather than on the DryWet instances: the control
+# arcs from :mixScale replace whatever those carry.
+:mixScale a val:Scale ;
+    val:in  0.5 ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:mixL a val:DryWet .
+:mixR a val:DryWet .
+
 :out a val:Output .
 
 # ── Audio arcs ───────────────────────────────────────────────────────────────
 
 :aInGran a val:Arc ;
-    val:from [ val:node :in   ; val:port "out" ] ;
-    val:to   [ val:node :gran ; val:port "in"  ] .
+    val:from [ val:node :sample ; val:port "out" ] ;
+    val:to   [ val:node :gran   ; val:port "in"  ] .
 
 :aGranToneL a val:Arc ;
     val:from [ val:node :gran  ; val:port "left" ] ;
@@ -142,12 +193,29 @@
     val:from [ val:node :toneR ; val:port "out" ] ;
     val:to   [ val:node :vcaR  ; val:port "in"  ] .
 
-:aVcaOutL a val:Arc ;
-    val:from [ val:node :vcaL ; val:port "out"  ] ;
+# The granulated signal is the wet side; the plugin's own input is the dry one.
+:aVcaMixL a val:Arc ;
+    val:from [ val:node :vcaL ; val:port "out" ] ;
+    val:to   [ val:node :mixL ; val:port "wet" ] .
+
+:aVcaMixR a val:Arc ;
+    val:from [ val:node :vcaR ; val:port "out" ] ;
+    val:to   [ val:node :mixR ; val:port "wet" ] .
+
+:aInMixL a val:Arc ;
+    val:from [ val:node :in   ; val:port "out" ] ;
+    val:to   [ val:node :mixL ; val:port "dry" ] .
+
+:aInMixR a val:Arc ;
+    val:from [ val:node :in   ; val:port "out" ] ;
+    val:to   [ val:node :mixR ; val:port "dry" ] .
+
+:aMixOutL a val:Arc ;
+    val:from [ val:node :mixL ; val:port "out"  ] ;
     val:to   [ val:node :out  ; val:port "left" ] .
 
-:aVcaOutR a val:Arc ;
-    val:from [ val:node :vcaR ; val:port "out"   ] ;
+:aMixOutR a val:Arc ;
+    val:from [ val:node :mixR ; val:port "out"   ] ;
     val:to   [ val:node :out  ; val:port "right" ] .
 
 # ── Control arcs ─────────────────────────────────────────────────────────────
@@ -161,8 +229,21 @@
     val:to   [ val:node :gran      ; val:port "trigger" ] .
 
 :aKeyPitch a val:ControlArc ;
-    val:from [ val:node :key  ; val:port "semitones" ] ;
-    val:to   [ val:node :gran ; val:port "pitch"     ] .
+    val:from [ val:node :key       ; val:port "semitones" ] ;
+    val:to   [ val:node :pitchGate ; val:port "a"         ] .
+
+:aMidiThru a val:ControlArc ;
+    val:from [ val:node :midi      ; val:port "thru" ] ;
+    val:to   [ val:node :pitchGate ; val:port "b"    ] .
+
+:aPitchGateGran a val:ControlArc ;
+    val:from [ val:node :pitchGate ; val:port "out"   ] ;
+    val:to   [ val:node :gran      ; val:port "pitch" ] .
+
+# 1 holds the envelope open, -1 hands it back to the host's MIDI gate.
+:aMidiEnv a val:ControlArc ;
+    val:from [ val:node :midi ; val:port "out"  ] ;
+    val:to   [ val:node :env  ; val:port "gate" ] .
 
 :aEnvVcaL a val:ControlArc ;
     val:from [ val:node :env  ; val:port "out" ] ;
@@ -183,6 +264,14 @@
 :aToneCutoffR a val:ControlArc ;
     val:from [ val:node :toneScale ; val:port "out"    ] ;
     val:to   [ val:node :toneR     ; val:port "cutoff" ] .
+
+:aMixL a val:ControlArc ;
+    val:from [ val:node :mixScale ; val:port "out" ] ;
+    val:to   [ val:node :mixL     ; val:port "mix" ] .
+
+:aMixR a val:ControlArc ;
+    val:from [ val:node :mixScale ; val:port "out" ] ;
+    val:to   [ val:node :mixR     ; val:port "mix" ] .
 
 # ── Host parameters ──────────────────────────────────────────────────────────
 
@@ -237,22 +326,37 @@
     lv2:name "Root Note" ; lv2:symbol "root_note" ; val:section "Pitch" ;
     lv2:minimum 24.0 ; lv2:maximum 96.0 .
 
-:p14 a val:Param ; val:slot 14 ; val:target :toneScale ; val:property val:min ;
+# A binary choice, so the Controls view draws a switch rather than a dial.
+:p14 a val:Param ; val:slot 14 ; val:target :midi ; val:property val:select ;
+    lv2:name "MIDI In" ; lv2:symbol "midi_in" ; val:section "Pitch" .
+
+:p15 a val:Param ; val:slot 15 ; val:target :toneScale ; val:property val:min ;
     lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Filter" ;
     units:unit units:hz ; lv2:minimum 100.0 ; lv2:maximum 18000.0 .
 
-:p15 a val:Param ; val:slot 15 ; val:target :toneScale ; val:property val:max ;
+:p16 a val:Param ; val:slot 16 ; val:target :toneScale ; val:property val:max ;
     lv2:name "Tone Peak" ; lv2:symbol "tone_peak" ; val:section "Filter" ;
     units:unit units:hz ; lv2:minimum 100.0 ; lv2:maximum 20000.0 .
 
-:p16 a val:Param ; val:slot 16 ; val:target :env ; val:property val:attack ;
+:p17 a val:Param ; val:slot 17 ; val:target :env ; val:property val:attack ;
     lv2:name "Attack" ; lv2:symbol "attack" ; val:section "Envelope" ; units:unit units:ms .
 
-:p17 a val:Param ; val:slot 17 ; val:target :env ; val:property val:decay ;
+:p18 a val:Param ; val:slot 18 ; val:target :env ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Envelope" ; units:unit units:ms .
 
-:p18 a val:Param ; val:slot 18 ; val:target :env ; val:property val:sustain ;
+:p19 a val:Param ; val:slot 19 ; val:target :env ; val:property val:sustain ;
     lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Envelope" .
 
-:p19 a val:Param ; val:slot 19 ; val:target :env ; val:property val:release ;
+:p20 a val:Param ; val:slot 20 ; val:target :env ; val:property val:release ;
     lv2:name "Release" ; lv2:symbol "release" ; val:section "Envelope" ; units:unit units:ms .
+
+:p21 a val:Param ; val:slot 21 ; val:target :sample ; val:property val:loop ;
+    lv2:name "Loop" ; lv2:symbol "loop" ; val:section "Sample" .
+
+:p22 a val:Param ; val:slot 22 ; val:target :sample ; val:property val:speed ;
+    lv2:name "Speed" ; lv2:symbol "speed" ; val:section "Sample" ;
+    lv2:minimum -2.0 ; lv2:maximum 2.0 .
+
+:p23 a val:Param ; val:slot 23 ; val:target :mixScale ; val:property val:in ;
+    lv2:name "Mix" ; lv2:symbol "mix" ; val:section "Output" ;
+    lv2:minimum 0.0 ; lv2:maximum 1.0 .
