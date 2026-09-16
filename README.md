@@ -313,4 +313,4 @@ verification above.
 
 ## Licence
 
-Any parts of this repository involving JUCE are [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) - see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial. A distributed binary that links JUCE under the AGPL obliges AGPL for the combined work. But the .ttl descriptive files stand apart from this and are licensed as MIT. Derivative works that do not use the JUCE components may be considered under the latter license.
+Any parts of this repository involving JUCE are [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) - see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial. A distributed binary that links JUCE under the AGPL obliges AGPL for the combined work. But the .ttl and other such descriptive files stand apart from this and are licensed as MIT. Derivative works that do not use the JUCE components may be considered under the latter license.
