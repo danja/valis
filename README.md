@@ -147,6 +147,26 @@ phase ramp and a pulse at a division of the bar. `valis-render` synthesises a
 transport from `--tempo` and `--rolling`, so a tempo-locked circuit renders
 offline exactly as it plays.
 
+`val:Flute` is a jet-drive waveguide: an air column open at both ends, blown by
+a jet whose flow into the tube is `Uj · tanh((η − y0) / b)`. Jet speed follows
+Bernoulli's, so blowing harder is louder and brighter rather than louder alone,
+and the jet's offset from the edge is the timbre: centred it is symmetric and
+gives a stopped, hollow tone of odd harmonics, off centre the even harmonics
+come in and it becomes a flute. It is in tune within five cents over three
+octaves, calibrated against measurements and held there by tests. See
+[the case study](docs/manual/flute.md). The waveguide parts it is built from,
+in `src/dsp/elements/Waveguide.h`, are shared ground for the other wind
+instruments.
+
+`val:Reed` is the same waveguide stopped at the mouthpiece, which is most of
+what makes a clarinet a clarinet: one inversion per round trip, so the tube
+holds a quarter wavelength and the even harmonics are absent. Measured at D4 the
+third harmonic is 0.33 of the fundamental and the second 0.005, against the
+flute's 0.14 at the same pitch. Its reed is a valve with a band of blowing
+pressure it works over, so a soft reed speaks on very little air and chokes when
+overblown while a hard one does the opposite. In tune within four cents over
+three octaves; see [the case study](docs/manual/clarinet.md).
+
 The Controls view now draws a control by the shape of the port behind it. A
 port declared `lv2:toggled`, or an enumeration with two scale points, is a
 two-position switch; an enumeration with more is a strip with every option named

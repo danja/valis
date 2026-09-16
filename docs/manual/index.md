@@ -27,6 +27,8 @@ can read, edit and hand to a language model.
 - [Klon Centaur](klon.md) : asymmetric diode overdrive with clean blend
 - [Mutable Instruments Rings](rings.md) : Karplus-Strong plucked string, and how to create a new element
 - [TR-909 drum synthesiser](909.md) : per-note drum routing, bridged-T resonators, and sectioned controls
+- [Flute](flute.md) : a jet-drive waveguide, and why the jet's offset is the timbre
+- [Clarinet](clarinet.md) : the same waveguide stopped at one end, and what that changes
 - [Granular synthesiser](granular.md) : grains from a sound file or live audio, timed by the host transport
 
 ### See Also

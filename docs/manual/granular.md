@@ -81,14 +81,26 @@ head, which is how the example fills its buffer from `:sample`. Point the
 input, which is how to granulate a live instrument or another track.
 
 **Frozen.** `val:freeze` decides between the two, and the Controls view draws it
-as a three-position selector rather than a dial, because it has three named
-positions and nothing in between them:
+as a two-position switch rather than a dial, because there are two places to be
+and nothing in between:
 
 | Freeze | What the buffer does |
 |---|---|
-| Auto | Keeps a file loaded with `val:file`, records the input otherwise. |
-| Record | Writes the input into the buffer. |
+| Record | Writes whatever reaches the audio input into the buffer. |
 | Freeze | Holds what is already there, ignoring the input. |
+
+An input with no arc reaching it records nothing at all. The engine points an
+unconnected input at a shared block of silence, and the element can see that, so
+a circuit that loads `val:file` and wires nothing to the input keeps its
+material without having to say so. An input that is connected but quiet still
+records, because that is what freezing is for.
+
+Freeze is worth hearing rather than reading about: in `granular.ttl` the buffer
+is 1.2 seconds against a 2.6 second sample, so on Record the buffer is a window
+sliding along the loop and the texture keeps moving, and on Freeze the window
+stops and one moment repeats. What is heard lags what is arriving by about a
+buffer, because at `position` 0 a grain reads forward from the write head, which
+is the oldest sample in the buffer.
 
 `val:position` is measured forward from the write head. With a file loaded the
 write head sits at the start of the file, so 0 is the beginning and 1 the end.

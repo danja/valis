@@ -1,0 +1,173 @@
+# examples/flute.ttl
+#
+# A flute, played from MIDI. val:Flute is a jet-drive waveguide: an air column
+# open at both ends, blown by a ribbon of air aimed at a sharp edge, with the
+# jet's deflection deciding how much air enters the tube. Everything about the
+# tone comes out of those physics rather than from filtering an oscillator.
+#
+# Signal path:
+#
+#   MidiPitch ─┐
+#              ├─► vibMul ──► Flute ──► VCA ──► Output
+#   LFO ──► vibScale ─┘         ▲         ▲
+#                               │         │
+#   Envelope ──► blowScale ─────┘         │
+#   Envelope ─────────────────────────────┘
+#
+# The envelope drives blowing pressure as well as the amplifier, because a
+# flute's loudness is not a volume control: the instrument does not speak below
+# a threshold, and blowing harder makes it both louder and brighter. Starting a
+# note is therefore a little slow, as it is on the real instrument, which is
+# what the envelope's attack is standing in for.
+#
+# Two voicings, from the same element. The controls that separate them are
+# Breath, Damping and Offset:
+#
+#   Orchestral    Breath 0.04   Damping 0.25   Offset 0.7   Jet 0.5
+#     A metal tube, little wind noise, a bright and focused tone.
+#
+#   Bamboo        Breath 0.45   Damping 0.7    Offset 0.45  Jet 0.42
+#     A shakuhachi or bansuri: soft walls that lose the upper partials, a great
+#     deal of air in the sound, and a jet nearer the centre of the edge, which
+#     leaves the tone hollower.
+#
+# Offset is the one to reach for first. It is how far the jet sits off the edge,
+# which is what a player changes by rolling the instrument towards or away from
+# themselves. Centred, the jet is deflected equally either way and the tone has
+# only odd harmonics, which sounds stopped and hollow; off centre it gains the
+# even harmonics a flute lives on.
+#
+# A control arc REPLACES the value of the port it reaches every block, so
+# val:frequency and val:pressure carry no fixed values here: those live in the
+# control path.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:flute#> .
+
+:flute-circuit a val:Circuit ;
+    rdfs:label "Flute" ;
+    val:element :pitch , :lfo , :vibScale , :vibMul ,
+                :env , :blowScale , :flute , :vca , :out ;
+    val:arc :aPitchMul , :aLfoScale , :aScaleMul , :aMulFreq ,
+            :aEnvBlow , :aBlowPressure , :aEnvVca ,
+            :aFluteVca , :aVcaOut .
+
+# ── Pitch, with vibrato ──────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:lfo a val:LFO ;
+    val:rate  5.0 ;
+    val:shape 0 .              # sine
+
+# The LFO swings between -1 and 1, so a Scale from 1 to 1.006 multiplies the
+# pitch by 0.994 to 1.006: about a tenth of a semitone either way.
+:vibScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.006 .
+
+:vibMul a val:ControlMultiply .
+
+# ── Breath ───────────────────────────────────────────────────────────────────
+
+:env a val:Envelope ;
+    val:attack  120.0 ;        # ms: the time the oscillation takes to build
+    val:decay   200.0 ;
+    val:sustain 0.85 ;
+    val:release 180.0 .
+
+# The envelope is 0 to 1; the flute wants blowing pressure. Its maximum is the
+# Blow parameter, which is how hard the note is played.
+:blowScale a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.65 .
+
+:flute a val:Flute ;
+    val:offset  0.7 ;          # off the edge: where the even harmonics come from
+    val:jet     0.5 ;          # embouchure
+    val:breath  0.04 ;         # wind noise
+    val:damping 0.25 .         # what the tube loses per round trip
+
+:vca a val:VCA .
+:out a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aFluteVca a val:Arc ;
+    val:from [ val:node :flute ; val:port "out" ] ;
+    val:to   [ val:node :vca   ; val:port "in"  ] .
+
+:aVcaOut a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aPitchMul a val:ControlArc ;
+    val:from [ val:node :pitch  ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "a"   ] .
+
+:aLfoScale a val:ControlArc ;
+    val:from [ val:node :lfo      ; val:port "out" ] ;
+    val:to   [ val:node :vibScale ; val:port "in"  ] .
+
+:aScaleMul a val:ControlArc ;
+    val:from [ val:node :vibScale ; val:port "out" ] ;
+    val:to   [ val:node :vibMul   ; val:port "b"   ] .
+
+:aMulFreq a val:ControlArc ;
+    val:from [ val:node :vibMul ; val:port "out"       ] ;
+    val:to   [ val:node :flute  ; val:port "frequency" ] .
+
+:aEnvBlow a val:ControlArc ;
+    val:from [ val:node :env       ; val:port "out" ] ;
+    val:to   [ val:node :blowScale ; val:port "in"  ] .
+
+:aBlowPressure a val:ControlArc ;
+    val:from [ val:node :blowScale ; val:port "out"      ] ;
+    val:to   [ val:node :flute     ; val:port "pressure" ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :blowScale ; val:property val:max ;
+    lv2:name "Blow" ; lv2:symbol "blow" ; val:section "Breath" ;
+    lv2:minimum 0.35 ; lv2:maximum 1.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :flute ; val:property val:breath ;
+    lv2:name "Air" ; lv2:symbol "air" ; val:section "Breath" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :flute ; val:property val:offset ;
+    lv2:name "Offset" ; lv2:symbol "offset" ; val:section "Embouchure" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :flute ; val:property val:jet ;
+    lv2:name "Jet" ; lv2:symbol "jet" ; val:section "Embouchure" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :flute ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ; val:section "Bore" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :lfo ; val:property val:rate ;
+    lv2:name "Vibrato Rate" ; lv2:symbol "vibrato_rate" ; val:section "Vibrato" ;
+    units:unit units:hz ; lv2:minimum 0.5 ; lv2:maximum 9.0 .
+
+:p6 a val:Param ; val:slot 6 ; val:target :vibScale ; val:property val:max ;
+    lv2:name "Vibrato Depth" ; lv2:symbol "vibrato_depth" ; val:section "Vibrato" ;
+    lv2:minimum 1.0 ; lv2:maximum 1.02 .
+
+:p7 a val:Param ; val:slot 7 ; val:target :env ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ; val:section "Envelope" ; units:unit units:ms .
+
+:p8 a val:Param ; val:slot 8 ; val:target :env ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Envelope" ; units:unit units:ms .
+
+:p9 a val:Param ; val:slot 9 ; val:target :env ; val:property val:sustain ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" ; val:section "Envelope" .
+
+:p10 a val:Param ; val:slot 10 ; val:target :env ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ; val:section "Envelope" ; units:unit units:ms .

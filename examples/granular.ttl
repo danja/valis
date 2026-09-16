@@ -30,9 +30,11 @@
 # changed while the circuit runs. Its audio goes to the granulator's input, and
 # the granulator records what arrives there, so the buffer holds the sample.
 #
-# Freeze decides what the buffer does with the input: Auto and Record write it
-# in, Freeze holds what is already there. Set the plugin's own input as the
-# granulator's source instead, by rewiring :aInGran, to granulate live sound.
+# Freeze decides what the buffer does with that input. On Record the buffer is
+# a 1.2 second window sliding along the looping sample, so the texture keeps
+# moving; on Freeze the window stops and the same moment repeats. Rewire
+# :aInGran to :in to granulate the plugin's own audio input instead, and Freeze
+# then captures whatever was playing.
 #
 # The grain clock. Transport.trigger is 1 for one control block on each
 # division and 0 in between. Scale maps that 0-1 pulse onto [min, 1]:
@@ -95,7 +97,10 @@
     val:speed 1.0 .
 
 :gran a val:Granulator ;
-    val:seconds  4.0 ;         # buffer length, longer than the sample
+    # Shorter than the sample on purpose: the buffer holds a window onto the
+    # material rather than all of it, so Record slides that window along as the
+    # sample loops and Freeze stops it on one moment.
+    val:seconds  1.2 ;
     val:position 0.5 ;         # half a buffer behind the write head
     val:size     140.0 ;       # ms per grain
     val:density  22.0 ;        # grains per second when free-running

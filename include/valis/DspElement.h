@@ -37,6 +37,12 @@ struct ProcessArgs
 {
     const float* const* audioIn  = nullptr;
     float* const*       audioOut = nullptr;
+
+    /// The block of silence every unconnected input points at. An element that
+    /// must tell "nothing is wired here" from "what is wired here is quiet"
+    /// compares its input pointer against this. Null in a fixture that supplies
+    /// no silence buffer, which reads as every input being connected.
+    const float* silence = nullptr;
     int numAudioIn  = 0;
     int numAudioOut = 0;
     int numSamples  = 0;

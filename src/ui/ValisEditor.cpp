@@ -18,9 +18,12 @@ ValisEditor::ValisEditor(ValisProcessor& p)
     : juce::AudioProcessorEditor(&p), processor(p)
 {
     const auto bg = juce::Colour(0xff1e1e22);
+    // The panel is usually taller than the window, and the only sign of that is
+    // its scrollbar, so it gets a visible one rather than the default hairline.
     auto* knobsPort = new juce::Viewport();
     knobsPort->setViewedComponent(new ControlsView(p), true);
     knobsPort->setScrollBarsShown(true, false);
+    knobsPort->setScrollBarThickness(14);
     tabs.addTab("Controls", bg, knobsPort, true);
 
     auto* graphPort = new juce::Viewport();

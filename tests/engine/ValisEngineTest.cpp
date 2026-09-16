@@ -1000,6 +1000,54 @@ void testTransportDrivesGrainOnsets()
     assert(onsets >= 16 && onsets <= 17);
 }
 
+/// The flute circuit, end to end. A waveguide has to be given time to speak:
+/// it starts from the turbulence in its own breath, so a test that looked at
+/// the first block would see silence and conclude it was broken.
+void testFluteCircuitProducesSound()
+{
+    CompiledCircuit circuit;
+    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/flute.ttl", circuit);
+    assert(compiled);
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    const bool loaded = engine.load(circuit, registry, error);
+    if (! loaded)
+        std::printf("  flute.ttl failed to load: %s\n", error.c_str());
+    assert(loaded);
+
+    std::vector<float> block(512, 0.0f);
+
+    // Unblown, it is silent.
+    for (int i = 0; i < 8; ++i)
+        engine.process(nullptr, block.data(), 512);
+    assert(peakOf(block) == 0.0f);
+
+    engine.noteOn(69, 1.0f);
+
+    float peak = 0.0f;
+    for (int i = 0; i < 120; ++i)
+    {
+        engine.process(nullptr, block.data(), 512);
+        peak = std::max(peak, peakOf(block));
+        for (const float sample : block)
+            assert(std::isfinite(sample));
+    }
+
+    std::printf("  flute: peak %.4f after a second of blowing\n", peak);
+    assert(peak > 0.02f);
+    assert(peak < 2.0f);
+
+    // Released, it stops: the jet has nothing to drive it and the bore's loss
+    // takes the rest.
+    engine.noteOff(69);
+    for (int i = 0; i < 200; ++i)
+        engine.process(nullptr, block.data(), 512);
+    assert(peakOf(block) < 0.01f);
+}
+
 void testTapCapturesRecentSamples()
 {
     CompiledCircuit circuit;
@@ -1060,6 +1108,7 @@ int main()
     testGranularCircuitProducesSound();
     testTransportReachesElements();
     testTransportDrivesGrainOnsets();
+    testFluteCircuitProducesSound();
 
     std::puts("ValisEngineTest PASSED");
     return 0;

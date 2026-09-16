@@ -473,6 +473,7 @@ void ValisEngine::processSlice(Graph& graph,
         args.noteNumber     = lastNoteNumber;
         args.noteVelocities = graph.currentNoteVelocities.data();
         args.transport      = sliceTransport;
+        args.silence        = graph.buffer(circuit.silenceBuffer);
         args.audioIn        = graph.audioInPtrs.data();
         args.audioOut       = graph.audioOutPtrs.data();
         args.numAudioIn    = static_cast<int>(node.audioInBuffers.size());

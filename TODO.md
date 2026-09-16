@@ -2,9 +2,8 @@
 
 * create a synth that makes jawdropping sounds nobody has heard before 
 * Model the Oberheim DMX drum sounds as faithfully as possible, creating new elements as needed.
-* create a synth for realistic flutes - support both orchestral and bamboo with various adjustable parameters
 * create a realistic cello
-* make clarinet.ttl more realistic
+* look at decomposing the granular element into smaller, reusable components
 
 ## Recurring - check periodically
 

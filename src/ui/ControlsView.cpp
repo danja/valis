@@ -24,6 +24,36 @@ constexpr int kTopBand            = 30;  // brand plate and pilot jewel
 constexpr int kPlateInset          = 6;  // chassis edge around the faceplate
 }
 
+/// A dial that does not swallow the scroll wheel.
+///
+/// The panel is taller than the window and scrolls, and the pointer is almost
+/// always over a dial, so a dial that takes the wheel for itself makes the rest
+/// of the panel unreachable and nudges values while the user is trying to
+/// reach it. The wheel scrolls; holding Ctrl or Command turns it back into a
+/// fine adjustment of the dial under the pointer.
+class PanelSlider final : public juce::Slider
+{
+public:
+    PanelSlider()
+        : juce::Slider(juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox)
+    {
+    }
+
+    void mouseWheelMove(const juce::MouseEvent& event,
+                        const juce::MouseWheelDetails& wheel) override
+    {
+        if (event.mods.isCtrlDown() || event.mods.isCommandDown())
+        {
+            juce::Slider::mouseWheelMove(event, wheel);
+            return;
+        }
+
+        // The base implementation passes the event up to the nearest enabled
+        // ancestor, which is how it reaches the viewport.
+        juce::Component::mouseWheelMove(event, wheel);
+    }
+};
+
 void drawScrew(juce::Graphics& g, juce::Point<float> centre, float angle,
                const EquipmentTheme& theme)
 {
@@ -194,8 +224,7 @@ void ControlsView::rebuild()
         }
         else
         {
-            knob.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag,
-                                                          juce::Slider::NoTextBox);
+            knob.slider = std::make_unique<PanelSlider>();
             // Drawn by EquipmentLookAndFeel; no per-slider colours needed.
             addAndMakeVisible(*knob.slider);
             knob.attachment =

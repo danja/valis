@@ -126,9 +126,9 @@ Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
+| `thermalVoltage` | Vt | 0.02585 | 0.02 to 0.03 | V |
 | `saturationCurrent` | Is | 2.52e-09 | 1e-15 to 0.001 | A |
 | `emissionCoefficient` | n | 1.752 | 1 to 2 |  |
-| `thermalVoltage` | Vt | 0.02585 | 0.02 to 0.03 | V |
 
 ## val:DiodePair
 
@@ -225,6 +225,23 @@ Nonlinear.
 | `feedback` | Feedback | 0.5 | -0.95 to 0.95 |  |
 | `mix` | Mix | 0.5 | 0 to 1 |  |
 
+## val:Flute
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 440 | 20 to 5000 | Hz |
+| `pressure` | Pressure | 0 | 0 to 1 |  |
+| `offset` | Offset | 0.65 | 0 to 1 |  |
+| `breath` | Breath | 0.05 | 0 to 1 |  |
+| `jet` | Jet | 0.5 | 0.35 to 0.65 |  |
+| `damping` | Damping | 0.3 | 0 to 1 |  |
+
 ## val:Fold
 
 Nonlinear.
@@ -286,7 +303,7 @@ Nonlinear.
 | `spread` | Spread | 0.5 | 0 to 1 |  |
 | `reverse` | Reverse | 0 | 0 to 1 |  |
 | `scan` | Scan | 0 | -4 to 4 |  |
-| `freeze` | Freeze | -1 | -1 to 1 |  |
+| `freeze` | Freeze | 0 | 0 to 1 |  |
 | `trigger` | Trigger | -1 | -1 to 1 |  |
 
 ## val:HardClip
@@ -499,6 +516,7 @@ Nonlinear.
 | `frequency` | Frequency | 220 | 20 to 5000 | Hz |
 | `pressure` | Pressure | 0.5 | 0 to 1 |  |
 | `stiffness` | Stiffness | 0.5 | 0 to 1 |  |
+| `breath` | Breath | 0.02 | 0 to 1 |  |
 | `damping` | Damping | 0.2 | 0 to 1 |  |
 
 ## val:SampleLoad

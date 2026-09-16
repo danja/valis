@@ -261,15 +261,24 @@ void testPortChoiceFlags()
     assert(selectPort->isChoice());
     assert(selectPort->scalePoints.size() == 2);
 
-    // An enumeration with more than two points is a choice but not binary.
+    // A binary port keeps being binary however the element spells it.
     const auto* granulator = ontology.find(vocab::valTerm("Granulator"));
     assert(granulator != nullptr);
     const auto* freeze = granulator->findProperty("freeze");
     assert(freeze != nullptr);
-    assert(freeze->enumeration);
-    assert(freeze->isChoice());
-    assert(! freeze->isBinary());
-    assert(freeze->scalePoints.size() == 3);
+    assert(freeze->toggled);
+    assert(freeze->isBinary());
+    assert(freeze->scalePoints.size() == 2);
+
+    // An enumeration with more than two points is a choice but not binary.
+    const auto* onePole = ontology.find(vocab::valTerm("OnePole"));
+    assert(onePole != nullptr);
+    const auto* mode3 = onePole->findProperty("mode");
+    assert(mode3 != nullptr);
+    assert(mode3->enumeration);
+    assert(mode3->isChoice());
+    assert(! mode3->isBinary());
+    assert(mode3->scalePoints.size() == 3);
 
     // An enumeration with exactly two points is binary without being toggled.
     const auto* follower = ontology.find(vocab::valTerm("EnvelopeFollower"));

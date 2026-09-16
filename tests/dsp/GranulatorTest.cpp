@@ -115,6 +115,70 @@ void testFreezeStopsRecording()
     assert(recordedLevel < frozenLevel * 0.1f);
 }
 
+/// Record follows the input, Freeze stops following it. The test records low
+/// material, switches the control, then feeds high material: what comes out
+/// tells the two apart, because only one of them takes on the new sound.
+///
+/// It takes a few blocks. At position 0 a grain reads forward from the write
+/// head, which is the oldest sample in the buffer, so what is heard is always
+/// about one buffer behind what is arriving.
+void testFreezeHoldsWhileRecordFollows()
+{
+    constexpr int blockSize = 8192;
+
+    auto centroidAfterHighMaterial = [&](float freeze)
+    {
+        ElementTestFixture rig("Granulator", kRate);
+
+        // A buffer shorter than the material, so it holds a window onto it.
+        std::string error;
+        assert(rig.element->setOption("seconds", "0.1707", error));
+
+        rig.set("density", 60.0f);
+        rig.set("size", 40.0f);
+        rig.set("spread", 0.0f);
+        rig.set("shape", 1.0f);
+        rig.set("freeze", 0.0f);
+
+        double phase = 0.0;
+        auto tone = [&](double hz)
+        {
+            std::vector<float> out(static_cast<std::size_t>(blockSize));
+            for (int i = 0; i < blockSize; ++i)
+            {
+                phase += 2.0 * M_PI * hz / kRate;
+                out[static_cast<std::size_t>(i)] = static_cast<float>(std::sin(phase));
+            }
+            return out;
+        };
+
+        rig.run(tone(400.0));
+        rig.set("freeze", freeze);
+
+        std::vector<float> out;
+        for (int block = 0; block < 5; ++block)
+            out = rig.run(tone(2400.0), "left");
+
+        const auto bins = ElementTestFixture::computeSpectrum(out, 12);
+        double weighted = 0.0, total = 0.0;
+        for (std::size_t b = 1; b < bins.size(); ++b)
+        {
+            const double energy = static_cast<double>(bins[b]) * bins[b];
+            weighted += energy * static_cast<double>(b);
+            total    += energy;
+        }
+        return total > 0.0 ? weighted / total * kRate / 4096.0 : 0.0;
+    };
+
+    const double recording = centroidAfterHighMaterial(0.0f);
+    const double frozen    = centroidAfterHighMaterial(1.0f);
+
+    std::printf("  freeze: centroid %.0f Hz recording, %.0f Hz frozen\n", recording, frozen);
+
+    assert(recording > 1500.0);   // taken on the new material
+    assert(frozen    <  900.0);   // still playing what it captured
+}
+
 /// Two elements built the same way must render the same samples, or no audio
 /// test of this element means anything.
 void testRenderIsReproducible()
@@ -415,6 +479,7 @@ int main()
     testRecordsAndPlaysGrains();
     testWritesAllThreeOutputs();
     testFreezeStopsRecording();
+    testFreezeHoldsWhileRecordFollows();
     testRenderIsReproducible();
     testBlockSizeIndependence();
     testPitchTransposes();

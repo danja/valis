@@ -73,6 +73,11 @@ to confirm a running instance before using MCP tools that require a host.
   as `val:Oscilloscope`, `val:FreqAnalyzer` and `val:SampleLoad` do.
 - A binary choice a circuit needs as two arbitrary values is a `val:Select`, not a dial with
   two meaningful positions.
+- Every position of a control must be able to differ in the circuit that exposes it. A mode
+  that collapses onto another for a given wiring is worse than no mode: see MISTAKES.md on the
+  granulator's Auto position.
+- The panel scrolls and the pointer is usually over a dial, so a dial must not consume the
+  scroll wheel. `PanelSlider` scrolls by default and adjusts only with Ctrl or Command held.
 
 ## Transport
 
@@ -81,6 +86,24 @@ to confirm a running instance before using MCP tools that require a host.
   carries `ppqPosition` forward one control slice at a time so a musical phase stays continuous
   inside a block.
 - An element must derive musical timing from `ppqPosition`, never by counting host blocks.
+
+## Physical models
+
+- Waveguide instruments share `src/dsp/elements/Waveguide.h`: a fractional delay line, a
+  one-pole loss filter that can report its own phase delay, a DC blocker and deterministic
+  turbulence. An instrument element writes only its exciter.
+- A waveguide is tuned by its *total* loop delay, so subtract what the filters in the loop
+  contribute. `Loss::phaseDelay` exists for that; without it, damping detunes the instrument.
+- Where the loop is nonlinear, the sounding pitch is not predictable from the delay lengths
+  alone. Calibrate against measurements, fit a curve, and put a test on it: `val:Flute` does
+  this for the jet ratio and again across the playing range.
+- Test the spectrum, not just pitch and stability. A model can be in tune, stable, and the
+  wrong instrument: see MISTAKES.md on the flute that was a stopped pipe.
+- Measure harmonics against the pitch the instrument actually played, not the one it was
+  asked for. A few cents of drift moves a partial out of the measurement window and reports a
+  tone far purer than it is.
+- Build everything (`cmake --build build`, no target) before measuring through `valis-render`.
+  A targeted test build leaves the tool linked against the previous library.
 
 ## Control arc semantics
 

@@ -220,10 +220,24 @@ host MIDI gate.""" ;
 
 val:Reed a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Reed" ;
-    rdfs:comment """Digital waveguide single-reed instrument (clarinet model).
-A cylindrical bore with negative reflection at the open end gives odd-harmonic
-content. Self-oscillates when pressure exceeds the reed's threshold. Connect
-val:MidiPitch to frequency for pitch tracking.""" ;
+    rdfs:comment """Single-reed waveguide clarinet. A cylindrical bore, stopped
+by the mouthpiece at one end and open at the other. A round trip reflects once
+with its sign inverted, so the tube holds a quarter wavelength and resonates at
+odd multiples of it. That is why a clarinet sounds an octave below a flute of
+the same length, why its even harmonics are weak, and why it overblows to the
+twelfth rather than the octave.
+
+The reed is a pressure-controlled valve. The bore's returning pressure works
+against the player's, and the reed's opening is very nearly a straight line in
+that difference until it slams against the lay and shuts. That clipped
+characteristic is the whole nonlinearity.
+
+val:Flute is the same machinery with the other boundary condition. Connect
+val:MidiPitch to frequency for pitch tracking, and an envelope to pressure: the
+instrument is silent until it is blown.
+
+After McIntyre, Schumacher and Woodhouse; see Julius Smith, Physical Audio
+Signal Processing, <https://ccrma.stanford.edu/~jos/pasp/Clarinet.html>.""" ;
     val:implementation "Reed" ;
     val:linear false ;
     lv2:port
@@ -234,15 +248,74 @@ val:MidiPitch to frequency for pitch tracking.""" ;
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pressure" ;
         lv2:name "Pressure" ; lv2:default 0.5 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Mouth blowing pressure. Below ~0.3 = silent; 0.4–0.7 = normal; above 0.8 = overblown." ] ,
+        rdfs:comment "Mouth blowing pressure. A reed works over a band of it: below the band nothing sounds, above it the reed is held against the lay and stays shut, and the two ends are always a factor of two apart. The control is mapped onto that band, so most of its travel plays, and it still passes through zero." ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "stiffness" ;
         lv2:name "Stiffness" ; lv2:default 0.5 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Reed stiffness. Higher = more responsive, brighter tone." ] ,
+        rdfs:comment "How much pressure difference it takes to close the reed, which decides what the instrument needs to play rather than how it sounds. A soft reed speaks on very little air and shuts when it is overblown; a hard one will not start on that but takes everything it is given." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "breath" ;
+        lv2:name "Breath" ; lv2:default 0.02 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Turbulence in the breath, as a fraction of blowing pressure." ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
         lv2:name "Damping" ; lv2:default 0.2 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Bore loss. 0 = bright and metallic; 1 = dark and muted." ] .
+        rdfs:comment "What the bore loses on each round trip. 0 is bright and metallic; 1 is dark and muted." ] .
+
+val:Flute a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Flute" ;
+    rdfs:comment """Jet-drive waveguide flute. A tube open at both ends, blown
+by a ribbon of air aimed at a sharp edge across the mouth hole. The jet takes
+time to cross that gap, so the model is two delay lines: the air column, and a
+shorter jet delay. What the column pushes back deflects the jet, and where the
+jet lands decides how much air enters the tube rather than passing by.
+
+The flow into the tube is Uj * tanh((eta - y0) / b), after Verge and Fabre: Uj
+is the jet's speed, eta how far the acoustic field has deflected it, y0 how far
+it already sits off the edge. Two things follow, and both are audible. Uj goes
+with the square root of blowing pressure, which is Bernoulli's, so the
+instrument grows louder and brighter as it is blown rather than saturating at
+one volume. And y0 breaks the symmetry: a jet centred on the edge is deflected
+equally either way and puts out only odd harmonics, which is a hollow, stopped
+sound, so val:offset is what puts the even harmonics in. A player does the same
+thing by rolling the instrument towards or away from themselves.
+
+It plays its first register: the jet ratio decides which mode the loop settles
+in, and that port is bounded to the range that holds the fundamental.
+
+Connect val:MidiPitch to frequency for pitch tracking, and an envelope to
+pressure: the instrument is silent until it is blown, and speaks after a short
+delay while the oscillation builds, as a real one does.
+
+See Fabre and Hirschberg, and Julius Smith, Physical Audio Signal Processing,
+<https://ccrma.stanford.edu/~jos/pasp/Flutes_Recorders_Flue_Organ.html>.""" ;
+    val:implementation "Flute" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 5000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pressure" ;
+        lv2:name "Pressure" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Blowing pressure. Below about a third of the travel the instrument does not speak and only wind noise is heard, as a flute blown too gently does; above that it sounds, growing louder and brighter to the top." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "offset" ;
+        lv2:name "Offset" ; lv2:default 0.65 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "How far the jet sits off the edge, in jet widths. 0 is centred, which is symmetric and gives a hollow tone of odd harmonics only; raising it puts the even harmonics in and rounds the sound out. Around two thirds of the way up is where the second harmonic leads, which is where a flute sits." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "breath" ;
+        lv2:name "Breath" ; lv2:default 0.05 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Turbulence in the breath, which is both what starts the note and what makes it audibly a wind instrument. Low for an orchestral flute, high for a bamboo one." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "jet" ;
+        lv2:name "Jet" ; lv2:default 0.5 ;
+        lv2:minimum 0.35 ; lv2:maximum 0.65 ;
+        rdfs:comment "How long the jet takes to cross the mouth hole, as a fraction of the air column. The column is retuned to match it, so the pitch holds across the range while the tone changes." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
+        lv2:name "Damping" ; lv2:default 0.3 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "What the air column loses on each round trip. 0 is a bright metal tube; 1 is a soft, dark wooden one." ] .
 
 ################################################################
 # Filters                                                      #
@@ -1044,6 +1117,10 @@ head sits at the start of the file, so 0 is the beginning and 1 the end. While
 recording live input the write head is the present moment, so values near 1
 granulate the most recent audio and lower values reach further back.
 
+freeze decides what the buffer does with the audio input. An input with no arc
+reaching it records nothing at all, so a circuit that loads val:file and wires
+nothing to the input keeps that material without having to say so.
+
 See Roads, Microsound (MIT Press, 2001)
 <https://mitpress.mit.edu/9780262681544/microsound/> for the technique.""" ;
     val:implementation "Granulator" ;
@@ -1100,13 +1177,12 @@ See Roads, Microsound (MIT Press, 2001)
         lv2:minimum -4.0 ; lv2:maximum 4.0 ;
         rdfs:comment "Drift of the read point through the buffer, in buffer lengths per second. 0 holds still." ] ,
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "freeze" ;
-        lv2:name "Freeze" ; lv2:default -1.0 ;
-        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
-        lv2:portProperty lv2:enumeration ;
-        lv2:scalePoint [ rdfs:label "Auto"   ; rdf:value -1 ] ,
-                       [ rdfs:label "Record" ; rdf:value 0 ] ,
+        lv2:name "Freeze" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Record" ; rdf:value 0 ] ,
                        [ rdfs:label "Freeze" ; rdf:value 1 ] ;
-        rdfs:comment "Auto keeps a loaded file and records live input otherwise; Record writes the input into the buffer; Freeze holds what is there." ] ,
+        rdfs:comment "Record writes whatever reaches the audio input into the buffer; Freeze holds what is already there. An input with no arc records nothing, so material loaded by val:file is never erased by a connection that does not exist." ] ,
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;

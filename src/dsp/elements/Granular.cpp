@@ -256,13 +256,11 @@ public:
         const float  shape       = std::clamp(controlAt(args, shapeIndex, 0.5f), 0.0f, 1.0f);
         const float  spread      = std::clamp(controlAt(args, spreadIndex, 0.5f), 0.0f, 1.0f);
         const float  reverse     = std::clamp(controlAt(args, reverseIndex, 0.0f), 0.0f, 1.0f);
-        const float  freezeCtl   = controlAt(args, freezeIndex, -1.0f);
+        const float  freezeCtl   = controlAt(args, freezeIndex, 0.0f);
         const float  trigger     = controlAt(args, triggerIndex, -1.0f);
         const float  scan        = std::clamp(controlAt(args, scanIndex, 0.0f), -4.0f, 4.0f);
 
-        // -1 means "decide from what the element holds": material loaded from a
-        // file is kept, live input is recorded over.
-        const bool frozen = freezeCtl < -0.5f ? fileLength > 0 : freezeCtl > 0.5f;
+        const bool frozen = freezeCtl > 0.5f;
 
         const int   capacity    = static_cast<int>(buffer.size());
         const float grainLength = std::max(2.0f, sizeMs * 0.001f * static_cast<float>(sampleRate));
@@ -288,7 +286,12 @@ public:
             lastInterval = interval;
         }
 
+        // Nothing wired to the input points at the engine's shared silence, and
+        // recording that would erase material val:file had loaded. An input
+        // that is merely quiet still records, which is what freezing is for.
         const float* in = args.numAudioIn > 0 ? args.audioIn[0] : nullptr;
+        if (in != nullptr && in == args.silence)
+            in = nullptr;
 
         // The read point drifts at `scan` buffer lengths per second. It advances
         // per sample rather than per block, so a grain spawned part-way through

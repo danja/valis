@@ -1,6 +1,9 @@
 // src/dsp/elements/Sources.cpp
 
 #include "Common.h"
+#include "Waveguide.h"
+
+#include <cstdint>
 
 namespace valis::elements {
 
@@ -307,9 +310,208 @@ public:
     }
 };
 
-/// Routes the host MIDI gate to a control output only when the current note
-/// number matches val:note. Lets a circuit wire separate envelope chains per
-/// drum hit without any per-voice circuit duplication in the engine.
+/// Jet-drive waveguide flute.
+///
+/// A flute is a tube open at both ends, blown by a ribbon of air that the
+/// player aims at a sharp edge across the mouth hole. The jet takes time to
+/// cross that gap, so the model is two delay lines: the air column, and a
+/// shorter jet delay. What the column pushes back deflects the jet, and where
+/// the jet lands decides how much air goes into the tube rather than past it.
+/// That is the whole instrument.
+///
+/// The flow into the tube is Uj * tanh((eta - y0) / b), after Verge and Fabre:
+/// Uj is the jet's speed, eta how far the acoustic field has deflected it, y0
+/// how far it already sits off the edge and b its width. Two things follow from
+/// that expression, and both are audible:
+///
+///   Uj goes with the square root of blowing pressure, which is Bernoulli's,
+///   so the instrument gets louder and brighter as it is blown harder rather
+///   than saturating at one volume.
+///
+///   y0 breaks the symmetry. A jet centred on the edge is deflected equally
+///   either way and puts out only odd harmonics, which is a hollow, stopped
+///   sound. Moving it off centre is what puts the even harmonics in, and it is
+///   what a player is doing when they roll the instrument towards or away from
+///   themselves. It is the val:offset port.
+///
+/// See Verge, "Aeroacoustics of confined jets", and Fabre and Hirschberg,
+/// <https://ccrma.stanford.edu/~jos/pasp/Flutes_Recorders_Flue_Organ.html>.
+class Flute final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate  = rate;
+        freqIdx     = controlIndex(type, "frequency");
+        pressureIdx = controlIndex(type, "pressure");
+        breathIdx   = controlIndex(type, "breath");
+        jetIdx      = controlIndex(type, "jet");
+        offsetIdx   = controlIndex(type, "offset");
+        dampingIdx  = controlIndex(type, "damping");
+
+        const auto longest = static_cast<std::size_t>(rate / 20.0) + 4;
+        bore.prepare(longest);
+        jet.prepare(longest);
+        reset();
+    }
+
+    void reset() override
+    {
+        bore.clear();
+        jet.clear();
+        loss.clear();
+        jetResponse.clear();
+        feedbackBlock.clear();
+        outputBlock.clear();
+        turbulence.seed(0x2545f491u);
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float frequency = std::clamp(controlAt(args, freqIdx, 440.0f), 20.0f,
+                                           static_cast<float>(sampleRate * 0.25));
+        const float pressure = std::clamp(controlAt(args, pressureIdx, 0.0f), 0.0f, 1.0f);
+        const float breath   = std::clamp(controlAt(args, breathIdx, 0.05f), 0.0f, 1.0f);
+        const float jetRatio = std::clamp(controlAt(args, jetIdx, 0.5f), 0.35f, 0.65f);
+        const float offset   = std::clamp(controlAt(args, offsetIdx, 0.65f), 0.0f, 1.0f);
+        const float damping  = std::clamp(controlAt(args, dampingIdx, 0.3f), 0.0f, 1.0f);
+
+        // The top of this range is where the loss filter's own delay stops
+        // being predictable from its pole, and the instrument would go most of
+        // a semitone sharp. It is already very dark by then.
+        loss.setPole(std::clamp(0.4f + 0.45f * damping, 0.05f, 0.85f));
+
+        // The jet delay is inside the feedback loop, so the loop is longer than
+        // the air column and the instrument would play sharp. The correction is
+        // measured rather than derived: see tests/dsp/FluteTest.cpp, which
+        // fails if it drifts.
+        const float period = static_cast<float>(sampleRate) / frequency;
+        const float omega  = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
+        const float tuning = kTuningQuadratic * jetRatio * jetRatio
+                           + kTuningLinear * jetRatio + kTuningConstant;
+
+        // The jet does not answer the acoustic field instantly: the
+        // perturbation has to grow as the air convects across the gap, and a
+        // wide jet cannot follow a short wavelength at all. Modelling that as a
+        // lowpass tracking the played pitch is what stops the jet path
+        // reinforcing the third and fifth harmonics as strongly as it
+        // reinforces the fundamental, which is the difference between a hollow
+        // stopped tone and a flute's.
+        jetResponse.setPole(std::exp(-6.283185307179586f * kJetCutoff * frequency
+                                     / static_cast<float>(sampleRate)));
+
+        // The loss filter's delay comes out of the air column, so damping does
+        // not detune the instrument. The jet filter's delay is deliberately
+        // left in: it lengthens the jet path relative to the column, which is
+        // what stops that path reinforcing the odd harmonics as strongly, and
+        // the pitch it costs is given back by the calibration below.
+        // What the two fits above leave behind is an error that rises with
+        // pitch, because the fixed part of the loop is a larger share of a
+        // shorter period. A quadratic in kilohertz takes it out: measured, the
+        // instrument holds within a few cents from a bass flute's bottom note
+        // to the top of a piccolo's range, where without it the top octave is
+        // half a semitone sharp.
+        const float kHz = frequency * 0.001f;
+        const float residual = std::exp2((kResidualQuadratic * kHz * kHz
+                                          + kResidualLinear * kHz
+                                          + kResidualConstant) / 1200.0f);
+
+        const float length = std::max(2.0f, period * tuning * residual
+                                            - loss.phaseDelay(omega) - 1.0f);
+        bore.setDelay(length);
+        jet.setDelay(std::max(1.0f, length * jetRatio));
+
+        // Jet speed, and where it sits against the edge before anything
+        // deflects it.
+        const float velocity = kJetVelocity * std::sqrt(pressure);
+        const float bias     = kOffsetRange * offset;
+        const float atRest   = waveguide::fastTanh(bias);
+
+        // Moving the jet off the edge flattens the curve it works on, so a
+        // player who rolls the instrument in has to blow harder to keep the
+        // note. Restoring that slope here is the same compensation, and it
+        // leaves the control changing the tone rather than the threshold: it
+        // is the difference between a usable knob and one with silence in the
+        // middle of its range.
+        const float slope = 1.0f - atRest * atRest;   // sech^2, from tanh
+        const float compensation = 1.0f / std::sqrt(std::max(slope, 0.2f));
+
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            // Round trip: the column's loss, with its steady component removed
+            // so the jet keeps swinging about the edge rather than drifting to
+            // one side of it.
+            const float reflected =
+                kLoopGain * feedbackBlock.process(loss.process(bore.last()));
+
+            // The jet's deflection when it reaches the edge, plus the
+            // turbulence in the breath, which is what starts the note.
+            // The returning wave deflects the jet away from the edge, not
+            // towards it. With the sign the other way the loop favours the
+            // octave instead of the fundamental.
+            const float eta = jetResponse.process(jet.tick(-reflected))
+                            + breath * kTurbulence * turbulence.next();
+
+            // How much of the jet goes into the tube. Subtracting its value at
+            // rest leaves the flow at zero when the player is not blowing.
+            const float flow = velocity * compensation
+                             * (waveguide::fastTanh(kJetSensitivity * eta - bias) + atRest);
+
+            out[i] = kOutputLevel
+                   * outputBlock.process(bore.tick(flow + kEndReflection * reflected));
+        }
+    }
+
+private:
+    /// Fitted to the sounding pitch measured across the jet range, and then
+    /// across the playing range. Both are calibrations rather than
+    /// derivations: the loop is nonlinear, and where it settles is not
+    /// something the delay lengths alone predict. tests/dsp/FluteTest.cpp
+    /// measures both, so they cannot drift unnoticed.
+    static constexpr float kTuningQuadratic = -0.0067f;
+    static constexpr float kTuningLinear = -0.4253f;
+    static constexpr float kTuningConstant = 1.2006f;
+
+    /// And then across the playing range, in kilohertz.
+    static constexpr float kResidualQuadratic = 21.85f;
+    static constexpr float kResidualLinear    = -10.57f;
+    static constexpr float kResidualConstant  = 3.80f;
+
+    /// How hard the acoustic field deflects the jet, and how far the offset
+    /// control moves it off the edge, both in jet widths.
+    static constexpr float kJetSensitivity = 1.5f;
+    static constexpr float kOffsetRange    = 1.2f;
+
+    /// Jet speed at full blowing pressure, in the same units.
+    static constexpr float kJetVelocity = 1.0f;
+
+    /// Where the jet stops following the acoustic field, as a multiple of the
+    /// played pitch.
+    static constexpr float kJetCutoff = 1.5f;
+
+    /// How much of the returning wave goes back down the tube rather than out
+    /// of the mouth hole, and how much of the breath's turbulence reaches the
+    /// jet.
+    static constexpr float kEndReflection = 0.5f;
+    static constexpr float kTurbulence    = 0.35f;
+    static constexpr float kLoopGain      = 0.985f;
+    static constexpr float kOutputLevel   = 0.15f;
+
+    waveguide::Delay bore, jet;
+    waveguide::Loss  loss, jetResponse;
+    waveguide::DcBlocker feedbackBlock, outputBlock;
+    waveguide::Turbulence turbulence;
+
+    double sampleRate = 44100.0;
+    int freqIdx = -1, pressureIdx = -1, breathIdx = -1;
+    int jetIdx = -1, offsetIdx = -1, dampingIdx = -1;
+};
+
 class NoteGate final : public DspElement
 {
 public:
@@ -355,19 +557,24 @@ class Output final : public DspElement
 public:
     void process(const ProcessArgs&) noexcept override {}
 };
-
-/// Digital waveguide single-reed instrument (clarinet model).
+/// Single-reed waveguide clarinet.
 ///
-/// A cylindrical bore (closed at the reed end, open at the bell) is modelled
-/// as a delay line of length sampleRate / (2 * frequency). The open end
-/// reflects negatively, giving the odd-harmonic spectrum characteristic of a
-/// clarinet. The reed junction is a pressure-controlled nonlinear valve:
+/// A cylindrical bore, stopped by the mouthpiece at one end and open at the
+/// other. A round trip reflects once with its sign inverted, so the tube holds
+/// a quarter wavelength and resonates at odd multiples of it. That is why a
+/// clarinet sounds an octave below a flute of the same length, why its even
+/// harmonics are weak, and why it overblows to the twelfth rather than the
+/// octave. val:Flute is the same machinery with the other boundary condition,
+/// and both are built from src/dsp/elements/Waveguide.h.
 ///
-///   delta_p = mouth_pressure - reflected_bore_pressure
-///   reed_open = clamp(sqrt(max(0, delta_p)) * k, 0, 1.5)
-///   p_new = bore_pressure + reed_open
+/// The reed is a pressure-controlled valve. The bore's returning pressure works
+/// against the player's, and the reed's opening is very nearly a straight line
+/// in that difference until it slams against the lay and shuts. That clipped
+/// characteristic is the whole nonlinearity, and where the cycle spends its
+/// time against the limit is what decides the tone.
 ///
-/// Self-oscillates when pressure exceeds the reed's closure threshold.
+/// After McIntyre, Schumacher and Woodhouse; see Julius Smith, Physical Audio
+/// Signal Processing, <https://ccrma.stanford.edu/~jos/pasp/Clarinet.html>.
 class Reed final : public DspElement
 {
 public:
@@ -378,16 +585,18 @@ public:
         pressureIdx  = controlIndex(type, "pressure");
         stiffnessIdx = controlIndex(type, "stiffness");
         dampingIdx   = controlIndex(type, "damping");
-        buffer.assign(static_cast<std::size_t>(rate / 10.0) + 2, 0.0f);
-        writePos    = 0;
-        filterState = 0.0f;
+        breathIdx    = controlIndex(type, "breath");
+
+        bore.prepare(static_cast<std::size_t>(rate / 20.0) + 4);
+        reset();
     }
 
     void reset() override
     {
-        std::fill(buffer.begin(), buffer.end(), 0.0f);
-        writePos    = 0;
-        filterState = 0.0f;
+        bore.clear();
+        loss.clear();
+        blocker.clear();
+        turbulence.seed(0x1f123bb5u);
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -395,60 +604,97 @@ public:
         if (args.numAudioOut < 1)
             return;
 
-        const float freq      = std::clamp(controlAt(args, freqIdx,      220.0f), 20.0f,
-                                           static_cast<float>(sampleRate * 0.45));
-        const float pressure  = std::clamp(controlAt(args, pressureIdx,   0.5f), 0.0f, 1.0f);
-        const float stiffness = std::clamp(controlAt(args, stiffnessIdx,  0.5f), 0.0f, 1.0f);
-        const float damping   = std::clamp(controlAt(args, dampingIdx,    0.2f), 0.0f, 1.0f);
+        const float frequency = std::clamp(controlAt(args, freqIdx, 220.0f), 20.0f,
+                                           static_cast<float>(sampleRate * 0.25));
+        const float pressure  = std::clamp(controlAt(args, pressureIdx, 0.5f), 0.0f, 1.0f);
+        const float stiffness = std::clamp(controlAt(args, stiffnessIdx, 0.5f), 0.0f, 1.0f);
+        const float damping   = std::clamp(controlAt(args, dampingIdx, 0.2f), 0.0f, 1.0f);
+        const float breath    = std::clamp(controlAt(args, breathIdx, 0.02f), 0.0f, 1.0f);
 
-        // Round trip for closed-open cylinder: 2L/c = sampleRate / (2 * freq)
-        const int N       = std::max(1, static_cast<int>(sampleRate / (2.0 * freq) + 0.5));
-        const int bufSize = static_cast<int>(buffer.size());
+        loss.setPole(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.85f));
 
-        const float dampCoeff = damping * 0.9f;
-        const float k         = 1.0f + stiffness * 3.0f;   // reed responsiveness
-        // Per-sample bore loss: ensures the waveguide decays naturally during
-        // release rather than ringing into the next note indefinitely.
-        const float loss = 1.0f - damping * 0.004f;
+        // Stopped at one end and open at the other, so the delay line is half a
+        // period. The loss filter's own delay comes out of it, which is what
+        // keeps the instrument in tune as it is damped, and the rest is
+        // calibrated: see tests/dsp/ClarinetTest.cpp.
+        // What the loss filter delays is known in closed form and comes out
+        // exactly, which is what keeps the instrument in tune as it is damped.
+        // What is left over measures as a straight line in frequency, about
+        // 0.079 cents per hertz, and is taken out by the same calibration the
+        // flute uses. tests/dsp/ClarinetTest.cpp measures it at eight pitches.
+        const float omega    = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
+        const float residual = std::exp2((kResidualSlope * frequency + kResidualOffset) / 1200.0f);
+        const float length   = 0.5f * static_cast<float>(sampleRate) / frequency * residual
+                             - loss.phaseDelay(omega) - kLoopLatency;
+        bore.setDelay(std::max(2.0f, length));
+
+        // A soft reed closes further for the same pressure difference, which
+        // rounds the tone off; a hard one stays open and sounds brighter.
+        const float slope = -(kSlopeSoft - kSlopeRange * stiffness);
+
+        // The reed only works over a narrow band of mouth pressure: below it
+        // nothing sounds, and above it the reed is pressed against the lay and
+        // stays there. Those two ends are always a factor of two apart, whatever
+        // the reed is like, so a control that ran from nothing to the top of the
+        // band would be silent over most of its travel. This curve reaches the
+        // playable band quickly and then spreads the rest of the control across
+        // it, while still passing through zero so an unblown instrument is
+        // silent.
+        const float blowing = kPressureSpan * std::pow(pressure, kPressureCurve);
+
+        // The turbulence follows the control rather than the mapped pressure,
+        // so a player who is not blowing makes no noise either.
+        const float noise = breath * pressure;
 
         float* out = args.audioOut[0];
 
         for (int i = 0; i < args.numSamples; ++i)
         {
-            int readPos = writePos - N;
-            if (readPos < 0)
-                readPos += bufSize;
+            const float mouth = blowing * (1.0f + noise * turbulence.next());
 
-            // Negative reflection at the open end; loss from bore.
-            const float p_back = -buffer[static_cast<std::size_t>(readPos)];
+            // What comes back from the open end: inverted, and duller than it
+            // left.
+            const float returning = -kLoopGain * loss.process(bore.last());
 
-            // One-pole LP in bore (wall losses / mouthpiece damping).
-            filterState = dampCoeff * filterState + (1.0f - dampCoeff) * p_back;
+            // The reed sees the difference between the bore and the player.
+            // Its opening follows that difference until it shuts against the
+            // lay, and what it lets past joins the player's own pressure.
+            const float across  = returning - mouth;
+            const float opening = std::clamp(kReedRest + slope * across, -1.0f, 1.0f);
 
-            // Reed junction: valve opens proportionally to pressure differential.
-            // Closes completely when blowing pressure is absent so that stored
-            // bore oscillation decays rather than sustaining without a breath.
-            const float delta    = pressure - filterState;
-            const float reedOpen = (delta > 0.0f && pressure > 0.01f)
-                                 ? std::min(1.5f, std::sqrt(delta) * k)
-                                 : 0.0f;
-
-            const float p_new = std::clamp(filterState + reedOpen, -1.0f, 1.0f);
-            buffer[static_cast<std::size_t>(writePos)] = p_new * loss;
-            out[i] = p_new * 0.25f;
-
-            if (++writePos >= bufSize)
-                writePos = 0;
+            out[i] = kOutputLevel * blocker.process(bore.tick(mouth + across * opening));
         }
     }
 
 private:
-    std::vector<float> buffer;
-    int writePos    = 0;
-    float filterState = 0.0f;
+    /// The reed's reflection when nothing is pushing it, and how fast it
+    /// closes. The stiffness control moves between a soft reed and a hard one.
+    static constexpr float kReedRest   = 0.45f;
+    static constexpr float kSlopeSoft  = 0.55f;
+    static constexpr float kSlopeRange = 0.2f;
+
+    /// The bore's loss, and the samples the loop spends outside the delay line.
+    static constexpr float kPoleBase    = 0.25f;
+    static constexpr float kPoleRange   = 0.6f;
+    static constexpr float kLoopGain    = 0.995f;
+
+    /// The band of mouth pressure the reed works over.
+    static constexpr float kPressureSpan  = 1.20f;
+    static constexpr float kPressureCurve = 0.35f;
+    static constexpr float kLoopLatency = 1.0f;
+    static constexpr float kResidualSlope  = 0.0791f;
+    static constexpr float kResidualOffset = -2.43f;
+    static constexpr float kOutputLevel = 0.35f;
+
+    waveguide::Delay bore;
+    waveguide::Loss  loss;
+    waveguide::DcBlocker blocker;
+    waveguide::Turbulence turbulence;
+
     double sampleRate = 44100.0;
-    int freqIdx = -1, pressureIdx = -1, stiffnessIdx = -1, dampingIdx = -1;
+    int freqIdx = -1, pressureIdx = -1, stiffnessIdx = -1, dampingIdx = -1, breathIdx = -1;
 };
+
 
 }  // namespace valis::elements
 
@@ -467,6 +713,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
     registry.add("NoteGate",     &make<elements::NoteGate>);
     registry.add("Reed",         &make<elements::Reed>);
+    registry.add("Flute",        &make<elements::Flute>);
     registry.add("Input",        &make<elements::Input>);
     registry.add("Output",       &make<elements::Output>);
 }
