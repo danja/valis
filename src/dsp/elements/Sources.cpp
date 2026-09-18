@@ -582,7 +582,10 @@ public:
         toBridge.clear();
         toNut.clear();
         loss.clear();
+        finger.clear();
+        width.clear();
         blocker.clear();
+        rosin.seed(0x3c6ef372u);
         bowing = 0.0f;
     }
 
@@ -595,10 +598,12 @@ public:
                                            static_cast<float>(sampleRate * 0.25));
         const float pressure = std::clamp(controlAt(args, pressureIdx, 0.5f), 0.0f, 1.0f);
         const float speed    = std::clamp(controlAt(args, velocityIdx, 0.4f), 0.0f, 1.0f);
-        const float position = std::clamp(controlAt(args, positionIdx, 0.13f), 0.02f, 0.5f);
+        const float position = std::clamp(controlAt(args, positionIdx, 0.12f), 0.02f, 0.5f);
         const float damping  = std::clamp(controlAt(args, dampingIdx, 0.3f), 0.0f, 1.0f);
 
         loss.setPole(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f));
+        finger.setPole(kFingerSoftness);
+        width.setPole(kBowWidth);
 
         // The wave passes each segment once per period, so the two of them come
         // to one period between them. The loss filter's own delay is known in
@@ -608,8 +613,14 @@ public:
         // See tests/dsp/CelloTest.cpp.
         const float omega    = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
         const float residual = std::exp2((kResidualSlope * frequency + kResidualOffset) / 1200.0f);
+        // Every filter in the loop lengthens it, and each of their delays is
+        // known in closed form, so all of them come out rather than being
+        // absorbed into the calibration.
         const float total    = static_cast<float>(sampleRate) / frequency * residual
-                             - loss.phaseDelay(omega) - kLoopLatency;
+                             - loss.phaseDelay(omega)
+                             - finger.phaseDelay(omega)
+                             - width.phaseDelay(omega)
+                             - kLoopLatency;
 
         const float bridgeLength = std::max(1.0f, total * position);
         const float nutLength    = std::max(1.0f, total - bridgeLength);
@@ -632,17 +643,30 @@ public:
         {
             bowing += ease * (target - bowing);
 
+            // Rosin does not grip evenly, and a real bow is never drawn at a
+            // perfectly constant speed. Besides being audible in the tone, the
+            // irregularity is what keeps the string out of the neighbouring
+            // modes it would otherwise lock into at particular combinations of
+            // pitch and bow position.
+            const float hair = bowing * (1.0f + kRosin * rosin.next());
+
             const float atBridge = toBridge.last();
             const float atNut    = toNut.last();
 
             // Both ends invert. The bridge is where the string gives its energy
             // to the body, so that is the lossy end; the nut is nearly rigid.
             const float fromBridge = -kBridgeGain * loss.process(atBridge);
-            const float fromNut    = -kNutGain * atNut;
+            const float fromNut    = -kNutGain * finger.process(atNut);
 
             // The bow sees how fast the string is moving under it.
-            const float relative = bowing - (fromBridge + fromNut);
-            const float force    = relative * bowTable(relative, slope);
+            const float relative = hair - (fromBridge + fromNut);
+
+            // Real bow hair covers a width of the string rather than touching
+            // it at a point, and a contact of finite width cannot excite a
+            // wavelength shorter than itself. Without that the string locks to
+            // a mode a fifth away at the pitches where the bow point happens to
+            // fall near a node: see the position sweep in tests/dsp/CelloTest.cpp.
+            const float force = width.process(relative * bowTable(relative, slope));
 
             toBridge.tick(fromNut + force);
             toNut.tick(fromBridge + force);
@@ -683,18 +707,40 @@ private:
     static constexpr float kBowSpeed  = 0.35f;
     static constexpr float kBowEaseMs = 12.0f;
 
+    /// How uneven the rosin's grip is, as a fraction of bow speed.
+    static constexpr float kRosin = 0.04f;
+
+    /// How soft the stopped end is, as a pole.
+    static constexpr float kFingerSoftness = 0.45f;
+
+    /// How wide the hair is, as a pole. It smears the node structure the bow
+    /// sees, which is what stops the string locking to a neighbouring mode.
+    static constexpr float kBowWidth = 0.35f;
+
     /// One sample of the loop is the arithmetic between the two delay lines.
     static constexpr float kLoopLatency = 1.0f;
 
-    /// What is left of the tuning after the loss filter's delay is taken out,
-    /// measured across the playing range and fitted as cents per hertz.
-    /// tests/dsp/CelloTest.cpp checks it at eight pitches.
-    static constexpr float kResidualSlope  = 0.0f;
-    static constexpr float kResidualOffset = 0.0f;
+    /// What is left of the tuning after the loss filter's delay is taken out.
+    /// Uncorrected the string plays sharp by an amount that measures as a
+    /// straight line in frequency, from 2.5 cents at the bottom of the cello's
+    /// range to 16.7 at the top, so it comes out as cents per hertz.
+    /// tests/dsp/CelloTest.cpp measures it at eight pitches.
+    static constexpr float kResidualSlope  = 0.0554f;
+    static constexpr float kResidualOffset = -0.12f;
 
     waveguide::Delay toBridge, toNut;
     waveguide::Loss loss;
+
+    /// The bow's contact width, as a lowpass on the force it injects.
+    waveguide::Loss width;
+
+    /// The stopped end. A fingertip is soft and lossy, not a rigid termination,
+    /// and it damps the high modes a rigid one would let the string sound in.
+    waveguide::Loss finger;
     waveguide::DcBlocker blocker;
+
+    /// The unevenness of the rosin, deterministic so a render is reproducible.
+    waveguide::Turbulence rosin;
 
     double sampleRate = 48000.0;
     float  bowing     = 0.0f;
@@ -848,6 +894,9 @@ private:
     waveguide::Delay bore;
     waveguide::Loss  loss;
     waveguide::DcBlocker blocker;
+
+    /// The unevenness of the rosin, deterministic so a render is reproducible.
+    waveguide::Turbulence rosin;
     waveguide::Turbulence turbulence;
 
     double sampleRate = 44100.0;

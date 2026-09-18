@@ -1,0 +1,102 @@
+# examples/cello.ttl
+#
+# A bowed cello: a string, a body, and an arm.
+#
+# val:Bow is the string and the friction at the bow. It is deliberately not the
+# whole instrument: a string on its own is quiet and thin, and what makes a
+# cello sound like a cello is the body behind it. Here the body is two resonant
+# banks, one for the low air and plate resonances and one for the wood above
+# them, mixed back against the string so the bow is still audible through it.
+#
+# The verified range is C2 to D4. Above that the model's odd harmonics fall
+# away; see TODO.md.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:cello#> .
+
+:cello a val:Circuit ;
+    rdfs:label "Cello" ;
+    val:element :pitch , :string , :body , :wood , :mix , :level , :warmth , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 .
+
+# The note being played, as a frequency.
+:pitch a val:MidiPitch .
+
+# The string. Bowed nearer the bridge than the middle, which is where a cellist
+# plays for an ordinary sustained note.
+:string a val:Bow ;
+    val:pressure 0.55 ;
+    val:velocity 0.45 ;
+    val:position 0.12 ;
+    val:damping 0.35 .
+
+# The body. A cello's lowest air resonance sits near 100 Hz and the main plate
+# resonance near 200; these two banks stand for those and the wood above them.
+# The decay is short: a body rings for a moment, it does not sustain.
+:body a val:ModalBank ;
+    val:frequency 103.0 ;
+    val:decay 0.09 ;
+    val:brightness 0.55 .
+
+:wood a val:ModalBank ;
+    val:frequency 211.0 ;
+    val:decay 0.06 ;
+    val:brightness 0.7 .
+
+# The body is mixed with the string rather than replacing it, so the bite of
+# the bow survives into the output.
+:mix a val:Mixer .
+
+# The two resonant banks together are far louder than the string that drives
+# them, so the sum is brought back to a sensible level before anything else.
+:level a val:Gain ; val:gain -34.0 .
+
+# A gentle low shelf stands in for the air the instrument moves.
+:warmth a val:OnePole ; val:cutoff 4200.0 ; val:mode 0.0 .
+
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :pitch  ; val:port "out"       ] ;
+                val:to   [ val:node :string ; val:port "frequency" ] .
+
+:a2 a val:Arc ; val:from [ val:node :string ; val:port "out" ] ;
+                val:to   [ val:node :body   ; val:port "in"  ] .
+
+:a3 a val:Arc ; val:from [ val:node :string ; val:port "out" ] ;
+                val:to   [ val:node :wood   ; val:port "in"  ] .
+
+:a4 a val:Arc ; val:from [ val:node :body ; val:port "out" ] ;
+                val:to   [ val:node :mix  ; val:port "in"  ] .
+
+:a5 a val:Arc ; val:from [ val:node :wood ; val:port "out" ] ;
+                val:to   [ val:node :mix  ; val:port "in"  ] .
+
+:a6 a val:Arc ; val:from [ val:node :mix   ; val:port "out" ] ;
+                val:to   [ val:node :level ; val:port "in"  ] .
+
+:a7 a val:Arc ; val:from [ val:node :level  ; val:port "out" ] ;
+                val:to   [ val:node :warmth ; val:port "in"  ] .
+
+:a8 a val:Arc ; val:from [ val:node :warmth ; val:port "out" ] ;
+                val:to   [ val:node :out    ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :string ; val:property val:pressure ;
+    lv2:name "Bow pressure" ; lv2:symbol "pressure" ; val:section "Bow" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :string ; val:property val:velocity ;
+    lv2:name "Bow speed" ; lv2:symbol "speed" ; val:section "Bow" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :string ; val:property val:position ;
+    lv2:name "Bow position" ; lv2:symbol "position" ; val:section "Bow" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :string ; val:property val:damping ;
+    lv2:name "String damping" ; lv2:symbol "damping" ; val:section "Bow" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :body ; val:property val:decay ;
+    lv2:name "Body decay" ; lv2:symbol "bodyDecay" ; val:section "Body" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :warmth ; val:property val:cutoff ;
+    lv2:name "Air" ; lv2:symbol "air" ; units:unit units:hz ; val:section "Body" .

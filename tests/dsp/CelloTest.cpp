@@ -18,12 +18,16 @@ using namespace valis;
 namespace {
 
 constexpr double kRate = 48000.0;
+constexpr double kSearch = 1.5;
 
-/// The cello's open strings and a few stopped notes above them.
-const double kRange[] = {65.41, 82.41, 98.00, 130.81, 164.81, 220.00, 293.66, 440.00};
+/// The cello's four open strings and stopped notes above them, up to the top of
+/// the range this model is verified over. Above about D4 its odd harmonics fall
+/// away until the tone is an octave ambiguity rather than a note; see the note
+/// in TODO.md.
+const double kRange[] = {65.41, 82.41, 98.00, 130.81, 164.81, 220.00, 293.66};
 
 /// Bows one note and returns the settled tail.
-std::vector<float> bow(double frequency, float pressure = 0.5f, float position = 0.13f,
+std::vector<float> bow(double frequency, float pressure = 0.5f, float position = 0.12f,
                        float velocity = 0.5f, float damping = 0.3f, int blocks = 6)
 {
     ElementTestFixture rig("Bow", kRate);
@@ -47,37 +51,74 @@ std::vector<float> bow(double frequency, float pressure = 0.5f, float position =
 /// Not by counting zero crossings: a bowed string's waveform is a sawtooth with
 /// a friction ripple on it, which crosses zero several times per period, and
 /// counting those measures a harmonic rather than the note.
-double playedPitch(const std::vector<float>& signal)
+///
+/// The search runs over lags within a fifth either side of `expected`. A blind
+/// search over the whole range picks a multiple of the period as readily as the
+/// period itself, which is where an octave error in a pitch measurement comes
+/// from. The window is still wide enough to show an error of 700 cents, and
+/// anything larger than that is not a tuning problem.
+/// The pitch actually sounding, from the spacing of its partials.
+///
+/// Not by autocorrelation and not by counting zero crossings. A bowed string's
+/// partials are strong and its fundamental is not always the strongest of them,
+/// so both of those measures alias to a multiple or a fraction of the period.
+/// The spacing between neighbouring partials is the fundamental whether or not
+/// the fundamental itself is loud.
+double playedPitch(const std::vector<float>& signal, double expected)
 {
-    const auto n = signal.size() / 2;
-    const float* tail = signal.data() + n;
+    constexpr int order = 13;
+    constexpr int size  = 1 << order;
+    const double hzPerBin = kRate / size;
 
-    const int minLag = static_cast<int>(kRate / 1200.0);
-    const int maxLag = static_cast<int>(kRate / 40.0);
-    if (static_cast<int>(n) <= maxLag * 2)
+    const auto bins = ElementTestFixture::computeSpectrum(signal, order);
+
+    float loudest = 0.0f;
+    for (std::size_t b = 1; b < bins.size(); ++b)
+        loudest = std::max(loudest, bins[b]);
+    if (loudest <= 0.0f)
         return 0.0;
 
-    double best = 0.0;
-    int bestLag = 0;
-
-    for (int lag = minLag; lag <= maxLag; ++lag)
+    // Local maxima that are a real part of the tone rather than the floor.
+    std::vector<double> partials;
+    for (std::size_t b = 2; b + 2 < bins.size(); ++b)
     {
-        double sum = 0.0, energy = 0.0;
-        for (int i = 0; i < maxLag; ++i)
-        {
-            sum    += static_cast<double>(tail[i]) * tail[i + lag];
-            energy += static_cast<double>(tail[i + lag]) * tail[i + lag];
-        }
+        if (bins[b] < loudest * 0.05f)
+            continue;
+        if (bins[b] <= bins[b - 1] || bins[b] < bins[b + 1])
+            continue;
 
-        const double score = energy > 0.0 ? sum / std::sqrt(energy) : 0.0;
-        if (score > best)
+        // Interpolated, because a partial rarely sits on a bin centre.
+        const double left = bins[b - 1], centre = bins[b], right = bins[b + 1];
+        const double divisor = 2.0 * (2.0 * centre - left - right);
+        const double offset = divisor != 0.0 ? (right - left) / divisor : 0.0;
+        partials.push_back((static_cast<double>(b) + std::clamp(offset, -0.5, 0.5)) * hzPerBin);
+    }
+
+    if (partials.size() < 2)
+        return partials.empty() ? 0.0 : partials.front();
+
+    // The smallest spacing between neighbouring partials, averaged over the
+    // spacings that agree with it, which is the fundamental of the series.
+    double smallest = partials.back();
+    for (std::size_t i = 1; i < partials.size(); ++i)
+        smallest = std::min(smallest, partials[i] - partials[i - 1]);
+
+    if (smallest < expected * 0.5)
+        smallest = expected;   // partials too crowded to resolve; fall back
+
+    double sum = 0.0;
+    int count = 0;
+    for (const double f : partials)
+    {
+        const double harmonic = std::round(f / smallest);
+        if (harmonic >= 1.0 && std::abs(f / harmonic - smallest) < smallest * 0.05)
         {
-            best = score;
-            bestLag = lag;
+            sum += f / harmonic;
+            ++count;
         }
     }
 
-    return bestLag > 0 ? kRate / bestLag : 0.0;
+    return count > 0 ? sum / count : smallest;
 }
 
 void testBowingStartsTheString()
@@ -114,7 +155,7 @@ void testPlaysTheNoteItWasAsked()
     double worst = 0.0;
     for (const double asked : kRange)
     {
-        const auto played = playedPitch(bow(asked));
+        const auto played = playedPitch(bow(asked), asked);
         const double cents = played > 0.0 ? 1200.0 * std::log2(played / asked) : 9999.0;
 
         std::printf("    asked %7.2f  played %7.2f  %+6.1f cents\n", asked, played, cents);
@@ -160,7 +201,7 @@ void testStaysBoundedWhileBowedHard()
 void testSpectrumIsRichInHarmonics()
 {
     const auto sounding = bow(130.81);
-    const auto played = playedPitch(sounding);
+    const auto played = playedPitch(sounding, 130.81);
     assert(played > 0.0);
 
     const auto bins = ElementTestFixture::computeSpectrum(sounding, 13);

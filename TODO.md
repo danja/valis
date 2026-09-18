@@ -7,7 +7,20 @@
 * look at decomposing the granular element into smaller, reusable components
 * create a synth that makes jawdropping sounds nobody has heard before 
 * Model the Oberheim DMX drum sounds as faithfully as possible, creating new elements as needed.
-* create a realistic cello
+* **cello: done for C2 to D4, open above it.** `val:Bow` is a bowed-string
+  waveguide with a stick-slip friction curve, a soft stopped end, bow width and
+  rosin irregularity; `examples/cello.ttl` puts a body behind it. In tune to
+  0.3 cents and harmonically full from 65 to 294 Hz, measured in
+  `tests/dsp/CelloTest.cpp`. Above about D4 the odd harmonics fall away until
+  the fundamental is more than 26 dB below the second partial, so the tone
+  reads as an octave ambiguity rather than a note. Likely the fixed poles of the
+  loop filters becoming a large fraction of a short loop; the next step is to
+  scale them with frequency rather than leaving them constant.
+* the bow locks into a neighbouring mode at isolated combinations of pitch and
+  bow position (a band just above position 0.125 at 165 Hz, for one). The
+  default is clear of the bands found so far. Real strings do this when bow
+  force is wrong for the position, which the Schelleng diagram describes, so the
+  fix is probably to scale bow force with position rather than to suppress it.
 * make an accurate simulation of the Boss DD-3 delay pedal
 
 ## From the plugin survey

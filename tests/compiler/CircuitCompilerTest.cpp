@@ -375,6 +375,17 @@ void testSubcircuitExampleCompiles()
     assert(r.compiled.nodes.size() == 7);
 }
 
+/// The shipped cello, compiled the way a user opens it.
+void testCelloExampleCompiles()
+{
+    auto r = runFile(VALIS_EXAMPLES_DIR "/cello.ttl");
+
+    if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
+    assert(r.built);
+    assert(r.compiled_);
+    assert(r.diagnostics.empty());
+}
+
 // -- the acceptance demo ---------------------------------------------------
 
 void testSkreamCompiles()
@@ -446,6 +457,7 @@ int main()
     testDuplicateAndDanglingArcs();
     testArcDeclaredButNotClaimed();
     testSubcircuitExampleCompiles();
+    testCelloExampleCompiles();
     testSkreamCompiles();
 
     std::puts("CircuitCompilerTest PASSED");
