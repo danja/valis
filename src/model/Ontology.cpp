@@ -40,8 +40,8 @@ std::string readUnitSymbol(const rdf::TurtleStore& store,
     return {};
 }
 
-std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node& port,
-                                 const std::unordered_map<std::string, std::string>& units)
+std::optional<PortDesc> readPortDesc(const rdf::TurtleStore& store, const rdf::Node& port,
+                                     const std::unordered_map<std::string, std::string>& units)
 {
     PortDesc desc;
 
@@ -59,12 +59,14 @@ std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node&
     const bool isInput   = store.contains(port, vocab::rdf::type, store.uri(vocab::lv2::InputPort));
     const bool isOutput  = store.contains(port, vocab::rdf::type, store.uri(vocab::lv2::OutputPort));
     const bool isControl = store.contains(port, vocab::rdf::type, store.uri(vocab::lv2::ControlPort));
+    const bool isEvent   = store.contains(port, vocab::rdf::type, store.uri(vocab::atom::AtomPort));
 
     if (! isInput && ! isOutput)
         return std::nullopt;
 
     desc.input   = isInput;
     desc.control = isControl;
+    desc.event   = isEvent;
 
     if (auto v = store.object(port, vocab::lv2::defaultV); v.asDouble())
         desc.defaultValue = *v.asDouble();
@@ -99,6 +101,12 @@ std::optional<PortDesc> readPort(const rdf::TurtleStore& store, const rdf::Node&
 
 }  // namespace
 
+std::optional<PortDesc> Ontology::readPort(const rdf::TurtleStore& store,
+                                           const rdf::Node& port) const
+{
+    return readPortDesc(store, port, unitSymbols);
+}
+
 // ---------------------------------------------------------------------------
 // ElementType
 // ---------------------------------------------------------------------------
@@ -115,7 +123,8 @@ const PortDesc* ElementType::findPort(std::string_view symbol, bool input, bool 
     const auto it = std::find_if(ports.begin(), ports.end(),
                                  [&](const PortDesc& p)
                                  {
-                                     return p.symbol == symbol && p.input == input && p.control == control;
+                                     return ! p.event && p.symbol == symbol
+                                         && p.input == input && p.control == control;
                                  });
     return it != ports.end() ? &*it : nullptr;
 }
@@ -124,7 +133,7 @@ std::vector<const PortDesc*> ElementType::portsMatching(bool input, bool control
 {
     std::vector<const PortDesc*> result;
     for (const auto& p : ports)
-        if (p.input == input && p.control == control)
+        if (! p.event && p.input == input && p.control == control)
             result.push_back(&p);
 
     return result;
@@ -135,7 +144,8 @@ int ElementType::countPorts(bool input, bool control) const
     return static_cast<int>(std::count_if(ports.begin(), ports.end(),
                                           [&](const PortDesc& p)
                                           {
-                                              return p.input == input && p.control == control;
+                                              return ! p.event && p.input == input
+                                                  && p.control == control;
                                           }));
 }
 
@@ -228,7 +238,7 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
 
         for (const auto& port : store.objects(type, vocab::lv2::port))
         {
-            if (auto desc = readPort(store, port, unitSymbols))
+            if (auto desc = readPortDesc(store, port, unitSymbols))
                 element.ports.push_back(std::move(*desc));
             else
                 errors.push_back(element.classIri + ": port missing lv2:symbol or direction");

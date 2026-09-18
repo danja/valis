@@ -11,6 +11,7 @@
 #include "Common.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_cryptography/juce_cryptography.h>
 
 #include <array>
 #include <cstdint>
@@ -52,6 +53,15 @@ struct SampleFile
     std::vector<float> samples;
     std::string name;      ///< the file's own name, for the Controls view
 
+    /// What the file turned out to be, as opposed to what the circuit declared
+    /// it would be. A circuit that states any of these has them checked, so a
+    /// sample that was replaced or truncated since the circuit was written
+    /// fails to load with a message rather than playing something else.
+    std::string sha256;
+    int    sourceChannels   = 0;
+    double sourceSampleRate = 0.0;
+    long long sourceFrames  = 0;
+
     bool load(std::string_view path, double sampleRate, std::string& error)
     {
         const auto file = resolve(path);
@@ -59,6 +69,14 @@ struct SampleFile
         {
             error = "no such file: " + file.getFullPathName().toStdString();
             return false;
+        }
+
+        // Message thread, so reading the file twice is affordable and the hash
+        // is of the bytes on disk rather than of whatever decoding produced.
+        {
+            juce::FileInputStream stream(file);
+            if (stream.openedOk())
+                sha256 = juce::SHA256(stream).toHexString().toStdString();
         }
 
         juce::AudioFormatManager formats;
@@ -78,6 +96,10 @@ struct SampleFile
             error = "audio file is empty: " + file.getFullPathName().toStdString();
             return false;
         }
+
+        sourceChannels   = static_cast<int>(reader->numChannels);
+        sourceSampleRate = reader->sampleRate;
+        sourceFrames     = static_cast<long long>(reader->lengthInSamples);
 
         juce::AudioBuffer<float> source(static_cast<int>(reader->numChannels), frames);
         reader->read(&source, 0, frames, 0, true, true);
@@ -113,6 +135,8 @@ struct SampleFile
         return true;
     }
 
+    bool loaded() const { return sourceFrames > 0; }
+
     /// A relative path is resolved against the working directory first, then
     /// the shipped examples, so a circuit can name a sample next to itself.
     static juce::File resolve(std::string_view path)
@@ -139,6 +163,105 @@ struct SampleFile
             return root;
 
         return relative;
+    }
+};
+
+/// What a circuit declares the sound file it names will be: its content hash
+/// and its dimensions. The survey's point is that a sample is a resource with
+/// an identity, not an unexplained path. A circuit that declares none of these
+/// behaves exactly as before.
+///
+/// Checking is order independent. RDF has no statement order, so a declaration
+/// may arrive before or after val:file; it is remembered either way and checked
+/// as soon as both halves are known.
+struct SampleExpectation
+{
+    std::string sha256;
+    int    channels   = 0;
+    double sampleRate = 0.0;
+    long long frames  = 0;
+
+    /// Whether `key` was one of the declarations, and if so whether its value
+    /// could be read. A key nobody recognises is not a failure; a key that is
+    /// recognised and malformed is, so a typo does not pass for "not declared".
+    enum class Declared { No, Yes, Bad };
+
+    Declared setDeclared(std::string_view key, std::string_view value, std::string& error)
+    {
+        const juce::String text{std::string(value)};
+
+        const auto positive = [&](double parsed, std::string_view what)
+        {
+            if (parsed > 0.0)
+                return Declared::Yes;
+
+            error = "val:" + std::string(what) + " must be a positive number, not '" +
+                    std::string(value) + "'";
+            return Declared::Bad;
+        };
+
+        if (key == "sha256")
+        {
+            // 64 hex characters, or it is not a SHA-256 and never will match.
+            if (text.length() != 64 || ! text.containsOnly("0123456789abcdefABCDEF"))
+            {
+                error = "val:sha256 must be 64 hexadecimal characters, not '" +
+                        std::string(value) + "'";
+                return Declared::Bad;
+            }
+            sha256 = text.toLowerCase().toStdString();
+            return Declared::Yes;
+        }
+
+        if (key == "channels")
+        {
+            channels = text.getIntValue();
+            return positive(channels, "channels");
+        }
+        if (key == "sampleRate")
+        {
+            sampleRate = text.getDoubleValue();
+            return positive(sampleRate, "sampleRate");
+        }
+        if (key == "frames")
+        {
+            frames = text.getLargeIntValue();
+            return positive(static_cast<double>(frames), "frames");
+        }
+
+        return Declared::No;
+    }
+
+    bool check(const SampleFile& file, std::string& error) const
+    {
+        if (! file.loaded())
+            return true;   // nothing to check against yet
+
+        const auto mismatch = [&](std::string_view what,
+                                  const std::string& declared,
+                                  const std::string& actual)
+        {
+            error = file.name + ": declared " + std::string(what) + " " + declared +
+                    ", file has " + actual;
+            return false;
+        };
+
+        if (! sha256.empty() && sha256 != file.sha256)
+            return mismatch("val:sha256", sha256, file.sha256);
+
+        if (channels != 0 && channels != file.sourceChannels)
+            return mismatch("val:channels", std::to_string(channels),
+                            std::to_string(file.sourceChannels));
+
+        if (sampleRate != 0.0 && std::abs(sampleRate - file.sourceSampleRate) > 0.5)
+            return mismatch("val:sampleRate", std::to_string(static_cast<long long>(sampleRate)),
+                            std::to_string(static_cast<long long>(file.sourceSampleRate)));
+
+        if (frames != 0 && frames != file.sourceFrames)
+            return mismatch("val:frames", std::to_string(frames),
+                            std::to_string(file.sourceFrames));
+
+        return true;
     }
 };
 
@@ -196,6 +319,13 @@ public:
             allocateBuffer(std::clamp(seconds, 0.25, 60.0));
             reset();
             return true;
+        }
+
+        if (const auto declared = expectation.setDeclared(key, value, error);
+            declared != SampleExpectation::Declared::No)
+        {
+            return declared == SampleExpectation::Declared::Yes
+                && expectation.check(source, error);
         }
 
         if (key == "file")
@@ -520,6 +650,10 @@ private:
         if (! file.load(path, sampleRate, error))
             return false;
 
+        source = file;
+        if (! expectation.check(source, error))
+            return false;
+
         fileContent = std::move(file.samples);
         fileLength  = static_cast<int>(fileContent.size());
 
@@ -529,6 +663,11 @@ private:
         reset();
         return true;
     }
+
+    /// What the circuit declared about its sound file, and what the file
+    /// actually was. `source.samples` is not kept: fileContent holds it.
+    SampleExpectation expectation;
+    SampleFile        source;
 
     std::vector<float> buffer;      ///< the circular recording buffer
     std::vector<float> fileContent; ///< what val:file loaded, for reset()
@@ -578,11 +717,22 @@ public:
 
     bool setOption(std::string_view key, std::string_view value, std::string& error) override
     {
+        if (const auto declared = expectation.setDeclared(key, value, error);
+            declared != SampleExpectation::Declared::No)
+        {
+            return declared == SampleExpectation::Declared::Yes
+                && expectation.check(source, error);
+        }
+
         if (key != "file")
             return true;
 
         SampleFile file;
         if (! file.load(value, sampleRate, error))
+            return false;
+
+        source = file;
+        if (! expectation.check(source, error))
             return false;
 
         samples = std::move(file.samples);
@@ -665,6 +815,10 @@ private:
         return samples[static_cast<std::size_t>(i0)]
              + f * (samples[static_cast<std::size_t>(i1)] - samples[static_cast<std::size_t>(i0)]);
     }
+
+    /// What the circuit declared about its sound file, and what the file was.
+    SampleExpectation expectation;
+    SampleFile        source;
 
     std::vector<float> samples;
     double sampleRate = 44100.0;

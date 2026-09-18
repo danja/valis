@@ -43,6 +43,17 @@ public:
 
     bool isBound() const { return bound; }
     const std::string& targetNode() const { return node; }
+
+    /// The other ports this slot drives, when it is bound to a port of a
+    /// polyphonic subcircuit: one knob moves every voice together.
+    const std::vector<std::pair<std::string, std::string>>& alsoTargets() const
+    {
+        return extraTargets;
+    }
+    void setAlsoTargets(std::vector<std::pair<std::string, std::string>> targets)
+    {
+        extraTargets = std::move(targets);
+    }
     const std::string& targetProperty() const { return property; }
 
     /// The slot's value in the property's own units.
@@ -58,6 +69,7 @@ private:
     bool bound = false;
     bool logScale = false;
     std::string node, property;
+    std::vector<std::pair<std::string, std::string>> extraTargets;
     juce::String label, unitSymbol;
     double lo = 0.0, hi = 1.0;
 };

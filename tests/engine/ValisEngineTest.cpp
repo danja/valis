@@ -7,6 +7,8 @@
 #include "valis/TurtleStore.h"
 #include "valis/ValisEngine.h"
 
+#include <juce_dsp/juce_dsp.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -399,6 +401,648 @@ void testInstanceOptionsOverrideTheClass()
 
     std::printf("  antialiasing override: latency none=%d ADAA1=%d ADAA2=%d\n",
                 noneLatency, adaa1Latency, adaa2Latency);
+}
+
+/// A val:Subcircuit with val:voices is a bounded pool: the same definition
+/// stamped out N times, each copy given its own note by the engine. The
+/// elements inside are the ordinary monophonic ones.
+const char* kPolyCircuit = R"(
+@prefix val:  <http://purl.org/stuff/valis/> .
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix :     <urn:valis:t#> .
+:Voice a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :vca ; val:port "out" ] ;
+    val:element :pitch , :osc , :gate , :vca ;
+    val:arc :v1 , :v2 , :v3 .
+:pitch a val:MidiPitch .
+:osc a val:Oscillator ; val:wave 0.0 .
+:gate a val:Envelope ; val:attack 1.0 ; val:decay 5.0 ; val:sustain 1.0 ; val:release 5.0 .
+:vca a val:VCA .
+:v1 a val:Arc ; val:from [ val:node :pitch ; val:port "out" ] ;
+                val:to   [ val:node :osc ; val:port "frequency" ] .
+:v2 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                val:to   [ val:node :vca ; val:port "in" ] .
+:v3 a val:Arc ; val:from [ val:node :gate ; val:port "out" ] ;
+                val:to   [ val:node :vca ; val:port "cv" ] .
+
+:c a val:Circuit ; val:element :poly , :out ; val:arc :a1 .
+:poly a :Voice ; val:voices 4 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :poly ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)";
+
+/// Three notes held together must sound as three pitches. A monophonic circuit
+/// would give whichever note arrived last and nothing else.
+void testVoicePoolSoundsAChord()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(kPolyCircuit, circuit));
+
+    // Four voices of four elements, plus the mixer the expansion adds and the
+    // output: the pool is real elements, not a special case in the engine.
+    assert(circuit.numVoices == 4);
+    assert(circuit.nodes.size() == 4 * 4 + 2);
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    // A major triad: MIDI 60, 64 and 67 are 261.6, 329.6 and 392.0 Hz.
+    engine.queueNoteOn(60, 1.0f, 0);
+    engine.queueNoteOn(64, 1.0f, 0);
+    engine.queueNoteOn(67, 1.0f, 0);
+
+    const std::vector<float> silence(8192, 0.0f);
+    std::vector<float> out(8192, 0.0f);
+    for (int block = 0; block < 4; ++block)
+        engine.process(silence.data(), out.data(), 8192);
+
+    constexpr int order = 13;                 // 8192
+    juce::dsp::FFT fft(order);
+    juce::dsp::WindowingFunction<float> window(8192,
+                                               juce::dsp::WindowingFunction<float>::hann);
+    std::vector<float> bins(8192 * 2, 0.0f);
+    std::copy(out.begin(), out.end(), bins.begin());
+    window.multiplyWithWindowingTable(bins.data(), 8192);
+    fft.performFrequencyOnlyForwardTransform(bins.data());
+
+    const auto energyAt = [&](double hz)
+    {
+        const auto centre = static_cast<int>(std::round(hz * 8192.0 / 48000.0));
+        float sum = 0.0f;
+        for (int b = centre - 3; b <= centre + 3; ++b)
+            if (b >= 0 && b < 4096)
+                sum = std::max(sum, bins[static_cast<std::size_t>(b)]);
+        return sum;
+    };
+
+    const float root  = energyAt(261.63);
+    const float third = energyAt(329.63);
+    const float fifth = energyAt(392.00);
+
+    // A frequency none of the three notes occupies, to measure against.
+    const float between = energyAt(300.0);
+
+    std::printf("  chord: root %.1f  third %.1f  fifth %.1f  (gap %.1f)\n",
+                root, third, fifth, between);
+    std::fflush(stdout);
+
+    assert(root  > between * 20.0f);
+    assert(third > between * 20.0f);
+    assert(fifth > between * 20.0f);
+}
+
+/// Allocation has to be deterministic, or no offline test of a polyphonic
+/// circuit could assert anything.
+void testVoiceAllocationIsDeterministic()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(kPolyCircuit, circuit));
+    const auto registry = makeDefaultRegistry();
+
+    const auto play = [&]
+    {
+        ValisEngine engine;
+        engine.prepare(48000.0, 256);
+        std::string error;
+        assert(engine.load(circuit, registry, error));
+
+        const std::vector<float> silence(256, 0.0f);
+        std::vector<float> out(256, 0.0f), all;
+
+        for (int block = 0; block < 12; ++block)
+        {
+            if (block == 0) engine.queueNoteOn(60, 1.0f, 10);
+            if (block == 1) engine.queueNoteOn(64, 0.8f, 20);
+            if (block == 2) engine.queueNoteOn(67, 0.6f, 30);
+            if (block == 4) engine.queueNoteOff(64, 5);
+            if (block == 5) engine.queueNoteOn(72, 0.9f, 40);
+
+            engine.process(silence.data(), out.data(), 256);
+            all.insert(all.end(), out.begin(), out.end());
+        }
+        return all;
+    };
+
+    const auto first = play();
+    const auto second = play();
+
+    assert(first.size() == second.size());
+    for (std::size_t i = 0; i < first.size(); ++i)
+        assert(first[i] == second[i]);
+}
+
+/// More notes than voices is bounded: the pool steals rather than growing, and
+/// the circuit keeps running.
+void testMoreNotesThanVoicesSteals()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(kPolyCircuit, circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> silence(256, 0.0f);
+    std::vector<float> out(256, 0.0f);
+
+    // Ten notes into four voices.
+    for (int note = 60; note < 70; ++note)
+    {
+        engine.queueNoteOn(note, 1.0f, 0);
+        engine.process(silence.data(), out.data(), 256);
+
+        for (const float s : out)
+            assert(std::isfinite(s));
+    }
+
+    // The most recent note is still sounding: stealing took the oldest.
+    assert(peakOf(out) > 0.01f);
+
+    for (int note = 60; note < 70; ++note)
+        engine.queueNoteOff(note, 0);
+
+    for (int block = 0; block < 60; ++block)
+        engine.process(silence.data(), out.data(), 256);
+
+    // Everything released, so it falls silent rather than leaving a voice stuck
+    // open because its note off went to the wrong one.
+    assert(peakOf(out) < 0.01f);
+}
+
+/// The shipped example, compiled and run the way a user opens it.
+void testPolysynthExampleRuns()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/polysynth.ttl", circuit));
+
+    // Eight voices of five elements, plus the mixer, the saturator and output.
+    assert(circuit.numVoices == 8);
+    assert(circuit.nodes.size() == 8 * 5 + 3);
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> silence(512, 0.0f);
+    std::vector<float> out(512, 0.0f);
+
+    engine.queueNoteOn(48, 1.0f, 0);
+    engine.queueNoteOn(55, 1.0f, 0);
+    engine.queueNoteOn(64, 1.0f, 0);
+
+    for (int block = 0; block < 20; ++block)
+    {
+        engine.process(silence.data(), out.data(), 512);
+        for (const float s : out)
+            assert(std::isfinite(s));
+    }
+
+    assert(peakOf(out) > 0.05f);
+}
+
+/// An element may produce events rather than audio. val:NoteOut turns a control
+/// gate into note events the engine collects and the host sends on.
+///
+/// The circuit here is the shape of survey case 43, audio analysis producing
+/// MIDI, assembled from parts that already existed: a note arriving gates a
+/// NoteOut whose pitch comes from val:MidiPitch.
+void testCircuitProducesNoteEvents()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :gate , :pitch , :note , :out ; val:arc :m1 , :m2 .
+:gate a val:NoteGate ; val:note 60.0 .
+:pitch a val:MidiPitch .
+:note a val:NoteOut ; val:velocity 0.5 ; val:channel 3.0 .
+:out a val:Output .
+:m1 a val:Arc ; val:from [ val:node :gate ; val:port "gate"  ] ;
+                val:to   [ val:node :note ; val:port "gate"  ] .
+:m2 a val:Arc ; val:from [ val:node :pitch ; val:port "out"  ] ;
+                val:to   [ val:node :note  ; val:port "pitch" ] .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 256);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> silence(256, 0.0f);
+    std::vector<float> block(256, 0.0f);
+
+    // Nothing held, so nothing is produced.
+    engine.process(silence.data(), block.data(), 256);
+    assert(engine.outputEventCount() == 0);
+
+    // A note arrives partway through the block: the gate opens and one note on
+    // goes out, carrying the pitch and the declared velocity and channel.
+    engine.queueNoteOn(60, 1.0f, 128);
+    engine.process(silence.data(), block.data(), 256);
+
+    assert(engine.outputEventCount() == 1);
+    const auto on = engine.outputEvent(0);
+    assert(on.noteOn);
+    assert(on.note == 60);            // MidiPitch gives 261.6 Hz, which is note 60
+    assert(on.channel == 3);
+    assert(std::abs(on.velocity - 0.5f) < 1.0e-4f);
+
+    // Located within the block, not flattened to its start.
+    assert(on.sampleOffset >= 128 && on.sampleOffset < 160);
+
+    // Holding it produces nothing more: the event is the edge, not the state.
+    engine.process(silence.data(), block.data(), 256);
+    assert(engine.outputEventCount() == 0);
+
+    // Releasing it sends the note off, for the note that was actually sounding.
+    engine.queueNoteOff(60, 0);
+    engine.process(silence.data(), block.data(), 256);
+
+    assert(engine.outputEventCount() == 1);
+    const auto off = engine.outputEvent(0);
+    assert(! off.noteOn);
+    assert(off.note == 60);
+    assert(off.channel == 3);
+}
+
+/// An event port is not a signal port: it must get neither an audio buffer nor
+/// a control slot, or the compiler would size the circuit for something that
+/// does not exist.
+void testEventPortTakesNoBufferOrSlot()
+{
+    const auto compile = [](const char* element)
+    {
+        std::string turtle = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :thing , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+)";
+        turtle += element;
+        CompiledCircuit circuit;
+        const bool ok = compileTurtle(turtle, circuit);
+        assert(ok);
+        return circuit;
+    };
+
+    const auto withNoteOut = compile(":thing a val:NoteOut .\n");
+
+    const auto& node = *std::find_if(withNoteOut.nodes.begin(), withNoteOut.nodes.end(),
+                                     [](const auto& n) { return n.implementation == "NoteOut"; });
+
+    // Four control inputs, and the event output contributes nothing.
+    assert(node.controlValues.size() == 4);
+    assert(node.audioOutBuffers.empty());
+    assert(node.audioInBuffers.empty());
+    assert(node.controlOutSlots.empty());
+}
+
+/// val:oversampling runs one element faster than the rest of the circuit. The
+/// engine wraps the element, so the test has to go through a whole circuit
+/// rather than through an element on its own.
+///
+/// tanh of a 5 kHz sine makes odd harmonics at 15k, 25k, 35k and 45k. At 48 kHz
+/// everything above 24k folds back to 23k, 13k, 3k and 7k, which are bins no
+/// real harmonic occupies: energy there is aliasing and nothing else.
+void testOversamplingReducesAliasing()
+{
+    constexpr double rate = 48000.0;
+    constexpr int    n    = 4096;
+
+    const auto circuitFor = [](const char* option)
+    {
+        std::string turtle = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :sat , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:sat a val:Tanh ; val:gain 8.0 ; val:antialiasing val:None )";
+        turtle += option;
+        turtle += R"( .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :sat ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :sat ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)";
+        CompiledCircuit compiled;
+        const bool ok = compileTurtle(turtle, compiled);
+        assert(ok);
+        return compiled;
+    };
+
+    const auto spectrum = [](const std::vector<float>& signal)
+    {
+        constexpr int order = 12;
+        constexpr int size  = 1 << order;
+
+        juce::dsp::FFT fft(order);
+        juce::dsp::WindowingFunction<float> window(
+            static_cast<std::size_t>(size), juce::dsp::WindowingFunction<float>::hann);
+
+        std::vector<float> buffer(static_cast<std::size_t>(size) * 2, 0.0f);
+        std::copy(signal.begin(), signal.begin() + size, buffer.begin());
+        window.multiplyWithWindowingTable(buffer.data(), static_cast<std::size_t>(size));
+        fft.performFrequencyOnlyForwardTransform(buffer.data());
+        buffer.resize(static_cast<std::size_t>(size) / 2);
+        return buffer;
+    };
+
+    const auto energyAt = [](const std::vector<float>& bins, double frequency)
+    {
+        const auto centre = static_cast<int>(std::round(frequency * 4096.0 / rate));
+        float sum = 0.0f;
+        for (int b = centre - 2; b <= centre + 2; ++b)
+            if (b >= 0 && b < static_cast<int>(bins.size()))
+                sum += bins[static_cast<std::size_t>(b)] * bins[static_cast<std::size_t>(b)];
+        return sum;
+    };
+
+    const auto input = tone(5000.0, rate, n, 1.0f);
+
+    const auto aliasEnergy = [&](const char* option)
+    {
+        const auto circuit = circuitFor(option);
+        const auto registry = makeDefaultRegistry();
+
+        ValisEngine engine;
+        engine.prepare(rate, 512);
+        std::string error;
+        const bool loaded = engine.load(circuit, registry, error);
+        assert(loaded);
+
+        const auto out = render(engine, input, 512);
+        const auto bins = spectrum(out);
+
+        float total = 0.0f;
+        for (const double f : {3000.0, 7000.0, 13000.0, 23000.0})
+            total += energyAt(bins, f);
+        return total;
+    };
+
+    const float plain = aliasEnergy("");
+    const float eight = aliasEnergy("; val:oversampling 8");
+
+    std::printf("  alias energy: 1x %.4g, 8x %.4g (%.1fx less)\n",
+                plain, eight, plain / eight);
+    std::fflush(stdout);
+
+    // Eight times the room before the fold-back, and the filters on the way
+    // down. This must be a large reduction, not a marginal one.
+    assert(eight < plain * 0.1f);
+}
+
+/// The wrapper sits inside process(), so it is bound by the same rule as
+/// everything else there: it allocates nothing.
+void testOversampledProcessDoesNotAllocate()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :sat , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:sat a val:Tanh ; val:gain 6.0 ; val:oversampling 8 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :sat ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :sat ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 512);
+
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const auto input = tone(1000.0, 48000.0, 512);
+    std::vector<float> output(512, 0.0f);
+
+    engine.process(input.data(), output.data(), 512);   // warm up outside the count
+
+    trackingEnabled.store(true, std::memory_order_relaxed);
+    const int before = allocationCount.load(std::memory_order_relaxed);
+
+    for (int block = 0; block < 100; ++block)
+        engine.process(input.data(), output.data(), 512);
+
+    const int after = allocationCount.load(std::memory_order_relaxed);
+    trackingEnabled.store(false, std::memory_order_relaxed);
+
+    std::printf("  100 blocks at 8x: %d allocations\n", after - before);
+    std::fflush(stdout);
+    assert(after == before);
+}
+
+/// A factor that is not a power of two the oversampler can build is a located
+/// load failure, not a silent fall back to the base rate.
+void testInvalidOversamplingFactorFailsTheLoad()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :sat , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:sat a val:Tanh ; val:oversampling 3 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :sat ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :sat ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 256);
+
+    std::string error;
+    assert(! engine.load(circuit, registry, error));
+    assert(error.find("val:oversampling") != std::string::npos);
+    assert(error.find("sat") != std::string::npos);   // located at the element
+}
+
+/// An oversampled element reports the latency its resampling filters cost, so
+/// the host can compensate for it.
+void testOversamplingReportsItsLatency()
+{
+    const auto latencyOf = [](const char* option)
+    {
+        std::string turtle = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :sat , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:sat a val:Tanh ; val:antialiasing val:None )";
+        turtle += option;
+        turtle += R"( .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :sat ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :sat ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)";
+        CompiledCircuit circuit;
+        const bool ok = compileTurtle(turtle, circuit);
+        assert(ok);
+
+        const auto registry = makeDefaultRegistry();
+        ValisEngine engine;
+        engine.prepare(48000.0, 256);
+        std::string error;
+        const bool loaded = engine.load(circuit, registry, error);
+        assert(loaded);
+        return engine.latencyInSamples();
+    };
+
+    assert(latencyOf("") == 0);
+    assert(latencyOf("; val:oversampling 4") > 0);
+}
+
+/// Elements are mono, so stereo is two chains through val:Input's "left" and
+/// "right" into val:Output's. The two sides must stay apart end to end, and
+/// "out" must still carry them summed for a circuit that wants one signal.
+void testStereoChannelsStayApart()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :in , :gl , :gr , :out ; val:arc :a1 , :a2 , :a3 , :a4 .
+:in a val:Input .
+:gl a val:Gain ; val:gain 0.0 .
+:gr a val:Gain ; val:gain -6.0 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "left"  ] ;
+                val:to   [ val:node :gl ; val:port "in"    ] .
+:a2 a val:Arc ; val:from [ val:node :in ; val:port "right" ] ;
+                val:to   [ val:node :gr ; val:port "in"    ] .
+:a3 a val:Arc ; val:from [ val:node :gl  ; val:port "out"  ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a4 a val:Arc ; val:from [ val:node :gr  ; val:port "out"   ] ;
+                val:to   [ val:node :out ; val:port "right" ] .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 128);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    const std::vector<float> leftIn(128, 1.0f);
+    const std::vector<float> rightIn(128, 1.0f);
+    std::vector<float> outL(128, 0.0f), outR(128, 0.0f);
+
+    engine.process(leftIn.data(), rightIn.data(), outL.data(), outR.data(), 128);
+
+    // Left is unity, right is -6 dB. If the engine had summed the channels to
+    // mono both sides would carry the same level.
+    assert(std::abs(outL[64] - 1.0f) < 1.0e-4f);
+    assert(std::abs(outR[64] - 0.5011872f) < 1.0e-4f);
+}
+
+/// "out" is the host's channels averaged, so a mono circuit keeps its level
+/// whichever way the host is wired.
+void testMonoInputPortAveragesTheChannels()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(kGain, circuit));
+
+    const auto registry = makeDefaultRegistry();
+    ValisEngine engine;
+    engine.prepare(48000.0, 128);
+    std::string error;
+    assert(engine.load(circuit, registry, error));
+
+    std::vector<float> outL(128, 0.0f);
+
+    // Both channels at 1.0 must read as 1.0, not 2.0.
+    const std::vector<float> ones(128, 1.0f);
+    engine.process(ones.data(), ones.data(), outL.data(), nullptr, 128);
+    assert(std::abs(outL[64] - 0.5011872f) < 1.0e-4f);   // -6 dB of 1.0
+
+    // One channel at 1.0 and the other silent averages to 0.5.
+    const std::vector<float> zeros(128, 0.0f);
+    engine.process(ones.data(), zeros.data(), outL.data(), nullptr, 128);
+    assert(std::abs(outL[64] - 0.5011872f * 0.5f) < 1.0e-4f);
+}
+
+/// A queued note carries its position within the block, so the engine cuts a
+/// slice there. Without that the note would start at the next 32-sample control
+/// boundary, or, before events were queued at all, at the start of the block.
+void testQueuedNoteStartsOnItsOwnSample()
+{
+    CompiledCircuit circuit;
+    assert(compileTurtle(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :gate , :osc , :vca , :out ;
+   val:arc :a1 , :a2 , :m1 .
+:gate a val:NoteGate ; val:note 60.0 .
+:osc a val:Oscillator ; val:frequency 2000.0 .
+:vca a val:VCA .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                val:to   [ val:node :vca ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in"  ] .
+:m1 a val:Arc ; val:from [ val:node :gate ; val:port "gate" ] ;
+                val:to   [ val:node :vca  ; val:port "cv"   ] .
+)", circuit));
+
+    const auto registry = makeDefaultRegistry();
+
+    // The first sample the VCA lets through, for a note queued at `offset`.
+    const auto firstSoundingSample = [&](int offset)
+    {
+        ValisEngine engine;
+        engine.prepare(48000.0, 256);
+        std::string error;
+        assert(engine.load(circuit, registry, error));
+
+        const std::vector<float> silence(256, 0.0f);
+        std::vector<float> block(256, 0.0f);
+
+        // Settle, so the oscillator is well away from zero by the time the
+        // gate opens and the first sounding sample is unambiguous.
+        engine.process(silence.data(), block.data(), 256);
+
+        engine.queueNoteOn(60, 1.0f, offset);
+        engine.process(silence.data(), block.data(), 256);
+
+        for (int i = 0; i < 256; ++i)
+            if (std::abs(block[static_cast<std::size_t>(i)]) > 1.0e-6f)
+                return i;
+        return -1;
+    };
+
+    // Deliberately off the 32-sample control grid: 100 is not a multiple of 32,
+    // so a note that only respected the grid would sound at 96 or 128.
+    const int at100 = firstSoundingSample(100);
+    const int at0   = firstSoundingSample(0);
+
+    std::printf("  queued note: offset 0 sounds at %d, offset 100 sounds at %d\n", at0, at100);
+    std::fflush(stdout);
+
+    assert(at0 == 0);
+    assert(at100 == 100);
 }
 
 /// val:Envelope used to free-run, which made it useless. It is now gated by
@@ -1095,6 +1739,19 @@ int main()
     testSkreamMakesTheRightKindOfNoise();
     testUnconnectedInputReadsSilence();
     testInstanceOptionsOverrideTheClass();
+    testVoicePoolSoundsAChord();
+    testVoiceAllocationIsDeterministic();
+    testMoreNotesThanVoicesSteals();
+    testPolysynthExampleRuns();
+    testCircuitProducesNoteEvents();
+    testEventPortTakesNoBufferOrSlot();
+    testOversamplingReducesAliasing();
+    testOversampledProcessDoesNotAllocate();
+    testInvalidOversamplingFactorFailsTheLoad();
+    testOversamplingReportsItsLatency();
+    testStereoChannelsStayApart();
+    testMonoInputPortAveragesTheChannels();
+    testQueuedNoteStartsOnItsOwnSample();
     testEnvelopeRespondsToNotes();
     testRingsModalProducesSound();
     testSimultaneousPolyphonicNoteGates();

@@ -47,12 +47,23 @@ public:
               std::string& error);
 
     /// Audio thread, before process(). A note the circuit's envelopes and
-    /// oscillators can respond to. Bounded: beyond kMaxNotesPerBlock the extra
-    /// events are dropped rather than allocating, which is the right trade on
-    /// this thread.
+    /// oscillators can respond to, taking effect at the start of the next
+    /// block. This is what the editor's virtual keyboard uses, where there is
+    /// no meaningful position within a block.
     void noteOn(int noteNumber, float velocity) noexcept;
     void noteOff(int noteNumber) noexcept;
     void allNotesOff() noexcept;
+
+    /// Audio thread, before process(). A note event located by its position
+    /// within the block about to run, which is what the host reports for each
+    /// MIDI message. process() cuts its slices at these positions, so the note
+    /// starts on the sample it was sent on rather than at the block boundary.
+    ///
+    /// Bounded: beyond kMaxEventsPerBlock the extra events are dropped rather
+    /// than allocating, which is the right trade on this thread.
+    void queueNoteOn(int noteNumber, float velocity, int sampleOffset) noexcept;
+    void queueNoteOff(int noteNumber, int sampleOffset) noexcept;
+    void queueAllNotesOff(int sampleOffset) noexcept;
 
     /// Audio thread, before process(). The host's timeline for the block about
     /// to run. Elements see it advance across the block: process() carries the
@@ -61,9 +72,23 @@ public:
     void setTransport(const TransportInfo& info) noexcept { transport = info; }
     const TransportInfo& currentTransport() const noexcept { return transport; }
 
-    /// Audio thread. `input` may be null when the host gives us no input.
+    /// Audio thread. Any pointer may be null: a null input is silence, and a
+    /// null output is simply not written. The two-input form carries the host's
+    /// channels separately, so a circuit taking val:Input's "left" and "right"
+    /// keeps them apart; the others feed both sides from one channel.
     void process(const float* input, float* output, int numSamples) noexcept;
     void process(const float* input, float* outputL, float* outputR, int numSamples) noexcept;
+    void process(const float* inputL, const float* inputR,
+                 float* outputL, float* outputR, int numSamples) noexcept;
+
+    /// Audio thread, after process(). The note events the circuit produced
+    /// during the block just run, in the order they were emitted, each located
+    /// within that block. Cleared at the start of every process().
+    int outputEventCount() const noexcept { return numOutputEvents; }
+    const ElementEvent& outputEvent(int index) const noexcept
+    {
+        return outputEvents[static_cast<std::size_t>(index)];
+    }
 
     /// Message thread. Frees graphs the audio thread has finished with. Safe to
     /// call at any time; cheap when there is nothing to free.
@@ -156,7 +181,9 @@ private:
     };
 
     void processSlice(Graph&, const TransportInfo& sliceTransport,
-                      const float* input, float* outputL, float* outputR, int numSamples) noexcept;
+                      const float* inputL, const float* inputR,
+                      float* outputL, float* outputR, int numSamples,
+                      int sliceOffset) noexcept;
     void retire(Graph* graph);
 
     /// Control values are recomputed on this grid, aligned to stream position
@@ -172,11 +199,66 @@ private:
     std::atomic<std::uint64_t> blockCounter{0};
     std::uint64_t streamPosition = 0;   ///< audio thread only
 
+    /// One voice of a circuit's pool: the note it is sounding and whether it is
+    /// still held. Owned by the audio thread.
+    ///
+    /// A voice is not free the moment its note is released, because whatever is
+    /// in it still has a release tail to finish. Allocation therefore prefers a
+    /// voice that never started, then the longest-released one, then the oldest
+    /// still held; every case is decided by `startedAt`, so the choice is
+    /// deterministic and the same circuit renders the same way every time.
+    struct Voice
+    {
+        bool  started  = false;
+        bool  gate     = false;
+        int   note     = 60;
+        float velocity = 0.0f;
+        std::uint64_t startedAt = 0;
+    };
+
+    static constexpr int kMaxVoices = 16;
+
+    std::array<Voice, kMaxVoices> voices{};
+    int numVoices = 0;            ///< how many of them this circuit uses
+    std::uint64_t voiceClock = 0; ///< orders allocations, never wraps in practice
+
+    int  allocateVoice(int note, float velocity) noexcept;
+    void releaseVoice(int note) noexcept;
+
     /// Note state, owned by the audio thread.
     int   heldNotes      = 0;
     int   lastNoteNumber = 69;
     float lastVelocity   = 0.0f;
     bool  gate           = false;
+
+    /// One note event located within the block about to run.
+    struct NoteEvent
+    {
+        enum class Kind : std::uint8_t { On, Off, AllOff };
+
+        int   sampleOffset = 0;
+        Kind  kind         = Kind::On;
+        int   note         = 0;
+        float velocity     = 0.0f;
+    };
+
+    /// A block's worth of events, preallocated. A host that sends more than
+    /// this in one block loses the excess, which is preferable to allocating.
+    static constexpr int kMaxEventsPerBlock = 64;
+
+    std::array<NoteEvent, kMaxEventsPerBlock> events{};
+    int numEvents = 0;
+
+    /// Events the circuit produced, preallocated for the same reason the input
+    /// queue is: a block that produces more than this loses the excess rather
+    /// than allocating on the audio thread.
+    static constexpr int kMaxOutputEventsPerBlock = 64;
+
+    std::array<ElementEvent, kMaxOutputEventsPerBlock> outputEvents{};
+    int numOutputEvents = 0;
+
+    void queueEvent(const NoteEvent&) noexcept;
+    void applyEvent(const NoteEvent&) noexcept;
 
     /// Written by setTransport on the audio thread, read by process() there.
     TransportInfo transport;

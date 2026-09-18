@@ -30,6 +30,18 @@ struct TransportInfo
     int    timeSigDenominator = 4;
 };
 
+/// A note event an element produces, on its way to the host. Located by its
+/// position in the host's block, like every other event: an element writes the
+/// offset within the slice it is given, and emit() rebases it.
+struct ElementEvent
+{
+    int   sampleOffset = 0;
+    bool  noteOn       = true;
+    int   note         = 60;      ///< MIDI note number, 0-127
+    float velocity     = 1.0f;    ///< 0-1
+    int   channel      = 1;       ///< MIDI channel, 1-16
+};
+
 /// Buffers for one block. Audio arrays are indexed by the element type's audio
 /// port declaration order; control arrays by its control port order. An input
 /// with no arc attached points at a block of silence, never at null.
@@ -63,6 +75,32 @@ struct ProcessArgs
     float*       controlOut = nullptr;
     int numControlIn  = 0;
     int numControlOut = 0;
+
+    /// Where an element declaring an atom:AtomPort output writes the events it
+    /// produces. One sink is shared by the whole circuit for the block, so an
+    /// element does not need a port index to write to it. Null in a fixture
+    /// that supplies none, which reads as "nowhere to send them".
+    ElementEvent* eventsOut   = nullptr;
+    int*          numEventsOut = nullptr;
+    int           eventCapacity = 0;
+
+    /// Where this slice starts within the host's block, so an event an element
+    /// locates within its own slice comes out located within the block.
+    int sliceOffset = 0;
+
+    /// Emits one event. Bounded and allocation-free: past the sink's capacity
+    /// the event is dropped and false returned, which is the right trade on
+    /// this thread. `sampleOffset` is relative to this slice.
+    bool emit(const ElementEvent& event) const noexcept
+    {
+        if (eventsOut == nullptr || numEventsOut == nullptr || *numEventsOut >= eventCapacity)
+            return false;
+
+        ElementEvent located = event;
+        located.sampleOffset += sliceOffset;
+        eventsOut[(*numEventsOut)++] = located;
+        return true;
+    }
 };
 
 /// Defaults degrade gracefully rather than abort: an element that does not care

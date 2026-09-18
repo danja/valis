@@ -61,6 +61,10 @@ public:
         assert(false && "no such control port");
     }
 
+    /// Clears the element's state, as the engine does when the transport
+    /// relocates. A test that asserts a deterministic sequence restarts uses it.
+    void reset() { element->reset(); }
+
     void setNote(int note, float vel = 1.0f, bool g = true)
     {
         noteNumber = note;

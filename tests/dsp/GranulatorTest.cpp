@@ -283,6 +283,99 @@ void testPitchTransposes()
     assert(octaveUp > 10.0f);
 }
 
+/// A sound file is a resource with an identity, not just a path. A circuit may
+/// declare what the file it names is, and a file that is not that fails the
+/// load with a message rather than playing something else.
+void testDeclaredResourceIdentityIsChecked()
+{
+    const char* kBell = VALIS_EXAMPLES_DIR "/samples/bell.wav";
+    const char* kHash = "694a657853b352b611868fa31227a3ded425efc094542c9f76ee77275dccf507";
+
+    // The real hash and dimensions load, whichever order they arrive in: RDF
+    // states no order, so the check must not depend on one.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", kBell, error));
+        assert(rig.element->setOption("sha256", kHash, error));
+        assert(rig.element->setOption("channels", "1", error));
+        assert(rig.element->setOption("sampleRate", "32000", error));
+        assert(rig.element->setOption("frames", "83200", error));
+        assert(error.empty());
+    }
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("sha256", kHash, error));
+        assert(rig.element->setOption("frames", "83200", error));
+        assert(rig.element->setOption("file", kBell, error));
+        assert(error.empty());
+    }
+
+    // A hash that does not match the file names both, so the user can see
+    // which file they actually have.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        const char* wrong = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert(rig.element->setOption("sha256", wrong, error));
+        assert(! rig.element->setOption("file", kBell, error));
+        assert(error.find("val:sha256") != std::string::npos);
+        assert(error.find(kHash) != std::string::npos);
+    }
+
+    // Declared after the file, the mismatch is caught just the same.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", kBell, error));
+        assert(! rig.element->setOption("frames", "12345", error));
+        assert(error.find("val:frames") != std::string::npos);
+    }
+
+    // Wrong dimensions are caught individually.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", kBell, error));
+        assert(! rig.element->setOption("channels", "2", error));
+        assert(error.find("val:channels") != std::string::npos);
+    }
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", kBell, error));
+        assert(! rig.element->setOption("sampleRate", "44100", error));
+        assert(error.find("val:sampleRate") != std::string::npos);
+    }
+
+    // A malformed declaration is a failure, not a silent "not declared": a
+    // mistyped hash that was ignored would give false confidence.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(! rig.element->setOption("sha256", "deadbeef", error));
+        assert(error.find("64 hexadecimal") != std::string::npos);
+    }
+
+    // The granulator reads files through the same path, so it checks too.
+    {
+        ElementTestFixture rig("Granulator", kRate);
+        std::string error;
+        assert(rig.element->setOption("sha256", kHash, error));
+        assert(rig.element->setOption("file", kBell, error));
+        assert(error.empty());
+    }
+
+    // Declaring nothing still loads, which is what every existing circuit does.
+    {
+        ElementTestFixture rig("SampleLoad", kRate);
+        std::string error;
+        assert(rig.element->setOption("file", kBell, error));
+        assert(error.empty());
+    }
+}
+
 /// A sample file that is not there fails the option, and the engine turns that
 /// into a load error rather than an element that quietly plays nothing.
 void testMissingFileIsAnError()
@@ -483,6 +576,7 @@ int main()
     testRenderIsReproducible();
     testBlockSizeIndependence();
     testPitchTransposes();
+    testDeclaredResourceIdentityIsChecked();
     testMissingFileIsAnError();
     testTransportPhaseAndPulse();
     testExternalTriggerFiresGrains();

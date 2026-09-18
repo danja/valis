@@ -367,7 +367,7 @@ public:
         reset();
     }
 
-    void reset() override { phase = 0.0; }
+    void reset() override { phase = 0.0; noiseSeed = kNoiseSeed; }
 
     void process(const ProcessArgs& args) noexcept override
     {
@@ -392,9 +392,11 @@ public:
                 case 2: s = 2.0f * p - 1.0f; break;                        // Saw
                 case 3: s = 4.0f * std::abs(p - 0.5f) - 1.0f; break;        // Triangle
                 case 4: {                                                  // White noise
-                    static uint32_t seed = 54321u;
-                    seed = seed * 1664525u + 1013904223u;
-                    s = static_cast<float>(seed) * (2.0f / 4294967296.0f) - 1.0f;
+                    // xorshift: deterministic, so golden-output tests are reproducible.
+                    noiseSeed ^= noiseSeed << 13;
+                    noiseSeed ^= noiseSeed >> 17;
+                    noiseSeed ^= noiseSeed << 5;
+                    s = static_cast<float>(static_cast<int32_t>(noiseSeed)) * 4.6566129e-10f;
                     break;
                 }
                 case 5: s = (phase < inc) ? 1.0f : 0.0f; break;  // Impulse train at frequency
@@ -407,7 +409,12 @@ public:
     }
 
 private:
+    /// Per instance and restored by reset(), so two generators in one circuit
+    /// are independent and a render of the same circuit is reproducible.
+    static constexpr uint32_t kNoiseSeed = 0x9e3779b9u;
+
     double sampleRate = 44100.0, phase = 0.0;
+    uint32_t noiseSeed = kNoiseSeed;
     int freqIndex = -1, ampIndex = -1, shapeIndex = -1;
 };
 
@@ -514,6 +521,76 @@ private:
     float stateLow = 0.0f, stateHigh = 0.0f;
 };
 
+/// Turns a control gate into MIDI note events on the plugin's output.
+///
+/// The circuit's answer to the survey's cases whose output is events rather than
+/// audio. Nothing here is audio: the gate rises, a note goes out; it falls, the
+/// note is released. Patched behind val:Oscilloscope's frequency estimate it
+/// makes an audio-to-MIDI converter out of parts that already existed.
+class NoteOut final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        gateIndex     = controlIndex(type, "gate");
+        pitchIndex    = controlIndex(type, "pitch");
+        velocityIndex = controlIndex(type, "velocity");
+        channelIndex  = controlIndex(type, "channel");
+        reset();
+    }
+
+    /// A held note must not survive a relocation: the host would be left with a
+    /// note it can never turn off.
+    void reset() override
+    {
+        wasOpen = false;
+        sounding = -1;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        const bool open = controlAt(args, gateIndex, 0.0f) > 0.5f;
+        if (open == wasOpen)
+            return;
+
+        wasOpen = open;
+
+        const int channel = std::clamp(static_cast<int>(controlAt(args, channelIndex, 1.0f) + 0.5f),
+                                       1, 16);
+
+        if (open)
+        {
+            // The pitch is read once, when the note starts, so bending the
+            // control while the note is held does not silently retune a note
+            // the host has already been told about.
+            const float hz = std::max(controlAt(args, pitchIndex, 440.0f), 1.0f);
+            sounding = std::clamp(static_cast<int>(std::lround(
+                           69.0 + 12.0 * std::log2(static_cast<double>(hz) / 440.0))), 0, 127);
+
+            ElementEvent event;
+            event.noteOn   = true;
+            event.note     = sounding;
+            event.velocity = std::clamp(controlAt(args, velocityIndex, 0.8f), 0.0f, 1.0f);
+            event.channel  = channel;
+            args.emit(event);
+        }
+        else if (sounding >= 0)
+        {
+            ElementEvent event;
+            event.noteOn  = false;
+            event.note    = sounding;
+            event.channel = channel;
+            args.emit(event);
+            sounding = -1;
+        }
+    }
+
+private:
+    int gateIndex = -1, pitchIndex = -1, velocityIndex = -1, channelIndex = -1;
+    bool wasOpen = false;
+    int  sounding = -1;   ///< the note the host currently believes is held
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -536,6 +613,7 @@ void registerUtility(ElementRegistry& registry)
     registry.add("SignalGenerator", &make<elements::SignalGenerator>);
     registry.add("Oscilloscope",    &make<elements::Oscilloscope>);
     registry.add("FreqAnalyzer",    &make<elements::FreqAnalyzer>);
+    registry.add("NoteOut",         &make<elements::NoteOut>);
 }
 
 // The one place that knows the whole set. makeDefaultRegistry's keys and the
@@ -545,6 +623,7 @@ void registerFilters(ElementRegistry&);
 void registerTransfers(ElementRegistry&);
 void registerDynamics(ElementRegistry&);
 void registerGranular(ElementRegistry&);
+void registerSpectralElements(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -554,6 +633,7 @@ ElementRegistry makeDefaultRegistry()
     registerTransfers(registry);
     registerDynamics(registry);
     registerGranular(registry);
+    registerSpectralElements(registry);
     registerUtility(registry);
     return registry;
 }

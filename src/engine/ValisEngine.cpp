@@ -4,6 +4,8 @@
 
 #include "valis/Ontology.h"
 
+#include "dsp/Oversampled.h"
+
 #include <algorithm>
 #include <cstring>
 
@@ -58,6 +60,26 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
         {
             error = "no implementation registered for " + node.implementation;
             return false;
+        }
+
+        // val:oversampling is read here rather than in setOption, because the
+        // factor has to be known before the element is prepared: the element
+        // inside is prepared for the faster rate it will actually run at.
+        for (const auto& [key, value] : node.options)
+        {
+            if (key != "oversampling")
+                continue;
+
+            int factor = 1;
+            std::string reason;
+            if (! Oversampled::parseFactor(value, factor, reason))
+            {
+                error = node.id + ": " + reason;
+                return false;
+            }
+
+            if (factor > 1)
+                element = std::make_unique<Oversampled>(std::move(element), factor);
         }
 
         element->prepare(*node.type, sampleRate, maxBlockSize);
@@ -141,6 +163,13 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
     }
 
     reportedLatency.store(latency, std::memory_order_relaxed);
+
+    // The pool belongs to the circuit, so installing one starts every voice
+    // idle rather than carrying the previous circuit's notes into it.
+    numVoices = std::min(circuit.numVoices, kMaxVoices);
+    for (auto& voice : voices)
+        voice = Voice{};
+    voiceClock = 0;
 
     Graph* installed = graph.release();
     Graph* previous  = active.exchange(installed, std::memory_order_acq_rel);
@@ -312,9 +341,11 @@ int ValisEngine::readTap(const std::string& nodeId, float* dest, int maxSamples)
 
 void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
 {
+    const float vel = velocity > 0.0f ? velocity : 1.0f;
+
+    allocateVoice(noteNumber, vel);
     ++heldNotes;
     lastNoteNumber = noteNumber;
-    const float vel = velocity > 0.0f ? velocity : 1.0f;
     lastVelocity   = vel;
     gate = true;
 
@@ -328,6 +359,8 @@ void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
 
 void ValisEngine::noteOff(int noteNumber) noexcept
 {
+    releaseVoice(noteNumber);
+
     if (heldNotes > 0)
         --heldNotes;
 
@@ -339,8 +372,114 @@ void ValisEngine::noteOff(int noteNumber) noexcept
     }
 }
 
+/// Picks the voice a new note goes to. Deterministic in every branch: a free
+/// voice first, then the one released longest ago, then the oldest still held.
+/// Returns -1 when the circuit has no pool.
+int ValisEngine::allocateVoice(int note, float velocity) noexcept
+{
+    if (numVoices <= 0)
+        return -1;
+
+    const auto start = [this, note, velocity](int v)
+    {
+        auto& voice = voices[static_cast<std::size_t>(v)];
+        voice.started   = true;
+        voice.gate      = true;
+        voice.note      = note;
+        voice.velocity  = velocity;
+        voice.startedAt = ++voiceClock;
+        return v;
+    };
+
+    int best = -1;
+
+    // A voice that has never sounded is free with no tail to cut short.
+    for (int v = 0; v < numVoices; ++v)
+        if (! voices[static_cast<std::size_t>(v)].started)
+            return start(v);
+
+    // Otherwise the one whose note was let go longest ago.
+    for (int v = 0; v < numVoices; ++v)
+    {
+        const auto& voice = voices[static_cast<std::size_t>(v)];
+        if (voice.gate)
+            continue;
+
+        if (best < 0 || voice.startedAt < voices[static_cast<std::size_t>(best)].startedAt)
+            best = v;
+    }
+
+    if (best >= 0)
+        return start(best);
+
+    // Every voice is still held, so the oldest one is taken from it.
+    best = 0;
+    for (int v = 1; v < numVoices; ++v)
+        if (voices[static_cast<std::size_t>(v)].startedAt
+            < voices[static_cast<std::size_t>(best)].startedAt)
+            best = v;
+
+    return start(best);
+}
+
+/// Closes the gate of the voice sounding `note`. The voice keeps its note so
+/// whatever is in it can finish its release; allocation may still take it.
+void ValisEngine::releaseVoice(int note) noexcept
+{
+    int oldest = -1;
+
+    for (int v = 0; v < numVoices; ++v)
+    {
+        const auto& voice = voices[static_cast<std::size_t>(v)];
+        if (! voice.gate || voice.note != note)
+            continue;
+
+        if (oldest < 0 || voice.startedAt < voices[static_cast<std::size_t>(oldest)].startedAt)
+            oldest = v;
+    }
+
+    if (oldest >= 0)
+        voices[static_cast<std::size_t>(oldest)].gate = false;
+}
+
+void ValisEngine::queueEvent(const NoteEvent& event) noexcept
+{
+    if (numEvents >= kMaxEventsPerBlock)
+        return;
+
+    events[static_cast<std::size_t>(numEvents++)] = event;
+}
+
+void ValisEngine::queueNoteOn(int noteNumber, float velocity, int sampleOffset) noexcept
+{
+    queueEvent({std::max(0, sampleOffset), NoteEvent::Kind::On, noteNumber, velocity});
+}
+
+void ValisEngine::queueNoteOff(int noteNumber, int sampleOffset) noexcept
+{
+    queueEvent({std::max(0, sampleOffset), NoteEvent::Kind::Off, noteNumber, 0.0f});
+}
+
+void ValisEngine::queueAllNotesOff(int sampleOffset) noexcept
+{
+    queueEvent({std::max(0, sampleOffset), NoteEvent::Kind::AllOff, 0, 0.0f});
+}
+
+void ValisEngine::applyEvent(const NoteEvent& event) noexcept
+{
+    switch (event.kind)
+    {
+        case NoteEvent::Kind::On:     noteOn(event.note, event.velocity); break;
+        case NoteEvent::Kind::Off:    noteOff(event.note);                break;
+        case NoteEvent::Kind::AllOff: allNotesOff();                      break;
+    }
+}
+
 void ValisEngine::allNotesOff() noexcept
 {
+    for (auto& voice : voices)
+        voice.gate = false;
+
     heldNotes = 0;
     gate = false;
     activeNoteVelocities.fill(0.0f);
@@ -349,10 +488,16 @@ void ValisEngine::allNotesOff() noexcept
 
 void ValisEngine::process(const float* input, float* output, int numSamples) noexcept
 {
-    process(input, output, nullptr, numSamples);
+    process(input, nullptr, output, nullptr, numSamples);
 }
 
 void ValisEngine::process(const float* input, float* outputL, float* outputR, int numSamples) noexcept
+{
+    process(input, nullptr, outputL, outputR, numSamples);
+}
+
+void ValisEngine::process(const float* inputL, const float* inputR,
+                          float* outputL, float* outputR, int numSamples) noexcept
 {
     blockCounter.fetch_add(1, std::memory_order_acq_rel);
 
@@ -372,18 +517,49 @@ void ValisEngine::process(const float* input, float* outputL, float* outputR, in
     TransportInfo sliceTransport = transport;
     const double ppqPerSample = transport.tempoBpm / (60.0 * sampleRate);
 
+    // Events arrive in the host's order, except that a keyboard event queued
+    // alongside them carries offset 0. An insertion sort over at most
+    // kMaxEventsPerBlock entries puts them back in order without allocating.
+    for (int i = 1; i < numEvents; ++i)
+    {
+        const auto event = events[static_cast<std::size_t>(i)];
+        int j = i - 1;
+        while (j >= 0 && events[static_cast<std::size_t>(j)].sampleOffset > event.sampleOffset)
+        {
+            events[static_cast<std::size_t>(j + 1)] = events[static_cast<std::size_t>(j)];
+            --j;
+        }
+        events[static_cast<std::size_t>(j + 1)] = event;
+    }
+
+    numOutputEvents = 0;
+
+    int cursor = 0;
     int done = 0;
     while (done < numSamples)
     {
+        // Everything located at or before this sample has happened by now.
+        while (cursor < numEvents
+               && events[static_cast<std::size_t>(cursor)].sampleOffset <= done)
+            applyEvent(events[static_cast<std::size_t>(cursor++)]);
+
         const int intoSlice = static_cast<int>(streamPosition % kControlBlock);
-        const int slice = std::min(numSamples - done, kControlBlock - intoSlice);
+        int slice = std::min(numSamples - done, kControlBlock - intoSlice);
+
+        // Stop the slice where the next event starts, so the note begins on the
+        // sample it was sent on rather than at the next control boundary.
+        if (cursor < numEvents)
+            slice = std::min(slice,
+                             events[static_cast<std::size_t>(cursor)].sampleOffset - done);
 
         processSlice(*graph,
                      sliceTransport,
-                     input != nullptr ? input + done : nullptr,
+                     inputL != nullptr ? inputL + done : nullptr,
+                     inputR != nullptr ? inputR + done : nullptr,
                      outputL != nullptr ? outputL + done : nullptr,
                      outputR != nullptr ? outputR + done : nullptr,
-                     slice);
+                     slice,
+                     done);
 
         if (transport.playing)
             sliceTransport.ppqPosition += ppqPerSample * static_cast<double>(slice);
@@ -392,15 +568,23 @@ void ValisEngine::process(const float* input, float* outputL, float* outputR, in
         done += slice;
     }
 
+    // An event a host located past the end of the block still belongs to this
+    // block: better late by a few samples than silently dropped.
+    while (cursor < numEvents)
+        applyEvent(events[static_cast<std::size_t>(cursor++)]);
+
+    numEvents = 0;
     triggeredNoteVelocities.fill(0.0f);
 }
 
 void ValisEngine::processSlice(Graph& graph,
                                const TransportInfo& sliceTransport,
-                               const float* input,
+                               const float* inputL,
+                               const float* inputR,
                                float* outputL,
                                float* outputR,
-                               int numSamples) noexcept
+                               int numSamples,
+                               int sliceOffset) noexcept
 {
     const auto& circuit = graph.circuit;
 
@@ -412,18 +596,56 @@ void ValisEngine::processSlice(Graph& graph,
     std::memset(graph.buffer(circuit.silenceBuffer), 0,
                 static_cast<std::size_t>(numSamples) * sizeof(float));
 
-    // The host's audio lands in each val:Input's output buffer.
+    // The host's audio lands in each val:Input's output buffers. "left" and
+    // "right" carry the first two host channels; "out" carries them summed, so
+    // a mono circuit needs to know nothing about how many arrived.
+    const float* const hostL = inputL;
+    const float* const hostR = inputR != nullptr ? inputR : inputL;
+
     for (const int nodeIndex : circuit.inputNodes)
     {
         const auto& node = circuit.nodes[static_cast<std::size_t>(nodeIndex)];
-        if (node.audioOutBuffers.empty())
+        if (node.type == nullptr)
             continue;
 
-        float* destination = graph.buffer(node.audioOutBuffers[0]);
-        if (input != nullptr)
-            std::memcpy(destination, input, static_cast<std::size_t>(numSamples) * sizeof(float));
-        else
-            std::memset(destination, 0, static_cast<std::size_t>(numSamples) * sizeof(float));
+        int index = 0;
+        for (const auto& port : node.type->ports)
+        {
+            if (port.input || port.control)
+                continue;
+
+            const int slot = index++;
+            if (static_cast<std::size_t>(slot) >= node.audioOutBuffers.size())
+                continue;
+
+            float* destination = graph.buffer(node.audioOutBuffers[static_cast<std::size_t>(slot)]);
+
+            const float* source = port.symbol == "left"  ? hostL
+                                : port.symbol == "right" ? hostR
+                                                         : nullptr;
+
+            if (source != nullptr)
+            {
+                std::memcpy(destination, source,
+                            static_cast<std::size_t>(numSamples) * sizeof(float));
+            }
+            else if (hostL != nullptr)
+            {
+                // "out": the channels summed. Averaged, so a mono source keeps
+                // its level whether the host sent it once or twice.
+                if (hostR != nullptr && hostR != hostL)
+                    for (int i = 0; i < numSamples; ++i)
+                        destination[i] = 0.5f * (hostL[i] + hostR[i]);
+                else
+                    std::memcpy(destination, hostL,
+                                static_cast<std::size_t>(numSamples) * sizeof(float));
+            }
+            else
+            {
+                std::memset(destination, 0,
+                            static_cast<std::size_t>(numSamples) * sizeof(float));
+            }
+        }
     }
 
     for (std::size_t i = 0; i < circuit.nodes.size(); ++i)
@@ -468,9 +690,23 @@ void ValisEngine::processSlice(Graph& graph,
             graph.audioOutPtrs[p] = graph.buffer(node.audioOutBuffers[p]);
 
         ProcessArgs args;
-        args.gate           = gate;
-        args.velocity       = lastVelocity;
-        args.noteNumber     = lastNoteNumber;
+        // A node in a voice pool sees its own voice's note rather than the
+        // circuit's. This is the whole of what makes the pool polyphonic: the
+        // elements inside are the ordinary monophonic ones.
+        if (node.voice >= 0 && node.voice < numVoices)
+        {
+            const auto& voice = voices[static_cast<std::size_t>(node.voice)];
+            args.gate       = voice.gate;
+            args.velocity   = voice.velocity;
+            args.noteNumber = voice.note;
+        }
+        else
+        {
+            args.gate       = gate;
+            args.velocity   = lastVelocity;
+            args.noteNumber = lastNoteNumber;
+        }
+
         args.noteVelocities = graph.currentNoteVelocities.data();
         args.transport      = sliceTransport;
         args.silence        = graph.buffer(circuit.silenceBuffer);
@@ -483,6 +719,13 @@ void ValisEngine::processSlice(Graph& graph,
         args.numControlIn  = static_cast<int>(values.size());
         args.controlOut    = graph.controlOut.data();
         args.numControlOut = static_cast<int>(node.controlOutSlots.size());
+
+        // One sink shared by the whole circuit for the block. An element that
+        // declares no event output simply never writes to it.
+        args.eventsOut     = outputEvents.data();
+        args.numEventsOut  = &numOutputEvents;
+        args.eventCapacity = kMaxOutputEventsPerBlock;
+        args.sliceOffset   = sliceOffset;
 
         graph.elements[i]->process(args);
 

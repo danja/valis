@@ -1,0 +1,103 @@
+# examples/subcircuit.ttl
+#
+# One val:Subcircuit instantiated twice. The definition is written once and
+# stamped out per channel, which is how stereo is built in Valis: elements stay
+# mono, and the two sides are two instances rather than a channel count on a
+# port.
+#
+# The model expands both instances before compilation, renaming each inner
+# element after the instance it belongs to (:left/vcf, :right/vcf), so the
+# compiler and the engine see an ordinary flat circuit.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:subcircuit#> .
+
+################################################################
+# The definition                                               #
+#                                                              #
+# Each lv2:port names the inner port it stands for. A port that #
+# declares lv2:default sets that value on the element behind    #
+# it, and an instance may override it as a val: property.       #
+################################################################
+
+:Channel a val:Subcircuit ;
+    rdfs:label "Channel" ;
+
+    lv2:port [ a lv2:InputPort , lv2:AudioPort ;
+               lv2:symbol "in" ; lv2:name "In" ;
+               val:node :vcf ; val:port "in" ] ,
+
+             [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :drive ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "cutoff" ; lv2:name "Cutoff" ;
+               lv2:default 900.0 ; lv2:minimum 20.0 ; lv2:maximum 12000.0 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hz ;
+               val:node :vcf ; val:port "cutoff" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "resonance" ; lv2:name "Resonance" ;
+               lv2:default 0.35 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :vcf ; val:port "resonance" ] ;
+
+    val:element :vcf , :drive ;
+    val:arc :toDrive .
+
+:vcf   a val:Ladder ; val:drive 1.0 .
+:drive a val:DiodePair ; val:seriesResistance 2200.0 .
+
+:toDrive a val:Arc ; val:from [ val:node :vcf   ; val:port "out" ] ;
+                     val:to   [ val:node :drive ; val:port "in"  ] .
+
+################################################################
+# The circuit                                                  #
+################################################################
+
+:stereo a val:Circuit ;
+    rdfs:label "Stereo channel pair" ;
+    val:element :in , :left , :right , :mix , :out ;
+    val:arc :a1 , :a2 , :a3 , :a4 , :a5 .
+
+:in  a val:Input .
+
+# Two instances of one definition, detuned against each other.
+:left  a :Channel ; val:cutoff 700.0 .
+:right a :Channel ; val:cutoff 1300.0 .
+
+:mix a val:Mixer .
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :in    ; val:port "out" ] ;
+                val:to   [ val:node :left  ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :in    ; val:port "out" ] ;
+                val:to   [ val:node :right ; val:port "in"  ] .
+:a3 a val:Arc ; val:from [ val:node :left  ; val:port "out" ] ;
+                val:to   [ val:node :mix   ; val:port "in"  ] .
+:a4 a val:Arc ; val:from [ val:node :right ; val:port "out" ] ;
+                val:to   [ val:node :mix   ; val:port "in"  ] .
+:a5 a val:Arc ; val:from [ val:node :mix   ; val:port "out" ] ;
+                val:to   [ val:node :out   ; val:port "in"  ] .
+
+# A binding may name an instance and one of its exposed ports; the model
+# resolves it to the element behind that port.
+:p0 a val:Param ; val:slot 0 ; val:target :left ; val:property val:cutoff ;
+    lv2:name "Left cutoff" ; lv2:symbol "leftCutoff" ; units:unit units:hz ;
+    val:section "Left" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :left ; val:property val:resonance ;
+    lv2:name "Left resonance" ; lv2:symbol "leftResonance" ;
+    val:section "Left" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :right ; val:property val:cutoff ;
+    lv2:name "Right cutoff" ; lv2:symbol "rightCutoff" ; units:unit units:hz ;
+    val:section "Right" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :right ; val:property val:resonance ;
+    lv2:name "Right resonance" ; lv2:symbol "rightResonance" ;
+    val:section "Right" .

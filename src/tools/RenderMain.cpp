@@ -293,15 +293,16 @@ int main(int argc, char** argv)
         const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
                                                  input.size() - at));
 
-        // The event fires in the block that contains it. Comparing the block
+        // The event fires in the block that contains it, at its own offset
+        // within that block, which is what a host reports. Comparing the block
         // start for equality would silently drop every note whose time is not
         // a multiple of the block size.
         if (options.midiNote >= 0)
         {
             if (noteOnSample >= sample && noteOnSample < sample + n)
-                engine.noteOn(options.midiNote, options.velocity);
+                engine.queueNoteOn(options.midiNote, options.velocity, noteOnSample - sample);
             if (noteOffSample > noteOnSample && noteOffSample >= sample && noteOffSample < sample + n)
-                engine.noteOff(options.midiNote);
+                engine.queueNoteOff(options.midiNote, noteOffSample - sample);
         }
 
         // A host reports one timeline position per block; this reproduces that

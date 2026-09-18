@@ -136,8 +136,20 @@ void GraphView::rebuild()
 
     nodes.clear();
 
+    // An instance is only closable while it is still in the circuit.
+    std::set<std::string> present;
+    for (const auto& element : model.elements())
+        if (! element.instance.empty())
+            present.insert(element.instance);
+
+    for (auto it = closedInstances.begin(); it != closedInstances.end(); )
+        it = present.count(*it) != 0 ? std::next(it) : closedInstances.erase(it);
+
     for (const auto& element : model.elements())
     {
+        if (closedInstances.count(element.instance) != 0)
+            continue;
+
         NodeBox box;
         box.id        = element.id;
         box.label     = element.label.empty() ? vocab::shortName(element.id) : element.label;
@@ -147,6 +159,55 @@ void GraphView::rebuild()
         {
             for (const auto& port : element.type->ports)
                 box.pins.push_back({element.id, port.symbol, port.input, port.control, {}});
+        }
+
+        nodes.push_back(std::move(box));
+    }
+
+    // One box per closed instance. Its pins are the ports arcs actually cross
+    // the boundary on, which is what the closed box has to offer the outside.
+    for (const auto& instance : closedInstances)
+    {
+        const auto inside = [&](const std::string& id)
+        {
+            const auto* element = model.findElement(id);
+            return element != nullptr && element->instance == instance;
+        };
+
+        NodeBox box;
+        box.id             = instance;
+        box.closedInstance = instance;
+        box.label          = vocab::shortName(instance);
+
+        for (const auto& element : model.elements())
+            if (element.instance == instance)
+            {
+                box.typeLabel = vocab::shortName(element.instanceType);
+                break;
+            }
+
+        const auto addPin = [&](const std::string& node, const std::string& port, bool input)
+        {
+            const auto* element = model.findElement(node);
+            bool control = false;
+            if (element != nullptr && element->type != nullptr)
+                if (const auto* desc = element->type->findPort(port))
+                    control = desc->control;
+
+            const bool already = std::any_of(box.pins.begin(), box.pins.end(),
+                                             [&](const Pin& p)
+                                             { return p.node == node && p.port == port
+                                                   && p.input == input; });
+            if (! already)
+                box.pins.push_back({node, port, input, control, {}});
+        };
+
+        for (const auto& arc : model.arcs())
+        {
+            if (inside(arc.fromNode) && ! inside(arc.toNode))
+                addPin(arc.fromNode, arc.fromPort, false);
+            if (inside(arc.toNode) && ! inside(arc.fromNode))
+                addPin(arc.toNode, arc.toPort, true);
         }
 
         nodes.push_back(std::move(box));
@@ -314,10 +375,23 @@ void GraphView::paint(juce::Graphics& g)
     {
         const auto* element = model.findElement(node.id);
         const auto* type = element != nullptr ? element->type : nullptr;
-        const auto accent = colourForType(type);
+        const bool closed = ! node.closedInstance.empty();
+
+        // A closed subcircuit is not any one element class, so it gets its own
+        // accent rather than borrowing the colour of whatever is inside it.
+        const auto accent = closed ? juce::Colour(0xffe5c07b) : colourForType(type);
 
         g.setColour(juce::Colour(0xff23232a));
         g.fillRoundedRectangle(node.bounds, 5.0f);
+
+        // A doubled outline reads as "there is more in here", which is the one
+        // thing the closed box has to say that an element box does not.
+        if (closed)
+        {
+            g.setColour(accent.withAlpha(0.35f));
+            g.drawRoundedRectangle(node.bounds.expanded(3.0f), 6.0f, 1.2f);
+        }
+
         g.setColour(accent.withAlpha(0.7f));
         g.drawRoundedRectangle(node.bounds, 5.0f, 1.4f);
 
@@ -540,7 +614,27 @@ void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
 
     menu.addSubMenu("Add element", addMenu);
 
+    // Closing an instance is a view preference, so it sits above the editing
+    // items and never warns about reformatting the document.
+    std::string toggleInstance;
     if (node != nullptr)
+    {
+        if (! node->closedInstance.empty())
+        {
+            toggleInstance = node->closedInstance;
+            menu.addSeparator();
+            menu.addItem(2, "Open " + juce::String(vocab::shortName(toggleInstance)));
+        }
+        else if (const auto* element = processor.circuit().findElement(node->id);
+                 element != nullptr && ! element->instance.empty())
+        {
+            toggleInstance = element->instance;
+            menu.addSeparator();
+            menu.addItem(2, "Close " + juce::String(vocab::shortName(toggleInstance)));
+        }
+    }
+
+    if (node != nullptr && node->closedInstance.empty())
     {
         menu.addSeparator();
         menu.addItem(1, "Delete " + juce::String(node->label));
@@ -551,10 +645,18 @@ void GraphView::showMenuFor(const NodeBox* node, juce::Point<int> where)
     const auto screenPos = localPointToGlobal(where);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(
                            juce::Rectangle<int>(screenPos.x, screenPos.y, 1, 1)),
-                       [this, nodeId, classForId](int choice)
+                       [this, nodeId, classForId, toggleInstance](int choice)
                        {
                            if (choice == 0)
                                return;
+
+                           if (choice == 2 && ! toggleInstance.empty())
+                           {
+                               if (closedInstances.erase(toggleInstance) == 0)
+                                   closedInstances.insert(toggleInstance);
+                               rebuild();
+                               return;
+                           }
 
                            warnAboutReformatting();
                            auto menuOps = ops();

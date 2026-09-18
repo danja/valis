@@ -7,10 +7,12 @@ set(VALIS_TESTS
   rdf/VocabularyTest.cpp
   rdf/TurtleStoreTest.cpp
   model/OntologyTest.cpp
+  model/SubcircuitTest.cpp
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
   dsp/ElementBehaviourTest.cpp
   dsp/GranulatorTest.cpp
+  dsp/SpectralTest.cpp
   dsp/FluteTest.cpp
   dsp/ClarinetTest.cpp
   engine/ValisEngineTest.cpp
@@ -31,6 +33,11 @@ add_test(NAME ui_TurtleCodeTokeniserTest COMMAND ui_TurtleCodeTokeniserTest)
 add_executable(ui_UiThemeTest ui/UiThemeTest.cpp)
 target_link_libraries(ui_UiThemeTest PRIVATE valis_core)
 add_test(NAME ui_UiThemeTest COMMAND ui_UiThemeTest)
+
+# Value formatting is a header-only rule over plain data, same as the themes.
+add_executable(ui_ValueFormatTest ui/ValueFormatTest.cpp)
+target_link_libraries(ui_ValueFormatTest PRIVATE valis_core)
+add_test(NAME ui_ValueFormatTest COMMAND ui_ValueFormatTest)
 
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})

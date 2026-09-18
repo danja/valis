@@ -50,6 +50,11 @@ struct CompiledCircuit
 
         /// Run these before the node processes.
         std::vector<SumJob> sumJobs;
+
+        /// Which voice of a polyphonic subcircuit this node belongs to, or -1.
+        /// The engine reads the note state of that voice rather than the
+        /// circuit's, which is the whole of what makes a pool polyphonic.
+        int voice = -1;
     };
 
     /// Topologically sorted. A feedback path is cut at its val:UnitDelay, which
@@ -60,6 +65,10 @@ struct CompiledCircuit
     /// elements the host's audio is written into.
     int outputNode = -1;
     std::vector<int> inputNodes;
+
+    /// How many voices the circuit's pool has, or 0 where there is none. The
+    /// engine keeps note state for exactly this many.
+    int numVoices = 0;
 
     /// Sized by the compiler; the engine allocates exactly this much.
     int numBuffers      = 0;

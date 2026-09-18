@@ -1070,6 +1070,32 @@ void testSignalGeneratorProducesWaves()
     assert(ElementTestFixture::measurePeak(sine) <= 0.51f);
 }
 
+void testSignalGeneratorNoiseIsPerInstanceAndReproducible()
+{
+    const std::vector<float> silence(512, 0.0f);
+
+    auto noiseFrom = [&silence](ElementTestFixture& gen)
+    {
+        gen.set("shape", 4.0f);
+        gen.set("amplitude", 1.0f);
+        return gen.run(silence);
+    };
+
+    // Two generators must not share a sequence: with one static seed between
+    // them the second would carry on where the first stopped.
+    ElementTestFixture first("SignalGenerator"), second("SignalGenerator");
+    const auto a = noiseFrom(first);
+    const auto b = noiseFrom(second);
+    assert(a == b);
+
+    // And it must be noise, not a constant the comparison above would also pass.
+    assert(ElementTestFixture::measureRms(a) > 0.1f);
+
+    // reset() restarts the sequence, so a relocated transport renders the same.
+    first.reset();
+    assert(noiseFrom(first) == a);
+}
+
 void testSignalGeneratorImpulseTrainIsBlockIndependent()
 {
     ElementTestFixture gen("SignalGenerator");
@@ -1153,6 +1179,7 @@ int main()
     testPanPositionsSignal();
     testChokeMutesGateOnTrigger();
     testSignalGeneratorProducesWaves();
+    testSignalGeneratorNoiseIsPerInstanceAndReproducible();
     testSignalGeneratorImpulseTrainIsBlockIndependent();
     testOscilloscopeMeasuresPeakAndRms();
     testFreqAnalyzerSplitsBands();

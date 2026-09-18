@@ -35,6 +35,7 @@ add_library(valis_core STATIC
   src/rdf/TurtleStore.cpp
   src/model/Ontology.cpp
   src/model/CircuitModel.cpp
+  src/model/Subcircuit.cpp
   src/compiler/CircuitCompiler.cpp
   src/dsp/ElementRegistry.cpp
   src/dsp/elements/Sources.cpp
@@ -42,6 +43,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Transfers.cpp
   src/dsp/elements/Dynamics.cpp
   src/dsp/elements/Granular.cpp
+  src/dsp/elements/Spectral.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
@@ -60,10 +62,12 @@ target_link_libraries(valis_core
     valis::sord
     juce::juce_dsp
   PRIVATE
-    # val:Granulator reads sound files from disk on the message thread. This is
-    # the one module beyond juce_dsp that valis_core needs; it is console-safe,
-    # opens no window, and stays PRIVATE so nothing downstream inherits it.
+    # val:Granulator reads sound files from disk on the message thread, and a
+    # circuit may declare the val:sha256 of the file it expects, which is
+    # checked there too. Both modules are console-safe, open no window, and stay
+    # PRIVATE so nothing downstream inherits them.
     juce::juce_audio_formats
+    juce::juce_cryptography
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
 
@@ -109,7 +113,7 @@ if(VALIS_BUILD_PLUGIN)
     VST3_CATEGORIES             Fx Filter Distortion
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            TRUE
-    NEEDS_MIDI_OUTPUT           FALSE
+    NEEDS_MIDI_OUTPUT           TRUE
     IS_MIDI_EFFECT              FALSE
     # Without this, hosts swallow every keystroke aimed at the Turtle editor.
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE

@@ -297,10 +297,12 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         node.id             = element.id;
         node.implementation = element.type->implementation;
         node.type           = element.type;
+        node.voice          = element.voice;
+        out.numVoices       = std::max(out.numVoices, element.voice + 1);
 
         node.controlValues.reserve(static_cast<std::size_t>(element.type->countPorts(true, true)));
         for (const auto& port : element.type->ports)
-            if (port.input && port.control)
+            if (! port.event && port.input && port.control)
                 node.controlValues.push_back(element.valueOf(port.symbol));
 
         // Sorted, so the compiled result is reproducible.
@@ -342,6 +344,12 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
         for (const auto& port : node.type->ports)
         {
+            // An event port carries no signal, so it gets neither a buffer nor
+            // a control slot: the engine hands every element one shared event
+            // sink instead.
+            if (port.event)
+                continue;
+
             if (! port.input && ! port.control)
                 node.audioOutBuffers.push_back(nextBuffer++);
             else if (! port.input && port.control)
@@ -360,7 +368,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         int index = 0;
         for (const auto& port : type.ports)
         {
-            if (port.input == input && port.control == control)
+            if (! port.event && port.input == input && port.control == control)
             {
                 if (port.symbol == symbol)
                     return index;

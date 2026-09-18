@@ -7,6 +7,7 @@
 #include "ui/SpectrumBox.h"
 #include "plugin/ValisProcessor.h"
 #include "valis/Ontology.h"
+#include "valis/ValueFormat.h"
 #include "valis/Vocabulary.h"
 
 namespace valis {
@@ -79,9 +80,8 @@ juce::String ControlsView::Knob::readout() const
 
     const auto real = bound != nullptr ? bound->realValue()
                                        : minimum + slider->getValue() * (maximum - minimum);
-    const auto span = maximum - minimum;
-    const int decimals = span > 100.0 ? 0 : (span > 1.0 ? 2 : 3);
-    return juce::String(real, decimals) + unit;
+
+    return juce::String(formatControlValue(real, unit.toStdString(), minimum, maximum));
 }
 
 ControlsView::ControlsView(ValisProcessor& p) : processor(p)
@@ -178,8 +178,9 @@ void ControlsView::rebuild()
         // have to measure against it rather than against the port.
         knob.minimum = binding.minimum.value_or(port->minimum);
         knob.maximum = binding.maximum.value_or(port->maximum);
-        knob.unit    = port->unitSymbol.empty() ? juce::String()
-                                                : " " + juce::String(port->unitSymbol);
+        // The bare symbol: formatControlValue decides the spacing, and reads
+        // the symbol to choose how many decimals the value needs.
+        knob.unit    = port->unitSymbol;
         knob.target  = juce::String(vocab::shortName(binding.targetNode)) + "." +
                        juce::String(binding.propertySymbol);
 

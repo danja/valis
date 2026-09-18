@@ -361,6 +361,20 @@ void testArcDeclaredButNotClaimed()
     assert(r.hasDiagnosticContaining("declared but not listed"));
 }
 
+// The shipped subcircuit example, compiled the way a user opens it. Two
+// instances of one definition expand to two copies of its two elements, which
+// with the input, mixer and output makes seven nodes.
+void testSubcircuitExampleCompiles()
+{
+    auto r = runFile(VALIS_EXAMPLES_DIR "/subcircuit.ttl");
+
+    if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
+    assert(r.built);
+    assert(r.compiled_);
+    assert(r.diagnostics.empty());
+    assert(r.compiled.nodes.size() == 7);
+}
+
 // -- the acceptance demo ---------------------------------------------------
 
 void testSkreamCompiles()
@@ -431,6 +445,7 @@ int main()
     testOutputCardinality();
     testDuplicateAndDanglingArcs();
     testArcDeclaredButNotClaimed();
+    testSubcircuitExampleCompiles();
     testSkreamCompiles();
 
     std::puts("CircuitCompilerTest PASSED");

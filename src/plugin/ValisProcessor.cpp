@@ -59,6 +59,7 @@ void ValisParameter::unbind()
 {
     bound    = false;
     logScale = false;
+    extraTargets.clear();
     node.clear();
     property.clear();
     label = slotName(slot);
@@ -270,19 +271,19 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (const int note = pendingNoteOff.exchange(-1, std::memory_order_acquire); note >= 0)
         engine.noteOff(note);
 
-    // Note events reach the engine before the block runs. Sample-accurate
-    // placement within the block is a later refinement; the control grid is
-    // 32 samples, so the error is bounded by that.
+    // Each event carries its position within the block, so the engine can cut
+    // a slice there and start the note on the sample the host sent it on.
     for (const auto metadata : midi)
     {
         const auto message = metadata.getMessage();
+        const int  at      = metadata.samplePosition;
 
         if (message.isNoteOn())
-            engine.noteOn(message.getNoteNumber(), message.getFloatVelocity());
+            engine.queueNoteOn(message.getNoteNumber(), message.getFloatVelocity(), at);
         else if (message.isNoteOff())
-            engine.noteOff(message.getNoteNumber());
+            engine.queueNoteOff(message.getNoteNumber(), at);
         else if (message.isAllNotesOff() || message.isAllSoundOff())
-            engine.allNotesOff();
+            engine.queueAllNotesOff(at);
     }
 
     // The host timeline, if this host offers one. A host that reports no
@@ -318,28 +319,53 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (! engine.hasCircuit() || numSamples > monoScratch.getNumSamples())
         return;
 
-    // The circuit model is mono, so sum in and fan out. Per-channel circuits
-    // are a later milestone.
-    float* mono = monoScratch.getWritePointer(0);
+    // The engine writes its output over the host's buffer, so the input has to
+    // be taken out of the way first. Elements are mono; the two channels stay
+    // apart so a circuit that wires val:Input's "left" and "right" through two
+    // chains keeps them separate, and "out" sums them for a mono circuit.
+    float* inL = monoScratch.getWritePointer(0);
+    float* inR = monoScratch.getWritePointer(1);
+
     if (numIn > 0)
     {
-        juce::FloatVectorOperations::copy(mono, buffer.getReadPointer(0), numSamples);
-        for (int c = 1; c < numIn; ++c)
-            juce::FloatVectorOperations::add(mono, buffer.getReadPointer(c), numSamples);
-        if (numIn > 1)
-            juce::FloatVectorOperations::multiply(mono, 1.0f / static_cast<float>(numIn), numSamples);
+        juce::FloatVectorOperations::copy(inL, buffer.getReadPointer(0), numSamples);
+        juce::FloatVectorOperations::copy(inR, buffer.getReadPointer(numIn > 1 ? 1 : 0),
+                                          numSamples);
+
+        // A host with more than two inputs folds the rest into the right side
+        // rather than dropping them silently.
+        for (int c = 2; c < numIn; ++c)
+            juce::FloatVectorOperations::add(inR, buffer.getReadPointer(c), numSamples);
     }
     else
     {
-        juce::FloatVectorOperations::clear(mono, numSamples);
+        juce::FloatVectorOperations::clear(inL, numSamples);
+        juce::FloatVectorOperations::clear(inR, numSamples);
     }
 
     float* left  = numOut > 0 ? buffer.getWritePointer(0) : nullptr;
     float* right = numOut > 1 ? buffer.getWritePointer(1) : nullptr;
-    engine.process(mono, left, right, numSamples);
+    engine.process(inL, inR, left, right, numSamples);
 
     for (int c = 2; c < numOut; ++c)
         juce::FloatVectorOperations::copy(buffer.getWritePointer(c), left, numSamples);
+
+    // Whatever is in the buffer on return is what the host sends on, so the
+    // events the circuit produced replace the ones it was given rather than
+    // being added to them. A circuit with no val:NoteOut emits nothing and the
+    // buffer simply comes back empty.
+    midi.clear();
+
+    for (int i = 0; i < engine.outputEventCount(); ++i)
+    {
+        const auto& event = engine.outputEvent(i);
+        const int at = juce::jlimit(0, numSamples - 1, event.sampleOffset);
+
+        midi.addEvent(event.noteOn
+                          ? juce::MidiMessage::noteOn(event.channel, event.note, event.velocity)
+                          : juce::MidiMessage::noteOff(event.channel, event.note),
+                      at);
+    }
 }
 
 juce::AudioProcessorEditor* ValisProcessor::createEditor()
@@ -630,6 +656,7 @@ void ValisProcessor::rebindParameters()
         if (port == nullptr)
             continue;
 
+        parameter->setAlsoTargets(binding.alsoTargets);
         parameter->bind(binding.targetNode, binding.propertySymbol,
                         binding.name.empty() ? juce::String(port->name) : juce::String(binding.name),
                         binding.minimum.value_or(port->minimum),
@@ -662,8 +689,13 @@ void ValisProcessor::applyParameterBindings()
         if (parameter == nullptr || ! parameter->isBound())
             continue;
 
-        engine.setControl(parameter->targetNode(), parameter->targetProperty(),
-                          static_cast<float>(parameter->realValue()));
+        const auto value = static_cast<float>(parameter->realValue());
+        engine.setControl(parameter->targetNode(), parameter->targetProperty(), value);
+
+        // A knob bound to a polyphonic subcircuit's port drives every voice,
+        // or the voices would drift apart the moment it was turned.
+        for (const auto& [node, port] : parameter->alsoTargets())
+            engine.setControl(node, port, value);
     }
 }
 

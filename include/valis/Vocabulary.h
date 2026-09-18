@@ -21,6 +21,11 @@ inline constexpr std::string_view XSD   = "http://www.w3.org/2001/XMLSchema#";
 inline constexpr std::string_view LV2   = "http://lv2plug.in/ns/lv2core#";
 inline constexpr std::string_view UNITS = "http://lv2plug.in/ns/extensions/units#";
 
+// LV2's own spelling for a port carrying timed events rather than a signal.
+// Reused rather than invented, as every other port property here is.
+inline constexpr std::string_view ATOM = "http://lv2plug.in/ns/ext/atom#";
+inline constexpr std::string_view MIDI = "http://lv2plug.in/ns/ext/midi#";
+
 // Concatenating string_views needs a helper; these are consteval-friendly enough
 // as std::string at namespace scope, and are only touched off the audio thread.
 #define VALIS_TERM(ns, local) inline const std::string local = std::string(ns) + #local
@@ -65,6 +70,16 @@ namespace lv2 {
   inline const std::string scalePoint   = std::string(LV2) + "scalePoint";
 }
 
+namespace atom {
+  inline const std::string AtomPort = std::string(ATOM) + "AtomPort";
+  inline const std::string Sequence = std::string(ATOM) + "Sequence";
+  inline const std::string supports = std::string(ATOM) + "supports";
+}
+
+namespace midi {
+  inline const std::string MidiEvent = std::string(MIDI) + "MidiEvent";
+}
+
 namespace units {
   inline const std::string unit   = std::string(UNITS) + "unit";
   inline const std::string render = std::string(UNITS) + "render";
@@ -81,6 +96,7 @@ namespace val {
   inline const std::string Source     = std::string(VAL) + "Source";
   inline const std::string Arc        = std::string(VAL) + "Arc";
   inline const std::string Param      = std::string(VAL) + "Param";
+  inline const std::string Subcircuit = std::string(VAL) + "Subcircuit";
 
   // Structure
   inline const std::string element        = std::string(VAL) + "element";

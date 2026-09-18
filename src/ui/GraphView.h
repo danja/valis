@@ -22,6 +22,7 @@
 
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 
 namespace valis {
@@ -60,6 +61,11 @@ private:
         std::string id, label, typeLabel;
         juce::Rectangle<float> bounds;
         std::vector<Pin> pins;
+
+        /// The val:Subcircuit instance this box stands for, drawn closed. Empty
+        /// for an ordinary element. A pin on a closed box still names the inner
+        /// element and port it belongs to, so arcs need no special case.
+        std::string closedInstance;
     };
 
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -86,6 +92,10 @@ private:
     // Stage 2: dragging from a pin creates an arc.
     std::optional<Pin> draggingFrom;
     juce::Point<float> dragTo;
+
+    /// Subcircuit instances the user has closed. A view preference, not part of
+    /// the document: closing a box changes nothing the compiler reads.
+    std::set<std::string> closedInstances;
 
     juce::String message;
     bool warnedAboutReformatting = false;

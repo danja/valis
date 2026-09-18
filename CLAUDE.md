@@ -49,9 +49,11 @@ to confirm a running instance before using MCP tools that require a host.
 - UI never mutates the engine directly: changes go model → compiler → engine.
 - Editor metadata (`val:x`, `val:y`, colours) lives in a separate graph from execution metadata. Dragging a node must not invalidate the compiled circuit.
 - Every operation is an `Op` in `src/ops/`. UI views and the MCP server are thin adapters — never a second implementation.
-- `valis_core` links `juce_dsp`, `juce_audio_formats` and serd/sord only; no `juce_gui_*`. The
-  whole model and DSP layer is testable as plain console executables. `juce_audio_formats` is
-  linked PRIVATE and exists only so `val:Granulator` can read a sound file on the message thread.
+- `valis_core` links `juce_dsp`, `juce_audio_formats`, `juce_cryptography` and serd/sord only;
+  no `juce_gui_*`. The whole model and DSP layer is testable as plain console executables.
+  `juce_audio_formats` is linked PRIVATE and exists only so `val:Granulator` can read a sound
+  file on the message thread; `juce_cryptography` likewise, only to check a declared
+  `val:sha256` against that file.
 - The parameter list is fixed at construction (64 normalised slots). `val:Param` declarations bind slots to element properties.
 
 ## Documentation rules

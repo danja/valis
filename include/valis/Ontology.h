@@ -17,7 +17,7 @@
 
 namespace valis {
 
-namespace rdf { class TurtleStore; }
+namespace rdf { class TurtleStore; class Node; }
 
 /// One port of an element type, as declared by lv2:port in the ontology.
 struct PortDesc
@@ -26,6 +26,13 @@ struct PortDesc
     std::string name;        ///< lv2:name, for the knobs view
     bool input   = true;     ///< lv2:InputPort vs lv2:OutputPort
     bool control = false;    ///< lv2:ControlPort vs lv2:AudioPort
+
+    /// atom:AtomPort - a port carrying timed events rather than a signal. An
+    /// event port has no buffer and no control slot, so countPorts(),
+    /// portsMatching() and the compiler's buffer assignment all pass it by; it
+    /// is declared so the ontology describes what the element really does, and
+    /// so a view can draw it.
+    bool event = false;
 
     double defaultValue = 0.0;
     double minimum      = 0.0;
@@ -46,7 +53,7 @@ struct PortDesc
     /// Named integer values, sorted by value. Present when enumeration is true.
     std::vector<std::pair<double, std::string>> scalePoints;
 
-    bool isAudio() const { return ! control; }
+    bool isAudio() const { return ! control && ! event; }
 };
 
 /// An instantiable element class.
@@ -90,6 +97,13 @@ public:
 
     /// Resolves owl:equivalentClass aliases, so val:NonLinear finds val:Transfer.
     const ElementType* find(std::string_view classIri) const;
+
+    /// Reads one lv2:port description, resolving named units against whatever
+    /// loadUnits() supplied. A val:Subcircuit declares its ports exactly as an
+    /// element class does, so the two share this reader rather than repeating
+    /// it. Returns nothing when the node is not a usable port.
+    std::optional<PortDesc> readPort(const rdf::TurtleStore& store,
+                                     const rdf::Node& port) const;
 
     /// Every implementable class, ordered by IRI so output is deterministic.
     std::vector<const ElementType*> types() const;

@@ -15,6 +15,8 @@
 @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix atom:  <http://lv2plug.in/ns/ext/atom#> .
+@prefix midi:  <http://lv2plug.in/ns/ext/midi#> .
 
 <http://purl.org/stuff/valis/>
     a owl:Ontology ;
@@ -55,6 +57,44 @@ val:depth a rdf:Property ; rdfs:domain val:Arc ; rdfs:range xsd:double ;
     rdfs:comment """Modulation depth, for an arc ending on an lv2:ControlPort.
 Depth is a property of the connection, not of either endpoint: the same source
 may drive two destinations by different amounts. Ignored on audio arcs.""" .
+
+val:voices a rdf:Property ; rdfs:domain val:Subcircuit ; rdfs:range xsd:integer ;
+    rdfs:comment """Instantiates a val:Subcircuit this many times as a pool of
+voices, between 1 and 16. Set on the instance, not on the definition, so one
+definition serves both a monophonic and a polyphonic circuit.
+
+The elements inside are the ordinary monophonic ones. What makes the pool
+polyphonic is that the engine gives each copy its own note: a note on is
+allocated to a voice, and every element in that copy sees that note's gate,
+velocity and number rather than the circuit's.
+
+Allocation is deterministic, so the same circuit renders the same way every
+time: a voice that has never sounded first, then the one whose note was released
+longest ago, then the oldest still held. A released voice is not reused
+immediately, because whatever is in it still has a release tail to finish.
+
+An input port of the instance reaches every voice. An output port is summed by a
+val:Mixer the expansion adds, so everything downstream sees one signal. A control
+output cannot be exposed, because there is one value per voice and no honest way
+to choose between them.""" .
+
+val:oversampling a rdf:Property ; rdfs:domain val:Element ; rdfs:range xsd:integer ;
+    rdfs:comment """Runs this element at a multiple of the sample rate: 1, 2, 4, 8
+or 16. The engine wraps the element, so any element can be oversampled and one
+written later needs no change to take part.
+
+A nonlinearity makes harmonics above the ones it was given, and any that land
+above Nyquist fold back down as tones that were never in the signal. Oversampling
+gives the element more room before that happens and filters the result on the way
+back down. val:antialiasing answers the same problem the other way, by
+integrating the curve, and costs far less; reach for oversampling where the
+element has memory, which is where antiderivative anti-aliasing does not apply.
+
+The resampling filters are polyphase IIR, chosen for low latency rather than flat
+phase, so a parallel dry path around an oversampled element will not sum cleanly.
+The latency they add is reported to the host.
+
+See https://en.wikipedia.org/wiki/Oversampling""" .
 
 val:antialiasing a rdf:Property ; rdfs:domain val:Transfer ; rdfs:range val:AntiAliasing ;
     rdfs:comment """How a memoryless nonlinearity suppresses the harmonics it
@@ -121,6 +161,23 @@ val:Endpoint a rdfs:Class ;
 val:Param a rdfs:Class ;
     rdfs:label "Param" ;
     rdfs:comment "Binds a host parameter slot to an element's property." .
+
+val:Subcircuit a rdfs:Class ;
+    rdfs:label "Subcircuit" ;
+    rdfs:comment """A named circuit fragment that is instantiated as if it were
+an element. It declares lv2:port as an element class does, and each port carries
+val:node and val:port naming the inner port it stands for. A port that declares
+lv2:default sets that value on the element behind it; an instance may override
+it by setting the port as a val: property, exactly as on any element.
+
+Definitions live beside the circuit that uses them, not in this vocabulary, so a
+subcircuit is per document. The model expands every instance into plain elements
+and arcs before compilation: the compiler and the engine never see one. Inner
+elements are renamed by prefixing them with the instance IRI, so two instances of
+one definition do not collide.
+
+Distinct from val:Network, which is the seam for future component-level
+subcircuits solved by nodal analysis rather than patched from blocks.""" .
 
 ################################################################
 # Element taxonomy                                             #
@@ -826,6 +883,61 @@ val:Oscilloscope a rdfs:Class ; rdfs:subClassOf val:Element ;
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "frequency" ; lv2:name "Frequency" ;
         lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] .
 
+val:NoteOut a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "NoteOut" ;
+    rdfs:comment """Turns a control gate into MIDI note events on the plugin's
+output. The gate rising sends a note on, the gate falling releases it.
+
+The pitch is read once, when the note starts, so moving the control while the
+note is held does not retune a note the host has already been told about. It is
+a frequency in Hz, rounded to the nearest semitone, so val:MidiPitch and
+val:Oscilloscope's frequency estimate both drive it directly. Behind the latter
+this is an audio-to-MIDI converter assembled from parts that already existed.
+
+The output is an atom:AtomPort carrying midi:MidiEvent, which is LV2's own
+spelling. It has no buffer and no control slot: the engine collects what every
+element emits into one bounded list per block and hands it to the host.""" ;
+    val:implementation "NoteOut" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gate" ; lv2:name "Gate" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pitch" ; lv2:name "Pitch" ;
+        lv2:default 440.0 ; lv2:minimum 8.0 ; lv2:maximum 12544.0 ;
+        lv2:portProperty lv2:logarithmic ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velocity" ; lv2:name "Velocity" ;
+        lv2:default 0.8 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "channel" ; lv2:name "Channel" ;
+        lv2:default 1.0 ; lv2:minimum 1.0 ; lv2:maximum 16.0 ;
+        lv2:portProperty lv2:integer ] ,
+      [ a lv2:OutputPort, atom:AtomPort ; atom:supports midi:MidiEvent ;
+        lv2:symbol "out" ; lv2:name "Out" ] .
+
+val:SpectralGate a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "SpectralGate" ;
+    rdfs:comment """Removes every frequency bin quieter than val:threshold, leaving
+the rest untouched. Not something a time-domain filter can do: it takes quiet
+broadband noise out from underneath a loud tone, rather than removing a band.
+
+Works on a window rather than on one sample at a time. A 1024-point Hann window
+with a quarter-window hop, analysed and resynthesised by overlap-add, which
+costs one window of latency. The engine adds that to the circuit's reported
+latency, so the host compensates for it.
+
+val:fftSize sets the window, as a power of two between 64 and 8192. A larger
+window separates frequencies more finely and costs more latency.
+
+See https://en.wikipedia.org/wiki/Short-time_Fourier_transform""" ;
+    val:implementation "SpectralGate" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "threshold" ;
+        lv2:name "Threshold" ; lv2:default -60.0 ;
+        lv2:minimum -120.0 ; lv2:maximum 0.0 ; units:unit units:db ] .
+
 val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "FreqAnalyzer" ;
     rdfs:comment "Spectrum analysis meter element. Measures low, mid, high band energies and spectral centroid." ;
@@ -888,11 +1000,20 @@ port: an envelope modulates, it does not carry audio.""" ;
 
 val:Input a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Input" ;
-    rdfs:comment "The plugin's audio input." ;
+    rdfs:comment """The plugin's audio input. Mirrors val:Output: "out" carries the
+host's channels summed to mono, and "left" and "right" carry the first two
+channels separately.
+
+Elements are mono, so a stereo circuit is two mono chains taken from "left" and
+"right" and returned to val:Output's "left" and "right". A subcircuit written
+once and instantiated per channel is the tidy way to write that; see
+examples/subcircuit.ttl.""" ;
     val:implementation "Input" ;
     val:linear true ;
     lv2:port
-      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] .
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;   lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] .
 
 val:Output a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Output" ;
@@ -1093,6 +1214,38 @@ val:file a rdf:Property ;
 Relative paths resolve against the working directory, then examples/, then the
 repository root. A path that does not resolve fails the load with an error
 rather than leaving the element silent.""" .
+
+val:sha256 a rdf:Property ;
+    rdfs:label "sha256" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The SHA-256 of the sound file val:file names, as 64 lowercase
+hexadecimal characters. Checked on the message thread when the file is read: a
+file that has been replaced or edited since the circuit was written fails the
+load with a message naming both hashes, rather than playing something the
+circuit was not written for.
+
+Optional. A circuit that declares no hash loads whatever the path resolves to,
+as before. See https://en.wikipedia.org/wiki/SHA-2 for the hash itself.""" .
+
+val:channels a rdf:Property ;
+    rdfs:label "channels" ;
+    rdfs:range xsd:integer ;
+    rdfs:comment """The channel count val:file is expected to have. Checked
+against the file on load. Optional, and independent of val:sha256: dimensions
+are worth stating even when the exact bytes are not pinned.""" .
+
+val:sampleRate a rdf:Property ;
+    rdfs:label "sampleRate" ;
+    rdfs:range xsd:double ;
+    rdfs:comment """The sample rate val:file is expected to have been recorded
+at, in Hz. Checked against the file on load, before the resampling that brings
+it to the engine's rate.""" .
+
+val:frames a rdf:Property ;
+    rdfs:label "frames" ;
+    rdfs:range xsd:integer ;
+    rdfs:comment """The length val:file is expected to have, in frames at its own
+sample rate. Checked against the file on load.""" .
 
 val:seconds a rdf:Property ;
     rdfs:label "seconds" ;

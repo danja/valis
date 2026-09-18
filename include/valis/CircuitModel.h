@@ -46,6 +46,19 @@ struct ElementInstance
     /// like. Passed to the element through DspElement::setOption.
     std::unordered_map<std::string, std::string> options;
 
+    /// When this element came out of a val:Subcircuit instance rather than
+    /// being declared by the circuit directly: the instance IRI it belongs to,
+    /// and the subcircuit class that instance is of. The Circuit view groups by
+    /// `instance` so a subcircuit can be drawn closed; nothing below the model
+    /// reads either field.
+    std::string instance;
+    std::string instanceType;
+
+    /// Which voice of a polyphonic subcircuit this element belongs to, or -1
+    /// for an element that is not in a voice pool. The engine gives each voice
+    /// its own note, so two copies of one element sound different notes.
+    int voice = -1;
+
     double valueOf(const std::string& portSymbol) const;
 };
 
@@ -72,6 +85,10 @@ struct ParamBinding
     /// Optional heading for the Controls panel. Bindings with the same section string
     /// are grouped together under that label.
     std::string section;
+
+    /// The other ports this binding drives, when it names a port of a
+    /// polyphonic subcircuit: one knob has to move every voice together.
+    std::vector<std::pair<std::string, std::string>> alsoTargets;
 };
 
 class CircuitModel
@@ -80,6 +97,10 @@ public:
     /// Reads the single val:Circuit in `store`, resolving every element against
     /// `ontology`. Returns false and fills `diagnostics` if the circuit cannot
     /// be understood at all; recoverable problems are reported by validate().
+    ///
+    /// Any val:Subcircuit instance is expanded here, so elements() and arcs()
+    /// are always flat. The compiler and the engine never learn that
+    /// subcircuits exist.
     bool build(const rdf::TurtleStore& store,
                const Ontology& ontology,
                std::vector<Diagnostic>& diagnostics);
