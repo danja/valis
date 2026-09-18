@@ -41,9 +41,9 @@ a tool first.
 | resource | contains |
 |---|---|
 | `valis://turtle` | the circuit's current Turtle source |
-| `valis://graph` | the current circuit as JSON |
+| `valis://graph` | the current circuit as JSON, including which elements a `val:Subcircuit` expanded to and which voice each belongs to |
 | `valis://diagnostics` | load state, size, latency, and any diagnostics |
-| `valis://element-types` | every declared element class with ports, ranges, and units |
+| `valis://element-types` | every declared element class with ports, ranges, units, and which ports carry events rather than signal |
 | `valis://params` | the circuit's current parameter bindings |
 
 ## Tools
@@ -58,7 +58,30 @@ a tool first.
 | `add_node` / `remove_node` | add an element, or remove it and its arcs |
 | `connect` / `disconnect` | join or separate two ports |
 | `list_params` / `get_param` / `set_param` | the bound parameter slots |
-| `get_diagnostics` | whether the circuit loaded, its size, its latency |
+| `get_sample` / `set_sample` | the sound file a `val:SampleLoad` node plays |
+| `load_file` / `save_file` | read or write a Turtle file on the server machine |
+| `note_on` / `note_off` / `all_notes_off` | play the circuit, as the editor's keyboard does |
+| `read_outputs` | every control output's live value, or one node's |
+| `render` | render the circuit offline to a wav and report peak and RMS |
+| `get_diagnostics` | whether the circuit loaded, its size, latency, voices |
+
+Every tool is an adapter over the same `Op` the views use, so anything the UI
+can do is reachable here. Three of them are worth knowing about when building a
+circuit from outside:
+
+**`note_on`** is what the editor's virtual keyboard does. Without it a caller
+can build an instrument and never hear it.
+
+**`read_outputs`** returns the live value of every control output in the
+circuit. It is what the Controls view shows for `val:Oscilloscope` and
+`val:FreqAnalyzer`, so it is how a caller measures what it built rather than
+guessing.
+
+**`render`** compiles the current circuit into a fresh engine, plays an optional
+note, writes a wav file and reports the peak, the RMS and whether every sample
+was finite. The fresh engine means rendering neither hears nor disturbs what the
+plugin is playing. This is the quickest way to tell whether a circuit actually
+sounds.
 
 ## Guarantees
 

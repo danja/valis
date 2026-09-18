@@ -398,6 +398,183 @@ void testSampleOps()
     assert(ops.getSample(node).value == VALIS_EXAMPLES_DIR "/samples/bell.wav");
 }
 
+/// The editor has a Save; a caller driving Valis from outside needs one too.
+void testSaveFile()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    auto ops = host.ops();
+
+    const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-save-test.ttl";
+    const auto saved = ops.saveFile(path);
+    assert(saved.ok);
+
+    // What comes back is what went out, so a round trip through a file loses
+    // nothing: the document is the circuit.
+    assert(readFile(path.c_str()) == ops.getTurtle().value);
+
+    std::remove(path.c_str());
+
+    assert(! ops.saveFile("").ok);
+    assert(! ops.saveFile("/no/such/directory/x.ttl").ok);
+}
+
+/// The editor has a virtual keyboard. Without this a caller can build an
+/// instrument over MCP and never hear it.
+void testPlayingNotes()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+
+    assert(! ops.noteOn(-1, 1.0).ok);
+    assert(! ops.noteOn(128, 1.0).ok);
+    assert(! ops.noteOff(200).ok);
+
+    const std::vector<float> silence(256, 0.0f);
+    std::vector<float> block(256, 0.0f);
+
+    const auto peakOf = [](const std::vector<float>& v)
+    {
+        float peak = 0.0f;
+        for (const float s : v) peak = std::max(peak, std::abs(s));
+        return peak;
+    };
+
+    for (int i = 0; i < 8; ++i)
+        host.engine.process(silence.data(), block.data(), 256);
+    const float before = peakOf(block);
+
+    assert(ops.noteOn(60, 1.0).ok);
+    for (int i = 0; i < 40; ++i)
+        host.engine.process(silence.data(), block.data(), 256);
+    const float during = peakOf(block);
+
+    assert(ops.allNotesOff().ok);
+    for (int i = 0; i < 200; ++i)
+        host.engine.process(silence.data(), block.data(), 256);
+    const float after = peakOf(block);
+
+    assert(during > before * 4.0f);
+    assert(during > 0.01f);
+    assert(after < during * 0.5f);
+}
+
+/// The Controls view shows an Oscilloscope's peak and RMS live. A caller needs
+/// the same numbers to tell whether what it built is doing anything.
+void testReadOutputs()
+{
+    Host host(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit ; val:element :osc , :scope , :out ; val:arc :a1 , :a2 .
+:osc a val:Oscillator ; val:frequency 440.0 .
+:scope a val:Oscilloscope .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                val:to   [ val:node :scope ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :scope ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)");
+    assert(host.loaded);
+    auto ops = host.ops();
+
+    const std::vector<float> silence(512, 0.0f);
+    std::vector<float> block(512, 0.0f);
+    for (int i = 0; i < 20; ++i)
+        host.engine.process(silence.data(), block.data(), 512);
+
+    const auto all = ops.readOutputs();
+    assert(all.ok);
+
+    // The scope reports; the oscillator has no control output, so it is absent
+    // rather than listed with nothing in it.
+    assert(all.value.find("urn:valis:t#scope") != std::string::npos);
+    assert(all.value.find("\"peak\"") != std::string::npos);
+    assert(all.value.find("\"rms\"") != std::string::npos);
+    assert(all.value.find("urn:valis:t#osc") == std::string::npos);
+
+    const auto one = ops.readOutputs("urn:valis:t#scope");
+    assert(one.ok);
+    assert(one.value.find("urn:valis:t#scope") != std::string::npos);
+
+    assert(! ops.readOutputs("urn:valis:t#nosuch").ok);
+}
+
+/// Rendering is how a caller checks that what it built actually sounds. It uses
+/// a fresh engine, so it must not disturb what the host is playing.
+void testRender()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+
+    const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-render-test.wav";
+
+    const auto result = ops.render(path, 0.5, 48000.0, 60, 1.0);
+    assert(result.ok);
+    assert(result.value.find("\"finite\":true") != std::string::npos);
+
+    // A note was played, so something came out.
+    const auto peakAt = result.value.find("\"peak\":");
+    assert(peakAt != std::string::npos);
+    assert(std::stod(result.value.substr(peakAt + 7)) > 0.01);
+
+    std::FILE* written = std::fopen(path.c_str(), "rb");
+    assert(written != nullptr);
+    std::fseek(written, 0, SEEK_END);
+    assert(std::ftell(written) > 1000);
+    std::fclose(written);
+    std::remove(path.c_str());
+
+    assert(! ops.render("", 0.5, 48000.0, 60, 1.0).ok);
+}
+
+/// A polyphonic circuit tells a caller what it is: which elements the model
+/// generated, and how many voices there are.
+void testGraphReportsSubcircuitExpansion()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/polysynth.ttl"));
+    assert(host.loaded);
+    auto ops = host.ops();
+
+    const auto graph = ops.getGraph();
+    assert(graph.ok);
+
+    // An expanded element names the instance it came out of and its voice, so a
+    // caller can tell a generated element from a written one.
+    assert(graph.value.find("\"instance\":\"urn:valis:polysynth#poly\"") != std::string::npos);
+    assert(graph.value.find("\"voice\":7") != std::string::npos);
+
+    const auto diagnostics = ops.getDiagnostics();
+    assert(diagnostics.ok);
+    assert(diagnostics.value.find("\"voices\":8") != std::string::npos);
+    assert(diagnostics.value.find("\"sampleRate\":") != std::string::npos);
+}
+
+/// An event port is not something a caller can connect a signal to, so the
+/// type listing has to say which ports those are.
+void testElementTypesReportEventPorts()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    auto ops = host.ops();
+
+    const auto types = ops.listElementTypes();
+    const auto noteOut = std::find_if(types.begin(), types.end(),
+                                      [](const ElementTypeInfo& t)
+                                      { return t.implementation == "NoteOut"; });
+    assert(noteOut != types.end());
+
+    const auto out = std::find_if(noteOut->ports.begin(), noteOut->ports.end(),
+                                  [](const PortInfo& p) { return p.symbol == "out"; });
+    assert(out != noteOut->ports.end());
+    assert(out->event);
+    assert(! out->input);
+
+    // And an ordinary control port is not marked as one.
+    const auto gate = std::find_if(noteOut->ports.begin(), noteOut->ports.end(),
+                                   [](const PortInfo& p) { return p.symbol == "gate"; });
+    assert(gate != noteOut->ports.end());
+    assert(! gate->event);
+}
+
 int main()
 {
     testTurtleRoundTrip();
@@ -411,6 +588,13 @@ int main()
     testDiagnostics();
     testEditsSurviveAReparse();
     test909BassdrumProducesOutput();
+
+    testSaveFile();
+    testPlayingNotes();
+    testReadOutputs();
+    testRender();
+    testGraphReportsSubcircuitExpansion();
+    testElementTypesReportEventPorts();
 
     std::puts("OpDispatcherTest PASSED");
     return 0;

@@ -542,6 +542,165 @@ private:
     int noteIndex = -1;
 };
 
+/// Bowed string: a cello, a viol, anything played with rosined hair.
+///
+/// Two travelling waves on a string, with the bow between them. What makes it a
+/// bowed string rather than a plucked one is the friction at the bow: the hair
+/// grips the string and drags it, the string breaks free and snaps back, and
+/// the hair grips it again. That stick and slip cycle is what sustains the note,
+/// and it is the whole of the nonlinearity here.
+///
+/// See Smith, "Physical Audio Signal Processing"
+/// (https://ccrma.stanford.edu/~jos/pasp/Bowed_Strings.html) for the waveguide
+/// arrangement, and Friedlander and McIntyre for the friction curve the bow
+/// table approximates.
+///
+/// The body is not modelled here. A string on its own is very quiet and very
+/// thin, which is what a bridge and a body are for: feed this into a
+/// val:ModalBank to get an instrument. examples/cello.ttl does that.
+class Bow final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate  = rate;
+        freqIdx     = controlIndex(type, "frequency");
+        pressureIdx = controlIndex(type, "pressure");
+        velocityIdx = controlIndex(type, "velocity");
+        positionIdx = controlIndex(type, "position");
+        dampingIdx  = controlIndex(type, "damping");
+
+        // Long enough for the lowest note either segment can be asked for.
+        const auto capacity = static_cast<std::size_t>(rate / 20.0) + 4;
+        toBridge.prepare(capacity);
+        toNut.prepare(capacity);
+        reset();
+    }
+
+    void reset() override
+    {
+        toBridge.clear();
+        toNut.clear();
+        loss.clear();
+        blocker.clear();
+        bowing = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float frequency = std::clamp(controlAt(args, freqIdx, 220.0f), 20.0f,
+                                           static_cast<float>(sampleRate * 0.25));
+        const float pressure = std::clamp(controlAt(args, pressureIdx, 0.5f), 0.0f, 1.0f);
+        const float speed    = std::clamp(controlAt(args, velocityIdx, 0.4f), 0.0f, 1.0f);
+        const float position = std::clamp(controlAt(args, positionIdx, 0.13f), 0.02f, 0.5f);
+        const float damping  = std::clamp(controlAt(args, dampingIdx, 0.3f), 0.0f, 1.0f);
+
+        loss.setPole(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f));
+
+        // The wave passes each segment once per period, so the two of them come
+        // to one period between them. The loss filter's own delay is known in
+        // closed form and comes out exactly, which is what keeps the instrument
+        // in tune as it is damped; what is left over is calibrated against
+        // measurement, as the flute and the clarinet are.
+        // See tests/dsp/CelloTest.cpp.
+        const float omega    = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
+        const float residual = std::exp2((kResidualSlope * frequency + kResidualOffset) / 1200.0f);
+        const float total    = static_cast<float>(sampleRate) / frequency * residual
+                             - loss.phaseDelay(omega) - kLoopLatency;
+
+        const float bridgeLength = std::max(1.0f, total * position);
+        const float nutLength    = std::max(1.0f, total - bridgeLength);
+        toBridge.setDelay(bridgeLength);
+        toNut.setDelay(nutLength);
+
+        // More force widens the band of relative velocity over which the hair
+        // holds the string, so a hard bow sticks longer and sounds broader; a
+        // light one slips early and sounds thin and glassy.
+        const float slope = kSlopeLight - kSlopeRange * pressure;
+
+        // The gate is the player's arm. Bowing is eased in rather than switched
+        // on, because an instantaneous bow is a click and not an attack.
+        const float target = args.gate ? speed * kBowSpeed : 0.0f;
+        const float ease   = static_cast<float>(1.0 - std::exp(-1.0 / (kBowEaseMs * 0.001 * sampleRate)));
+
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            bowing += ease * (target - bowing);
+
+            const float atBridge = toBridge.last();
+            const float atNut    = toNut.last();
+
+            // Both ends invert. The bridge is where the string gives its energy
+            // to the body, so that is the lossy end; the nut is nearly rigid.
+            const float fromBridge = -kBridgeGain * loss.process(atBridge);
+            const float fromNut    = -kNutGain * atNut;
+
+            // The bow sees how fast the string is moving under it.
+            const float relative = bowing - (fromBridge + fromNut);
+            const float force    = relative * bowTable(relative, slope);
+
+            toBridge.tick(fromNut + force);
+            toNut.tick(fromBridge + force);
+
+            // What the bridge passes on. The DC blocker keeps the friction from
+            // walking the string off to one side.
+            out[i] = blocker.process(atBridge);
+        }
+    }
+
+private:
+    /// How much of the string the hair is holding, as a function of how fast the
+    /// string is moving relative to it. One at rest, falling away steeply once
+    /// the string breaks free. The exponent is what makes the break sudden,
+    /// which is what makes the tone sing rather than hiss.
+    static float bowTable(float relative, float slope) noexcept
+    {
+        const float x = std::abs(relative * slope) + 0.75f;
+        const float squared = x * x;
+        return std::min(1.0f / (squared * squared), 1.0f);
+    }
+
+    /// Damping moves the pole, which darkens the tone as a heavier string or a
+    /// duller room would.
+    static constexpr float kPoleBase  = 0.05f;
+    static constexpr float kPoleRange = 0.55f;
+
+    /// Bow force, mapped to the friction curve's slope. A light bow slips early.
+    static constexpr float kSlopeLight = 5.0f;
+    static constexpr float kSlopeRange = 4.0f;
+
+    /// What the two ends give back. The bridge loses to the body, the nut
+    /// hardly loses at all.
+    static constexpr float kBridgeGain = 0.95f;
+    static constexpr float kNutGain    = 0.99f;
+
+    /// Bow speed at the top of the control, and how quickly the arm gets there.
+    static constexpr float kBowSpeed  = 0.35f;
+    static constexpr float kBowEaseMs = 12.0f;
+
+    /// One sample of the loop is the arithmetic between the two delay lines.
+    static constexpr float kLoopLatency = 1.0f;
+
+    /// What is left of the tuning after the loss filter's delay is taken out,
+    /// measured across the playing range and fitted as cents per hertz.
+    /// tests/dsp/CelloTest.cpp checks it at eight pitches.
+    static constexpr float kResidualSlope  = 0.0f;
+    static constexpr float kResidualOffset = 0.0f;
+
+    waveguide::Delay toBridge, toNut;
+    waveguide::Loss loss;
+    waveguide::DcBlocker blocker;
+
+    double sampleRate = 48000.0;
+    float  bowing     = 0.0f;
+    int freqIdx = -1, pressureIdx = -1, velocityIdx = -1, positionIdx = -1, dampingIdx = -1;
+};
+
 /// The plugin's audio input. The engine fills its output buffer before the
 /// graph runs, so this element only has to leave it alone.
 class Input final : public DspElement
@@ -712,6 +871,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
     registry.add("NoteGate",     &make<elements::NoteGate>);
+    registry.add("Bow",           &make<elements::Bow>);
     registry.add("Reed",         &make<elements::Reed>);
     registry.add("Flute",        &make<elements::Flute>);
     registry.add("Input",        &make<elements::Input>);

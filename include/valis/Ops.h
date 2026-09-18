@@ -46,6 +46,12 @@ struct PortInfo
 {
     std::string symbol, name, unit;
     bool input = true, control = false;
+
+    /// An atom:AtomPort carrying events rather than a signal. It has no buffer
+    /// and no range, so a caller reading this list has to know not to treat it
+    /// as one it can connect a signal to.
+    bool event = false;
+
     double defaultValue = 0.0, minimum = 0.0, maximum = 1.0;
 };
 
@@ -122,6 +128,30 @@ public:
     std::vector<ParamInfo> listParams() const;
     OpResult getParam(int slot) const;
     OpResult setParam(int slot, double value);
+
+    // -- playing -----------------------------------------------------------
+    /// What the editor's virtual keyboard does. A caller driving Valis from
+    /// outside needs this to hear what it has built.
+    OpResult noteOn(int noteNumber, double velocity);
+    OpResult noteOff(int noteNumber);
+    OpResult allNotesOff();
+
+    // -- measuring ---------------------------------------------------------
+    /// Every control output the circuit currently carries, or just one node's.
+    /// This is what the Controls view shows live for val:Oscilloscope and
+    /// val:FreqAnalyzer, and it is how a caller measures what it built.
+    OpResult readOutputs(const std::string& nodeId = {}) const;
+
+    /// Renders the circuit offline into a wav file and reports what came out.
+    /// A fresh engine, so it neither touches nor is touched by whatever the
+    /// plugin is playing. `note` below zero renders without a note event.
+    OpResult render(const std::string& path, double seconds, double sampleRate,
+                    int note, double velocity) const;
+
+    // -- files -------------------------------------------------------------
+    /// Writes the current Turtle to a path. The editor's Save, for a caller
+    /// that has none.
+    OpResult saveFile(const std::string& path) const;
 
     // -- diagnostics -------------------------------------------------------
     OpResult getDiagnostics() const;

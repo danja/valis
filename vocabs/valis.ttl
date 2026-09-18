@@ -275,6 +275,51 @@ host MIDI gate.""" ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
         rdfs:comment "Override: -1 = use host MIDI velocity (default), 0-1 = explicit per-note velocity." ] .
 
+val:Bow a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Bow" ;
+    rdfs:comment """Bowed string: a cello, a viol, anything played with rosined
+hair. Two travelling waves on a string with the bow between them.
+
+What makes it a bowed string rather than a plucked one is the friction at the
+bow. The hair grips the string and drags it, the string breaks free and snaps
+back, and the hair grips it again. That stick and slip cycle is what sustains
+the note and is the whole of the nonlinearity.
+
+val:pressure is bow force: a light bow slips early and sounds thin and glassy, a
+heavy one sticks longer and sounds broad. val:position is where the bow sits
+along the string, as a fraction of its length from the bridge; it decides which
+harmonics are weak, so it is the main timbral control. Nearer the bridge is
+brighter and harder to start.
+
+The body is not modelled here. A string on its own is quiet and thin, which is
+what a bridge and a body are for: feed this into a val:ModalBank to get an
+instrument. See examples/cello.ttl.
+
+https://ccrma.stanford.edu/~jos/pasp/Bowed_Strings.html""" ;
+    val:implementation "Bow" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 220.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 4000.0 ;
+        lv2:portProperty lv2:logarithmic ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pressure" ;
+        lv2:name "Pressure" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Bow force. Light slips early and sounds glassy; heavy sticks and sounds broad." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velocity" ;
+        lv2:name "Velocity" ; lv2:default 0.4 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Bow speed. Sets how loud and how bright the note is." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "position" ;
+        lv2:name "Position" ; lv2:default 0.13 ;
+        lv2:minimum 0.02 ; lv2:maximum 0.5 ;
+        rdfs:comment "Where the bow sits, as a fraction of the string from the bridge. Nearer the bridge is brighter." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
+        lv2:name "Damping" ; lv2:default 0.3 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:Reed a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Reed" ;
     rdfs:comment """Single-reed waveguide clarinet. A cylindrical bore, stopped

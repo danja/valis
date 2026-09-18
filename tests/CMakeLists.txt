@@ -15,6 +15,7 @@ set(VALIS_TESTS
   dsp/SpectralTest.cpp
   dsp/FluteTest.cpp
   dsp/ClarinetTest.cpp
+  dsp/CelloTest.cpp
   engine/ValisEngineTest.cpp
   ops/OpDispatcherTest.cpp
   console/ConsoleTest.cpp)

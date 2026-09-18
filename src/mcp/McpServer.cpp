@@ -315,6 +315,24 @@ const ToolSpec kTools[] = {
 
     {"load_file", "Load a Turtle circuit from a file path on the server machine.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"absolute path to a .ttl file"}},"required":["path"]})"},
+
+    {"save_file", "Write the current circuit to a Turtle file. What the editor's Save does.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"absolute, or relative to the working directory"}},"required":["path"]})"},
+
+    {"note_on", "Play a note, as the editor's virtual keyboard does. The circuit keeps playing until note_off.",
+     R"({"type":"object","properties":{"note":{"type":"integer","description":"MIDI note number, 0-127"},"velocity":{"type":"number","description":"0-1, default 1"}},"required":["note"]})"},
+
+    {"note_off", "Release a note previously played with note_on.",
+     R"({"type":"object","properties":{"note":{"type":"integer","description":"MIDI note number, 0-127"}},"required":["note"]})"},
+
+    {"all_notes_off", "Release every held note.",
+     R"({"type":"object","properties":{}})"},
+
+    {"read_outputs", "The live value of every control output in the circuit, or of one node's. This is what the Controls view shows for val:Oscilloscope and val:FreqAnalyzer, and it is how you measure what a circuit is doing.",
+     R"({"type":"object","properties":{"node":{"type":"string","description":"optional; omit for every node that has control outputs"}}})"},
+
+    {"render", "Render the current circuit offline to a wav file and report its peak and RMS. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 60, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"}},"required":["path"]})"},
 };
 
 }  // namespace
@@ -397,6 +415,39 @@ juce::var McpServer::callTool(const juce::String& name, const juce::var& argumen
 
         if (name == "set_sample")
             return resultOf(ops.setSample(string("node"), string("path")));
+
+        if (name == "save_file")
+            return resultOf(ops.saveFile(string("path")));
+
+        if (name == "note_on")
+        {
+            const double velocity = arguments.hasProperty("velocity")
+                                  ? static_cast<double>(arguments["velocity"]) : 1.0;
+            return resultOf(ops.noteOn(static_cast<int>(arguments["note"]), velocity));
+        }
+
+        if (name == "note_off")
+            return resultOf(ops.noteOff(static_cast<int>(arguments["note"])));
+
+        if (name == "all_notes_off")
+            return resultOf(ops.allNotesOff());
+
+        if (name == "read_outputs")
+            return resultOf(ops.readOutputs(string("node")));
+
+        if (name == "render")
+        {
+            const double seconds = arguments.hasProperty("seconds")
+                                 ? static_cast<double>(arguments["seconds"]) : 2.0;
+            const double rate = arguments.hasProperty("sample_rate")
+                              ? static_cast<double>(arguments["sample_rate"]) : 48000.0;
+            const int note = arguments.hasProperty("note")
+                           ? static_cast<int>(arguments["note"]) : -1;
+            const double velocity = arguments.hasProperty("velocity")
+                                  ? static_cast<double>(arguments["velocity"]) : 1.0;
+
+            return resultOf(ops.render(string("path"), seconds, rate, note, velocity));
+        }
 
         if (name == "load_file")
         {
