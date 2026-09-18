@@ -56,6 +56,77 @@ void testParseChatReply()
     assert(! parseChatReply("not json at all", reply, error));
 }
 
+/// Anthropic's request differs from everyone else's in three ways, and all
+/// three are required: the system prompt is a field rather than a turn,
+/// max_tokens has no default, and there is only one message.
+void testBuildAnthropicRequest()
+{
+    const auto json = buildChatRequest("claude-opus-5", "be brief", "make a bass",
+                                       ChatProtocol::anthropicMessages);
+    const auto parsed = juce::JSON::parse(juce::String(json));
+    assert(parsed.isObject());
+    assert(parsed["model"].toString() == "claude-opus-5");
+    assert(parsed["system"].toString() == "be brief");
+    assert(static_cast<int>(parsed["max_tokens"]) > 0);
+
+    const auto messages = parsed["messages"];
+    assert(messages.isArray() && messages.size() == 1);
+    assert(messages[0]["role"].toString() == "user");
+    assert(messages[0]["content"].toString() == "make a bass");
+
+    // The OpenAI shape is unchanged by any of that.
+    const auto other = juce::JSON::parse(juce::String(
+        buildChatRequest("gpt-5", "be brief", "make a bass")));
+    assert(other["system"].isVoid());
+    assert(other["messages"].size() == 2);
+}
+
+/// Anthropic returns a list of content blocks rather than one string. Only the
+/// text ones are the answer, and taking just the first would read as empty when
+/// a reply opens with any other kind of block.
+void testParseAnthropicReply()
+{
+    std::string reply, error;
+
+    assert(parseChatReply(
+        R"({"content":[{"type":"text","text":"Here:\n```turtle\n:a a val:Gain .\n```"}],)"
+        R"("usage":{"input_tokens":12,"output_tokens":3}})",
+        reply, error, ChatProtocol::anthropicMessages));
+    assert(contains(reply, "```turtle"));
+
+    // A thinking block before the text must not swallow the answer.
+    reply.clear();
+    assert(parseChatReply(
+        R"({"content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"one"},)"
+        R"({"type":"text","text":" two"}]})",
+        reply, error, ChatProtocol::anthropicMessages));
+    assert(reply == "one two");
+
+    // Anthropic's error payload is the shape the OpenAI branch already reads.
+    assert(! parseChatReply(R"({"type":"error","error":{"type":"authentication_error",)"
+                            R"("message":"invalid x-api-key"}})",
+                            reply, error, ChatProtocol::anthropicMessages));
+    assert(contains(error, "invalid x-api-key"));
+
+    assert(! parseChatReply(R"({"content":[]})", reply, error,
+                            ChatProtocol::anthropicMessages));
+    assert(! parseChatReply(R"({"content":[{"type":"thinking","thinking":"x"}]})", reply, error,
+                            ChatProtocol::anthropicMessages));
+}
+
+/// The protocol comes from the endpoint, so an unlisted URL still works.
+void testProtocolFollowsTheEndpoint()
+{
+    assert(protocolFor("https://api.anthropic.com/v1/messages")
+           == ChatProtocol::anthropicMessages);
+    assert(protocolFor("https://api.openai.com/v1/chat/completions")
+           == ChatProtocol::openAiChat);
+    assert(protocolFor("https://api.groq.com/openai/v1/chat/completions")
+           == ChatProtocol::openAiChat);
+    assert(protocolFor("http://192.168.0.9:8080/v1/chat/completions")
+           == ChatProtocol::openAiChat);
+}
+
 void testFormatHttpError()
 {
     // OpenAI shape inside a 429 with no "token" wording: treated as a
@@ -188,6 +259,9 @@ int main()
 {
     testBuildChatRequest();
     testParseChatReply();
+    testBuildAnthropicRequest();
+    testParseAnthropicReply();
+    testProtocolFollowsTheEndpoint();
     testFormatHttpError();
     testParsePromptTokens();
     testChatWithStubTransport();

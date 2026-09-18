@@ -16,6 +16,18 @@ RateLimitHeaderNames openAiStyleHeaders()
             "x-ratelimit-remaining-requests", "x-ratelimit-reset-requests"};
 }
 
+/// Anthropic sends its remaining counts under its own prefix, and a reset time
+/// as an RFC 3339 instant rather than a duration.
+RateLimitHeaderNames anthropicHeaders()
+{
+    return {"anthropic-ratelimit-input-tokens-limit",
+            "anthropic-ratelimit-input-tokens-remaining",
+            "anthropic-ratelimit-input-tokens-reset",
+            "anthropic-ratelimit-requests-limit",
+            "anthropic-ratelimit-requests-remaining",
+            "anthropic-ratelimit-requests-reset"};
+}
+
 /// Mistral states the window in the header name and sends no reset at all, so
 /// its remaining count has to be held more conservatively than Groq's despite
 /// being far larger.
@@ -46,6 +58,21 @@ const std::vector<AiProvider>& aiProviders()
          "console.mistral.ai",
          "MISTRAL_API_KEY",
          mistralHeaders()},
+        {"Claude",
+         "https://api.anthropic.com/v1/messages",
+         "claude-opus-5",
+         true,
+         "console.anthropic.com/settings/keys",
+         "ANTHROPIC_API_KEY",
+         anthropicHeaders(),
+         ChatProtocol::anthropicMessages},
+        {"OpenAI",
+         "https://api.openai.com/v1/chat/completions",
+         "gpt-5",
+         true,
+         "platform.openai.com/api-keys",
+         "OPENAI_API_KEY",
+         openAiStyleHeaders()},
         {"Groq",
          "https://api.groq.com/openai/v1/chat/completions",
          "openai/gpt-oss-20b",

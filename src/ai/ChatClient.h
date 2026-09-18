@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "valis/AiProviders.h"
 #include "valis/RateLimits.h"
 
 #include <functional>
@@ -49,20 +50,34 @@ using HttpPost = std::function<bool(const std::string& url,
                                     HttpResponse& responseOut,
                                     std::string& errorOut)>;
 
-/// Builds the {"model":..,"messages":[system,user]} request document.
+/// The protocol an endpoint speaks, from the provider table. An endpoint the
+/// table does not list gets the OpenAI shape, which nearly everything copies.
+ChatProtocol protocolFor(const std::string& endpoint);
+
+/// Builds the request document for the protocol the endpoint speaks.
+///
+/// OpenAI's shape carries the system prompt as the first message; Anthropic's
+/// carries it as a top-level field and requires max_tokens, which has no
+/// default there.
 std::string buildChatRequest(const std::string& model,
                              const std::string& systemPrompt,
-                             const std::string& userPrompt);
+                             const std::string& userPrompt,
+                             ChatProtocol protocol = ChatProtocol::openAiChat);
 
-/// Reads choices[0].message.content out of a chat-completions reply, or an
-/// API-level {"error":...} payload. Returns true with `replyOut` set on
-/// success.
+/// Reads the reply text out of whichever shape came back, or an API-level
+/// error payload. Returns true with `replyOut` set on success.
+///
+/// OpenAI puts one string at choices[0].message.content. Anthropic returns an
+/// array of content blocks, of which the text ones are joined: a reply that
+/// began with a thinking block would otherwise read as empty.
 bool parseChatReply(const std::string& responseJson,
                     std::string& replyOut,
-                    std::string& errorOut);
+                    std::string& errorOut,
+                    ChatProtocol protocol = ChatProtocol::openAiChat);
 
-/// `usage.prompt_tokens` from a reply, or -1 when it is absent. The local
-/// token estimate corrects itself against this.
+/// The prompt tokens a reply reports, or -1 when it is absent. The local token
+/// estimate corrects itself against this. OpenAI calls it usage.prompt_tokens
+/// and Anthropic usage.input_tokens; both are read.
 long long parsePromptTokens(const std::string& responseJson);
 
 /// Turns a non-2xx HTTP status plus the response body into an actionable

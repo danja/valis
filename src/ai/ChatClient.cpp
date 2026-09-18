@@ -11,24 +11,55 @@
 namespace valis {
 namespace ai {
 
+namespace {
+
+/// Anthropic has no default for max_tokens, so a request without one is
+/// rejected. A circuit is long and the reply is a whole document, so this is
+/// generous rather than tight; it is a ceiling, not a target.
+constexpr int kAnthropicMaxTokens = 16000;
+
+}  // namespace
+
+ChatProtocol protocolFor(const std::string& endpoint)
+{
+    // Derived from the endpoint rather than passed down every call, so a custom
+    // URL nobody has listed still gets the shape almost everything speaks.
+    const auto* provider = findAiProvider(endpoint);
+    return provider != nullptr ? provider->protocol : ChatProtocol::openAiChat;
+}
+
 std::string buildChatRequest(const std::string& model,
                              const std::string& systemPrompt,
-                             const std::string& userPrompt)
+                             const std::string& userPrompt,
+                             ChatProtocol protocol)
 {
-    auto* system = new juce::DynamicObject();
-    system->setProperty("role", "system");
-    system->setProperty("content", juce::String(systemPrompt));
-
     auto* user = new juce::DynamicObject();
     user->setProperty("role", "user");
     user->setProperty("content", juce::String(userPrompt));
 
-    juce::Array<juce::var> messages;
-    messages.add(juce::var(system));
-    messages.add(juce::var(user));
-
     auto* request = new juce::DynamicObject();
     request->setProperty("model", juce::String(model));
+
+    juce::Array<juce::var> messages;
+
+    if (protocol == ChatProtocol::anthropicMessages)
+    {
+        // The system prompt is a field of the request, not a turn in the
+        // conversation, and max_tokens is required.
+        request->setProperty("max_tokens", kAnthropicMaxTokens);
+        request->setProperty("system", juce::String(systemPrompt));
+        messages.add(juce::var(user));
+    }
+    else
+    {
+        auto* system = new juce::DynamicObject();
+        system->setProperty("role", "system");
+        system->setProperty("content", juce::String(systemPrompt));
+
+        messages.add(juce::var(system));
+        messages.add(juce::var(user));
+    }
+
     request->setProperty("messages", messages);
 
     return juce::JSON::toString(juce::var(request), false).toStdString();
@@ -36,7 +67,8 @@ std::string buildChatRequest(const std::string& model,
 
 bool parseChatReply(const std::string& responseJson,
                     std::string& replyOut,
-                    std::string& errorOut)
+                    std::string& errorOut,
+                    ChatProtocol protocol)
 {
     const auto parsed = juce::JSON::parse(juce::String(responseJson));
     if (! parsed.isObject())
@@ -60,6 +92,33 @@ bool parseChatReply(const std::string& responseJson,
     {
         errorOut = "the API refused the request: " + message.toString().toStdString();
         return false;
+    }
+
+    if (protocol == ChatProtocol::anthropicMessages)
+    {
+        const auto blocks = parsed["content"];
+        if (! blocks.isArray())
+        {
+            errorOut = "the API reply held no content";
+            return false;
+        }
+
+        // The reply is a list of blocks, and only the text ones are the answer.
+        // Joining rather than taking the first means a reply that opens with a
+        // thinking block still reads as what the model said.
+        juce::String text;
+        for (const auto& block : *blocks.getArray())
+            if (block["type"].toString() == "text")
+                text += block["text"].toString();
+
+        if (text.isEmpty())
+        {
+            errorOut = "the API reply held no text";
+            return false;
+        }
+
+        replyOut = text.toStdString();
+        return true;
     }
 
     const auto choices = parsed["choices"];
@@ -88,7 +147,10 @@ long long parsePromptTokens(const std::string& responseJson)
     const auto usage = parsed["usage"];
     if (! usage.isObject())
         return -1;
-    const auto tokens = usage["prompt_tokens"];
+    // OpenAI's name first, then Anthropic's for the same thing.
+    auto tokens = usage["prompt_tokens"];
+    if (tokens.isVoid())
+        tokens = usage["input_tokens"];
     if (! tokens.isInt() && ! tokens.isInt64() && ! tokens.isDouble())
         return -1;
     const auto value = static_cast<long long>(static_cast<juce::int64>(tokens));
@@ -210,8 +272,20 @@ bool curlPost(const std::string& url,
     args.add("Content-Type: application/json");
     if (! apiKey.empty())
     {
-        args.add("-H");
-        args.add("Authorization: Bearer " + juce::String(apiKey));
+        if (protocolFor(url) == ChatProtocol::anthropicMessages)
+        {
+            // Anthropic takes the key in its own header and requires the API
+            // version to be named on every request.
+            args.add("-H");
+            args.add("x-api-key: " + juce::String(apiKey));
+            args.add("-H");
+            args.add("anthropic-version: 2023-06-01");
+        }
+        else
+        {
+            args.add("-H");
+            args.add("Authorization: Bearer " + juce::String(apiKey));
+        }
     }
     args.add("--data-binary");
     args.add("@" + bodyFile.getFile().getFullPathName());
@@ -297,9 +371,11 @@ ChatResult chat(const std::string& endpoint,
         return result;
     }
 
+    const auto protocol = protocolFor(endpoint);
+
     HttpResponse response;
     std::string transportError;
-    if (! transport(endpoint, buildChatRequest(model, systemPrompt, userPrompt),
+    if (! transport(endpoint, buildChatRequest(model, systemPrompt, userPrompt, protocol),
                     apiKey, response, transportError))
     {
         result.error = transportError.empty() ? "the request failed" : transportError;
@@ -328,7 +404,7 @@ ChatResult chat(const std::string& endpoint,
 
     result.promptTokens = parsePromptTokens(response.body);
 
-    if (! parseChatReply(response.body, result.reply, result.error))
+    if (! parseChatReply(response.body, result.reply, result.error, protocol))
     {
         // A 2xx carrying an API-level error payload: the request reached the
         // model and came back wrong, which no other provider would fix.

@@ -34,10 +34,20 @@ export the key; see below). Providers with a free tier and no card are
 `Groq` (fast, model `openai/gpt-oss-20b`), `Gemini` (model
 `gemini-3.5-flash`), and `OpenRouter` (model `openrouter/free`, which
 auto-picks a free model, 50 requests a day). `Ollama (local)` needs no key
-at all: install ollama and run `ollama pull llama3.1`. `Set AI Model...` and
-`Set AI Endpoint...` still point the tab at anything OpenAI-compatible,
-including a local server. A key that is not stored is looked up in the
-provider's own environment variable (`MISTRAL_API_KEY`, `GROQ_API_KEY`,
+at all: install ollama and run `ollama pull llama3.1`. `Claude` (model `claude-opus-5`) and `OpenAI` (model `gpt-5`) are
+also offered and are paid rather than free.
+
+`Set AI Model...` and `Set AI Endpoint...` still point the tab at anything
+OpenAI-compatible, including a local server. Claude is the one provider that
+does not speak that shape: it takes the system prompt as a request field rather
+than as a turn, needs `max_tokens` on every request, sends its key in
+`x-api-key`, and replies with a list of content blocks. The client reads the
+endpoint to decide which of the two shapes to speak, so an endpoint it does not
+recognise gets the OpenAI one.
+
+A key that is not stored is looked up in the
+provider's own environment variable (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`MISTRAL_API_KEY`, `GROQ_API_KEY`,
 `GEMINI_API_KEY`, `OPENROUTER_API_KEY`), then in `VALIS_MISTRAL_API_KEY`,
 which earlier versions used for one shared key. Settings persist between
 sessions on the local machine and are never saved into a DAW project, so the

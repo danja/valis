@@ -1,8 +1,8 @@
 ## Misc
 
-* support Claude and OpenAI API endpoints
+* review pre-existing examples to see if they can be improved with the new features - subcircuits etc
 * create emulations of all the instruments used by New Order to make "Blue Monday"
-* create docs/examples.md - describe the existing instruments and the new ones below there
+* create docs/examples.md - describe the existing instruments and the new ones below there (and clear the text below)
 
 ## New instruments
 

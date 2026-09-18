@@ -134,6 +134,14 @@ bool parseDurationSeconds(const std::string& text, double& secondsOut)
     if (value.empty())
         return false;
 
+    // Anthropic sends its reset field as an RFC 3339 instant rather than a
+    // duration, and read a piece at a time "2026-09-18t12:34:56z" comes out as a
+    // plausible number of seconds. No duration carries a colon or a minus, and
+    // every timestamp carries both, so that is enough to tell them apart
+    // without giving up the tolerance for trailing junk below.
+    if (value.find(':') != std::string::npos || value.find('-') != std::string::npos)
+        return false;
+
     double total = 0.0;
     bool any = false;
     std::size_t i = 0;
@@ -149,7 +157,13 @@ bool parseDurationSeconds(const std::string& text, double& secondsOut)
         char* end = nullptr;
         const double number = std::strtod(start, &end);
         if (end == start)
-            return any;  // trailing junk after a good prefix is ignored
+        {
+            // Trailing junk after a good prefix is ignored, but what was read
+            // still has to reach the caller.
+            if (any)
+                secondsOut = total;
+            return any;
+        }
         i += static_cast<std::size_t>(end - start);
 
         // The unit follows the number. "ms" must be tested before "m", or

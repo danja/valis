@@ -92,6 +92,19 @@ void testParseDuration()
     assert(parseDurationSeconds("1h2m3s", seconds) && near(seconds, 3723.0));
     assert(! parseDurationSeconds("", seconds));
     assert(! parseDurationSeconds("soon", seconds));
+
+    // Anthropic sends its reset field as an RFC 3339 instant rather than a
+    // duration. Read a piece at a time this used to report success while
+    // leaving the caller's variable untouched, which is worse than failing:
+    // the caller cannot tell it was never written.
+    seconds = -99.0;
+    assert(! parseDurationSeconds("2026-09-18T12:34:56Z", seconds));
+    assert(near(seconds, -99.0));
+
+    // A duration with junk after it still delivers what was read.
+    seconds = -99.0;
+    assert(parseDurationSeconds("30s then", seconds));
+    assert(near(seconds, 30.0));
 }
 
 void testParseHeaders()

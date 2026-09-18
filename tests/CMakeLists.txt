@@ -52,7 +52,10 @@ endforeach()
 # The chat client lives in the plugin's AI layer and uses juce_core JSON and
 # ChildProcess. It makes no network calls here: the transport is stubbed.
 add_executable(ai_ChatClientTest ai/ChatClientTest.cpp
-                                 ${CMAKE_SOURCE_DIR}/src/ai/ChatClient.cpp)
+                                 ${CMAKE_SOURCE_DIR}/src/ai/ChatClient.cpp
+                                 # The client reads the provider table to learn
+                                 # which wire format an endpoint speaks.
+                                 ${CMAKE_SOURCE_DIR}/src/ai/AiProviders.cpp)
 target_link_libraries(ai_ChatClientTest PRIVATE valis_core juce::juce_core)
 target_include_directories(ai_ChatClientTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(ai_ChatClientTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)

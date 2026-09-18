@@ -21,6 +21,15 @@ namespace valis {
 namespace ai {
 
 /// One AI provider preset.
+/// The wire format an endpoint speaks. Nearly every provider copies OpenAI's
+/// chat-completions shape, which is why one client served all of them; Anthropic
+/// does not, so the two shapes are named rather than assumed.
+enum class ChatProtocol
+{
+    openAiChat,        ///< POST {model, messages:[{role,content}]} -> {choices:[{message:{content}}]}
+    anthropicMessages  ///< POST {model, max_tokens, system, messages} -> {content:[{type,text}]}
+};
+
 struct AiProvider
 {
     std::string name;       ///< shown in the Settings menu, e.g. "Groq"
@@ -34,6 +43,11 @@ struct AiProvider
     /// reports nothing, in which case a 429 or a 413 is the only signal there
     /// will ever be.
     RateLimitHeaderNames headers;
+
+    /// Which wire format to speak, and therefore how the request is built, how
+    /// the key is sent and how the reply is read. Last, so every entry that
+    /// predates it keeps its initialisers.
+    ChatProtocol protocol = ChatProtocol::openAiChat;
 };
 
 /// Every known provider, in rotation order. Mistral first: it is the default,
