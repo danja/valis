@@ -28,6 +28,7 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:chimera#> .
 
 ################################################################
@@ -121,7 +122,12 @@
 # The instrument                                               #
 ################################################################
 
-:chimera a val:Circuit ;
+:chimera a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Experimental", "Drone", "Noise" ;
+    trn:caution """Two coupled nonlinear oscillators per voice. Small changes in Ratio can drop it into a different sound entirely, which is the instrument rather than a fault.""" ;
     rdfs:label "Chimera" ;
     val:element :voices , :level , :body , :air , :ceiling , :out ;
     val:arc :v1 , :v2 , :v3 , :v4 , :v5 .

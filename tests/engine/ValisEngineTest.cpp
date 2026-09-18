@@ -729,8 +729,9 @@ void testDmxNotesSelectTheirOwnDrum()
         return std::sqrt(sum / all.size());
     };
 
-    // A kick, a snare, a closed hat and a crash are four different sounds, and
-    // each has to differ from the others by more than measurement noise.
+    // A kick, a snare, a closed hat and a crash sit on four different voice
+    // cards, and each has to differ from the others by more than measurement
+    // noise.
     const double kick  = hit(36);
     const double snare = hit(38);
     const double hat   = hit(42);

@@ -13,6 +13,7 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:subcircuit#> .
 
 ################################################################
@@ -59,7 +60,11 @@
 # The circuit                                                  #
 ################################################################
 
-:stereo a val:Circuit ;
+:stereo a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic" ;
     rdfs:label "Stereo channel pair" ;
     val:element :in , :left , :right , :mix , :out ;
     val:arc :a1 , :a2 , :a3 , :a4 , :a5 .

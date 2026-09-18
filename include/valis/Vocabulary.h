@@ -21,6 +21,13 @@ inline constexpr std::string_view XSD   = "http://www.w3.org/2001/XMLSchema#";
 inline constexpr std::string_view LV2   = "http://lv2plug.in/ns/lv2core#";
 inline constexpr std::string_view UNITS = "http://lv2plug.in/ns/extensions/units#";
 
+// The transmissions vocabulary describes what a plugin is musically: its role,
+// the signals it accepts and produces, and what it pairs with. A Valis circuit
+// is a plugin, so it describes itself in the same terms rather than in new ones.
+// Published at https://plugin-universe.com/ns
+inline constexpr std::string_view TRN  = "http://purl.org/stuff/transmissions/";
+inline constexpr std::string_view FOAF = "http://xmlns.com/foaf/0.1/";
+
 // LV2's own spelling for a port carrying timed events rather than a signal.
 // Reused rather than invented, as every other port property here is.
 inline constexpr std::string_view ATOM = "http://lv2plug.in/ns/ext/atom#";
@@ -68,6 +75,29 @@ namespace lv2 {
   inline const std::string integer_     = std::string(LV2) + "integer";
   inline const std::string toggled      = std::string(LV2) + "toggled";
   inline const std::string scalePoint   = std::string(LV2) + "scalePoint";
+}
+
+namespace trn {
+  inline const std::string PluginProfile = std::string(TRN) + "PluginProfile";
+
+  inline const std::string role     = std::string(TRN) + "role";
+  inline const std::string accepts  = std::string(TRN) + "accepts";
+  inline const std::string produces = std::string(TRN) + "produces";
+  inline const std::string genre    = std::string(TRN) + "genre";
+  inline const std::string caution  = std::string(TRN) + "caution";
+  inline const std::string vendor   = std::string(TRN) + "vendor";
+
+  inline const std::string recommendedBefore = std::string(TRN) + "recommendedBefore";
+  inline const std::string recommendedAfter  = std::string(TRN) + "recommendedAfter";
+  inline const std::string companion         = std::string(TRN) + "companion";
+
+  // The signals a role deals in, for validating what a circuit claims.
+  inline const std::string Audio = std::string(TRN) + "Audio";
+  inline const std::string Midi  = std::string(TRN) + "Midi";
+}
+
+namespace foaf {
+  inline const std::string homepage = std::string(FOAF) + "homepage";
 }
 
 namespace atom {

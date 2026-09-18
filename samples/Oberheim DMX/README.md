@@ -31,5 +31,23 @@ resembles:
 `11.wav` is the only one that correlates strongly with a named file, and even
 that is not the same recording.
 
-The named files are the kit `examples/dmx.ttl` maps to General MIDI channel 10.
-The numbered ones are there to swap in.
+## How the kit maps to the machine
+
+The DMX is eight voices, not eighteen sounds. Each voice is a plug-in card
+carrying up to three variations of one instrument, and each card has its own
+tuning trimmer and one of the machine's eight separate outputs. That is why
+`examples/dmx.ttl` puts level, pan and tune on the card rather than on the
+sound: two sounds on one card shared all three on the real machine.
+
+| Card | Sounds here |
+|---|---|
+| BASS | `Kick01`, `Kick02` |
+| SNARE | `Snare01`, `Snare02`, `Snare03` (the card's three volume levels) |
+| HIHAT | `Hat_C`, `Hat_O` |
+| TOM 1 | `TomHi`, `TomMid`, `TomLo` |
+| TOM 2 | `TimbaleHi`, `TimbaleLo` (the timbale card, one of the swaps Oberheim sold) |
+| CYMBAL | `Ride`, `Crash` |
+| PERC 1 | `Tamborine`, `Rim` |
+| PERC 2 | `Cabasa`, `Clap` |
+
+The numbered files are there to swap in.

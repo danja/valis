@@ -46,6 +46,10 @@ struct Host
     /// Stands in for the plugin's per-node sample choices.
     std::map<std::string, std::string> samples;
 
+    /// What building the circuit reported, kept so a test can check that a
+    /// recoverable problem was named rather than swallowed.
+    std::vector<Diagnostic> diagnostics;
+
     explicit Host(const std::string& source)
     {
         std::vector<std::string> errors;
@@ -54,7 +58,6 @@ struct Host
         assert(ok);
 
         engine.prepare(48000.0, 512);
-        std::vector<Diagnostic> diagnostics;
         write(source, diagnostics);
     }
 
@@ -575,6 +578,73 @@ void testElementTypesReportEventPorts()
     assert(! gate->event);
 }
 
+/// A circuit is a plugin, so it describes itself in the terms a catalogue
+/// already uses rather than in terms invented here.
+void testCircuitProfile()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/dmx.ttl"));
+    assert(host.loaded);
+    auto ops = host.ops();
+
+    const auto result = ops.getProfile();
+    assert(result.ok);
+
+    assert(result.value.find("\"declared\":true") != std::string::npos);
+    assert(result.value.find("Oberheim DMX") != std::string::npos);
+    assert(result.value.find("transmissions/DrumInstrument") != std::string::npos);
+    assert(result.value.find("transmissions/Midi") != std::string::npos);
+    assert(result.value.find("transmissions/Audio") != std::string::npos);
+    assert(result.value.find("Hip Hop") != std::string::npos);
+
+    // The caution is the author's own warning and has to survive into a listing.
+    assert(result.value.find("monophonic") != std::string::npos);
+}
+
+/// A circuit that says nothing about itself is complete and runs the same. The
+/// profile describes it for a listing; it is not part of what it does.
+void testACircuitNeedsNoProfile()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    assert(host.loaded);
+
+    const auto result = host.ops().getProfile();
+    assert(result.ok);
+    assert(result.value.find("\"declared\":false") != std::string::npos);
+    assert(result.value.find("\"role\":[]") != std::string::npos);
+
+    // And nothing was reported against it.
+    assert(host.diagnostics.empty());
+}
+
+/// Offering to be listed and leaving out what a listing cannot do without is
+/// worth saying, but it must not stop the circuit running.
+void testAnIncompleteProfileIsReportedNotFatal()
+{
+    Host host(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix trn: <http://purl.org/stuff/transmissions/> .
+@prefix :    <urn:valis:t#> .
+:c a val:Circuit , trn:PluginProfile ;
+   val:element :in , :out ; val:arc :a1 .
+:in a val:Input .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)");
+
+    assert(host.loaded);   // it still runs
+
+    const auto said = [&](std::string_view fragment)
+    {
+        return std::any_of(host.diagnostics.begin(), host.diagnostics.end(),
+                           [&](const Diagnostic& d)
+                           { return d.message.find(fragment) != std::string::npos; });
+    };
+
+    assert(said("no rdfs:label"));
+    assert(said("no trn:role"));
+}
+
 int main()
 {
     testTurtleRoundTrip();
@@ -595,6 +665,9 @@ int main()
     testRender();
     testGraphReportsSubcircuitExpansion();
     testElementTypesReportEventPorts();
+    testCircuitProfile();
+    testACircuitNeedsNoProfile();
+    testAnIncompleteProfileIsReportedNotFatal();
 
     std::puts("OpDispatcherTest PASSED");
     return 0;

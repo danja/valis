@@ -36,9 +36,14 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:909#> .
 
-:tr909 a val:Circuit ;
+:tr909 a val:Circuit , trn:PluginProfile ;
+    trn:role trn:DrumInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "House", "Techno", "Dance" ;
     rdfs:label "TR-909" ;
     val:element
         # Bass Drum

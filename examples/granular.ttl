@@ -65,9 +65,14 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:granular#> .
 
-:granular a val:Circuit ;
+:granular a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Ambient", "Experimental", "Sound Design" ;
     rdfs:label "Granular" ;
     val:element :in , :sample , :gran ,
                 :clock , :clockGate ,

@@ -196,6 +196,15 @@ than a port. `val:option` exposes one of those under a name an instance can set:
 `lv2:symbol` is the name the instance uses, `val:node` names the element to set
 it on, and `val:property` names the key there when it differs from the symbol.
 
+An `lv2:port` may also name several `val:node`. An input port then reaches all
+of them, which is how one control moves a group that has to stay together: a
+drum machine's voice card has one tuning trimmer and several sounds on it. An
+output port naming several is reported, because a signal comes from one place.
+
+A `val:Param` may likewise name several `val:target`, so one knob drives both
+halves of a stereo pair rather than leaving a player to keep two level with each
+other.
+
 Naming more than one `val:node` sets all of them. That is the answer to what
 happens when two inner elements take the same key: the definition says which
 elements an option reaches, so two of them is a fan-out that was asked for
@@ -366,6 +375,46 @@ what was declared and what the file is, rather than playing something the
 circuit was not written for. `val:sha256` is the
 [SHA-256](https://en.wikipedia.org/wiki/SHA-2) of the bytes on disk, as 64
 hexadecimal characters. Declaring nothing loads whatever the path resolves to.
+
+## Saying what a circuit is
+
+A circuit is a plugin: a complete instrument or effect, described by a document
+rather than compiled in. So it can describe itself the way a plugin catalogue
+expects, and be listed alongside native plugins without translation.
+
+The vocabulary is the transmissions one, `trn:`, published at
+[plugin-universe.com/ns](https://plugin-universe.com/ns) and used unchanged.
+Nothing is invented here:
+
+```turtle
+@prefix trn: <http://purl.org/stuff/transmissions/> .
+
+:dmx a val:Circuit , trn:PluginProfile ;
+    rdfs:label "Oberheim DMX" ;
+    trn:role trn:DrumInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Hip Hop", "Electro" ;
+    trn:caution """Eight voice cards, each monophonic on the real machine.""" .
+```
+
+`trn:role` says what it is for, `trn:accepts` and `trn:produces` what signals it
+deals in, and `trn:caution` is the author's own warning to whoever loads it.
+`trn:recommendedBefore`, `trn:recommendedAfter` and `trn:companion` say what it
+is usually put with.
+
+The parameters need no separate declaration. `val:Param` already binds
+`lv2:port` descriptions, which is exactly what a profile lists, and the rule
+that a control is drawn by the shape of its port rather than by a name the
+author chose is the same rule in both places.
+
+Read it back with the `get_profile` MCP tool.
+
+**A circuit that says nothing about itself is complete and runs the same.** The
+profile describes it for a listing; it is not part of what it does. A circuit
+that does call itself a `trn:PluginProfile` and then leaves out the label or the
+role is told so, because those are the two things a listing cannot do without,
+but it still runs.
 
 ## Editor metadata
 

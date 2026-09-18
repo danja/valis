@@ -45,9 +45,14 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:flute#> .
 
-:flute-circuit a val:Circuit ;
+:flute-circuit a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Orchestral", "Folk", "Ambient" ;
     rdfs:label "Flute" ;
     val:element :pitch , :lfo , :vibScale , :vibMul ,
                 :env , :blowScale , :flute , :vca , :out ;

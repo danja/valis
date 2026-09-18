@@ -446,6 +446,113 @@ void testAnOptionOnAForeignElementIsReported()
     assert(r.hasDiagnosticContaining("which is not one of its val:element"));
 }
 
+/// A voice card has one tuning trimmer and several sounds on it, so a port that
+/// reached only the first of them would be a fault rather than a control.
+void testAnInputPortMayReachSeveralElements()
+{
+    auto r = run(doc(R"(
+:Card a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :mix ; val:port "out" ] ,
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "tune" ;
+               lv2:default 1.5 ; lv2:minimum 0.5 ; lv2:maximum 2.0 ;
+               val:node :a , :b ; val:port "speed" ] ;
+    val:element :a , :b , :mix ;
+    val:arc :x , :y .
+:a a val:SampleLoad .
+:b a val:SampleLoad .
+:mix a val:Mixer .
+:x a val:Arc ; val:from [ val:node :a ; val:port "out" ] ;
+               val:to   [ val:node :mix ; val:port "in" ] .
+:y a val:Arc ; val:from [ val:node :b ; val:port "out" ] ;
+               val:to   [ val:node :mix ; val:port "in" ] .
+
+:c a val:Circuit ; val:element :in , :card , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:card a :Card ; val:tune 0.75 .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a2 a val:Arc ; val:from [ val:node :card ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+:p0 a val:Param ; val:slot 0 ; val:target :card ; val:property val:tune .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+
+    // The value set on the instance reaches both sounds on the card.
+    assert(r.element("urn:valis:t#card/a")->valueOf("speed") == 0.75);
+    assert(r.element("urn:valis:t#card/b")->valueOf("speed") == 0.75);
+
+    // And one knob moves both, rather than leaving the second behind.
+    const auto& binding = r.model.params().front();
+    assert(binding.targetNode == "urn:valis:t#card/a");
+    assert(binding.alsoTargets.size() == 1);
+    assert(binding.alsoTargets.front().first == "urn:valis:t#card/b");
+    assert(binding.alsoTargets.front().second == "speed");
+}
+
+/// An output cannot come from two places, so naming two is reported rather than
+/// silently taking one.
+void testAnOutputPortWithSeveralTargetsIsRejected()
+{
+    auto r = run(doc(R"(
+:Bad a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :a , :b ; val:port "out" ] ;
+    val:element :a , :b .
+:a a val:SampleLoad .
+:b a val:SampleLoad .
+
+:c a val:Circuit ; val:element :in , :out ; val:arc :a1 .
+:in a val:Input .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)"));
+
+    assert(r.hasDiagnosticContaining("an output comes from one place"));
+}
+
+/// A val:Param may name several targets outright, which is how one knob drives
+/// both halves of a stereo pair.
+void testAParamMayDriveSeveralTargets()
+{
+    auto r = run(doc(R"(
+:c a val:Circuit ; val:element :in , :l , :rr , :out ; val:arc :a1 , :a2 , :a3 , :a4 .
+:in a val:Input .
+:l a val:Gain .
+:rr a val:Gain .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "left" ] ;
+                val:to   [ val:node :l ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :in ; val:port "right" ] ;
+                val:to   [ val:node :rr ; val:port "in" ] .
+:a3 a val:Arc ; val:from [ val:node :l ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a4 a val:Arc ; val:from [ val:node :rr ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "right" ] .
+:p0 a val:Param ; val:slot 0 ; val:target :l , :rr ; val:property val:gain ;
+    lv2:name "Level" .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+    assert(r.model.params().size() == 1);
+
+    const auto& binding = r.model.params().front();
+    assert(binding.alsoTargets.size() == 1);
+    assert(binding.propertySymbol == "gain");
+
+    // Whichever way round the store returns them, the pair is the two gains.
+    const auto first = binding.targetNode;
+    const auto second = binding.alsoTargets.front().first;
+    assert(first != second);
+    assert(first == "urn:valis:t#l" || first == "urn:valis:t#rr");
+    assert(second == "urn:valis:t#l" || second == "urn:valis:t#rr");
+}
+
 // -- voices -----------------------------------------------------------------
 
 void testVoicesStampOutTheDefinitionAndSumIt()
@@ -654,6 +761,10 @@ int main()
     testParamBindingFollowsExposedPort();
     testNestedSubcircuitExpands();
     testSubcircuitArcIsNotReportedAsUnclaimed();
+
+    testAnInputPortMayReachSeveralElements();
+    testAnOutputPortWithSeveralTargetsIsRejected();
+    testAParamMayDriveSeveralTargets();
 
     testInstanceSetsAnExposedOption();
     testAnOptionMaySetMoreThanOneElement();

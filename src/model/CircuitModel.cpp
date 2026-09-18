@@ -196,6 +196,69 @@ std::unordered_map<std::string, std::string> readOptionOverrides(const rdf::Turt
     return values;
 }
 
+/// Reads what the circuit says it is, in the terms a plugin catalogue uses.
+///
+/// Nothing here can fail the circuit. A profile describes it for a listing; a
+/// circuit with none is complete and runs exactly the same.
+CircuitProfile readProfile(const rdf::TurtleStore& store,
+                           const rdf::Node& circuit,
+                           std::vector<Diagnostic>& diagnostics)
+{
+    CircuitProfile profile;
+
+    profile.declared = store.contains(circuit, vocab::rdf::type,
+                                      store.uri(vocab::trn::PluginProfile));
+
+    const auto text = [&](const std::string& predicate)
+    {
+        auto value = store.object(circuit, predicate);
+        return value ? std::string(value.string()) : std::string();
+    };
+
+    const auto list = [&](const std::string& predicate)
+    {
+        std::vector<std::string> values;
+        for (const auto& value : store.objects(circuit, predicate))
+            values.push_back(std::string(value.string()));
+
+        // RDF has no order, so a listing that printed these would vary between
+        // runs of the same document. Sorted, it does not.
+        std::sort(values.begin(), values.end());
+        return values;
+    };
+
+    profile.label    = text(vocab::rdfs::label);
+    profile.comment  = text(vocab::rdfs::comment);
+    profile.vendor   = text(vocab::trn::vendor);
+    profile.homepage = text(vocab::foaf::homepage);
+    profile.caution  = text(vocab::trn::caution);
+
+    profile.roles    = list(vocab::trn::role);
+    profile.accepts  = list(vocab::trn::accepts);
+    profile.produces = list(vocab::trn::produces);
+    profile.genres   = list(vocab::trn::genre);
+
+    profile.recommendedBefore = list(vocab::trn::recommendedBefore);
+    profile.recommendedAfter  = list(vocab::trn::recommendedAfter);
+    profile.companions        = list(vocab::trn::companion);
+
+    // A circuit that calls itself a profile is offering to be listed, so the
+    // two things a listing cannot do without are worth saying are missing.
+    if (profile.declared)
+    {
+        if (profile.label.empty())
+            diagnostics.push_back({"circuit is a trn:PluginProfile with no rdfs:label, "
+                                   "so a listing has nothing to call it",
+                                   std::string(circuit.string())});
+        if (profile.roles.empty())
+            diagnostics.push_back({"circuit is a trn:PluginProfile with no trn:role, "
+                                   "so a listing cannot say what it is for",
+                                   std::string(circuit.string())});
+    }
+
+    return profile;
+}
+
 /// Expands val:Subcircuit instances into plain elements and arcs.
 ///
 /// Every inner element is renamed by prefixing it with the instance it belongs
@@ -385,7 +448,12 @@ public:
         }
 
         for (const auto& port : def.ports)
-            portMap[{instanceIri, port.desc.symbol}] = {{ rename(port.innerNode), port.innerPort }};
+        {
+            auto& entries = portMap[{instanceIri, port.desc.symbol}];
+            entries.clear();
+            for (const auto& [target, key] : port.targets)
+                entries.push_back({ rename(target), key });
+        }
 
         // An option the instance set reaches every element the definition named
         // for it. Two elements taking the same key is what the author asked for,
@@ -415,7 +483,8 @@ public:
                 value = it->second;
 
             if (value)
-                pending.push_back({ rename(port.innerNode), port.innerPort, *value });
+                for (const auto& [target, key] : port.targets)
+                    pending.push_back({ rename(target), key, *value });
         }
     }
 
@@ -486,6 +555,7 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
     elementList.clear();
     arcList.clear();
     paramList.clear();
+    circuitProfile = {};
     circuitId.clear();
 
     const auto circuits = store.subjectsOfType(vocab::val::Circuit);
@@ -502,6 +572,7 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
 
     const auto& circuit = circuits.front();
     circuitId = std::string(circuit.string());
+    circuitProfile = readProfile(store, circuit, diagnostics);
 
     SubcircuitLibrary library;
     library.load(store, ontology, diagnostics);
@@ -687,9 +758,9 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
         }
         binding.slot = static_cast<int>(*slot.asInt());
 
-        auto target = store.object(paramNode, vocab::val::target);
+        const auto targets = store.objects(paramNode, vocab::val::target);
         auto property = store.object(paramNode, vocab::val::property);
-        if (! target || ! property)
+        if (targets.empty() || ! property)
         {
             diagnostics.push_back({"val:Param needs both val:target and val:property", id});
             continue;
@@ -697,10 +768,18 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
 
         // A binding may name a subcircuit instance and one of its exposed
         // ports, which stands for a port on an element inside it. On a
-        // polyphonic instance that is one port per voice; the binding takes the
-        // first, and the rest are kept in step by the same control arc.
-        const auto endpoints = expander.resolve(std::string(target.string()),
-                                                vocab::shortName(property.string()));
+        // polyphonic instance that is one port per voice.
+        //
+        // It may also name several targets outright, which is how one knob
+        // drives both halves of a stereo pair: two elements that must stay
+        // equal are better described as one control than as two that a player
+        // has to keep level with each other.
+        std::vector<std::pair<std::string, std::string>> endpoints;
+        for (const auto& one : targets)
+            for (auto& resolved : expander.resolve(std::string(one.string()),
+                                                   vocab::shortName(property.string())))
+                endpoints.push_back(std::move(resolved));
+
         if (endpoints.empty())
             continue;
 

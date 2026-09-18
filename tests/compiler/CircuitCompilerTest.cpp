@@ -407,9 +407,10 @@ void testDmxExampleCompiles()
     assert(r.compiled_);
     assert(r.diagnostics.empty());
 
-    // Seventeen voices of three elements, plus the mixer, the output stage and
-    // the output itself.
-    assert(r.compiled.nodes.size() == 17 * 3 + 3);
+    // The DMX is eight voice cards, not eighteen sounds: each card carries up
+    // to three sounds and has one level, one pan and one tuning trimmer. Nine
+    // elements a card, plus the stereo mixer, two output stages and the output.
+    assert(r.compiled.nodes.size() == 8 * 9 + 4);
 }
 
 // -- the acceptance demo ---------------------------------------------------

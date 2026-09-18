@@ -16,6 +16,7 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:polysynth#> .
 
 ################################################################
@@ -83,7 +84,11 @@
 # The circuit                                                  #
 ################################################################
 
-:polysynth a val:Circuit ;
+:polysynth a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic", "Dance", "Pop" ;
     rdfs:label "Polysynth" ;
     val:element :poly , :drive , :out ;
     val:arc :a1 , :a2 .

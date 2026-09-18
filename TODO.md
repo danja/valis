@@ -1,6 +1,7 @@
 ## Misc
 
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
+  (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
 * create emulations of all the instruments used by New Order to make "Blue Monday"
 * create docs/examples.md - describe the existing instruments and the new ones below there (and clear the text below)
 
@@ -22,7 +23,12 @@
   sample player, so modelling it faithfully means playing the samples rather
   than synthesising an imitation; tuning is a playback rate, as it was on the
   machine. The numbered samples are alternative sounds, not duplicates: see the
-  README beside them.
+  README beside them. Level, pan and tune are per voice card, which is where the
+  machine put them.
+* the DMX's voice cards are monophonic: one sound at a time, so a closed hi-hat
+  cuts an open one. Here the sounds on a card sum instead. val:Choke gates a
+  control signal and cannot stop a sample already playing, so this needs either
+  a stop on val:SampleLoad or a ducking VCA per card.
 * **val:option done.** A val:Subcircuit exposes an inner element's option under
   a name an instance can set, the way lv2:port exposes an inner port. The
   question of what happens when two inner elements recognise the same key does

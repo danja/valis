@@ -541,6 +541,41 @@ OpResult OpDispatcher::setParam(int slot, double value)
     return OpResult::failure("no parameter bound to slot " + std::to_string(slot));
 }
 
+OpResult OpDispatcher::getProfile() const
+{
+    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
+    if (model == nullptr)
+        return OpResult::failure("no circuit is loaded");
+
+    const auto& profile = model->profile();
+
+    const auto array = [](const std::vector<std::string>& values)
+    {
+        std::string json = "[";
+        for (std::size_t i = 0; i < values.size(); ++i)
+            json += (i == 0 ? "" : ",") + jsonString(values[i]);
+        return json + "]";
+    };
+
+    std::string json = "{\"id\":" + jsonString(model->id())
+                     + ",\"declared\":" + (profile.declared ? "true" : "false")
+                     + ",\"label\":" + jsonString(profile.label)
+                     + ",\"comment\":" + jsonString(profile.comment)
+                     + ",\"vendor\":" + jsonString(profile.vendor)
+                     + ",\"homepage\":" + jsonString(profile.homepage)
+                     + ",\"caution\":" + jsonString(profile.caution)
+                     + ",\"role\":" + array(profile.roles)
+                     + ",\"accepts\":" + array(profile.accepts)
+                     + ",\"produces\":" + array(profile.produces)
+                     + ",\"genre\":" + array(profile.genres)
+                     + ",\"recommendedBefore\":" + array(profile.recommendedBefore)
+                     + ",\"recommendedAfter\":" + array(profile.recommendedAfter)
+                     + ",\"companion\":" + array(profile.companions)
+                     + "}";
+
+    return OpResult::success(std::move(json));
+}
+
 OpResult OpDispatcher::getDiagnostics() const
 {
     const auto* model = ctx.readModel ? ctx.readModel() : nullptr;

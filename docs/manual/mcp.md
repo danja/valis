@@ -61,6 +61,7 @@ a tool first.
 | `get_sample` / `set_sample` | the sound file a `val:SampleLoad` node plays |
 | `load_file` / `save_file` | read or write a Turtle file on the server machine |
 | `note_on` / `note_off` / `all_notes_off` | play the circuit, as the editor's keyboard does |
+| `get_profile` | what the circuit says it is: role, signals, genre, cautions |
 | `read_outputs` | every control output's live value, or one node's |
 | `render` | render the circuit offline to a wav and report peak and RMS |
 | `get_diagnostics` | whether the circuit loaded, its size, latency, voices |

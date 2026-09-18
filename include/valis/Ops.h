@@ -153,6 +153,12 @@ public:
     /// that has none.
     OpResult saveFile(const std::string& path) const;
 
+    // -- profile -----------------------------------------------------------
+    /// What the circuit says it is: its role, the signals it deals in, what it
+    /// pairs with. The terms are the transmissions vocabulary a plugin
+    /// catalogue already uses, so a listing needs no translation.
+    OpResult getProfile() const;
+
     // -- diagnostics -------------------------------------------------------
     OpResult getDiagnostics() const;
 

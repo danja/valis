@@ -1,4 +1,5 @@
 @prefix val:   <http://purl.org/stuff/valis/> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix :      <urn:valis:clarinet#> .
@@ -25,7 +26,11 @@
 # Controls:    MidiPitch → Reed.frequency
 #              Envelope  → blowScale → Reed.pressure, and → VCA.cv
 
-:main a val:Circuit ;
+:main a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Orchestral", "Jazz", "Folk" ;
     val:element :pitch, :env, :blowScale, :reed, :body, :amp, :out ;
     val:arc :aPitchReed, :aEnvBlow, :aBlowReed, :aReedBody, :aBodyAmp, :aEnvAmp, :aAmpOut .
 

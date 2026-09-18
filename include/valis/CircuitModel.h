@@ -91,6 +91,40 @@ struct ParamBinding
     std::vector<std::pair<std::string, std::string>> alsoTargets;
 };
 
+/// What a circuit says it is, in the terms a plugin catalogue already uses.
+///
+/// A Valis circuit is a plugin: a complete instrument or effect, described by a
+/// document rather than compiled in. So it describes itself with the
+/// transmissions vocabulary the catalogue at plugin-universe.com is built on,
+/// rather than with terms invented here, and a circuit can be listed alongside
+/// native plugins without translation.
+///
+/// Nothing below the model reads any of it. A circuit that declares no profile
+/// runs exactly as before; the profile says what it is for, not what it does.
+struct CircuitProfile
+{
+    bool declared = false;   ///< whether the circuit calls itself a trn:PluginProfile
+
+    std::string label;
+    std::string comment;
+    std::string vendor;
+    std::string homepage;
+    std::string caution;     ///< what to watch out for, in the author's words
+
+    std::vector<std::string> roles;      ///< trn:role, e.g. trn:AudioInstrument
+    std::vector<std::string> accepts;    ///< trn:accepts, e.g. trn:Midi
+    std::vector<std::string> produces;   ///< trn:produces
+    std::vector<std::string> genres;     ///< trn:genre, plain strings
+
+    /// What it is usually put with. IRIs of other plugins or circuits.
+    std::vector<std::string> recommendedBefore, recommendedAfter, companions;
+
+    bool empty() const
+    {
+        return ! declared && label.empty() && comment.empty() && roles.empty();
+    }
+};
+
 class CircuitModel
 {
 public:
@@ -110,6 +144,9 @@ public:
     const std::vector<Arc>& arcs() const { return arcList; }
     const std::vector<ParamBinding>& params() const { return paramList; }
 
+    /// What the circuit says it is. Empty when it says nothing.
+    const CircuitProfile& profile() const { return circuitProfile; }
+
     const ElementInstance* findElement(const std::string& iri) const;
 
 private:
@@ -117,6 +154,7 @@ private:
     std::vector<ElementInstance> elementList;
     std::vector<Arc> arcList;
     std::vector<ParamBinding> paramList;
+    CircuitProfile circuitProfile;
 };
 
 }  // namespace valis

@@ -316,6 +316,9 @@ const ToolSpec kTools[] = {
     {"load_file", "Load a Turtle circuit from a file path on the server machine.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"absolute path to a .ttl file"}},"required":["path"]})"},
 
+    {"get_profile", "What the circuit says it is: its role, the signals it deals in, what it pairs with, and what to watch out for. The terms are the transmissions vocabulary a plugin catalogue already uses.",
+     R"({"type":"object","properties":{}})"},
+
     {"save_file", "Write the current circuit to a Turtle file. What the editor's Save does.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"absolute, or relative to the working directory"}},"required":["path"]})"},
 
@@ -415,6 +418,9 @@ juce::var McpServer::callTool(const juce::String& name, const juce::var& argumen
 
         if (name == "set_sample")
             return resultOf(ops.setSample(string("node"), string("path")));
+
+        if (name == "get_profile")
+            return resultOf(ops.getProfile());
 
         if (name == "save_file")
             return resultOf(ops.saveFile(string("path")));

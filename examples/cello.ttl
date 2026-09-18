@@ -15,9 +15,15 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
 @prefix :      <urn:valis:cello#> .
 
-:cello a val:Circuit ;
+:cello a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Orchestral", "Ambient", "Experimental" ;
+    trn:caution """Verified from C2 to D4. Above about D4 the odd harmonics fall away and the tone reads as an octave ambiguity rather than a note.""" ;
     rdfs:label "Cello" ;
     val:element :pitch , :string , :body , :wood , :mix , :level , :warmth , :out ;
     val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 .

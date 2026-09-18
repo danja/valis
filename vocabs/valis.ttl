@@ -168,7 +168,25 @@ val:Oversample4x a val:AntiAliasing ; rdfs:label "4x oversampling" .
 
 val:Circuit a rdfs:Class ;
     rdfs:label "Circuit" ;
-    rdfs:comment "A graph of elements joined by arcs." .
+    rdfs:comment """A graph of elements joined by arcs.
+
+A circuit is also a plugin: a complete instrument or effect, described by a
+document rather than compiled in. So it may describe itself as a
+trn:PluginProfile, using the transmissions vocabulary that the catalogue at
+plugin-universe.com is built on rather than terms invented here, and be listed
+alongside native plugins without translation.
+
+    :dmx a val:Circuit , trn:PluginProfile ;
+        rdfs:label "Oberheim DMX" ;
+        trn:role trn:DrumInstrument ;
+        trn:accepts trn:Midi ;
+        trn:produces trn:Audio ;
+        trn:genre "Hip Hop" .
+
+The parameters need no separate declaration: val:Param already binds lv2:port
+descriptions, which is the same thing a profile lists. Nothing below the model
+reads any of it, and a circuit that declares no profile runs exactly as
+before.""" .
 
 val:Arc a rdfs:Class ;
     rdfs:label "Arc" ;
@@ -188,7 +206,13 @@ val:Subcircuit a rdfs:Class ;
     rdfs:label "Subcircuit" ;
     rdfs:comment """A named circuit fragment that is instantiated as if it were
 an element. It declares lv2:port as an element class does, and each port carries
-val:node and val:port naming the inner port it stands for. A port that declares
+val:node and val:port naming the inner port it stands for.
+
+An input port may name more than one val:node, and then reaches all of them: a
+drum machine's voice card has one tuning trimmer and several sounds on it, and a
+control that reached only the first would be a fault rather than a control. An
+output port naming more than one is reported, because a signal comes from one
+place. A port that declares
 lv2:default sets that value on the element behind it; an instance may override
 it by setting the port as a val: property, exactly as on any element.
 

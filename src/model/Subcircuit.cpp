@@ -52,10 +52,10 @@ bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
 
             // A subcircuit port is a name for an inner port. Without the
             // mapping the outside would have nothing to connect to.
-            auto innerNode = store.object(portNode, vocab::val::node);
+            const auto innerNodes = store.objects(portNode, vocab::val::node);
             auto innerPort = store.object(portNode, vocab::val::port);
 
-            if (! innerNode || ! innerNode.isUri() || ! innerPort || innerPort.string().empty())
+            if (innerNodes.empty() || ! innerPort || innerPort.string().empty())
             {
                 diagnostics.push_back({"subcircuit port " + desc->symbol +
                                        " has no val:node and val:port naming what it exposes", def.id});
@@ -64,9 +64,28 @@ bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
 
             SubcircuitPort mapped;
             mapped.desc       = *desc;
-            mapped.innerNode  = std::string(innerNode.string());
-            mapped.innerPort  = std::string(innerPort.string());
             mapped.hasDefault = static_cast<bool>(store.object(portNode, vocab::lv2::defaultV));
+
+            for (const auto& inner : innerNodes)
+                if (inner.isUri())
+                    mapped.targets.push_back({std::string(inner.string()),
+                                              std::string(innerPort.string())});
+
+            if (mapped.targets.empty())
+            {
+                diagnostics.push_back({"subcircuit port " + desc->symbol +
+                                       " has no val:node and val:port naming what it exposes", def.id});
+                continue;
+            }
+
+            // One signal cannot come from two places at once.
+            if (! mapped.desc.input && mapped.targets.size() > 1)
+            {
+                diagnostics.push_back({"subcircuit output port " + mapped.desc.symbol +
+                                       " names more than one val:node; an output comes from "
+                                       "one place", def.id});
+                continue;
+            }
 
             if (def.findPort(mapped.desc.symbol) != nullptr)
             {
@@ -139,13 +158,14 @@ bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
         // or the expansion would rewrite an arc onto a node that is not there.
         bool ok = true;
         for (const auto& port : def.ports)
+            for (const auto& [target, key] : port.targets)
         {
             const bool owned = std::find(def.elementIris.begin(), def.elementIris.end(),
-                                         port.innerNode) != def.elementIris.end();
+                                         target) != def.elementIris.end();
             if (! owned)
             {
                 diagnostics.push_back({"subcircuit port " + port.desc.symbol + " exposes " +
-                                       vocab::shortName(port.innerNode) +
+                                       vocab::shortName(target) +
                                        ", which is not one of its val:element", def.id});
                 ok = false;
             }

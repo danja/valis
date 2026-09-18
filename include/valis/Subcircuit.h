@@ -28,8 +28,12 @@ namespace rdf { class TurtleStore; }
 struct SubcircuitPort
 {
     PortDesc desc;          ///< what the outside sees, read exactly as an element's port is
-    std::string innerNode;  ///< val:node - the inner element IRI it forwards to
-    std::string innerPort;  ///< val:port - that element's port symbol
+    /// Each inner element this port stands for, and the port on it. An input
+    /// port naming several is a fan-out: a voice card has one tuning trimmer
+    /// and several sounds on it, and one control that reached only the first of
+    /// them would be a fault rather than a control. An output port naming
+    /// several has no meaning and is reported.
+    std::vector<std::pair<std::string, std::string>> targets;
 
     /// Whether the port declared lv2:default. A declared default is the face
     /// the subcircuit presents and replaces whatever the inner element set; an
