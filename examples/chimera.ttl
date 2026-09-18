@@ -1,0 +1,176 @@
+# examples/chimera.ttl
+#
+# Chimera: eight voices, each a pair of bowed strings playing each other.
+#
+# Neither string is bowed by an arm alone. Each one's output shakes the other's
+# bow, so the two are locked in an argument: string A tries to pull string B to
+# its own period, B pulls back, and what comes out depends on whether they can
+# agree.
+#
+# That is the whole instrument. Two coupled nonlinear oscillators do not simply
+# beat against each other the way two detuned sawtooths would. As the tuning
+# ratio and the coupling move they pass through regions where they lock to a
+# whole-number ratio and sound like one fused tone, regions where they settle
+# into a longer shared period and produce partials neither string has on its
+# own, and regions where they never settle at all and the tone roars. The
+# borders between those regions are abrupt: a small turn of Ratio can drop the
+# instrument into a different sound entirely.
+#
+# The behaviour is not an effect applied to the strings. It is what the strings
+# do. It turned up as a defect while calibrating val:Bow for examples/cello.ttl,
+# where a string would jump to a neighbouring mode at particular bow positions;
+# here it is the point.
+#
+# Play it low and slow. The interesting ground is Ratio between 1.0 and 2.0 with
+# Coupling past about a third, and it rewards moving one control at a time.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:chimera#> .
+
+################################################################
+# One voice: two strings, each bowing the other                #
+################################################################
+
+:Pair a val:Subcircuit ;
+    rdfs:label "Coupled pair" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :sum ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "ratio" ;
+               lv2:name "Ratio" ;
+               lv2:default 1.5 ; lv2:minimum 1.0 ; lv2:maximum 4.0 ;
+               val:node :detune ; val:port "b" ;
+               rdfs:comment "How far the second string is tuned from the first." ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "coupling" ;
+               lv2:name "Coupling" ;
+               lv2:default 0.45 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :cross ; val:port "gain" ;
+               rdfs:comment "How hard each string shakes the other's bow." ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "pressure" ;
+               lv2:name "Pressure" ;
+               lv2:default 0.6 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :a ; val:port "pressure" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "position" ;
+               lv2:name "Position" ;
+               lv2:default 0.12 ; lv2:minimum 0.02 ; lv2:maximum 0.5 ;
+               val:node :a ; val:port "position" ] ;
+
+    val:element :pitch , :detune , :a , :b , :cross , :backA , :zA , :zB , :sum ;
+    val:arc :toA , :toRatio , :toB , :aOut , :bOut ,
+            :aToDelay , :bToDelay , :delayToB , :delayToA , :aToSum , :bToSum .
+
+# The note, and the second string's frequency derived from it.
+:pitch a val:MidiPitch .
+:detune a val:ControlMultiply ; val:b 1.5 .
+
+# The two strings. They differ only in what they are tuned to: everything that
+# makes them behave differently comes from the coupling.
+:a a val:Bow ; val:velocity 0.5 ; val:damping 0.25 .
+:b a val:Bow ; val:velocity 0.5 ; val:damping 0.3 ; val:position 0.09 .
+
+# The coupling depth, and the same amount coming back the other way.
+:cross a val:Gain ; val:gain -6.0 .
+:backA a val:Gain ; val:gain -6.0 .
+
+# The loop needs a unit delay to be causal, which is the compiler's rule for
+# any cycle. One sample is also physically right: neither string can respond to
+# the other before the sample it happened in.
+:zA a val:UnitDelay .
+:zB a val:UnitDelay .
+
+:sum a val:Mixer .
+
+:toA a val:Arc ; val:from [ val:node :pitch ; val:port "out"       ] ;
+                 val:to   [ val:node :a     ; val:port "frequency" ] .
+
+:toRatio a val:Arc ; val:from [ val:node :pitch  ; val:port "out" ] ;
+                     val:to   [ val:node :detune ; val:port "a"   ] .
+
+:toB a val:Arc ; val:from [ val:node :detune ; val:port "out"       ] ;
+                 val:to   [ val:node :b      ; val:port "frequency" ] .
+
+# Each string's output, delayed a sample, shakes the other's bow.
+:aToDelay a val:Arc ; val:from [ val:node :a  ; val:port "out" ] ;
+                      val:to   [ val:node :zA ; val:port "in"  ] .
+:bToDelay a val:Arc ; val:from [ val:node :b  ; val:port "out" ] ;
+                      val:to   [ val:node :zB ; val:port "in"  ] .
+
+:delayToB a val:Arc ; val:from [ val:node :zA    ; val:port "out" ] ;
+                      val:to   [ val:node :cross ; val:port "in"  ] .
+:aOut a val:Arc ; val:from [ val:node :cross ; val:port "out"   ] ;
+                  val:to   [ val:node :b     ; val:port "drive" ] .
+
+:delayToA a val:Arc ; val:from [ val:node :zB    ; val:port "out" ] ;
+                      val:to   [ val:node :backA ; val:port "in"  ] .
+:bOut a val:Arc ; val:from [ val:node :backA ; val:port "out"   ] ;
+                  val:to   [ val:node :a     ; val:port "drive" ] .
+
+:aToSum a val:Arc ; val:from [ val:node :a   ; val:port "out" ] ;
+                    val:to   [ val:node :sum ; val:port "in"  ] .
+:bToSum a val:Arc ; val:from [ val:node :b   ; val:port "out" ] ;
+                    val:to   [ val:node :sum ; val:port "in"  ] .
+
+################################################################
+# The instrument                                               #
+################################################################
+
+:chimera a val:Circuit ;
+    rdfs:label "Chimera" ;
+    val:element :voices , :level , :body , :air , :ceiling , :out ;
+    val:arc :v1 , :v2 , :v3 , :v4 , :v5 .
+
+# Eight of them. Each voice is an argument between two strings, and eight
+# arguments at once is the sound.
+:voices a :Pair ; val:voices 8 .
+
+:level a val:Gain ; val:gain -39.0 .
+
+# A resonant body under it all, so the roar has a throat rather than being
+# spread evenly across the spectrum.
+:body a val:ModalBank ; val:frequency 92.0 ; val:decay 0.12 ; val:brightness 0.6 .
+
+:air a val:OnePole ; val:cutoff 6500.0 ; val:mode 0.0 .
+
+# The louder regimes are several times the quieter ones, so the output leans on
+# a soft ceiling rather than clipping. A roaring instrument should compress into
+# its limit; that is part of how it sounds, not damage control after the fact.
+:ceiling a val:Tanh ; val:gain 3.0 ; val:antialiasing val:ADAA2 .
+
+:out a val:Output .
+
+:v1 a val:Arc ; val:from [ val:node :voices ; val:port "out" ] ;
+                val:to   [ val:node :level  ; val:port "in"  ] .
+:v2 a val:Arc ; val:from [ val:node :level ; val:port "out" ] ;
+                val:to   [ val:node :body  ; val:port "in"  ] .
+:v3 a val:Arc ; val:from [ val:node :body ; val:port "out" ] ;
+                val:to   [ val:node :air  ; val:port "in"  ] .
+:v4 a val:Arc ; val:from [ val:node :air     ; val:port "out" ] ;
+                val:to   [ val:node :ceiling ; val:port "in"  ] .
+:v5 a val:Arc ; val:from [ val:node :ceiling ; val:port "out" ] ;
+                val:to   [ val:node :out     ; val:port "in"  ] .
+
+# Ratio and Coupling are the instrument. The rest is setup.
+:p0 a val:Param ; val:slot 0 ; val:target :voices ; val:property val:ratio ;
+    lv2:name "Ratio" ; lv2:symbol "ratio" ; val:section "Argument" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :voices ; val:property val:coupling ;
+    lv2:name "Coupling" ; lv2:symbol "coupling" ; val:section "Argument" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :voices ; val:property val:pressure ;
+    lv2:name "Pressure" ; lv2:symbol "pressure" ; val:section "Bow" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :voices ; val:property val:position ;
+    lv2:name "Position" ; lv2:symbol "position" ; val:section "Bow" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :body ; val:property val:decay ;
+    lv2:name "Body" ; lv2:symbol "body" ; val:section "Throat" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :air ; val:property val:cutoff ;
+    lv2:name "Air" ; lv2:symbol "air" ; units:unit units:hz ; val:section "Throat" .

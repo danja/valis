@@ -16,6 +16,13 @@ const SubcircuitPort* SubcircuitDef::findPort(std::string_view symbol) const
     return it != ports.end() ? &*it : nullptr;
 }
 
+const SubcircuitOption* SubcircuitDef::findOption(std::string_view symbol) const
+{
+    const auto it = std::find_if(options.begin(), options.end(),
+                                 [&](const SubcircuitOption& o) { return o.symbol == symbol; });
+    return it != options.end() ? &*it : nullptr;
+}
+
 bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
                              const Ontology& ontology,
                              std::vector<Diagnostic>& diagnostics)
@@ -72,6 +79,45 @@ bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
             def.ports.push_back(std::move(mapped));
         }
 
+        for (const auto& optionNode : store.objects(node, vocab::val::option))
+        {
+            auto symbol = store.object(optionNode, vocab::lv2::symbol);
+            if (! symbol || symbol.string().empty())
+            {
+                diagnostics.push_back({"subcircuit option needs an lv2:symbol", def.id});
+                continue;
+            }
+
+            SubcircuitOption exposed;
+            exposed.symbol = std::string(symbol.string());
+
+            // The key to set on the inner element, defaulting to the name the
+            // instance uses, which is what it is nearly always called.
+            std::string inner = exposed.symbol;
+            if (auto property = store.object(optionNode, vocab::val::property))
+                inner = vocab::shortName(property.string());
+
+            for (const auto& target : store.objects(optionNode, vocab::val::node))
+                if (target.isUri())
+                    exposed.targets.push_back({std::string(target.string()), inner});
+
+            if (exposed.targets.empty())
+            {
+                diagnostics.push_back({"subcircuit option " + exposed.symbol +
+                                       " has no val:node naming what it sets", def.id});
+                continue;
+            }
+
+            if (def.findOption(exposed.symbol) != nullptr)
+            {
+                diagnostics.push_back({"subcircuit declares option " + exposed.symbol +
+                                       " more than once", def.id});
+                continue;
+            }
+
+            def.options.push_back(std::move(exposed));
+        }
+
         for (const auto& element : store.objects(node, vocab::val::element))
             def.elementIris.push_back(std::string(element.string()));
 
@@ -104,6 +150,24 @@ bool SubcircuitLibrary::load(const rdf::TurtleStore& store,
                 ok = false;
             }
         }
+        // An exposed option must name an element the subcircuit owns, for the
+        // same reason a port must.
+        for (const auto& exposed : def.options)
+        {
+            for (const auto& [target, key] : exposed.targets)
+            {
+                const bool owned = std::find(def.elementIris.begin(), def.elementIris.end(),
+                                             target) != def.elementIris.end();
+                if (! owned)
+                {
+                    diagnostics.push_back({"subcircuit option " + exposed.symbol + " sets " +
+                                           vocab::shortName(target) +
+                                           ", which is not one of its val:element", def.id});
+                    ok = false;
+                }
+            }
+        }
+
         if (! ok)
             continue;
 

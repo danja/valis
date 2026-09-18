@@ -179,6 +179,35 @@ compiler reads.
 
 `examples/subcircuit.ttl` is a worked example.
 
+### Options
+
+A port carries a number. Some of what an element needs is not a number: the sound
+file a `val:SampleLoad` plays is named by `val:file`, which is an option rather
+than a port. `val:option` exposes one of those under a name an instance can set:
+
+```turtle
+:Voice a val:Subcircuit ;
+    val:option [ lv2:symbol "file" ; val:node :play ] ;
+    val:element :play , :gate , :amp .
+
+:kick a :Voice ; val:file "samples/Kick01.wav" .
+```
+
+`lv2:symbol` is the name the instance uses, `val:node` names the element to set
+it on, and `val:property` names the key there when it differs from the symbol.
+
+Naming more than one `val:node` sets all of them. That is the answer to what
+happens when two inner elements take the same key: the definition says which
+elements an option reaches, so two of them is a fan-out that was asked for
+rather than a collision. Nothing else would work, because the ontology declares
+an element's ports but says nothing about which option keys it accepts, and
+`DspElement::setOption` answers true for a key it does not know. There is no way
+to tell which inner element would recognise a key, so forwarding on that basis
+would be a guess.
+
+`examples/dmx.ttl` is seventeen drum voices from one definition, each instance
+setting its own sample this way.
+
 ### Voices
 
 `val:voices` on an instance stamps the definition out that many times as a pool,

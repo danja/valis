@@ -1,12 +1,36 @@
 ## Misc
 
 * support Claude and OpenAI API endpoints
+* create emulations of all the instruments used by New Order to make "Blue Monday"
+* create docs/examples.md - describe the existing instruments and the new ones below there
 
 ## New instruments
 
-* look at decomposing the granular element into smaller, reusable components
-* create a synth that makes jawdropping sounds nobody has heard before 
-* Model the Oberheim DMX drum sounds as faithfully as possible, creating new elements as needed.
+* **granular decomposed.** `src/dsp/Random.h` is now the one deterministic
+  generator (it replaced four separate copies), `src/dsp/GrainPool.h` is the
+  bounded grain population with its window and placement, and
+  `src/dsp/SampleFile.h` is the file reader and its resource checks. The
+  granulator is assembled from those rather than containing them. A grain pool
+  cannot yet be patched between elements, because there is no port that carries
+  a reference to a buffer; that is what it would take to split it further.
+* **chimera: a synth built on coupled bowed strings.** `examples/chimera.ttl`.
+  Each voice is two val:Bow instances shaking each other's bow arm through a
+  unit delay, so they lock, beat or refuse to settle depending on the tuning
+  ratio and the coupling. `val:Bow` gained a `drive` audio input for it.
+* **DMX done.** `examples/dmx.ttl` is the seventeen-voice kit on General MIDI
+  channel 10, playing the captures in `samples/Oberheim DMX`. The DMX was a
+  sample player, so modelling it faithfully means playing the samples rather
+  than synthesising an imitation; tuning is a playback rate, as it was on the
+  machine. The numbered samples are alternative sounds, not duplicates: see the
+  README beside them.
+* **val:option done.** A val:Subcircuit exposes an inner element's option under
+  a name an instance can set, the way lv2:port exposes an inner port. The
+  question of what happens when two inner elements recognise the same key does
+  not arise: the ontology does not declare which option keys an element accepts
+  and setOption answers true for keys it does not know, so nothing can tell.
+  The definition names its targets instead, and naming two is a fan-out the
+  author asked for. `examples/dmx.ttl` is one voice definition stamped out
+  seventeen times because of it.
 * **cello: done for C2 to D4, open above it.** `val:Bow` is a bowed-string
   waveguide with a stick-slip friction curve, a soft stopped end, bow width and
   rosin irregularity; `examples/cello.ttl` puts a body behind it. In tune to

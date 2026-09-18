@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include "dsp/Random.h"
+
 namespace valis::elements {
 
 class Gain final : public MonoElement
@@ -367,7 +369,7 @@ public:
         reset();
     }
 
-    void reset() override { phase = 0.0; noiseSeed = kNoiseSeed; }
+    void reset() override { phase = 0.0; noise.seed(kNoiseSeed); }
 
     void process(const ProcessArgs& args) noexcept override
     {
@@ -391,14 +393,7 @@ public:
                 case 1: s = p < 0.5f ? 1.0f : -1.0f; break;                // Square
                 case 2: s = 2.0f * p - 1.0f; break;                        // Saw
                 case 3: s = 4.0f * std::abs(p - 0.5f) - 1.0f; break;        // Triangle
-                case 4: {                                                  // White noise
-                    // xorshift: deterministic, so golden-output tests are reproducible.
-                    noiseSeed ^= noiseSeed << 13;
-                    noiseSeed ^= noiseSeed >> 17;
-                    noiseSeed ^= noiseSeed << 5;
-                    s = static_cast<float>(static_cast<int32_t>(noiseSeed)) * 4.6566129e-10f;
-                    break;
-                }
+                case 4: s = noise.bipolar(); break;                        // White noise
                 case 5: s = (phase < inc) ? 1.0f : 0.0f; break;  // Impulse train at frequency
                 default: s = std::sin(6.283185307179586 * phase); break;
             }
@@ -414,7 +409,7 @@ private:
     static constexpr uint32_t kNoiseSeed = 0x9e3779b9u;
 
     double sampleRate = 44100.0, phase = 0.0;
-    uint32_t noiseSeed = kNoiseSeed;
+    dsp::Random noise{kNoiseSeed};
     int freqIndex = -1, ampIndex = -1, shapeIndex = -1;
 };
 

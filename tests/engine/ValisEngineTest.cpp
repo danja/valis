@@ -609,6 +609,150 @@ void testPolysynthExampleRuns()
     assert(peakOf(out) > 0.05f);
 }
 
+/// examples/chimera.ttl is built on feedback between two nonlinear elements, so
+/// the things worth pinning are that it stays bounded and that its controls
+/// actually do what the document claims.
+void testChimeraIsStableAndItsRegimesDiffer()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/chimera.ttl", circuit));
+
+    // Eight voices of nine elements, plus the mixer summing the pool, and
+    // level, body, air, ceiling and output.
+    assert(circuit.numVoices == 8);
+    assert(circuit.nodes.size() == 8 * 9 + 6);
+
+    const auto registry = makeDefaultRegistry();
+
+    const auto play = [&](double ratio)
+    {
+        ValisEngine engine;
+        engine.prepare(48000.0, 512);
+        std::string error;
+        const bool loaded = engine.load(circuit, registry, error);
+        assert(loaded);
+
+        // Every voice's ratio, which is what the one knob drives.
+        for (int voice = 0; voice < 8; ++voice)
+            engine.setControl("urn:valis:chimera#voices/" + std::to_string(voice) + "/detune",
+                              "b", static_cast<float>(ratio));
+
+        engine.queueNoteOn(40, 1.0f, 0);
+
+        const std::vector<float> silence(512, 0.0f);
+        std::vector<float> block(512, 0.0f);
+        double sum = 0.0;
+        int counted = 0;
+
+        for (int i = 0; i < 200; ++i)
+        {
+            engine.process(silence.data(), block.data(), 512);
+
+            for (const float s : block)
+            {
+                // Two nonlinear elements in a loop: the first thing to
+                // establish is that it cannot run away.
+                assert(std::isfinite(s));
+                assert(std::abs(s) <= 1.05f);
+
+                if (i >= 40)   // past the attack
+                {
+                    sum += static_cast<double>(s) * s;
+                    ++counted;
+                }
+            }
+        }
+
+        return counted > 0 ? std::sqrt(sum / counted) : 0.0;
+    };
+
+    const double unison = play(1.0);
+    const double fifth  = play(1.5);
+    const double golden = play(1.618);
+
+    std::printf("  chimera: rms %.3f at 1.0, %.3f at 1.5, %.3f at 1.618\n",
+                unison, fifth, golden);
+    std::fflush(stdout);
+
+    // All three sound.
+    assert(unison > 0.02 && fifth > 0.02 && golden > 0.02);
+
+    // And they are not the same sound with a different tuning. An irrational
+    // ratio gives the two strings nothing to agree on, so they never settle,
+    // and that regime carries noticeably more energy than a locked one.
+    assert(golden > unison * 1.3);
+}
+
+/// Each note in the DMX kit must sound its own drum and only its own. The
+/// failure this guards against is every voice sounding at once, which is what
+/// happened before a connected trigger owned playback.
+void testDmxNotesSelectTheirOwnDrum()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/dmx.ttl", circuit));
+
+    const auto registry = makeDefaultRegistry();
+
+    const auto hit = [&](int note)
+    {
+        ValisEngine engine;
+        engine.prepare(48000.0, 512);
+        std::string error;
+        const bool loaded = engine.load(circuit, registry, error);
+        assert(loaded);
+
+        const std::vector<float> silence(512, 0.0f);
+        std::vector<float> block(512, 0.0f), all;
+
+        // Two blocks of nothing first: with no note, nothing may sound.
+        for (int i = 0; i < 2; ++i)
+        {
+            engine.process(silence.data(), block.data(), 512);
+            assert(peakOf(block) < 1.0e-6f);
+        }
+
+        if (note >= 0)
+            engine.queueNoteOn(note, 1.0f, 0);
+
+        for (int i = 0; i < 60; ++i)
+        {
+            engine.process(silence.data(), block.data(), 512);
+            all.insert(all.end(), block.begin(), block.end());
+        }
+
+        double sum = 0.0;
+        for (const float s : all)
+        {
+            assert(std::isfinite(s));
+            sum += static_cast<double>(s) * s;
+        }
+        return std::sqrt(sum / all.size());
+    };
+
+    // A kick, a snare, a closed hat and a crash are four different sounds, and
+    // each has to differ from the others by more than measurement noise.
+    const double kick  = hit(36);
+    const double snare = hit(38);
+    const double hat   = hit(42);
+    const double crash = hit(49);
+
+    std::printf("  dmx: kick %.4f  snare %.4f  hat %.4f  crash %.4f\n",
+                kick, snare, hat, crash);
+    std::fflush(stdout);
+
+    for (const double level : {kick, snare, hat, crash})
+        assert(level > 0.001);
+
+    // The hat is the quietest of the four and the crash the longest, so if
+    // every voice were sounding at once these would all be equal.
+    assert(hat < kick);
+    assert(hat < crash);
+    assert(std::abs(kick - snare) > 0.001);
+
+    // A note no voice is mapped to sounds nothing at all.
+    assert(hit(100) < 1.0e-6);
+}
+
 /// An element may produce events rather than audio. val:NoteOut turns a control
 /// gate into note events the engine collects and the host sends on.
 ///
@@ -1743,6 +1887,8 @@ int main()
     testVoiceAllocationIsDeterministic();
     testMoreNotesThanVoicesSteals();
     testPolysynthExampleRuns();
+    testDmxNotesSelectTheirOwnDrum();
+    testChimeraIsStableAndItsRegimesDiffer();
     testCircuitProducesNoteEvents();
     testEventPortTakesNoBufferOrSlot();
     testOversamplingReducesAliasing();

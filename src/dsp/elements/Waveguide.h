@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "dsp/Random.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -140,24 +142,10 @@ inline float fastTanh(float x) noexcept
     return clamped * (27.0f + squared) / (27.0f + 9.0f * squared);
 }
 
-/// The turbulence in a player's breath. Deterministic, so an offline render of
-/// an instrument is the same every time and can be measured.
-class Turbulence
-{
-public:
-    void seed(std::uint32_t value) noexcept { state = value != 0 ? value : 0x2545f491u; }
+/// The turbulence in a player's breath, which is the shared deterministic
+/// generator under another name: an exciter wants it bipolar and wants it the
+/// same every run, and that is exactly what dsp::Random gives.
+using Turbulence = dsp::Random;
 
-    /// Uniform in [-1, 1).
-    float next() noexcept
-    {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        return static_cast<float>(state >> 8) * (2.0f / 16777216.0f) - 1.0f;
-    }
-
-private:
-    std::uint32_t state = 0x2545f491u;
-};
 
 }  // namespace valis::elements::waveguide

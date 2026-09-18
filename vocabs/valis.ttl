@@ -58,6 +58,28 @@ val:depth a rdf:Property ; rdfs:domain val:Arc ; rdfs:range xsd:double ;
 Depth is a property of the connection, not of either endpoint: the same source
 may drive two destinations by different amounts. Ignored on audio arcs.""" .
 
+val:option a rdf:Property ; rdfs:domain val:Subcircuit ;
+    rdfs:comment """Exposes one of an inner element's options under a name an
+instance can set, the way lv2:port exposes an inner port. lv2:symbol is the name
+the instance uses, val:node names the element to set it on, and val:property
+names the key there when it differs from the symbol.
+
+Options are not ports. The ontology declares an element's ports but says nothing
+about which option keys it accepts, and DspElement::setOption answers true for a
+key it does not know, so nothing can tell which inner element would recognise a
+key. Forwarding an option to whichever element wanted it would therefore be a
+guess. The definition names its targets instead.
+
+More than one val:node on the same option is a deliberate fan-out: both elements
+are set. Two inner elements taking the same key is then something the author
+asked for rather than a collision to break.
+
+    :Voice a val:Subcircuit ;
+        val:option [ lv2:symbol "file" ; val:node :player ] ;
+        val:element :player .
+
+    :kick a :Voice ; val:file "samples/Kick01.wav" .""" .
+
 val:voices a rdf:Property ; rdfs:domain val:Subcircuit ; rdfs:range xsd:integer ;
     rdfs:comment """Instantiates a val:Subcircuit this many times as a pool of
 voices, between 1 and 16. Set on the instance, not on the definition, so one
@@ -275,7 +297,7 @@ host MIDI gate.""" ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
         rdfs:comment "Override: -1 = use host MIDI velocity (default), 0-1 = explicit per-note velocity." ] .
 
-val:Bow a rdfs:Class ; rdfs:subClassOf val:Source ;
+val:Bow a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Bow" ;
     rdfs:comment """Bowed string: a cello, a viol, anything played with rosined
 hair. Two travelling waves on a string with the bow between them.
@@ -300,6 +322,11 @@ https://ccrma.stanford.edu/~jos/pasp/Bowed_Strings.html""" ;
     val:linear false ;
     lv2:port
       [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "drive" ; lv2:name "Drive" ;
+        rdfs:comment """Shakes the bow arm at audio rate. Leave it
+unconnected for an ordinary bowed note. Connect another val:Bow's output to it,
+and that one's to this one's, and the two strings pull each other into and out of
+lock as the coupling and the tuning ratio move.""" ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
         lv2:name "Frequency" ; lv2:default 220.0 ;
         lv2:minimum 20.0 ; lv2:maximum 4000.0 ;

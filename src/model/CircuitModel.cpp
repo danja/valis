@@ -171,6 +171,31 @@ std::unordered_map<std::string, double> readOverrides(const rdf::TurtleStore& st
     return overrides;
 }
 
+/// The values an instance node sets for the options its subcircuit exposes.
+/// Kept as strings, because that is what DspElement::setOption takes and the
+/// model has no idea what any of them mean.
+std::unordered_map<std::string, std::string> readOptionOverrides(const rdf::TurtleStore& store,
+                                                                 const rdf::Node& node,
+                                                                 const SubcircuitDef& def)
+{
+    std::unordered_map<std::string, std::string> values;
+
+    store.forEachProperty(node, [&](const rdf::Node& predicate, const rdf::Node& object)
+    {
+        if (predicate.string().rfind(vocab::VAL, 0) != 0)
+            return;
+
+        const auto local = vocab::shortName(predicate.string());
+        if (def.findOption(local) == nullptr)
+            return;
+
+        if (object.isUri() || object.isLiteral())
+            values[local] = std::string(object.string());
+    });
+
+    return values;
+}
+
 /// Expands val:Subcircuit instances into plain elements and arcs.
 ///
 /// Every inner element is renamed by prefixing it with the instance it belongs
@@ -206,7 +231,8 @@ public:
     /// picks which one a note goes to.
     void expandVoices(const std::string& instanceIri, const SubcircuitDef& def,
                       const std::unordered_map<std::string, double>& overrides,
-                      int voices)
+                      int voices,
+                      const std::unordered_map<std::string, std::string>& optionValues = {})
     {
         // A control output has no single value once there are several copies of
         // the element behind it, so there is nothing honest to expose.
@@ -226,7 +252,7 @@ public:
         for (int voice = 0; voice < voices; ++voice)
         {
             const auto voiceIri = instanceIri + "/" + std::to_string(voice);
-            expand(voiceIri, def, overrides, 0, voice);
+            expand(voiceIri, def, overrides, 0, voice, optionValues);
 
             // Take what this copy's ports resolved to and gather it, so the
             // instance's own ports can stand for all of the copies at once.
@@ -293,7 +319,8 @@ public:
 
     void expand(const std::string& instanceIri, const SubcircuitDef& def,
                 const std::unordered_map<std::string, double>& overrides, int depth,
-                int voice = -1)
+                int voice = -1,
+                const std::unordered_map<std::string, std::string>& optionValues = {})
     {
         if (depth > kMaxDepth)
         {
@@ -319,7 +346,8 @@ public:
             if (const auto* nested = library.find(typeIri))
             {
                 expand(renamed, *nested,
-                       readOverrides(store, innerNode, *nested, diagnostics), depth + 1, voice);
+                       readOverrides(store, innerNode, *nested, diagnostics), depth + 1, voice,
+                       readOptionOverrides(store, innerNode, *nested));
                 continue;
             }
 
@@ -358,6 +386,19 @@ public:
 
         for (const auto& port : def.ports)
             portMap[{instanceIri, port.desc.symbol}] = {{ rename(port.innerNode), port.innerPort }};
+
+        // An option the instance set reaches every element the definition named
+        // for it. Two elements taking the same key is what the author asked for,
+        // not a collision to break: see SubcircuitOption.
+        for (const auto& exposed : def.options)
+        {
+            const auto value = optionValues.find(exposed.symbol);
+            if (value == optionValues.end())
+                continue;
+
+            for (const auto& [target, key] : exposed.targets)
+                pendingOptions.push_back({ rename(target), key, value->second });
+        }
 
         // A declared default is part of the face the subcircuit presents, so it
         // replaces whatever the inner element set. The instance's own value
@@ -417,6 +458,10 @@ public:
     /// after expansion, once every element exists to receive them.
     struct PendingValue { std::string node, port; double value; };
     std::vector<PendingValue> pending;
+
+    /// The same for an exposed option, which is a string rather than a number.
+    struct PendingOption { std::string node, key, value; };
+    std::vector<PendingOption> pendingOptions;
 
     /// (node, port) -> every (node, port) it stands for. One entry for an
     /// ordinary subcircuit port; one per voice for an input of a polyphonic
@@ -492,10 +537,12 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
                 }
             }
 
+            const auto optionValues = readOptionOverrides(store, elementNode, *def);
+
             if (voices > 1)
-                expander.expandVoices(id, *def, overrides, voices);
+                expander.expandVoices(id, *def, overrides, voices, optionValues);
             else
-                expander.expand(id, *def, overrides, 0);
+                expander.expand(id, *def, overrides, 0, -1, optionValues);
 
             continue;
         }
@@ -589,6 +636,16 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
             if (it != elementList.end())
                 it->properties[port] = value.value;
         }
+    }
+
+    // An option an exposed name set on an element inside, applied once every
+    // element exists to receive one.
+    for (const auto& option : expander.pendingOptions)
+    {
+        const auto it = std::find_if(elementList.begin(), elementList.end(),
+                                     [&](const ElementInstance& e) { return e.id == option.node; });
+        if (it != elementList.end())
+            it->options[option.key] = option.value;
     }
 
     // An arc declared but not claimed by the circuit is almost always a typo in

@@ -386,6 +386,32 @@ void testCelloExampleCompiles()
     assert(r.diagnostics.empty());
 }
 
+/// The shipped chimera, compiled the way a user opens it.
+void testChimeraExampleCompiles()
+{
+    auto r = runFile(VALIS_EXAMPLES_DIR "/chimera.ttl");
+
+    if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
+    assert(r.built);
+    assert(r.compiled_);
+    assert(r.diagnostics.empty());
+}
+
+/// The shipped DMX kit: seventeen sample voices, each on its own note.
+void testDmxExampleCompiles()
+{
+    auto r = runFile(VALIS_EXAMPLES_DIR "/dmx.ttl");
+
+    if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
+    assert(r.built);
+    assert(r.compiled_);
+    assert(r.diagnostics.empty());
+
+    // Seventeen voices of three elements, plus the mixer, the output stage and
+    // the output itself.
+    assert(r.compiled.nodes.size() == 17 * 3 + 3);
+}
+
 // -- the acceptance demo ---------------------------------------------------
 
 void testSkreamCompiles()
@@ -458,6 +484,8 @@ int main()
     testArcDeclaredButNotClaimed();
     testSubcircuitExampleCompiles();
     testCelloExampleCompiles();
+    testChimeraExampleCompiles();
+    testDmxExampleCompiles();
     testSkreamCompiles();
 
     std::puts("CircuitCompilerTest PASSED");

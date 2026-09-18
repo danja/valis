@@ -1,0 +1,184 @@
+# examples/dmx.ttl
+#
+# The Oberheim DMX.
+#
+# The DMX was not an analogue drum machine. It played 8-bit samples out of ROM,
+# which is why it sounds the way it does and why modelling it means playing the
+# samples rather than synthesising an imitation of them. The recordings in
+# samples/Oberheim DMX are captures of the real machine, so its converters, its
+# companding and its output stage are already in them.
+#
+# Every voice is the same three elements, so the machine is one definition
+# stamped out seventeen times. What differs between them is the sample, the note
+# that fires it and how loud it sits, and all three are set on the instance:
+# val:file through a val:option the definition exposes, the rest through
+# ordinary control ports.
+#
+# Tuning is a playback rate, which is how the DMX did it too: its pitch controls
+# changed the rate the sample was clocked out at, so a tuned-down snare gets
+# longer as well as lower. That is the sound, not a shortcoming.
+#
+# General MIDI channel 10 note numbers throughout, so it plays from any drum
+# pattern without remapping.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:dmx#> .
+
+################################################################
+# One voice                                                    #
+################################################################
+
+:Voice a val:Subcircuit ;
+    rdfs:label "DMX voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :amp ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "note" ;
+               lv2:name "Note" ; lv2:default 36.0 ;
+               lv2:minimum 0.0 ; lv2:maximum 127.0 ;
+               lv2:portProperty lv2:integer ;
+               val:node :gate ; val:port "note" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "tune" ;
+               lv2:name "Tune" ; lv2:default 1.0 ;
+               lv2:minimum 0.25 ; lv2:maximum 4.0 ;
+               val:node :play ; val:port "speed" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ; lv2:symbol "level" ;
+               lv2:name "Level" ; lv2:default 0.0 ;
+               lv2:minimum -60.0 ; lv2:maximum 12.0 ; units:unit units:db ;
+               val:node :amp ; val:port "gain" ] ;
+
+    # The sample is an option rather than a port: it is a file, not a number.
+    val:option [ lv2:symbol "file" ; val:node :play ] ;
+
+    val:element :gate , :play , :amp ;
+    val:arc :trig , :toAmp .
+
+:gate a val:NoteGate .
+:play a val:SampleLoad ; val:loop 0.0 .
+:amp a val:Gain .
+
+:trig a val:Arc ; val:from [ val:node :gate ; val:port "gate"    ] ;
+                  val:to   [ val:node :play ; val:port "trigger" ] .
+:toAmp a val:Arc ; val:from [ val:node :play ; val:port "out" ] ;
+                   val:to   [ val:node :amp  ; val:port "in"  ] .
+
+################################################################
+# The kit                                                      #
+################################################################
+
+:dmx a val:Circuit ;
+    rdfs:label "Oberheim DMX" ;
+    val:element :kick2 , :kick , :rim , :snare , :clap , :snare2 , :tomLo , :hatC , :tomMid , :hatO , :tomHi , :crash , :ride , :tamb , :timbHi , :timbLo , :cabasa ,
+                :mix , :drive , :out ;
+    val:arc :kick2Mix , :kickMix , :rimMix , :snareMix , :clapMix , :snare2Mix , :tomLoMix , :hatCMix , :tomMidMix , :hatOMix , :tomHiMix , :crashMix , :rideMix , :tambMix , :timbHiMix , :timbLoMix , :cabasaMix ,
+            :mixToDrive , :driveToOut .
+
+:kick2 a :Voice ; val:note 35.0 ; val:level 0.0 ;
+    val:file "samples/Oberheim DMX/Kick02.wav" .   # Bass Drum 2
+:kick a :Voice ; val:note 36.0 ; val:level 0.0 ;
+    val:file "samples/Oberheim DMX/Kick01.wav" .   # Bass Drum 1
+:rim a :Voice ; val:note 37.0 ; val:level -2.0 ;
+    val:file "samples/Oberheim DMX/Rim.wav" .   # Side Stick
+:snare a :Voice ; val:note 38.0 ; val:level 0.0 ;
+    val:file "samples/Oberheim DMX/Snare01.wav" .   # Snare 1
+:clap a :Voice ; val:note 39.0 ; val:level -1.0 ;
+    val:file "samples/Oberheim DMX/Clap.wav" .   # Hand Clap
+:snare2 a :Voice ; val:note 40.0 ; val:level 0.0 ;
+    val:file "samples/Oberheim DMX/Snare02.wav" .   # Snare 2
+:tomLo a :Voice ; val:note 41.0 ; val:level -1.0 ;
+    val:file "samples/Oberheim DMX/TomLo.wav" .   # Low Floor Tom
+:hatC a :Voice ; val:note 42.0 ; val:level -3.0 ;
+    val:file "samples/Oberheim DMX/Hat_C.wav" .   # Closed Hi-Hat
+:tomMid a :Voice ; val:note 45.0 ; val:level -1.0 ;
+    val:file "samples/Oberheim DMX/TomMid.wav" .   # Mid Tom
+:hatO a :Voice ; val:note 46.0 ; val:level -3.0 ;
+    val:file "samples/Oberheim DMX/Hat_O.wav" .   # Open Hi-Hat
+:tomHi a :Voice ; val:note 48.0 ; val:level -1.0 ;
+    val:file "samples/Oberheim DMX/TomHi.wav" .   # High Tom
+:crash a :Voice ; val:note 49.0 ; val:level -4.0 ;
+    val:file "samples/Oberheim DMX/Crash.wav" .   # Crash Cymbal
+:ride a :Voice ; val:note 51.0 ; val:level -4.0 ;
+    val:file "samples/Oberheim DMX/Ride.wav" .   # Ride Cymbal
+:tamb a :Voice ; val:note 54.0 ; val:level -4.0 ;
+    val:file "samples/Oberheim DMX/Tamborine.wav" .   # Tambourine
+:timbHi a :Voice ; val:note 65.0 ; val:level -2.0 ;
+    val:file "samples/Oberheim DMX/TimbaleHi.wav" .   # High Timbale
+:timbLo a :Voice ; val:note 66.0 ; val:level -2.0 ;
+    val:file "samples/Oberheim DMX/TimbaleLo.wav" .   # Low Timbale
+:cabasa a :Voice ; val:note 69.0 ; val:level -4.0 ;
+    val:file "samples/Oberheim DMX/Cabasa.wav" .   # Cabasa
+
+:kick2Mix a val:Arc ; val:from [ val:node :kick2 ; val:port "out" ] ;
+                 val:to   [ val:node :mix ; val:port "in" ] .
+:kickMix a val:Arc ; val:from [ val:node :kick ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:rimMix a val:Arc ; val:from [ val:node :rim ; val:port "out" ] ;
+               val:to   [ val:node :mix ; val:port "in" ] .
+:snareMix a val:Arc ; val:from [ val:node :snare ; val:port "out" ] ;
+                 val:to   [ val:node :mix ; val:port "in" ] .
+:clapMix a val:Arc ; val:from [ val:node :clap ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:snare2Mix a val:Arc ; val:from [ val:node :snare2 ; val:port "out" ] ;
+                  val:to   [ val:node :mix ; val:port "in" ] .
+:tomLoMix a val:Arc ; val:from [ val:node :tomLo ; val:port "out" ] ;
+                 val:to   [ val:node :mix ; val:port "in" ] .
+:hatCMix a val:Arc ; val:from [ val:node :hatC ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:tomMidMix a val:Arc ; val:from [ val:node :tomMid ; val:port "out" ] ;
+                  val:to   [ val:node :mix ; val:port "in" ] .
+:hatOMix a val:Arc ; val:from [ val:node :hatO ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:tomHiMix a val:Arc ; val:from [ val:node :tomHi ; val:port "out" ] ;
+                 val:to   [ val:node :mix ; val:port "in" ] .
+:crashMix a val:Arc ; val:from [ val:node :crash ; val:port "out" ] ;
+                 val:to   [ val:node :mix ; val:port "in" ] .
+:rideMix a val:Arc ; val:from [ val:node :ride ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:tambMix a val:Arc ; val:from [ val:node :tamb ; val:port "out" ] ;
+                val:to   [ val:node :mix ; val:port "in" ] .
+:timbHiMix a val:Arc ; val:from [ val:node :timbHi ; val:port "out" ] ;
+                  val:to   [ val:node :mix ; val:port "in" ] .
+:timbLoMix a val:Arc ; val:from [ val:node :timbLo ; val:port "out" ] ;
+                  val:to   [ val:node :mix ; val:port "in" ] .
+:cabasaMix a val:Arc ; val:from [ val:node :cabasa ; val:port "out" ] ;
+                  val:to   [ val:node :mix ; val:port "in" ] .
+
+:mix a val:Mixer .
+
+# Seventeen voices can all land on the same beat, so the sum leans on a soft
+# stage rather than clipping. The DMX's own output was not clean either.
+:drive a val:Tanh ; val:gain 1.4 ; val:antialiasing val:ADAA2 .
+
+:out a val:Output .
+
+:mixToDrive a val:Arc ; val:from [ val:node :mix   ; val:port "out" ] ;
+                        val:to   [ val:node :drive ; val:port "in"  ] .
+:driveToOut a val:Arc ; val:from [ val:node :drive ; val:port "out" ] ;
+                        val:to   [ val:node :out   ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :kick ; val:property val:tune ;
+    lv2:name "Kick tune" ; lv2:symbol "kickTune" ; val:section "Tuning" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :snare ; val:property val:tune ;
+    lv2:name "Snare tune" ; lv2:symbol "snareTune" ; val:section "Tuning" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :tomLo ; val:property val:tune ;
+    lv2:name "Low tom tune" ; lv2:symbol "tomLoTune" ; val:section "Tuning" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :tomMid ; val:property val:tune ;
+    lv2:name "Mid tom tune" ; lv2:symbol "tomMidTune" ; val:section "Tuning" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :tomHi ; val:property val:tune ;
+    lv2:name "High tom tune" ; lv2:symbol "tomHiTune" ; val:section "Tuning" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :hatC ; val:property val:tune ;
+    lv2:name "Closed hat tune" ; lv2:symbol "hatCTune" ; val:section "Tuning" .
+
+:p6 a val:Param ; val:slot 6 ; val:target :drive ; val:property val:gain ;
+    lv2:name "Output drive" ; lv2:symbol "drive" ; val:section "Output" .

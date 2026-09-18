@@ -3,6 +3,8 @@
 #include "Common.h"
 #include "Waveguide.h"
 
+#include "dsp/Random.h"
+
 #include <cstdint>
 
 namespace valis::elements {
@@ -143,11 +145,7 @@ public:
 
         for (int i = 0; i < args.numSamples; ++i)
         {
-            // xorshift: deterministic, so golden-output tests are reproducible.
-            seed ^= seed << 13;
-            seed ^= seed >> 17;
-            seed ^= seed << 5;
-            const float white = static_cast<float>(static_cast<int32_t>(seed)) * 4.6566129e-10f;
+            const float white = random.bipolar();
 
             pink[0] = 0.99886f * pink[0] + white * 0.0555179f;
             pink[1] = 0.99332f * pink[1] + white * 0.0750759f;
@@ -159,7 +157,7 @@ public:
     }
 
 private:
-    uint32_t seed = 0x9e3779b9u;
+    dsp::Random random;
     float pink[3] = {};
     int colourIndex = -1;
 };
@@ -564,6 +562,7 @@ public:
     void prepare(const ElementType& type, double rate, int) override
     {
         sampleRate  = rate;
+        driveIn     = audioInIndex(type, "drive");
         freqIdx     = controlIndex(type, "frequency");
         pressureIdx = controlIndex(type, "pressure");
         velocityIdx = controlIndex(type, "velocity");
@@ -635,6 +634,12 @@ public:
         // The gate is the player's arm. Bowing is eased in rather than switched
         // on, because an instantaneous bow is a click and not an attack.
         const float target = args.gate ? speed * kBowSpeed : 0.0f;
+
+        // A second string, or anything else, shaking the bow arm. Audio rate
+        // rather than control rate, because what is interesting about coupling
+        // two of these together happens inside a period, not across a block.
+        const float* drive = driveIn >= 0 && driveIn < args.numAudioIn
+                           ? args.audioIn[driveIn] : nullptr;
         const float ease   = static_cast<float>(1.0 - std::exp(-1.0 / (kBowEaseMs * 0.001 * sampleRate)));
 
         float* out = args.audioOut[0];
@@ -648,7 +653,8 @@ public:
             // irregularity is what keeps the string out of the neighbouring
             // modes it would otherwise lock into at particular combinations of
             // pitch and bow position.
-            const float hair = bowing * (1.0f + kRosin * rosin.next());
+            const float shake = drive != nullptr ? drive[i] : 0.0f;
+            const float hair = bowing * (1.0f + kRosin * rosin.bipolar()) + shake * kDrive;
 
             const float atBridge = toBridge.last();
             const float atNut    = toNut.last();
@@ -707,6 +713,10 @@ private:
     static constexpr float kBowSpeed  = 0.35f;
     static constexpr float kBowEaseMs = 12.0f;
 
+    /// How hard an external signal shakes the bow arm. The friction curve is
+    /// steep, so a little goes a long way.
+    static constexpr float kDrive = 0.25f;
+
     /// How uneven the rosin's grip is, as a fraction of bow speed.
     static constexpr float kRosin = 0.04f;
 
@@ -744,6 +754,7 @@ private:
 
     double sampleRate = 48000.0;
     float  bowing     = 0.0f;
+    int driveIn = -1;
     int freqIdx = -1, pressureIdx = -1, velocityIdx = -1, positionIdx = -1, dampingIdx = -1;
 };
 

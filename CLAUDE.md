@@ -104,8 +104,6 @@ to confirm a running instance before using MCP tools that require a host.
 - Measure harmonics against the pitch the instrument actually played, not the one it was
   asked for. A few cents of drift moves a partial out of the measurement window and reports a
   tone far purer than it is.
-- Build everything (`cmake --build build`, no target) before measuring through `valis-render`.
-  A targeted test build leaves the tool linked against the previous library.
 
 ## Control arc semantics
 
@@ -157,6 +155,11 @@ to confirm a running instance before using MCP tools that require a host.
 3. Keep the change in the smallest affected subsystem.
 4. Update the public interface first, then add focused tests.
 5. Run the narrowest relevant tests, then `./build.sh` if anything native changed.
+6. **Build everything (`cmake --build build`, no target) before measuring through
+   `valis-render` or any other tool.** A targeted test build leaves the tool linked
+   against the previous `libvalis_core.a`, so it measures the old code. This has cost
+   hours twice; see MISTAKES.md. If a test and a tool disagree about a circuit whose
+   compiled form prints identically in both, the binaries differ, not the code.
 6. Update milestone status in `docs/plan.md` when a milestone completes.
 
 ## Reference projects

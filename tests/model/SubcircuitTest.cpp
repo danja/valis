@@ -316,6 +316,136 @@ void testSubcircuitArcIsNotReportedAsUnclaimed()
     assert(! r.hasDiagnosticContaining("declared but not listed"));
 }
 
+// -- options ----------------------------------------------------------------
+
+/// An instance can set an option on an element inside, which a control port
+/// cannot express: val:file is not a port.
+void testInstanceSetsAnExposedOption()
+{
+    auto r = run(doc(R"(
+:Player a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :smp ; val:port "out" ] ;
+    val:option [ lv2:symbol "file" ; val:node :smp ] ;
+    val:element :smp .
+:smp a val:SampleLoad .
+
+:c a val:Circuit ; val:element :in , :kick , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:kick a :Player ; val:file "samples/bell.wav" .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a2 a val:Arc ; val:from [ val:node :kick ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+
+    const auto* player = r.element("urn:valis:t#kick/smp");
+    assert(player != nullptr);
+
+    const auto file = player->options.find("file");
+    assert(file != player->options.end());
+    assert(file->second == "samples/bell.wav");
+}
+
+/// Two inner elements taking the same key is not an ambiguity for the model to
+/// resolve. The definition says which elements an option sets, so naming two of
+/// them is a fan-out the author asked for, and both are set.
+void testAnOptionMaySetMoreThanOneElement()
+{
+    auto r = run(doc(R"(
+:Pair a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :mix ; val:port "out" ] ;
+    val:option [ lv2:symbol "file" ; val:node :left , :right ] ;
+    val:element :left , :right , :mix ;
+    val:arc :l , :r .
+:left a val:SampleLoad .
+:right a val:SampleLoad ; val:speed 1.01 .
+:mix a val:Mixer .
+:l a val:Arc ; val:from [ val:node :left ; val:port "out" ] ;
+               val:to   [ val:node :mix ; val:port "in" ] .
+:r a val:Arc ; val:from [ val:node :right ; val:port "out" ] ;
+               val:to   [ val:node :mix ; val:port "in" ] .
+
+:c a val:Circuit ; val:element :in , :both , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:both a :Pair ; val:file "samples/bell.wav" .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a2 a val:Arc ; val:from [ val:node :both ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+
+    for (const char* id : {"urn:valis:t#both/left", "urn:valis:t#both/right"})
+    {
+        const auto* element = r.element(id);
+        assert(element != nullptr);
+        assert(element->options.at("file") == "samples/bell.wav");
+    }
+}
+
+/// Every voice of a pool gets the option too.
+void testAnOptionReachesEveryVoice()
+{
+    auto r = run(doc(R"(
+:Player a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :smp ; val:port "out" ] ;
+    val:option [ lv2:symbol "file" ; val:node :smp ] ;
+    val:element :smp .
+:smp a val:SampleLoad .
+
+:c a val:Circuit ; val:element :in , :poly , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:poly a :Player ; val:voices 3 ; val:file "samples/bell.wav" .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a2 a val:Arc ; val:from [ val:node :poly ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+
+    for (int voice = 0; voice < 3; ++voice)
+    {
+        const auto id = "urn:valis:t#poly/" + std::to_string(voice) + "/smp";
+        assert(r.element(id)->options.at("file") == "samples/bell.wav");
+    }
+}
+
+/// An option naming an element the subcircuit does not own is reported, for the
+/// same reason a port is.
+void testAnOptionOnAForeignElementIsReported()
+{
+    auto r = run(doc(R"(
+:Bad a val:Subcircuit ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "out" ;
+               val:node :smp ; val:port "out" ] ;
+    val:option [ lv2:symbol "file" ; val:node :elsewhere ] ;
+    val:element :smp .
+:smp a val:SampleLoad .
+:elsewhere a val:SampleLoad .
+
+:c a val:Circuit ; val:element :in , :out ; val:arc :a1 .
+:in a val:Input .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in" ] .
+)"));
+
+    assert(r.hasDiagnosticContaining("which is not one of its val:element"));
+}
+
 // -- voices -----------------------------------------------------------------
 
 void testVoicesStampOutTheDefinitionAndSumIt()
@@ -524,6 +654,11 @@ int main()
     testParamBindingFollowsExposedPort();
     testNestedSubcircuitExpands();
     testSubcircuitArcIsNotReportedAsUnclaimed();
+
+    testInstanceSetsAnExposedOption();
+    testAnOptionMaySetMoreThanOneElement();
+    testAnOptionReachesEveryVoice();
+    testAnOptionOnAForeignElementIsReported();
 
     testVoicesStampOutTheDefinitionAndSumIt();
     testVoicesShareTheirDeclaredValues();

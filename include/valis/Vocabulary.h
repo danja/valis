@@ -107,6 +107,7 @@ namespace val {
   inline const std::string port           = std::string(VAL) + "port";
   inline const std::string implementation = std::string(VAL) + "implementation";
   inline const std::string linear         = std::string(VAL) + "linear";
+  inline const std::string option         = std::string(VAL) + "option";
 
   // Parameter binding
   inline const std::string slot     = std::string(VAL) + "slot";

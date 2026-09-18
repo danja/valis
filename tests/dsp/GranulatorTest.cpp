@@ -283,6 +283,34 @@ void testPitchTransposes()
     assert(octaveUp > 10.0f);
 }
 
+/// A val:SampleLoad with a trigger wired to it must wait for that trigger. It
+/// used to play itself once the moment the circuit loaded, which in a drum
+/// machine sounded every voice at the downbeat.
+void testAConnectedTriggerOwnsPlayback()
+{
+    ElementTestFixture rig("SampleLoad", kRate);
+    std::string error;
+    assert(rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+    rig.set("loop", 0.0f);
+
+    const std::vector<float> silence(4096, 0.0f);
+
+    // Trigger held low: nothing, however long we wait.
+    rig.set("trigger", 0.0f);
+    for (int i = 0; i < 4; ++i)
+        assert(ElementTestFixture::measurePeak(rig.run(silence)) < 1.0e-6f);
+
+    // The rising edge starts it.
+    rig.set("trigger", 1.0f);
+    assert(ElementTestFixture::measurePeak(rig.run(silence)) > 0.01f);
+
+    // With no trigger wired at all the element still free-runs, which is what
+    // the Controls view's file slot relies on.
+    ElementTestFixture loose("SampleLoad", kRate);
+    assert(loose.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+    assert(ElementTestFixture::measurePeak(loose.run(silence)) > 0.01f);
+}
+
 /// A sound file is a resource with an identity, not just a path. A circuit may
 /// declare what the file it names is, and a file that is not that fails the
 /// load with a message rather than playing something else.
@@ -576,6 +604,7 @@ int main()
     testRenderIsReproducible();
     testBlockSizeIndependence();
     testPitchTransposes();
+    testAConnectedTriggerOwnsPlayback();
     testDeclaredResourceIdentityIsChecked();
     testMissingFileIsAnError();
     testTransportPhaseAndPulse();

@@ -16,6 +16,23 @@ measuring the *old* element. The giveaway was in the output all along: every
 render reported `peak 0.2500` whatever the pitch or the controls, and `* 0.25f`
 was the old implementation's output scale. The new one has no such constant.
 
+**Happened again**, on a model-layer feature this time: a `val:Subcircuit` could
+expose an inner element's option, the unit tests passed, and `valis-render`
+played silence. Two rounds went into comparing the model and the compiled
+circuit between a working file and a broken one, both of which printed
+identical options, control values and topology. They were identical. The test
+binary had been rebuilt and the tool had not.
+
+The second time cost more than the first, because the two paths agreeing on
+everything printable is exactly what a stale binary looks like, and it reads as
+impossible rather than as a clue. **When a test and a tool disagree about a
+circuit whose compiled form is identical in both, suspect the binaries before
+suspecting the code.**
+
+The rule had been written down under "Physical models" in CLAUDE.md, which is
+where it was learnt but not where it applies. It is now in the change workflow,
+which is where it gets read.
+
 **Prevention:** build everything before measuring through a tool.
 `cmake --build build` with no target takes a few more seconds and removes the
 whole class of problem. And a number that does not move when the inputs move is

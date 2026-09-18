@@ -10,8 +10,10 @@
 
 #include "Common.h"
 
-#include <juce_audio_formats/juce_audio_formats.h>
-#include <juce_cryptography/juce_cryptography.h>
+#include "dsp/GrainPool.h"
+#include "dsp/Random.h"
+#include "dsp/SampleFile.h"
+
 
 #include <array>
 #include <cstdint>
@@ -19,251 +21,8 @@
 
 namespace valis::elements {
 
-/// Deterministic per-element noise. A granulator seeded from the clock would
-/// render differently every time, which would make offline audio tests
-/// worthless; seeding in reset() makes a render reproducible.
-class Xorshift
-{
-public:
-    void seed(std::uint32_t value) noexcept { state = value != 0 ? value : 0x9e3779b9u; }
-
-    /// Uniform in [0, 1).
-    float next() noexcept
-    {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        return static_cast<float>(state >> 8) * (1.0f / 16777216.0f);
-    }
-
-    /// Uniform in [-1, 1).
-    float bipolar() noexcept { return next() * 2.0f - 1.0f; }
-
-private:
-    std::uint32_t state = 0x9e3779b9u;
-};
-
-/// Reads a sound file into a mono buffer at the engine's rate. Message thread
-/// only: it opens a file and allocates, so it belongs nowhere near process().
-///
-/// Shared by val:Granulator and val:SampleLoad, which differ in what they do
-/// with the samples, not in how they get them.
-struct SampleFile
-{
-    std::vector<float> samples;
-    std::string name;      ///< the file's own name, for the Controls view
-
-    /// What the file turned out to be, as opposed to what the circuit declared
-    /// it would be. A circuit that states any of these has them checked, so a
-    /// sample that was replaced or truncated since the circuit was written
-    /// fails to load with a message rather than playing something else.
-    std::string sha256;
-    int    sourceChannels   = 0;
-    double sourceSampleRate = 0.0;
-    long long sourceFrames  = 0;
-
-    bool load(std::string_view path, double sampleRate, std::string& error)
-    {
-        const auto file = resolve(path);
-        if (! file.existsAsFile())
-        {
-            error = "no such file: " + file.getFullPathName().toStdString();
-            return false;
-        }
-
-        // Message thread, so reading the file twice is affordable and the hash
-        // is of the bytes on disk rather than of whatever decoding produced.
-        {
-            juce::FileInputStream stream(file);
-            if (stream.openedOk())
-                sha256 = juce::SHA256(stream).toHexString().toStdString();
-        }
-
-        juce::AudioFormatManager formats;
-        formats.registerBasicFormats();
-
-        std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
-        if (reader == nullptr)
-        {
-            error = "unreadable audio file: " + file.getFullPathName().toStdString();
-            return false;
-        }
-
-        const auto frames = static_cast<int>(std::min<juce::int64>(
-            reader->lengthInSamples, static_cast<juce::int64>(sampleRate * 60.0)));
-        if (frames <= 0)
-        {
-            error = "audio file is empty: " + file.getFullPathName().toStdString();
-            return false;
-        }
-
-        sourceChannels   = static_cast<int>(reader->numChannels);
-        sourceSampleRate = reader->sampleRate;
-        sourceFrames     = static_cast<long long>(reader->lengthInSamples);
-
-        juce::AudioBuffer<float> source(static_cast<int>(reader->numChannels), frames);
-        reader->read(&source, 0, frames, 0, true, true);
-
-        // The circuit model is mono; a stereo file is summed rather than having
-        // one of its channels dropped.
-        std::vector<float> mono(static_cast<std::size_t>(frames), 0.0f);
-        for (int c = 0; c < source.getNumChannels(); ++c)
-        {
-            const float* channel = source.getReadPointer(c);
-            for (int i = 0; i < frames; ++i)
-                mono[static_cast<std::size_t>(i)] += channel[i];
-        }
-        if (source.getNumChannels() > 1)
-            for (auto& sample : mono)
-                sample /= static_cast<float>(source.getNumChannels());
-
-        const double ratio = reader->sampleRate > 0.0 ? reader->sampleRate / sampleRate : 1.0;
-        const auto resampled = static_cast<int>(static_cast<double>(frames) / ratio);
-
-        samples.assign(static_cast<std::size_t>(std::max(resampled, 1)), 0.0f);
-        for (int i = 0; i < resampled; ++i)
-        {
-            const double at = static_cast<double>(i) * ratio;
-            const auto   i0 = static_cast<int>(at);
-            const auto   f  = static_cast<float>(at - static_cast<double>(i0));
-            const float  y0 = mono[static_cast<std::size_t>(std::min(i0, frames - 1))];
-            const float  y1 = mono[static_cast<std::size_t>(std::min(i0 + 1, frames - 1))];
-            samples[static_cast<std::size_t>(i)] = y0 + f * (y1 - y0);
-        }
-
-        name = file.getFileName().toStdString();
-        return true;
-    }
-
-    bool loaded() const { return sourceFrames > 0; }
-
-    /// A relative path is resolved against the working directory first, then
-    /// the shipped examples, so a circuit can name a sample next to itself.
-    static juce::File resolve(std::string_view path)
-    {
-        const juce::String text{std::string(path)};
-
-        if (text.startsWith("~/"))
-            return juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-                       .getChildFile(text.substring(2));
-
-        if (juce::File::isAbsolutePath(text))
-            return juce::File(text);
-
-        const auto relative = juce::File::getCurrentWorkingDirectory().getChildFile(text);
-        if (relative.existsAsFile())
-            return relative;
-
-        const auto shipped = juce::File(VALIS_EXAMPLES_DIR).getChildFile(text);
-        if (shipped.existsAsFile())
-            return shipped;
-
-        const auto root = juce::File(VALIS_ROOT_DIR).getChildFile(text);
-        if (root.existsAsFile())
-            return root;
-
-        return relative;
-    }
-};
-
-/// What a circuit declares the sound file it names will be: its content hash
-/// and its dimensions. The survey's point is that a sample is a resource with
-/// an identity, not an unexplained path. A circuit that declares none of these
-/// behaves exactly as before.
-///
-/// Checking is order independent. RDF has no statement order, so a declaration
-/// may arrive before or after val:file; it is remembered either way and checked
-/// as soon as both halves are known.
-struct SampleExpectation
-{
-    std::string sha256;
-    int    channels   = 0;
-    double sampleRate = 0.0;
-    long long frames  = 0;
-
-    /// Whether `key` was one of the declarations, and if so whether its value
-    /// could be read. A key nobody recognises is not a failure; a key that is
-    /// recognised and malformed is, so a typo does not pass for "not declared".
-    enum class Declared { No, Yes, Bad };
-
-    Declared setDeclared(std::string_view key, std::string_view value, std::string& error)
-    {
-        const juce::String text{std::string(value)};
-
-        const auto positive = [&](double parsed, std::string_view what)
-        {
-            if (parsed > 0.0)
-                return Declared::Yes;
-
-            error = "val:" + std::string(what) + " must be a positive number, not '" +
-                    std::string(value) + "'";
-            return Declared::Bad;
-        };
-
-        if (key == "sha256")
-        {
-            // 64 hex characters, or it is not a SHA-256 and never will match.
-            if (text.length() != 64 || ! text.containsOnly("0123456789abcdefABCDEF"))
-            {
-                error = "val:sha256 must be 64 hexadecimal characters, not '" +
-                        std::string(value) + "'";
-                return Declared::Bad;
-            }
-            sha256 = text.toLowerCase().toStdString();
-            return Declared::Yes;
-        }
-
-        if (key == "channels")
-        {
-            channels = text.getIntValue();
-            return positive(channels, "channels");
-        }
-        if (key == "sampleRate")
-        {
-            sampleRate = text.getDoubleValue();
-            return positive(sampleRate, "sampleRate");
-        }
-        if (key == "frames")
-        {
-            frames = text.getLargeIntValue();
-            return positive(static_cast<double>(frames), "frames");
-        }
-
-        return Declared::No;
-    }
-
-    bool check(const SampleFile& file, std::string& error) const
-    {
-        if (! file.loaded())
-            return true;   // nothing to check against yet
-
-        const auto mismatch = [&](std::string_view what,
-                                  const std::string& declared,
-                                  const std::string& actual)
-        {
-            error = file.name + ": declared " + std::string(what) + " " + declared +
-                    ", file has " + actual;
-            return false;
-        };
-
-        if (! sha256.empty() && sha256 != file.sha256)
-            return mismatch("val:sha256", sha256, file.sha256);
-
-        if (channels != 0 && channels != file.sourceChannels)
-            return mismatch("val:channels", std::to_string(channels),
-                            std::to_string(file.sourceChannels));
-
-        if (sampleRate != 0.0 && std::abs(sampleRate - file.sourceSampleRate) > 0.5)
-            return mismatch("val:sampleRate", std::to_string(static_cast<long long>(sampleRate)),
-                            std::to_string(static_cast<long long>(file.sourceSampleRate)));
-
-        if (frames != 0 && frames != file.sourceFrames)
-            return mismatch("val:frames", std::to_string(frames),
-                            std::to_string(file.sourceFrames));
-
-        return true;
-    }
-};
+using dsp::SampleFile;
+using dsp::SampleExpectation;
 
 /// Granular synthesiser and processor.
 ///
@@ -349,10 +108,8 @@ public:
         scanOffset     = 0.0;
         lastTrigger    = 0.0f;
         lastInterval   = 0.0f;
-        random.seed(0x5eed1234u);
-
-        for (auto& grain : grains)
-            grain.active = false;
+        grains.seed(0x5eed1234u);
+        grains.clear();
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -434,7 +191,8 @@ public:
         // them by moving the resting value of the arc behaves the same however
         // it got there.
         if (externalTrigger && trigger > 0.5f && lastTrigger <= 0.5f)
-            spawn(positionCtl, grainLength, pitch, spray, pitchJitter, spread, reverse);
+            grains.spawn(grainSpec(positionCtl, grainLength, pitch, spray,
+                                           pitchJitter, spread, reverse));
 
         lastTrigger = trigger;
 
@@ -457,8 +215,9 @@ public:
                 untilNextGrain -= 1.0;
                 while (untilNextGrain <= 0.0)
                 {
-                    spawn(positionCtl, grainLength, pitch, spray, pitchJitter, spread, reverse);
-                    const float wobble = 1.0f + jitter * random.bipolar() * 0.9f;
+                    grains.spawn(grainSpec(positionCtl, grainLength, pitch, spray,
+                                           pitchJitter, spread, reverse));
+                    const float wobble = 1.0f + jitter * grains.generator().bipolar() * 0.9f;
                     untilNextGrain += static_cast<double>(std::max(1.0f, interval * wobble));
                 }
             }
@@ -467,25 +226,8 @@ public:
 
             float left = 0.0f, right = 0.0f;
 
-            for (auto& grain : grains)
-            {
-                if (! grain.active)
-                    continue;
-
-                const float window = windowAt(grain.phase, fade);
-                const float value  = read(grain.readPos) * window;
-
-                left  += value * grain.panL;
-                right += value * grain.panR;
-
-                grain.readPos += grain.increment;
-                while (grain.readPos >= static_cast<double>(length)) grain.readPos -= static_cast<double>(length);
-                while (grain.readPos < 0.0)                          grain.readPos += static_cast<double>(length);
-
-                grain.phase += grain.phaseInc;
-                if (grain.phase >= 1.0f)
-                    grain.active = false;
-            }
+            grains.mix(left, right, fade, static_cast<double>(length),
+                       [this](double position) { return read(position); });
 
             left  *= makeup;
             right *= makeup;
@@ -504,93 +246,24 @@ public:
     }
 
 private:
-    struct Grain
+    /// Where in the buffer a grain starts, and how it is to be played. The
+    /// position is measured forward from the write head: with a file loaded the
+    /// head sits at the start of the file, and while recording it is the present
+    /// moment.
+    dsp::GrainSpec grainSpec(float position, float grainLength, float pitch, float spray,
+                             float pitchJitter, float spread, float reverse) const noexcept
     {
-        bool   active    = false;
-        double readPos   = 0.0;
-        double increment = 1.0;
-        float  phase     = 0.0f;
-        float  phaseInc  = 0.0f;
-        float  panL      = 0.70710678f;
-        float  panR      = 0.70710678f;
-    };
-
-    /// Grains are a fixed pool. When they are all busy the onset is dropped:
-    /// the alternative on this thread is to allocate, and a texture missing one
-    /// grain in a cloud of sixty-four is inaudible.
-    static constexpr int kMaxGrains = 64;
-
-    void spawn(float position, float grainLength, float pitch, float spray,
-               float pitchJitter, float spread, float reverse) noexcept
-    {
-        if (length <= 0)
-            return;
-
-        Grain* slot = nullptr;
-        for (auto& grain : grains)
-        {
-            if (! grain.active)
-            {
-                slot = &grain;
-                break;
-            }
-        }
-
-        if (slot == nullptr)
-            return;
-
-        const double span = static_cast<double>(length);
-
-        // position is measured forward from the write head: with a file loaded
-        // the head sits at the start of the file, and while recording the head
-        // is the present moment.
-        double start = static_cast<double>(writeHead)
-                     + static_cast<double>(position) * span
-                     + scanOffset
-                     + static_cast<double>(spray * random.bipolar()) * span;
-
-        while (start >= span) start -= span;
-        while (start < 0.0)   start += span;
-
-        const float semitones = pitch + pitchJitter * random.bipolar();
-        double increment = std::pow(2.0, static_cast<double>(semitones) / 12.0);
-        if (random.next() < reverse)
-            increment = -increment;
-
-        // Equal-power placement around the centre, widened by spread.
-        const float pan   = 0.5f + 0.5f * spread * random.bipolar();
-        const float angle = pan * 1.5707963267948966f;
-
-        slot->active    = true;
-        slot->readPos   = start;
-        slot->increment = increment;
-        slot->phase     = 0.0f;
-        slot->phaseInc  = 1.0f / grainLength;
-        slot->panL      = std::cos(angle);
-        slot->panR      = std::sin(angle);
-    }
-
-    /// Tukey window: `fade` is the fraction of the grain spent rising or
-    /// falling. At the smallest fade it is nearly rectangular, keeping the
-    /// source transient intact; at 0.5 the whole grain is one rise and fall and
-    /// the grain boundary is inaudible.
-    ///
-    /// The raised cosine is approximated by the cubic 3t^2 - 2t^3, which agrees
-    /// with it to within 0.02 and has the same zero slope at both ends. This
-    /// runs once per grain per sample, so a cosine call here would dominate the
-    /// element's cost.
-    static float windowAt(float phase, float fade) noexcept
-    {
-        float t = 1.0f;
-
-        if (phase < fade)
-            t = phase / fade;
-        else if (phase > 1.0f - fade)
-            t = (1.0f - phase) / fade;
-        else
-            return 1.0f;
-
-        return t * t * (3.0f - 2.0f * t);
+        dsp::GrainSpec spec;
+        spec.span          = static_cast<double>(length);
+        spec.origin        = static_cast<double>(writeHead) + scanOffset;
+        spec.position      = position;
+        spec.lengthSamples = grainLength;
+        spec.pitch         = pitch;
+        spec.spray         = spray;
+        spec.pitchJitter   = pitchJitter;
+        spec.spread        = spread;
+        spec.reverse       = reverse;
+        return spec;
     }
 
     /// Catmull-Rom interpolation. Grains play at arbitrary rates, so linear
@@ -672,8 +345,9 @@ private:
     std::vector<float> buffer;      ///< the circular recording buffer
     std::vector<float> fileContent; ///< what val:file loaded, for reset()
 
-    std::array<Grain, kMaxGrains> grains{};
-    Xorshift random;
+    /// A cloud of sixty-four is more than the ear resolves, and the pool is
+    /// shared machinery: see src/dsp/GrainPool.h.
+    dsp::GrainPool<64> grains;
 
     double sampleRate    = 44100.0;
     double bufferSeconds = 8.0;
@@ -745,6 +419,7 @@ public:
         readPos     = 0.0;
         playing     = ! samples.empty();
         lastTrigger = 0.0f;
+        triggered   = false;
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -769,10 +444,18 @@ public:
         // it simply plays. Any other value makes each rising edge a restart.
         if (trigger >= -0.5f)
         {
+            // A connected trigger owns playback. Until its first rising edge the
+            // element is silent, rather than playing itself once the moment the
+            // circuit loads: a drum machine with seventeen voices would
+            // otherwise sound all of them at the downbeat.
+            if (! triggered)
+                playing = false;
+
             if (trigger > 0.5f && lastTrigger <= 0.5f)
             {
                 readPos = static_cast<double>(startCtl) * static_cast<double>(length);
-                playing = true;
+                playing   = true;
+                triggered = true;
             }
             lastTrigger = trigger;
         }
@@ -824,6 +507,7 @@ private:
     double sampleRate = 44100.0;
     double readPos    = 0.0;
     bool   playing    = false;
+    bool   triggered  = false;   ///< whether a connected trigger has fired yet
     float  lastTrigger = 0.0f;
     int triggerIndex = -1, speedIndex = -1, startIndex = -1, loopIndex = -1;
 };

@@ -37,6 +37,26 @@ struct SubcircuitPort
     bool hasDefault = false;
 };
 
+/// One option a subcircuit exposes, and the inner options it stands for.
+///
+/// Options are not ports: the ontology declares an element's ports but says
+/// nothing about which option keys it accepts, and DspElement::setOption
+/// answers true for a key it does not know. So the model cannot tell which
+/// inner element "recognises" a key, and a rule that forwarded an option to
+/// whichever element wanted it would be guessing.
+///
+/// The definition names its targets instead, exactly as it does for a port.
+/// Two inner elements taking the same key is then not an ambiguity to resolve
+/// but something the author asked for: declare both, and both are set.
+struct SubcircuitOption
+{
+    std::string symbol;   ///< the name an instance uses
+
+    /// Each inner element and the option key to set on it. More than one is a
+    /// deliberate fan-out, not a collision.
+    std::vector<std::pair<std::string, std::string>> targets;
+};
+
 /// A subcircuit definition: the ports it exposes and the fragment behind them.
 struct SubcircuitDef
 {
@@ -48,10 +68,12 @@ struct SubcircuitDef
     ElementType type;
 
     std::vector<SubcircuitPort> ports;
+    std::vector<SubcircuitOption> options;
     std::vector<std::string> elementIris;
     std::vector<std::string> arcIris;
 
     const SubcircuitPort* findPort(std::string_view symbol) const;
+    const SubcircuitOption* findOption(std::string_view symbol) const;
 };
 
 /// Every val:Subcircuit in one document.
