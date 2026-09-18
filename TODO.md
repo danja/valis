@@ -2,7 +2,7 @@
 
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
   (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
-* create emulations of all the instruments used by New Order to make "Blue Monday"
+* create emulations of all the instruments used by New Order to make "Blue Monday". Reuse elements as appropriate, something new may be needed for the bass sound, plucked string subcomponents if they don't already exist
 * create docs/examples.md - describe the existing instruments and the new ones below there (and clear the text below)
 
 ## New instruments
