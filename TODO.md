@@ -8,6 +8,7 @@
 * create a synth that makes jawdropping sounds nobody has heard before 
 * Model the Oberheim DMX drum sounds as faithfully as possible, creating new elements as needed.
 * create a realistic cello
+* make an accurate simulation of the Boss DD-3 delay pedal
 
 ## From the plugin survey
 

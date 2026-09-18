@@ -90,12 +90,12 @@ jobs:
           }
           CSS
 
-          for src in docs/manual/*.md docs/skream.md docs/guide-for-agents.md; do
+          for src in docs/manual/*.md docs/skream.md docs/guide-for-agents.md docs/features.md; do
             name=$(basename "$src" .md)
             out="_site/$name.html"
             title=$(head -1 "$src" | sed 's/^#* *//')
 
-            sed 's/\(\[[^]]*\]([^)]*\)\.md)/\1.html)/g; s|(\.\./skream\.md)|(skream.html)|g' "$src" \
+            sed 's/\(\[[^]]*\]([^)]*\)\.md)/\1.html)/g; s|(\.\./skream\.md)|(skream.html)|g; s|(manual/\([a-z-]*\)\.html)|(\1.html)|g' "$src" \
               | marked > /tmp/body.html
 
             {
