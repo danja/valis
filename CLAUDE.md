@@ -24,6 +24,7 @@ ui/ (Turtle · Graph · Knobs)   mcp/ (HTTP JSON-RPC)
 - Read `TODO.md` at the start of each session; carry out outstanding tasks and remove completed ones.
 - Use the Read tool rather than sed
 - Call MCP tools directly rather than using curl
+- periodically read INBOX.md and merge tasks into TODO.md
 
 ## Test hosts
 

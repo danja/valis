@@ -1,0 +1,1 @@
+* remove tasks that have been done from TODO.md and refactor MISTAKES.md into a much shorter version, keeping references to any repeated errors, removing those which you judge to be one-offs or low priority

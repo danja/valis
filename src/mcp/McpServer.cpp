@@ -7,6 +7,11 @@
 
 #include <httplib.h>
 
+#include <chrono>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <thread>
 
 namespace valis {
@@ -20,30 +25,118 @@ constexpr const char* kDiagnosticsResourceUri = "valis://diagnostics";
 constexpr const char* kElementTypesResourceUri = "valis://element-types";
 constexpr const char* kParamsResourceUri = "valis://params";
 
+// A request that cannot be serviced within this window is a bug, not a
+// slow op: everything here is bounded work on in-memory structures.
+constexpr int kRequestTimeoutMs = 5000;
+
+/// Bounded admission for work marshalled onto the message thread.
+///
+/// The message thread does not always have an event loop. In a host that is not
+/// JUCE — Transmission, say — nothing pumps JUCE events, so JUCE's Linux default
+/// of posting to the X11 event queue has nobody draining it, and it asserts once
+/// 128 posted messages are unprocessed. Every request waiting on a reply holds
+/// one, so a burst of concurrent callers filled that queue and took the process
+/// down with it. Bounding what is in flight keeps JUCE's queue short and makes
+/// excess callers wait here, where they cost nothing, instead of there.
+class MessageThreadGate
+{
+public:
+    /// Blocks until a slot is free. False if none frees within `timeoutMs`.
+    bool acquire(int timeoutMs)
+    {
+        const auto deadline = std::chrono::steady_clock::now()
+                            + std::chrono::milliseconds(timeoutMs);
+
+        std::unique_lock lock(mutex);
+        if (! condition.wait_until(lock, deadline, [this] { return inFlight < kMaxInFlight; }))
+            return false;
+
+        ++inFlight;
+        return true;
+    }
+
+    /// Called by the task itself, so a slot is held for as long as the work is
+    /// queued rather than for as long as a caller is willing to wait.
+    void release()
+    {
+        {
+            const std::lock_guard lock(mutex);
+            --inFlight;
+        }
+
+        condition.notify_one();
+    }
+
+    int pending() const
+    {
+        const std::lock_guard lock(mutex);
+        return inFlight;
+    }
+
+private:
+    /// Well under JUCE's 128, which also carries Valis's own timer messages.
+    static constexpr int kMaxInFlight = 32;
+
+    mutable std::mutex mutex;
+    std::condition_variable condition;
+    int inFlight = 0;
+};
+
+/// What a queued task writes into. Held by shared_ptr because a task the
+/// message thread has not reached yet outlives the frame that posted it, which
+/// is exactly the case where a caller gives up waiting.
+template <typename Result>
+struct PendingTask
+{
+    juce::WaitableEvent done;
+    Result result{};
+    juce::String error;
+};
+
 /// Runs `work` on the message thread and waits for it. The ops mutate the model
 /// the editor also reads, so they belong on one thread; the HTTP thread waits
 /// rather than taking a lock the editor would have to honour.
+///
+/// False means the request was not serviced and `error` says why. That is a
+/// failure to report rather than a result to invent: a caller that gave up
+/// waiting used to be handed a default-constructed result, which reads as a
+/// successful empty answer.
 template <typename Work>
-auto onMessageThread(Work&& work) -> decltype(work())
+auto onMessageThread(const std::shared_ptr<MessageThreadGate>& gate, Work&& work,
+                     juce::String& error) -> std::optional<decltype(work(juce::String{}))>
 {
-    using Result = decltype(work());
+    using Result = decltype(work(juce::String{}));
 
     if (juce::MessageManager::getInstance()->isThisTheMessageThread())
-        return work();
+        return work(juce::String{});
 
-    Result result{};
-    juce::WaitableEvent done;
-
-    juce::MessageManager::callAsync([&]
+    if (! gate->acquire(kRequestTimeoutMs))
     {
-        result = work();
-        done.signal();
+        error = juce::String("the message thread is not servicing requests: ")
+              + juce::String(gate->pending()) + " already in flight. A host that does not "
+              "pump JUCE messages will hold every request here.";
+        return std::nullopt;
+    }
+
+    auto task = std::make_shared<PendingTask<Result>>();
+
+    juce::MessageManager::callAsync([gate, task, work = std::forward<Work>(work)]() mutable
+    {
+        task->result = work(task->error);
+        gate->release();
+        task->done.signal();
     });
 
-    // A request that cannot be serviced within this window is a bug, not a
-    // slow op: everything here is bounded work on in-memory structures.
-    done.wait(5000);
-    return result;
+    if (! task->done.wait(kRequestTimeoutMs))
+    {
+        // The task keeps the state it needs, so abandoning it here is safe.
+        error = "the message thread did not service this request within "
+              + juce::String(kRequestTimeoutMs) + "ms";
+        return std::nullopt;
+    }
+
+    error = task->error;
+    return task->result;
 }
 
 juce::var errorObject(int code, const juce::String& message)
@@ -127,10 +220,11 @@ juce::var resultOf(const OpResult& result)
     return textContent(text.isEmpty() ? juce::String("ok") : text);
 }
 
-juce::var readResource(std::function<OpDispatcher()> makeDispatcher, const juce::String& uri,
-                       juce::String& error)
+juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
+                       const std::shared_ptr<MessageThreadGate>& gate,
+                       const juce::String& uri, juce::String& error)
 {
-    return onMessageThread([&]() -> juce::var
+    return onMessageThread(gate, [&](juce::String& error) -> juce::var
     {
         auto ops = makeDispatcher();
 
