@@ -463,14 +463,15 @@ juce::var McpServer::toolManifest()
     return tools;
 }
 
-juce::var McpServer::callTool(const juce::String& name, const juce::var& arguments,
+juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
+                              const juce::String& name, const juce::var& arguments,
                               juce::String& error)
 {
     const auto string = [&arguments](const char* key) {
         return arguments[key].toString().toStdString();
     };
 
-    return onMessageThread([&]() -> juce::var
+    return onMessageThread(gate, [&](juce::String& error) -> juce::var
     {
         auto ops = makeDispatcher();
 
