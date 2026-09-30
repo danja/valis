@@ -13,6 +13,7 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <type_traits>
 
 namespace valis {
 
@@ -103,12 +104,18 @@ struct PendingTask
 /// successful empty answer.
 template <typename Work>
 auto onMessageThread(const std::shared_ptr<MessageThreadGate>& gate, Work&& work,
-                     juce::String& error) -> std::optional<decltype(work(juce::String{}))>
+                     juce::String& error)
+    -> std::optional<std::invoke_result_t<Work&, juce::String&>>
 {
-    using Result = decltype(work(juce::String{}));
+    using Result = std::invoke_result_t<Work&, juce::String&>;
 
+    // Already there: run it here and take its error, since the caller's own
+    // `error` is what it will read either way.
     if (juce::MessageManager::getInstance()->isThisTheMessageThread())
-        return work(juce::String{});
+    {
+        error = juce::String();
+        return work(error);
+    }
 
     if (! gate->acquire(kRequestTimeoutMs))
     {
@@ -137,6 +144,13 @@ auto onMessageThread(const std::shared_ptr<MessageThreadGate>& gate, Work&& work
 
     error = task->error;
     return task->result;
+}
+
+/// A named tool argument, as the ops take it. Free rather than a local lambda so
+/// a queued task can hold the arguments by value instead of referencing them.
+std::string stringArgument(const juce::var& arguments, const char* key)
+{
+    return arguments[key].toString().toStdString();
 }
 
 juce::var errorObject(int code, const juce::String& message)
@@ -224,7 +238,7 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
                        const std::shared_ptr<MessageThreadGate>& gate,
                        const juce::String& uri, juce::String& error)
 {
-    return onMessageThread(gate, [&](juce::String& error) -> juce::var
+    return onMessageThread(gate, [makeDispatcher, uri](juce::String& taskError) -> juce::var
     {
         auto ops = makeDispatcher();
 
@@ -233,7 +247,7 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
             const auto result = ops.getTurtle();
             if (! result.ok)
             {
-                error = result.diagnostics.empty() ? "failed to read Turtle" : diagnosticsToText(result.diagnostics);
+                taskError = result.diagnostics.empty() ? "failed to read Turtle" : diagnosticsToText(result.diagnostics);
                 return {};
             }
 
@@ -255,7 +269,7 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
             const auto result = uri == kGraphResourceUri ? ops.getGraph() : ops.getDiagnostics();
             if (! result.ok)
             {
-                error = result.diagnostics.empty() ? "failed to read resource" : diagnosticsToText(result.diagnostics);
+                taskError = result.diagnostics.empty() ? "failed to read resource" : diagnosticsToText(result.diagnostics);
                 return {};
             }
 
@@ -348,9 +362,9 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
             return juce::var(response);
         }
 
-        error = "unknown resource: " + uri;
+        taskError = "unknown resource: " + uri;
         return {};
-    });
+    }, error).value_or(juce::var{});
 }
 
 /// A tool definition, so the manifest and the dispatch stay in one place.
@@ -434,10 +448,15 @@ const ToolSpec kTools[] = {
 
 }  // namespace
 
+struct McpServer::Gate : MessageThreadGate
+{
+};
+
 struct McpServer::Impl
 {
     httplib::Server server;
     std::thread thread;
+    std::shared_ptr<Gate> gate = std::make_shared<Gate>();
 };
 
 McpServer::McpServer(std::function<OpDispatcher()> factory)
@@ -463,29 +482,29 @@ juce::var McpServer::toolManifest()
     return tools;
 }
 
-juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
+juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
                               const juce::String& name, const juce::var& arguments,
                               juce::String& error)
 {
-    const auto string = [&arguments](const char* key) {
-        return arguments[key].toString().toStdString();
-    };
+    // Copied into the task rather than referenced: a task the message thread
+    // has not reached yet can outlive this frame.
+    const auto factory = makeDispatcher;
 
-    return onMessageThread(gate, [&](juce::String& error) -> juce::var
+    const auto result = onMessageThread(gate, [factory, name, arguments](juce::String& taskError) -> juce::var
     {
-        auto ops = makeDispatcher();
+        auto ops = factory();
 
         if (name == "get_turtle")          return resultOf(ops.getTurtle());
-        if (name == "set_turtle")          return resultOf(ops.setTurtle(string("turtle")));
-        if (name == "validate")            return resultOf(ops.validate(string("turtle")));
+        if (name == "set_turtle")          return resultOf(ops.setTurtle(stringArgument(arguments, "turtle")));
+        if (name == "validate")            return resultOf(ops.validate(stringArgument(arguments, "turtle")));
         if (name == "get_graph")           return resultOf(ops.getGraph());
         if (name == "get_diagnostics")     return resultOf(ops.getDiagnostics());
 
         if (name == "add_node")
-            return resultOf(ops.addNode(string("id"), string("class")));
+            return resultOf(ops.addNode(stringArgument(arguments, "id"), stringArgument(arguments, "class")));
 
         if (name == "remove_node")
-            return resultOf(ops.removeNode(string("id")));
+            return resultOf(ops.removeNode(stringArgument(arguments, "id")));
 
         if (name == "connect")
         {
@@ -493,13 +512,13 @@ juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
             if (arguments.hasProperty("depth"))
                 depth = static_cast<double>(arguments["depth"]);
 
-            return resultOf(ops.connect(string("from_node"), string("from_port"),
-                                        string("to_node"),   string("to_port"), depth));
+            return resultOf(ops.connect(stringArgument(arguments, "from_node"), stringArgument(arguments, "from_port"),
+                                        stringArgument(arguments, "to_node"),   stringArgument(arguments, "to_port"), depth));
         }
 
         if (name == "disconnect")
-            return resultOf(ops.disconnect(string("from_node"), string("from_port"),
-                                           string("to_node"),   string("to_port")));
+            return resultOf(ops.disconnect(stringArgument(arguments, "from_node"), stringArgument(arguments, "from_port"),
+                                           stringArgument(arguments, "to_node"),   stringArgument(arguments, "to_port")));
 
         if (name == "get_param")
             return resultOf(ops.getParam(static_cast<int>(arguments["slot"])));
@@ -509,16 +528,16 @@ juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
                                          static_cast<double>(arguments["value"])));
 
         if (name == "get_sample")
-            return resultOf(ops.getSample(string("node")));
+            return resultOf(ops.getSample(stringArgument(arguments, "node")));
 
         if (name == "set_sample")
-            return resultOf(ops.setSample(string("node"), string("path")));
+            return resultOf(ops.setSample(stringArgument(arguments, "node"), stringArgument(arguments, "path")));
 
         if (name == "get_profile")
             return resultOf(ops.getProfile());
 
         if (name == "save_file")
-            return resultOf(ops.saveFile(string("path")));
+            return resultOf(ops.saveFile(stringArgument(arguments, "path")));
 
         if (name == "note_on")
         {
@@ -534,7 +553,7 @@ juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
             return resultOf(ops.allNotesOff());
 
         if (name == "read_outputs")
-            return resultOf(ops.readOutputs(string("node")));
+            return resultOf(ops.readOutputs(stringArgument(arguments, "node")));
 
         if (name == "render")
         {
@@ -547,14 +566,14 @@ juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
             const double velocity = arguments.hasProperty("velocity")
                                   ? static_cast<double>(arguments["velocity"]) : 1.0;
 
-            return resultOf(ops.render(string("path"), seconds, rate, note, velocity));
+            return resultOf(ops.render(stringArgument(arguments, "path"), seconds, rate, note, velocity));
         }
 
         if (name == "load_file")
         {
-            const juce::File f(juce::String(string("path")));
+            const juce::File f(juce::String(stringArgument(arguments, "path")));
             if (!f.existsAsFile())
-                return textContent("file not found: " + juce::String(string("path")), true);
+                return textContent("file not found: " + juce::String(stringArgument(arguments, "path")), true);
             const auto content = f.loadFileAsString();
             return resultOf(ops.setTurtle(content.toStdString()));
         }
@@ -613,9 +632,11 @@ juce::var McpServer::callTool(const std::shared_ptr<MessageThreadGate>& gate,
             return textContent(juce::JSON::toString(params, true));
         }
 
-        error = "unknown tool: " + name;
+        taskError = "unknown tool: " + name;
         return {};
-    });
+    }, error);
+
+    return result.value_or(juce::var{});
 }
 
 std::string McpServer::handleMessage(const std::string& request)
@@ -672,7 +693,8 @@ std::string McpServer::handleMessage(const std::string& request)
         const auto params = parsed["params"];
 
         juce::String error;
-        const auto result = readResource(makeDispatcher, params["uri"].toString(), error);
+        const auto result = readResource(makeDispatcher, impl->gate,
+                                        params["uri"].toString(), error);
 
         if (error.isNotEmpty())
             response->setProperty("error", errorObject(-32602, error));
@@ -685,7 +707,7 @@ std::string McpServer::handleMessage(const std::string& request)
         const auto name = params["name"].toString();
 
         juce::String error;
-        const auto result = callTool(name, params["arguments"], error);
+        const auto result = callTool(impl->gate, name, params["arguments"], error);
 
         if (error.isNotEmpty())
             response->setProperty("error", errorObject(-32602, error));

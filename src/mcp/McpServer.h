@@ -44,8 +44,9 @@ public:
     std::string handleMessage(const std::string& request);
 
 private:
-    juce::var callTool(const juce::String& name, const juce::var& arguments,
-                       juce::String& error);
+    struct Gate;
+    juce::var callTool(const std::shared_ptr<Gate>& gate, const juce::String& name,
+                       const juce::var& arguments, juce::String& error);
     static juce::var toolManifest();
 
     std::function<OpDispatcher()> makeDispatcher;
