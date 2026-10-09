@@ -931,158 +931,158 @@
     lv2:name "Drive" ; lv2:symbol "bd_drive" ; val:section "Bass Drum" ;
     lv2:minimum 0.5 ; lv2:maximum 10.0 .
 
-:pBdLevel a val:Param ; val:slot 15 ;
+:pBdLevel a val:Param ; val:slot 4 ;
     val:target :bdLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "bd_level" ; val:section "Bass Drum" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pBdPan a val:Param ; val:slot 24 ;
+:pBdPan a val:Param ; val:slot 5 ;
     val:target :bdPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "bd_pan" ; val:section "Bass Drum" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Snare ────────────────────────────────────────────────────────────────────
 
-:pSdToneDecay a val:Param ; val:slot 4 ;
+:pSdToneDecay a val:Param ; val:slot 6 ;
     val:target :sdToneEnv ; val:property val:decay ;
     lv2:name "Tone Decay" ; lv2:symbol "sd_tone_decay" ; val:section "Snare" ;
     units:unit units:ms ; lv2:minimum 20.0 ; lv2:maximum 1000.0 .
 
-:pSdSnappy a val:Param ; val:slot 5 ;
+:pSdSnappy a val:Param ; val:slot 7 ;
     val:target :sdNoiseEnv ; val:property val:decay ;
     lv2:name "Snappy" ; lv2:symbol "sd_snappy" ; val:section "Snare" ;
     units:unit units:ms ; lv2:minimum 10.0 ; lv2:maximum 300.0 .
 
-:pSdTone a val:Param ; val:slot 6 ;
+:pSdTone a val:Param ; val:slot 8 ;
     val:target :sdBpf ; val:property val:cutoff ;
     lv2:name "Tone" ; lv2:symbol "sd_tone" ; val:section "Snare" ;
     units:unit units:hz ; lv2:minimum 500.0 ; lv2:maximum 6000.0 .
 
-:pSdLevel a val:Param ; val:slot 16 ;
+:pSdLevel a val:Param ; val:slot 9 ;
     val:target :sdLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "sd_level" ; val:section "Snare" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pSdPan a val:Param ; val:slot 25 ;
+:pSdPan a val:Param ; val:slot 10 ;
     val:target :sdPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "sd_pan" ; val:section "Snare" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Rim Shot ─────────────────────────────────────────────────────────────────
 
-:pRsDecay a val:Param ; val:slot 7 ;
+:pRsDecay a val:Param ; val:slot 11 ;
     val:target :rsEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "rs_decay" ; val:section "Rim Shot" ;
     units:unit units:ms ; lv2:minimum 5.0 ; lv2:maximum 100.0 .
 
-:pRsLevel a val:Param ; val:slot 17 ;
+:pRsLevel a val:Param ; val:slot 12 ;
     val:target :rsLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "rs_level" ; val:section "Rim Shot" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pRsPan a val:Param ; val:slot 26 ;
+:pRsPan a val:Param ; val:slot 13 ;
     val:target :rsPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "rs_pan" ; val:section "Rim Shot" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Hand Clap ────────────────────────────────────────────────────────────────
 
-:pCpDecay a val:Param ; val:slot 8 ;
+:pCpDecay a val:Param ; val:slot 14 ;
     val:target :cpEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "cp_decay" ; val:section "Hand Clap" ;
     units:unit units:ms ; lv2:minimum 10.0 ; lv2:maximum 300.0 .
 
-:pCpLevel a val:Param ; val:slot 18 ;
+:pCpLevel a val:Param ; val:slot 15 ;
     val:target :cpLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "cp_level" ; val:section "Hand Clap" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pCpPan a val:Param ; val:slot 27 ;
+:pCpPan a val:Param ; val:slot 16 ;
     val:target :cpPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "cp_pan" ; val:section "Hand Clap" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Low Tom ──────────────────────────────────────────────────────────────────
 
-:pLtDecay a val:Param ; val:slot 9 ;
+:pLtDecay a val:Param ; val:slot 17 ;
     val:target :ltAmpEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "lt_decay" ; val:section "Low Tom" ;
     units:unit units:ms ; lv2:minimum 50.0 ; lv2:maximum 2000.0 .
 
-:pLtLevel a val:Param ; val:slot 19 ;
+:pLtLevel a val:Param ; val:slot 18 ;
     val:target :ltLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "lt_level" ; val:section "Low Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pLtPan a val:Param ; val:slot 28 ;
+:pLtPan a val:Param ; val:slot 19 ;
     val:target :ltPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "lt_pan" ; val:section "Low Tom" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Mid Tom ──────────────────────────────────────────────────────────────────
 
-:pMtDecay a val:Param ; val:slot 10 ;
+:pMtDecay a val:Param ; val:slot 20 ;
     val:target :mtAmpEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "mt_decay" ; val:section "Mid Tom" ;
     units:unit units:ms ; lv2:minimum 50.0 ; lv2:maximum 2000.0 .
 
-:pMtLevel a val:Param ; val:slot 20 ;
+:pMtLevel a val:Param ; val:slot 21 ;
     val:target :mtLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "mt_level" ; val:section "Mid Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pMtPan a val:Param ; val:slot 29 ;
+:pMtPan a val:Param ; val:slot 22 ;
     val:target :mtPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "mt_pan" ; val:section "Mid Tom" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── High Tom ─────────────────────────────────────────────────────────────────
 
-:pHtDecay a val:Param ; val:slot 11 ;
+:pHtDecay a val:Param ; val:slot 23 ;
     val:target :htAmpEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "ht_decay" ; val:section "High Tom" ;
     units:unit units:ms ; lv2:minimum 30.0 ; lv2:maximum 1000.0 .
 
-:pHtLevel a val:Param ; val:slot 21 ;
+:pHtLevel a val:Param ; val:slot 24 ;
     val:target :htLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "ht_level" ; val:section "High Tom" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pHtPan a val:Param ; val:slot 30 ;
+:pHtPan a val:Param ; val:slot 25 ;
     val:target :htPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "ht_pan" ; val:section "High Tom" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Closed HH ────────────────────────────────────────────────────────────────
 
-:pChDecay a val:Param ; val:slot 12 ;
+:pChDecay a val:Param ; val:slot 26 ;
     val:target :chEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "ch_decay" ; val:section "Closed HH" ;
     units:unit units:ms ; lv2:minimum 5.0 ; lv2:maximum 200.0 .
 
-:pChLevel a val:Param ; val:slot 22 ;
+:pChLevel a val:Param ; val:slot 27 ;
     val:target :chLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "ch_level" ; val:section "Closed HH" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
 
-:pChPan a val:Param ; val:slot 31 ;
+:pChPan a val:Param ; val:slot 28 ;
     val:target :chPan ; val:property val:pan ;
     lv2:name "Pan" ; lv2:symbol "ch_pan" ; val:section "Closed HH" ;
     lv2:minimum -1.0 ; lv2:maximum 1.0 .
 
 # ── Open HH ──────────────────────────────────────────────────────────────────
 
-:pOhDecay a val:Param ; val:slot 13 ;
+:pOhDecay a val:Param ; val:slot 29 ;
     val:target :ohEnv ; val:property val:decay ;
     lv2:name "Decay" ; lv2:symbol "oh_decay" ; val:section "Open HH" ;
     units:unit units:ms ; lv2:minimum 100.0 ; lv2:maximum 3000.0 .
 
-:pOhBright a val:Param ; val:slot 14 ;
+:pOhBright a val:Param ; val:slot 30 ;
     val:target :ohHpf ; val:property val:cutoff ;
     lv2:name "Brightness" ; lv2:symbol "oh_bright" ; val:section "Open HH" ;
     units:unit units:hz ; lv2:minimum 2000.0 ; lv2:maximum 14000.0 .
 
-:pOhLevel a val:Param ; val:slot 23 ;
+:pOhLevel a val:Param ; val:slot 31 ;
     val:target :ohLevel ; val:property val:gain ;
     lv2:name "Level" ; lv2:symbol "oh_level" ; val:section "Open HH" ;
     units:unit units:db ; lv2:minimum -60.0 ; lv2:maximum 12.0 .
