@@ -16,6 +16,7 @@ set(VALIS_TESTS
   dsp/FluteTest.cpp
   dsp/ClarinetTest.cpp
   dsp/CelloTest.cpp
+  dsp/NamModelTest.cpp
   engine/ValisEngineTest.cpp
   ops/OpDispatcherTest.cpp
   console/ConsoleTest.cpp)
@@ -87,3 +88,8 @@ target_link_libraries(ai_AiRouterTest PRIVATE valis_core juce::juce_core)
 target_include_directories(ai_AiRouterTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(ai_AiRouterTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
 add_test(NAME ai_AiRouterTest COMMAND ai_AiRouterTest)
+
+if(VALIS_WITH_NAM)
+  target_compile_definitions(dsp_NamModelTest PRIVATE
+    VALIS_NAM_MODELS_DIR="${VALIS_NAM_DIR}/example_models")
+endif()

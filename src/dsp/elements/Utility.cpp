@@ -619,6 +619,7 @@ void registerTransfers(ElementRegistry&);
 void registerDynamics(ElementRegistry&);
 void registerGranular(ElementRegistry&);
 void registerSpectralElements(ElementRegistry&);
+void registerNam(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -629,6 +630,7 @@ ElementRegistry makeDefaultRegistry()
     registerDynamics(registry);
     registerGranular(registry);
     registerSpectralElements(registry);
+    registerNam(registry);
     registerUtility(registry);
     return registry;
 }

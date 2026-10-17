@@ -14,6 +14,7 @@ option(VALIS_BUILD_TESTS  "Build unit tests"                 ON)
 option(VALIS_BUILD_PLUGIN "Build the JUCE plugin targets"    ON)
 option(VALIS_WITH_MCP     "Build the in-process MCP server"  ON)
 option(VALIS_WITH_CLAP    "Also build the CLAP format"       OFF)
+option(VALIS_WITH_NAM     "Build val:NamModel against NeuralAmpModelerCore" OFF)
 set(VALIS_JUCE_DIR "/home/danny/github/JUCE" CACHE PATH "Path to the JUCE checkout")
 
 include(FindOrFetchSerd)
@@ -44,6 +45,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Dynamics.cpp
   src/dsp/elements/Granular.cpp
   src/dsp/elements/Spectral.cpp
+  src/dsp/elements/NamModel.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
@@ -81,6 +83,13 @@ target_compile_definitions(valis_core PUBLIC
   VALIS_VOCABS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vocabs"
   VALIS_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples"
   VALIS_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(VALIS_WITH_NAM)
+  include(FindOrFetchNam)
+  # PRIVATE: only NamModel.cpp includes NAM headers, so nothing downstream does.
+  target_link_libraries(valis_core PRIVATE valis_nam)
+  target_compile_definitions(valis_core PUBLIC VALIS_WITH_NAM=1)
+endif()
 
 # --------------------------------------------------------------------------
 # valis-render - headless offline renderer. No GUI, no audio device.

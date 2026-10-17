@@ -1066,6 +1066,34 @@ val:Delay a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:name "Feedback" ; lv2:default 0.0 ;
         lv2:minimum 0.0 ; lv2:maximum 0.99 ] .
 
+val:NamModel a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "NamModel" ;
+    rdfs:comment """Runs a Neural Amp Modeler capture, a .nam file named by
+val:model, as a nonlinear audio element. NAM is the open format for neural
+captures of guitar amplifiers and pedals: https://www.neuralampmodeler.com/.
+
+The model is read on the message thread when the circuit is installed. A model
+trained at a rate other than the engine's is refused. Input and output are in
+decibels either side of the network; the network itself is level sensitive, so
+the input control is part of the tone. Bypass passes the input through.""" ;
+    val:implementation "NamModel" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "input" ;
+        lv2:name "Input" ; lv2:default 0.0 ;
+        lv2:minimum -24.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "output" ;
+        lv2:name "Output" ; lv2:default 0.0 ;
+        lv2:minimum -24.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bypass" ;
+        lv2:name "Bypass" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Model" ; rdf:value 0 ] ,
+                       [ rdfs:label "Bypass" ; rdf:value 1 ] ] .
+
 val:Envelope a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Envelope" ;
     rdfs:comment """ADSR contour, gated by note events. Its output is a control
