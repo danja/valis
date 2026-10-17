@@ -107,17 +107,16 @@ public:
         const float inGain   = dbToGain(controlAt(args, inGainIdx, 0.0f));
         const float outGain  = dbToGain(controlAt(args, outGainIdx, 0.0f));
 
-#ifdef VALIS_WITH_NAM
-        if (model == nullptr || bypassed)
+#ifndef VALIS_WITH_NAM
+        (void) bypassed; (void) inGain; (void) outGain;
+        std::copy(in, in + n, out);
 #else
-        if (true)
-#endif
+        if (model == nullptr || bypassed)
         {
             std::copy(in, in + n, out);
             return;
         }
 
-#ifdef VALIS_WITH_NAM
         // Gain moves in a straight line across the block, so turning a dial
         // does not step the signal into a nonlinear network.
         for (int start = 0; start < n; start += capacity)

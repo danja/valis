@@ -87,7 +87,10 @@ target_compile_definitions(valis_core PUBLIC
 if(VALIS_WITH_NAM)
   include(FindOrFetchNam)
   # PRIVATE: only NamModel.cpp includes NAM headers, so nothing downstream does.
-  target_link_libraries(valis_core PRIVATE valis_nam)
+  # Whole archive, because NAM registers each architecture from a static
+  # initialiser; the linker would otherwise drop every one as unreferenced and
+  # no model would load.
+  target_link_libraries(valis_core PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,valis_nam>")
   target_compile_definitions(valis_core PUBLIC VALIS_WITH_NAM=1)
 endif()
 

@@ -8,6 +8,10 @@
 set(VALIS_NAM_DIR "/home/danny/github/NeuralAmpModelerCore" CACHE PATH
     "Path to the NeuralAmpModelerCore checkout")
 
+if(CMAKE_VERSION VERSION_LESS 3.24)
+  message(FATAL_ERROR "VALIS_WITH_NAM needs CMake 3.24 for whole-archive linking")
+endif()
+
 if(NOT EXISTS "${VALIS_NAM_DIR}/NAM/dsp.h")
   message(FATAL_ERROR "VALIS_WITH_NAM is on but ${VALIS_NAM_DIR}/NAM/dsp.h does not exist")
 endif()

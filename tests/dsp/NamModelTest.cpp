@@ -3,6 +3,9 @@
 // val:NamModel: loading failures are located messages, bypass is exact, and
 // once a model is loaded process() allocates nothing for any architecture.
 
+// Asserts are the test; JUCE defines NDEBUG in every non-Debug configuration.
+#undef NDEBUG
+
 #include "valis/ElementTestFixture.h"
 
 #include <atomic>
@@ -87,7 +90,7 @@ void testLoadFailuresAreLocated()
 
     assert(! rig.element->setOption("model", "/no/such/model.nam", error));
     assert(error.find("/no/such/model.nam") != std::string::npos
-           || error.find("NAM support") != std::string::npos);
+           || error.find("Neural Amp Modeler support") != std::string::npos);
 
     error.clear();
     assert(! rig.element->setOption("model", VALIS_ROOT_DIR "/vocabs/valis.ttl", error));
@@ -120,7 +123,7 @@ void testModelsRunWithoutAllocating()
             std::printf("  %s: %s\n", name, error.c_str());
         assert(loaded);
 
-        const auto* type = getOntology().find(vocab::valTerm("NamModel"));
+        const auto* type = rig.type;
         std::vector<float> out;
 
         // 32 frames is the engine's control slice; 4096 is the largest block

@@ -1,0 +1,36 @@
+# examples/nam.ttl
+#
+# A Neural Amp Modeler capture between input and output. Needs a build with
+# -DVALIS_WITH_NAM=ON. The model path is the example that ships with
+# NeuralAmpModelerCore; point val:model at any .nam file, absolute or ~/.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:nam#> .
+
+:nam a val:Circuit ;
+    rdfs:label "NAM" ;
+    val:element :in , :amp , :out ;
+    val:arc :a1 , :a2 .
+
+:in  a val:Input .
+:amp a val:NamModel ;
+    val:model "~/github/NeuralAmpModelerCore/example_models/wavenet.nam" ;
+    val:input 0.0 ; val:output 0.0 .
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :in  ; val:port "out" ] ;
+                val:to   [ val:node :amp ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :amp ; val:port "out" ] ;
+                val:to   [ val:node :out ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :amp ; val:property val:input ;
+    lv2:name "Input" ; lv2:symbol "input" ; units:unit units:db .
+
+:p1 a val:Param ; val:slot 1 ; val:target :amp ; val:property val:output ;
+    lv2:name "Output" ; lv2:symbol "output" ; units:unit units:db .
+
+:p2 a val:Param ; val:slot 2 ; val:target :amp ; val:property val:bypass ;
+    lv2:name "Bypass" ; lv2:symbol "bypass" .

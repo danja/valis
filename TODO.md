@@ -8,6 +8,14 @@
 
 ## New instruments
 
+* **val:NamModel follow-ups.** The element loads and runs .nam captures (build with
+  `-DVALIS_WITH_NAM=ON`; `examples/nam.ttl`). Still to do: check a declared `val:sha256`
+  as `val:SampleLoad` does; resample around a model trained at a rate other than the
+  engine's (it is refused now); optional use of the model's own input/output level and
+  loudness; time a WaveNet at the engine's 32-sample slice, since per-call overhead may
+  dominate; a session override for the model file like the one for `val:SampleLoad`;
+  regenerate `docs/manual/elements.md`.
+
 * **granular decomposed.** `src/dsp/Random.h` is now the one deterministic
   generator (it replaced four separate copies), `src/dsp/GrainPool.h` is the
   bounded grain population with its window and placement, and
