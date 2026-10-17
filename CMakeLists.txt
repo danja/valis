@@ -14,7 +14,7 @@ option(VALIS_BUILD_TESTS  "Build unit tests"                 ON)
 option(VALIS_BUILD_PLUGIN "Build the JUCE plugin targets"    ON)
 option(VALIS_WITH_MCP     "Build the in-process MCP server"  ON)
 option(VALIS_WITH_CLAP    "Also build the CLAP format"       OFF)
-option(VALIS_WITH_NAM     "Build val:NamModel against NeuralAmpModelerCore" OFF)
+option(VALIS_WITH_NAM     "Build val:NamModel against NeuralAmpModelerCore" ON)
 set(VALIS_JUCE_DIR "/home/danny/github/JUCE" CACHE PATH "Path to the JUCE checkout")
 
 include(FindOrFetchSerd)

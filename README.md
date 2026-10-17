@@ -225,7 +225,7 @@ cmake --build build --parallel "$(nproc)"
 ```
 
 The options are `VALIS_BUILD_TESTS` (ON), `VALIS_BUILD_PLUGIN` (ON), `VALIS_WITH_MCP`
-(ON), `VALIS_WITH_CLAP` (OFF), and `VALIS_JUCE_DIR` (path to the JUCE checkout).
+(ON), `VALIS_WITH_NAM` (ON; Neural Amp Modeler support, fetched from GitHub if `VALIS_NAM_DIR` does not hold a checkout), `VALIS_WITH_CLAP` (OFF), and `VALIS_JUCE_DIR` (path to the JUCE checkout).
 
 ### CLAP
 

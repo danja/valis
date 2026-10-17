@@ -6,14 +6,24 @@
 # taken from the system if present and fetched otherwise. Eigen is header-only.
 
 set(VALIS_NAM_DIR "/home/danny/github/NeuralAmpModelerCore" CACHE PATH
-    "Path to the NeuralAmpModelerCore checkout")
+    "Path to the NeuralAmpModelerCore checkout; fetched from GitHub if it is absent")
 
 if(CMAKE_VERSION VERSION_LESS 3.24)
   message(FATAL_ERROR "VALIS_WITH_NAM needs CMake 3.24 for whole-archive linking")
 endif()
 
 if(NOT EXISTS "${VALIS_NAM_DIR}/NAM/dsp.h")
-  message(FATAL_ERROR "VALIS_WITH_NAM is on but ${VALIS_NAM_DIR}/NAM/dsp.h does not exist")
+  include(FetchContent)
+  FetchContent_Declare(nam_core
+    GIT_REPOSITORY https://github.com/sdatkinson/NeuralAmpModelerCore.git
+    GIT_TAG v0.6.0
+    GIT_SHALLOW TRUE)
+  # Populate only: its own CMakeLists is a project of tools, not a library.
+  FetchContent_GetProperties(nam_core)
+  if(NOT nam_core_POPULATED)
+    FetchContent_Populate(nam_core)
+  endif()
+  set(VALIS_NAM_DIR "${nam_core_SOURCE_DIR}")
 endif()
 
 find_package(Eigen3 3.4 QUIET NO_MODULE)
