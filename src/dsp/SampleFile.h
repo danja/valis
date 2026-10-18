@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "dsp/ResolveFile.h"
+
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_cryptography/juce_cryptography.h>
 
@@ -117,33 +119,7 @@ struct SampleFile
 
     bool loaded() const { return sourceFrames > 0; }
 
-    /// A relative path is resolved against the working directory first, then
-    /// the shipped examples, so a circuit can name a sample next to itself.
-    static juce::File resolve(std::string_view path)
-    {
-        const juce::String text{std::string(path)};
-
-        if (text.startsWith("~/"))
-            return juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-                       .getChildFile(text.substring(2));
-
-        if (juce::File::isAbsolutePath(text))
-            return juce::File(text);
-
-        const auto relative = juce::File::getCurrentWorkingDirectory().getChildFile(text);
-        if (relative.existsAsFile())
-            return relative;
-
-        const auto shipped = juce::File(VALIS_EXAMPLES_DIR).getChildFile(text);
-        if (shipped.existsAsFile())
-            return shipped;
-
-        const auto root = juce::File(VALIS_ROOT_DIR).getChildFile(text);
-        if (root.existsAsFile())
-            return root;
-
-        return relative;
-    }
+    static juce::File resolve(std::string_view path) { return resolveFile(path); }
 };
 
 /// What a circuit declares the sound file it names will be: its content hash

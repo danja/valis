@@ -163,6 +163,9 @@ public:
     /// load; `error` then says why.
     bool setSample(const std::string& nodeId, const std::string& path, std::string& error);
 
+    /// Why the node cannot use its file, if it cannot, though the circuit loaded.
+    std::string problemWith(const std::string& nodeId) const { return engine.noteFor(nodeId); }
+
     /// Builds the op surface over this processor. The three views and the MCP
     /// server all go through here.
     OpDispatcher ops();

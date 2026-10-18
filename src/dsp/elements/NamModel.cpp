@@ -7,7 +7,7 @@
 #include "Common.h"
 
 #ifdef VALIS_WITH_NAM
- #include "dsp/SampleFile.h"
+ #include "dsp/ResolveFile.h"
 
  #include "NAM/dsp.h"
  #include "NAM/get_dsp.h"
@@ -37,23 +37,31 @@ public:
         if (key != "model")
             return true;
 
+        // Nothing here fails the load. A circuit shared to another machine
+        // names a file that is not there, and a model can be corrupt or trained
+        // at another rate; refusing the circuit for any of these would leave no
+        // place to choose a different file. The element passes its input
+        // through and says what is wrong through status().
+        (void) error;
+        model.reset();
+        problem.clear();
+
 #ifdef VALIS_WITH_NAM
-        const auto file = dsp::SampleFile::resolve(value);
+        const auto file = dsp::resolveFile(value);
         if (! file.existsAsFile())
         {
-            error = "no such model file: " + file.getFullPathName().toStdString();
-            return false;
+            problem = "Not found: " + file.getFileName().toStdString();
+            return true;
         }
 
         // TODO: honour a declared val:sha256, as val:SampleLoad does.
-        std::unique_ptr<nam::DSP> loaded;
         try
         {
-            loaded = nam::get_dsp(std::filesystem::path(file.getFullPathName().toStdString()));
+            auto loaded = nam::get_dsp(std::filesystem::path(file.getFullPathName().toStdString()));
             if (loaded == nullptr)
             {
-                error = "unreadable model: " + file.getFullPathName().toStdString();
-                return false;
+                problem = "Unreadable model: " + file.getFileName().toStdString();
+                return true;
             }
 
             // TODO: resample around a model trained at a rate other than the
@@ -62,28 +70,28 @@ public:
             if (trained > 0.0 && ! loaded->SupportsArbitrarySampleRate()
                 && std::abs(trained - sampleRate) > 0.5)
             {
-                error = "model " + file.getFileName().toStdString() + " was trained at "
-                      + std::to_string(static_cast<int>(trained)) + " Hz and the engine runs at "
-                      + std::to_string(static_cast<int>(sampleRate)) + " Hz";
-                return false;
+                problem = "Trained at " + std::to_string(static_cast<int>(trained))
+                        + " Hz; the engine runs at " + std::to_string(static_cast<int>(sampleRate))
+                        + " Hz";
+                return true;
             }
 
             loaded->Reset(sampleRate, capacity);
+            model = std::move(loaded);
         }
         catch (const std::exception& e)
         {
-            error = "model " + file.getFileName().toStdString() + ": " + e.what();
-            return false;
+            problem = std::string("Unreadable model: ") + e.what();
         }
-
-        model = std::move(loaded);
         return true;
 #else
         (void) value;
-        error = "this build has no Neural Amp Modeler support (configure with -DVALIS_WITH_NAM=ON)";
-        return false;
+        problem = "This build has no Neural Amp Modeler support";
+        return true;
 #endif
     }
+
+    std::string status() const override { return problem; }
 
     void reset() override
     {
@@ -152,6 +160,7 @@ private:
 
     double sampleRate = 48000.0;
     int capacity = 1;
+    std::string problem;
     int inGainIdx = -1, outGainIdx = -1, bypassIdx = -1;
     float lastIn = 1.0f, lastOut = 1.0f;
     std::vector<float> inBuffer, outBuffer;

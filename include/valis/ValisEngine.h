@@ -97,6 +97,11 @@ public:
     /// Message thread. True once a circuit is installed.
     bool hasCircuit() const { return active.load(std::memory_order_acquire) != nullptr; }
 
+    /// Message thread. What an element of the installed circuit reported through
+    /// DspElement::status() when it loaded, or empty. A circuit with such a
+    /// note has still loaded.
+    std::string noteFor(const std::string& nodeId) const;
+
     /// Latency of the installed circuit, in samples.
     int latencyInSamples() const { return reportedLatency.load(std::memory_order_relaxed); }
 
@@ -266,6 +271,9 @@ private:
     std::array<float, 128> activeNoteVelocities{};
     std::array<float, 128> triggeredNoteVelocities{};
     std::atomic<int> reportedLatency{0};
+
+    /// Message thread only: written by load(), read by noteFor().
+    std::vector<std::pair<std::string, std::string>> loadNotes;
 
     struct Retired { Graph* graph; std::uint64_t atBlock; };
     std::vector<Retired> graveyard;   ///< message thread only

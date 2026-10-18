@@ -2,12 +2,13 @@
 
 #include "ui/SampleBox.h"
 
+#include "dsp/ResolveFile.h"
 #include "plugin/ValisProcessor.h"
 
 namespace valis {
 
-SampleBox::SampleBox(ValisProcessor& p, std::string node, juce::String boxTitle)
-    : processor(p), nodeId(std::move(node)), title(std::move(boxTitle))
+SampleBox::SampleBox(ValisProcessor& p, std::string node, juce::String boxTitle, Kind boxKind)
+    : processor(p), nodeId(std::move(node)), title(std::move(boxTitle)), kind(boxKind)
 {
     addAndMakeVisible(loadButton);
     loadButton.onClick = [this] { chooseFile(); };
@@ -35,14 +36,27 @@ void SampleBox::refresh()
     // unchanged; take the last segment either way.
     if (fileName.isEmpty())
         fileName = full.fromLastOccurrenceOf("/", false, false);
+
+    // A circuit moved to another machine names a file that is not there, or
+    // one the element cannot use. The circuit still loads; say why here, next
+    // to the button that fixes it. Otherwise show why the last choice was refused.
+    const juce::String standing(processor.problemWith(nodeId));
+    message = standing.isNotEmpty() ? standing : rejected;
 }
 
 void SampleBox::chooseFile()
 {
+    const bool model = kind == Kind::Model;
+
+    // Start where the file was, if that directory exists here.
+    auto start = dsp::resolveFile(processor.sampleFor(nodeId)).getParentDirectory();
+    if (! start.isDirectory())
+        start = model ? juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+                      : juce::File(VALIS_EXAMPLES_DIR).getChildFile("samples");
+
     chooser = std::make_unique<juce::FileChooser>(
-        "Choose a sound file for " + title,
-        juce::File(VALIS_EXAMPLES_DIR).getChildFile("samples"),
-        "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
+        (model ? "Choose a NAM model for " : "Choose a sound file for ") + title, start,
+        model ? "*.nam" : "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
 
     chooser->launchAsync(juce::FileBrowserComponent::openMode
                              | juce::FileBrowserComponent::canSelectFiles,
@@ -55,14 +69,14 @@ void SampleBox::chooseFile()
         std::string error;
         if (processor.setSample(nodeId, file.getFullPathName().toStdString(), error))
         {
-            message.clear();
+            rejected.clear();
         }
         else
         {
-            // The previous file keeps playing; say why the new one did not.
-            message = juce::String(error).fromLastOccurrenceOf(": ", false, false);
-            if (message.isEmpty())
-                message = juce::String(error);
+            // The previous file stays in use; say why the new one was refused.
+            rejected = juce::String(error).fromLastOccurrenceOf(": ", false, false);
+            if (rejected.isEmpty())
+                rejected = juce::String(error);
         }
 
         refresh();

@@ -81,20 +81,27 @@ long runSlices(DspElement& element, const ElementType& type, int blocks, int sli
     return total;
 }
 
-void testLoadFailuresAreLocated()
+/// Nothing about a model file fails the circuit: a file that is missing, not a
+/// model, or trained at another rate leaves the element passing its input
+/// through, with the reason in status(), so the Controls view can offer a chooser.
+void testBadModelsDoNotRefuseTheCircuit()
 {
-    ElementTestFixture rig("NamModel", kRate);
     std::string error;
+    const std::vector<float> in(256, 0.25f);
 
-    assert(rig.element->setOption("unrelated", "x", error));      // an unknown key is not a failure
+    for (const char* path : {"/no/such/model.nam", VALIS_ROOT_DIR "/vocabs/valis.ttl"})
+    {
+        ElementTestFixture rig("NamModel", kRate);
+        assert(rig.element->status().empty());
 
-    assert(! rig.element->setOption("model", "/no/such/model.nam", error));
-    assert(error.find("/no/such/model.nam") != std::string::npos
-           || error.find("Neural Amp Modeler support") != std::string::npos);
+        assert(rig.element->setOption("unrelated", "x", error));   // an unknown key is not a problem
+        assert(rig.element->status().empty());
 
-    error.clear();
-    assert(! rig.element->setOption("model", VALIS_ROOT_DIR "/vocabs/valis.ttl", error));
-    assert(! error.empty());
+        assert(rig.element->setOption("model", path, error));
+        assert(! rig.element->status().empty());
+        std::printf("  %s: %s\n", path, rig.element->status().c_str());
+        assert(rig.run(in) == in);
+    }
 }
 
 void testPassesThroughWithoutAModel()
@@ -141,6 +148,22 @@ void testModelsRunWithoutAllocating()
     }
 }
 
+/// A model trained at another rate is a problem, not a failure, and a good file
+/// afterwards clears it.
+void testWrongRateIsAProblem()
+{
+    ElementTestFixture rig("NamModel", 44100.0);
+    std::string error;
+    assert(rig.element->setOption("model", VALIS_NAM_MODELS_DIR "/wavenet.nam", error));
+    assert(rig.element->status().find("44100") != std::string::npos);
+
+    ElementTestFixture right("NamModel", kRate);
+    assert(right.element->setOption("model", "/no/such/model.nam", error));
+    assert(! right.element->status().empty());
+    assert(right.element->setOption("model", VALIS_NAM_MODELS_DIR "/wavenet.nam", error));
+    assert(right.element->status().empty());
+}
+
 void testBypassIsExact()
 {
     ElementTestFixture rig("NamModel", kRate);
@@ -160,10 +183,11 @@ void testBypassIsExact()
 
 int main()
 {
-    testLoadFailuresAreLocated();
+    testBadModelsDoNotRefuseTheCircuit();
     testPassesThroughWithoutAModel();
 #ifdef VALIS_WITH_NAM
     testModelsRunWithoutAllocating();
+    testWrongRateIsAProblem();
     testBypassIsExact();
 #endif
     std::puts("NamModelTest passed");

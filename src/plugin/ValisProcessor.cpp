@@ -4,6 +4,7 @@
 
 #include "ui/ValisEditor.h"
 #include "valis/AiProviders.h"
+#include "valis/FileOption.h"
 #include "valis/ProviderBudgets.h"
 #include "valis/TurtleStore.h"
 #include "valis/UiTheme.h"
@@ -412,8 +413,8 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
 
         if (compiler.compile(candidate, vocabulary, compiled, out))
         {
-            // Whatever the session has chosen for a val:SampleLoad replaces the
-            // file the document names. This happens on the compiled circuit, so
+            // Whatever the session has chosen for a val:SampleLoad or val:NamModel
+            // replaces the file the document names. This happens on the compiled circuit, so
             // the file is read here and handed to the engine already loaded.
             for (auto& node : compiled.nodes)
             {
@@ -421,12 +422,13 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
                 if (chosen == sampleOverrides.end())
                     continue;
 
+                const std::string key(fileOptionKey(node.implementation));
                 auto option = std::find_if(node.options.begin(), node.options.end(),
-                                           [](const auto& o) { return o.first == "file"; });
+                                           [&](const auto& o) { return o.first == key; });
                 if (option != node.options.end())
                     option->second = chosen->second;
                 else
-                    node.options.emplace_back("file", chosen->second);
+                    node.options.emplace_back(key, chosen->second);
             }
 
             std::string error;
@@ -487,8 +489,9 @@ std::string ValisProcessor::sampleFor(const std::string& nodeId) const
     if (const auto chosen = sampleOverrides.find(nodeId); chosen != sampleOverrides.end())
         return chosen->second;
 
-    if (const auto* element = model.findElement(nodeId))
-        if (const auto declared = element->options.find("file"); declared != element->options.end())
+    if (const auto* element = model.findElement(nodeId); element != nullptr && element->type != nullptr)
+        if (const auto declared = element->options.find(std::string(fileOptionKey(element->type->implementation)));
+            declared != element->options.end())
             return declared->second;
 
     return {};
@@ -511,7 +514,16 @@ bool ValisProcessor::setSample(const std::string& nodeId, const std::string& pat
 
     std::vector<Diagnostic> installErrors;
     if (setTurtle(getTurtle(), installErrors))
-        return true;
+    {
+        // An element can load and still say it could not use the file. That is
+        // a refusal here, even though a document that names such a file loads.
+        const auto problem = engine.noteFor(nodeId);
+        if (problem.empty())
+            return true;
+
+        installErrors.clear();
+        installErrors.push_back({problem, {}});
+    }
 
     // The file would not load. Put back what was playing before, and reinstall
     // so the circuit is not left holding a file it could not read.

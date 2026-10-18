@@ -265,9 +265,13 @@ void ControlsView::rebuild()
             addAndMakeVisible(*box);
             spectrums.push_back(std::move(box));
         }
-        else if (elem.type->implementation == "SampleLoad")
+        else if (elem.type->implementation == "SampleLoad"
+                 || elem.type->implementation == "NamModel")
         {
-            auto box = std::make_unique<SampleBox>(processor, elem.id, label);
+            auto box = std::make_unique<SampleBox>(
+                processor, elem.id, label,
+                elem.type->implementation == "NamModel" ? SampleBox::Kind::Model
+                                                        : SampleBox::Kind::Sound);
             box->setTheme(theme);
             addAndMakeVisible(*box);
             samples.push_back(std::move(box));

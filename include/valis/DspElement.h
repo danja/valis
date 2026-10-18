@@ -131,6 +131,12 @@ public:
         return true;
     }
 
+    /// Message thread. A problem the element recovered from instead of failing
+    /// the load, for the Controls view to show: a file that is missing, say, so
+    /// the circuit still loads and a different one can be chosen. Empty when
+    /// there is none. Read after setOption(), and not at all from process().
+    virtual std::string status() const { return {}; }
+
     /// Clear state without reallocating. Called when the transport relocates.
     virtual void reset() {}
 

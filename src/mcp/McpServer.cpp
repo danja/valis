@@ -412,10 +412,10 @@ const ToolSpec kTools[] = {
     {"set_param", "Set one parameter slot, in the property's own units. Out-of-range values are clamped and reported.",
      R"({"type":"object","properties":{"slot":{"type":"integer"},"value":{"type":"number"}},"required":["slot","value"]})"},
 
-    {"get_sample", "The sound file a val:SampleLoad node is playing.",
+    {"get_sample", "The file a val:SampleLoad (sound) or val:NamModel (.nam model) node is using.",
      R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
 
-    {"set_sample", "Load a different sound file into a val:SampleLoad node. The previous file keeps playing if the new one will not load.",
+    {"set_sample", "Load a different file into a val:SampleLoad (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load.",
      R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/"}},"required":["node","path"]})"},
 
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, and its latency.",

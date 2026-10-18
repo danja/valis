@@ -52,6 +52,7 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
     graph->controlValues.reserve(circuit.nodes.size());
 
     int latency = 0;
+    std::vector<std::pair<std::string, std::string>> notes;
 
     for (const auto& node : circuit.nodes)
     {
@@ -97,6 +98,9 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
                 return false;
             }
         }
+
+        if (auto note = element->status(); ! note.empty())
+            notes.emplace_back(node.id, std::move(note));
 
         element->reset();
         latency += element->latencyInSamples();
@@ -163,6 +167,7 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
     }
 
     reportedLatency.store(latency, std::memory_order_relaxed);
+    loadNotes = std::move(notes);
 
     // The pool belongs to the circuit, so installing one starts every voice
     // idle rather than carrying the previous circuit's notes into it.
@@ -803,4 +808,14 @@ void ValisEngine::processSlice(Graph& graph,
         std::memcpy(outputR, srcR, static_cast<std::size_t>(numSamples) * sizeof(float));
 }
 
+}  // namespace valis
+
+namespace valis {
+std::string ValisEngine::noteFor(const std::string& nodeId) const
+{
+    for (const auto& [id, note] : loadNotes)
+        if (id == nodeId)
+            return note;
+    return {};
+}
 }  // namespace valis

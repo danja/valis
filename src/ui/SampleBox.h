@@ -1,7 +1,7 @@
 // src/ui/SampleBox.h
 //
-// The file slot for one val:SampleLoad node: the name of the sound file it is
-// playing, and a button to choose another. Owned by ControlsView, which
+// The file slot for one val:SampleLoad or val:NamModel node: the name of the
+// file it is using, and a button to choose another. Owned by ControlsView, which
 // rebuilds it per circuit. Message thread only.
 
 #pragma once
@@ -24,7 +24,11 @@ public:
     static constexpr int kWidth  = 208;
     static constexpr int kHeight = 152;
 
-    SampleBox(ValisProcessor& processor, std::string nodeId, juce::String title);
+    /// What the slot chooses, which sets the dialog and the file patterns.
+    enum class Kind { Sound, Model };
+
+    SampleBox(ValisProcessor& processor, std::string nodeId, juce::String title,
+              Kind kind = Kind::Sound);
     ~SampleBox() override;
 
     void setTheme(const EquipmentTheme& t);
@@ -41,8 +45,10 @@ private:
     ValisProcessor& processor;
     std::string nodeId;
     juce::String title;
+    Kind kind;
     juce::String fileName = "(no file)";
     juce::String message;
+    juce::String rejected;   ///< why the last file chosen was refused
     EquipmentTheme theme = themeByName("Dark");
 
     juce::TextButton loadButton{"Load..."};
