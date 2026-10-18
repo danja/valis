@@ -79,9 +79,11 @@ public:
             loaded->Reset(sampleRate, capacity);
             model = std::move(loaded);
         }
-        catch (const std::exception& e)
+        catch (const std::exception&)
         {
-            problem = std::string("Unreadable model: ") + e.what();
+            // The parser's own message runs to several lines and would not fit
+            // the file box; the name is enough to find the file.
+            problem = "Not a valid NAM model: " + file.getFileName().toStdString();
         }
         return true;
 #else
