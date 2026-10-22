@@ -415,6 +415,314 @@ Signal Processing, <https://ccrma.stanford.edu/~jos/pasp/Clarinet.html>.""" ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "What the bore loses on each round trip. 0 is bright and metallic; 1 is dark and muted." ] .
 
+val:FMOperator a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "FM operator" ;
+    rdfs:comment """One operator of a DX7-style FM synthesiser: a sine oscillator whose
+phase is driven by an audio input. Everything the DX7 does is operators wired into
+each other, so a patch is several of these, and the wiring is the algorithm.
+
+The input "pm" is the modulator. Its amplitude times val:depth is the modulation
+index, so the modulator's own level and envelope are the index, and an envelope
+that falls on the modulator makes a tone that starts bright and mellows. Several
+arcs on "pm" sum. An operator with nothing on "pm" is a plain sine, a carrier.
+
+Frequency is val:frequency times val:ratio, detuned by val:detune cents. Connect
+val:MidiPitch to frequency and the operator tracks the keyboard, with the ratio
+choosing which harmonic it sits on; a whole-number ratio gives a harmonic tone and
+anything else an inharmonic one, which is where bells come from. Setting val:fixed
+above zero ignores the keyboard and sounds that many hertz instead.
+
+Level and amplitude are separate: val:level is the operator's output level on the
+DX7's 0 to 99 scale, linear in decibels, and val:amp is a 0 to 1 control that an
+envelope drives. Both scale the output, so both scale the modulation index when
+the operator is a modulator.
+
+val:feedback feeds the operator's own output back into its phase, on the DX7's 0
+to 7 scale. A sine with feedback moves towards a sawtooth. Feedback around more
+than one operator is not modelled, because an arc that loops back is a cycle; the
+element offers the one the DX7 offers on a single operator.
+
+Strictly this is phase modulation rather than frequency modulation, as it is on
+the DX7. See https://en.wikipedia.org/wiki/Frequency_modulation_synthesis""" ;
+    val:implementation "FMOperator" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "pm" ; lv2:name "Phase mod" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio" ;
+        lv2:name "Ratio" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ;
+        rdfs:comment "Multiplies the frequency. The DX7's coarse and fine controls are this one number: coarse 1 fine 41 is 1.41." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "fixed" ;
+        lv2:name "Fixed" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 10000.0 ; units:unit units:hz ;
+        rdfs:comment "Above 0, the operator sounds this frequency whatever the keyboard plays, and ratio and detune are ignored." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune" ;
+        lv2:name "Detune" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level" ;
+        lv2:name "Level" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+        rdfs:comment "Output level on the DX7's scale: 99 is full, and each step below is about 0.75 dB down. 0 is silent." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp" ;
+        lv2:name "Amp" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Amplitude, for an envelope to drive. A control arc here replaces the value." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "depth" ;
+        lv2:name "Depth" ; lv2:default 12.566371 ;
+        lv2:minimum 0.0 ; lv2:maximum 50.0 ;
+        rdfs:comment "Radians of phase shift that a full-scale signal on pm produces. The default, four turns, is where the DX7's strongest modulator sits." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] .
+
+val:FMMatrix a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "FM matrix" ;
+    rdfs:comment """Six FM operators in one element with a modulation matrix between
+them, so any operator can modulate any other, including through a loop.
+
+Several val:FMOperator elements cannot make a loop that spans operators. An arc
+that returns to an earlier element is a cycle, and the only thing that breaks one,
+val:UnitDelay, delays a loop by a control slice and a sample (33 samples), which is
+far too long for FM. A loop has to
+be sample accurate, so it has to be inside one element.
+
+Operators run from 6 down to 1, as on the DX7. m<d><s> is how much operator s
+modulates operator d, as a fraction of val:depth. When s is higher than d, the
+modulator has already been computed for this sample and is used as it is. When s is
+lower than d, it is used as it was one sample ago, so every loop has one sample of
+delay on the arc that runs against the order. The diagonal, m11 to m66, is the
+DX7's own feedback control from 0 to 7, which averages an operator's last two
+outputs.
+
+val:carrier1 to val:carrier6 choose which operators are heard. Each operator's
+level is val:level1 and so on, and its amplitude val:amp1 and so on is for an
+envelope: connect val:RateLevelEnvelope outputs to them. The note is shared, with
+a val:ratio and val:detune for each operator.
+
+A DX7 algorithm is a choice of matrix entries and carriers. Algorithm 5, for
+example, is m12, m34 and m56 set to 1 with carriers 1, 3 and 5. See
+https://en.wikipedia.org/wiki/Frequency_modulation_synthesis""" ;
+    val:implementation "FMMatrix" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 20000.0 ; units:unit units:hz ;
+        rdfs:comment "The note. Each operator sounds this times its own ratio." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "depth" ;
+        lv2:name "Depth" ; lv2:default 12.566371 ;
+        lv2:minimum 0.0 ; lv2:maximum 50.0 ;
+        rdfs:comment "Radians of phase shift at a modulation amount of 1." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio1" ;
+        lv2:name "Ratio 1" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune1" ;
+        lv2:name "Detune 1" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level1" ;
+        lv2:name "Level 1" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+        rdfs:comment "Output level on the DX7 scale, 0 to 99." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp1" ;
+        lv2:name "Amp 1" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "For an envelope to drive." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier1" ;
+        lv2:name "Carrier 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "How much of this operator is heard. 0 makes it a pure modulator." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio2" ;
+        lv2:name "Ratio 2" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune2" ;
+        lv2:name "Detune 2" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level2" ;
+        lv2:name "Level 2" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp2" ;
+        lv2:name "Amp 2" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier2" ;
+        lv2:name "Carrier 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio3" ;
+        lv2:name "Ratio 3" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune3" ;
+        lv2:name "Detune 3" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level3" ;
+        lv2:name "Level 3" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp3" ;
+        lv2:name "Amp 3" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier3" ;
+        lv2:name "Carrier 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio4" ;
+        lv2:name "Ratio 4" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune4" ;
+        lv2:name "Detune 4" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level4" ;
+        lv2:name "Level 4" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp4" ;
+        lv2:name "Amp 4" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier4" ;
+        lv2:name "Carrier 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio5" ;
+        lv2:name "Ratio 5" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune5" ;
+        lv2:name "Detune 5" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level5" ;
+        lv2:name "Level 5" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp5" ;
+        lv2:name "Amp 5" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier5" ;
+        lv2:name "Carrier 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio6" ;
+        lv2:name "Ratio 6" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "detune6" ;
+        lv2:name "Detune 6" ; lv2:default 0.0 ;
+        lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "level6" ;
+        lv2:name "Level 6" ; lv2:default 99.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amp6" ;
+        lv2:name "Amp 6" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "carrier6" ;
+        lv2:name "Carrier 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m11" ;
+        lv2:name "Feedback 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ;
+        rdfs:comment "The DX7 feedback control, 0 to 7." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m12" ;
+        lv2:name "2 to 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "How much operator 2 modulates operator 1, as a fraction of depth. An operator numbered higher than its target is heard on the same sample; one numbered lower is heard one sample late, which is what closes a loop." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m13" ;
+        lv2:name "3 to 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m14" ;
+        lv2:name "4 to 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m15" ;
+        lv2:name "5 to 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m16" ;
+        lv2:name "6 to 1" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m21" ;
+        lv2:name "1 to 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "How much operator 1 modulates operator 2, as a fraction of depth. An operator numbered higher than its target is heard on the same sample; one numbered lower is heard one sample late, which is what closes a loop." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m22" ;
+        lv2:name "Feedback 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m23" ;
+        lv2:name "3 to 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m24" ;
+        lv2:name "4 to 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m25" ;
+        lv2:name "5 to 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m26" ;
+        lv2:name "6 to 2" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m31" ;
+        lv2:name "1 to 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m32" ;
+        lv2:name "2 to 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m33" ;
+        lv2:name "Feedback 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m34" ;
+        lv2:name "4 to 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m35" ;
+        lv2:name "5 to 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m36" ;
+        lv2:name "6 to 3" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m41" ;
+        lv2:name "1 to 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m42" ;
+        lv2:name "2 to 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m43" ;
+        lv2:name "3 to 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m44" ;
+        lv2:name "Feedback 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m45" ;
+        lv2:name "5 to 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m46" ;
+        lv2:name "6 to 4" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m51" ;
+        lv2:name "1 to 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m52" ;
+        lv2:name "2 to 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m53" ;
+        lv2:name "3 to 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m54" ;
+        lv2:name "4 to 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m55" ;
+        lv2:name "Feedback 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m56" ;
+        lv2:name "6 to 5" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m61" ;
+        lv2:name "1 to 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m62" ;
+        lv2:name "2 to 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m63" ;
+        lv2:name "3 to 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m64" ;
+        lv2:name "4 to 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m65" ;
+        lv2:name "5 to 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "m66" ;
+        lv2:name "Feedback 6" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] .
+
 val:Flute a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Flute" ;
     rdfs:comment """Jet-drive waveguide flute. A tube open at both ends, blown
@@ -602,8 +910,19 @@ creating two notches in the frequency response. Feedback deepens the notches."""
 
 val:UnitDelay a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "UnitDelay" ;
-    rdfs:comment """A one-sample delay. Required to break a cycle: the compiler
-rejects any feedback loop that does not pass through one.""" ;
+    rdfs:comment """Delays by one sample, and is required to break a cycle: the compiler
+rejects any feedback loop that does not pass through one.
+
+Elements run a whole control slice at a time, so closing a loop makes the delay
+longer than one sample. The delay's input is then the previous slice's output of an
+element that runs after it, and the loop takes a slice plus one sample to come
+round: 33 samples, or 0.7 ms at 48 kHz, since the engine's slice is 32 samples
+long. Anything that depends on the loop time, such as the pitch of a feedback comb,
+follows from that figure and not from a single sample. Outside a loop the delay is
+the one sample it says.
+
+A loop that must be sample accurate has to be inside one element, as the operators
+of val:FMMatrix are.""" ;
     val:implementation "UnitDelay" ;
     val:linear true ;
     lv2:port
@@ -856,6 +1175,40 @@ val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
       [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
       [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] .
 
+val:Quantise a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Quantise" ;
+    rdfs:comment """Snaps a pitch, in semitones, to the nearest note of a scale. The
+scale is counted from a root pitch class, so with root 2 and Major the notes are
+those of D major. Halfway between two notes the lower is chosen. Free passes the
+value through unchanged.
+
+It acts on semitones, so it sits between a source of intervals and whatever uses
+them: val:MidiInterval into val:Quantise into a granulator's pitch plays only
+notes of the scale however the keyboard is played.""" ;
+    val:implementation "Quantise" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "in" ;
+        lv2:name "In" ; lv2:default 0.0 ;
+        lv2:minimum -96.0 ; lv2:maximum 96.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "root" ;
+        lv2:name "Root" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 11.0 ;
+        lv2:portProperty lv2:integer ;
+        rdfs:comment "Pitch class of the scale's root, 0 for C." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "scale" ;
+        lv2:name "Scale" ; lv2:default 4.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 6.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Free"         ; rdf:value 0 ] ,
+                       [ rdfs:label "Semitones"    ; rdf:value 1 ] ,
+                       [ rdfs:label "Octaves"      ; rdf:value 2 ] ,
+                       [ rdfs:label "Fifths"       ; rdf:value 3 ] ,
+                       [ rdfs:label "Major"        ; rdf:value 4 ] ,
+                       [ rdfs:label "Minor"        ; rdf:value 5 ] ,
+                       [ rdfs:label "Pentatonic"   ; rdf:value 6 ] ; ] .
+
 val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Scale" ;
     rdfs:comment "Remaps a 0–1 control signal to [min, max]. Bridges Envelope to targets expecting physical units such as Hz or ms." ;
@@ -1093,6 +1446,59 @@ the input control is part of the tone. Bypass passes the input through.""" ;
         lv2:portProperty lv2:toggled ;
         lv2:scalePoint [ rdfs:label "Model" ; rdf:value 0 ] ,
                        [ rdfs:label "Bypass" ; rdf:value 1 ] ] .
+
+val:RateLevelEnvelope a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Rate and level envelope" ;
+    rdfs:comment """The DX7's envelope generator: four rates and four levels, on the
+machine's 0 to 99 scales. On key down the level goes to l1 at rate r1, then to l2
+at r2, then to l3 at r3 and stays there while the key is held. On key up it goes to
+l4 at r4. Its output is a control signal from 0 to 1.
+
+Levels are linear in decibels, so a step of level is always the same loudness step.
+A rate is a speed, not a time: a segment takes longer the further it has to go,
+where an ADSR segment takes the same time whatever the distance. Rate 99 crosses
+the whole scale in a few milliseconds and rate 0 takes about forty seconds. The
+timings are close to the machine's but are an approximation, not a match.
+
+A long first segment is the usual way to make a plucked or struck tone, with l3
+set low so it decays while the key is down. Set l3 to 99 and l4 to 0 for an
+organ: full on, full off.
+
+Velocity changes the level: val:velsens is how many 6 dB steps a key struck as
+softly as possible loses, so 0 ignores velocity and 7 is a great deal of it.
+Connect val:MidiVelocity to velocity.
+
+See https://en.wikipedia.org/wiki/Yamaha_DX7""" ;
+    val:implementation "RateLevelEnvelope" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r1" ; lv2:name "Rate 1" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r2" ; lv2:name "Rate 2" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r3" ; lv2:name "Rate 3" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r4" ; lv2:name "Rate 4" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "l1" ; lv2:name "Level 1" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "l2" ; lv2:name "Level 2" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "l3" ; lv2:name "Level 3" ;
+        lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "l4" ; lv2:name "Level 4" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velocity" ;
+        lv2:name "Velocity" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velsens" ;
+        lv2:name "Velocity sensitivity" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gate" ;
+        lv2:name "Gate" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = use host MIDI gate (default), 0/1 = explicit off/on." ] .
 
 val:Envelope a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Envelope" ;
@@ -1394,6 +1800,11 @@ head sits at the start of the file, so 0 is the beginning and 1 the end. While
 recording live input the write head is the present moment, so values near 1
 granulate the most recent audio and lower values reach further back.
 
+While the buffer is recording, a grain is kept behind the write head, by two
+samples and by however far it will close the gap over its own length if it plays
+faster than real time. Without that, a raised pitch at a position near 1 would
+read the oldest audio in the buffer.
+
 freeze decides what the buffer does with the audio input. An input with no arc
 reaching it records nothing at all, so a circuit that loads val:file and wires
 nothing to the input keeps that material without having to say so.
@@ -1463,7 +1874,52 @@ See Roads, Microsound (MIT Press, 2001)
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Override: -1 = free-run at the density rate; otherwise each rising edge fires one grain." ] .
+        rdfs:comment "Override: -1 = free-run at the density rate; otherwise each rising edge fires one grain." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "sizeJitter" ;
+        lv2:name "Size jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random shortening of each grain. 0 keeps every grain the full size; 1 lets one be a quarter of it. The cloud loses the evenness a fixed size gives it." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "curve" ;
+        lv2:name "Curve" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Blends the grain window toward a percussive one: a fast rise to a peak early in the grain and an exponential fall, so grains sound struck or plucked. Both windows have the same average height, so loudness stays close, though the percussive one is peakier and measures somewhat louder." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "range" ;
+        lv2:name "Range" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ;
+        rdfs:comment "Each grain draws a pitch offset within this many semitones of pitch, in the direction chosen and on the scale chosen. 0 draws nothing. Unlike pitchJitter, which detunes continuously, the draw lands on notes, so a cloud can play a chord rather than blur." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "direction" ;
+        lv2:name "Direction" ; lv2:default 2.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 2.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Up"   ; rdf:value 0 ] ,
+                       [ rdfs:label "Down" ; rdf:value 1 ] ,
+                       [ rdfs:label "Both" ; rdf:value 2 ] ;
+        rdfs:comment "Which way the range reaches from pitch." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "scale" ;
+        lv2:name "Scale" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 6.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Free"         ; rdf:value 0 ] ,
+                       [ rdfs:label "Semitones"    ; rdf:value 1 ] ,
+                       [ rdfs:label "Octaves"      ; rdf:value 2 ] ,
+                       [ rdfs:label "Fifths"       ; rdf:value 3 ] ,
+                       [ rdfs:label "Major"        ; rdf:value 4 ] ,
+                       [ rdfs:label "Minor"        ; rdf:value 5 ] ,
+                       [ rdfs:label "Pentatonic"   ; rdf:value 6 ]  ;
+        rdfs:comment "The notes a grain's pitch may land on, counted from the pitch itself, so the transposed material stays in tune with itself. Free draws any value in the range. Staying on the pitch is always among the choices." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "seed" ;
+        lv2:name "Seed" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
+        lv2:portProperty lv2:integer ;
+        rdfs:comment "Seeds the random draws, so one seed gives one cloud, every time. 0 is the default sequence." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "grains" ;
+        lv2:name "Grains" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 64.0 ;
+        rdfs:comment "How many grains are sounding." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "onset" ;
+        lv2:name "Onset" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "1 for a control slice in which a grain started and 0 otherwise. Connect it to a val:Envelope's gate, and that envelope to a val:VCA, to have each grain strike something such as a val:ModalBank." ] .
 
 val:SampleLoad a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "SampleLoad" ;
@@ -1532,7 +1988,11 @@ standalone app.""" ;
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "rate" ;
         lv2:name "Rate" ; lv2:default 2.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1000.0 ; units:unit units:hz ;
-        rdfs:comment "Pulses per second at the current tempo and division." ] .
+        rdfs:comment "Pulses per second at the current tempo and division." ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "period" ;
+        lv2:name "Period" ; lv2:default 500.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 4000000.0 ; units:unit units:ms ;
+        rdfs:comment "The length of one pulse in milliseconds, which is what grain size and val:Delay time are measured in. Connect it there to tie a window or an echo to the tempo." ] .
 
 val:MidiInterval a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "MidiInterval" ;

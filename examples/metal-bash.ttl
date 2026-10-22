@@ -1,0 +1,270 @@
+# examples/metal-bash.ttl
+#
+# A hammer hitting a sheet of metal, played from MIDI.
+#
+# Two parts, as in the real thing: something that strikes, and something that
+# rings.
+#
+# The strike. A hammer on metal is a burst of broadband noise a few milliseconds
+# long, with a hard edge at the front and a few small rebounds after it. A
+# val:Noise source records into a val:Granulator's buffer and the granulator
+# plays it back as a cloud of very short grains. Each grain has the percussive
+# window (Curve at 1, a fast rise and an exponential fall), their lengths vary,
+# and a fast val:Envelope shuts the cloud off within about twenty milliseconds
+# of the key going down, so what comes out is a click with a little chatter in
+# it. Velocity sets how hard. Hardness lowers the pitch of the grains, which
+# reads the noise slower and takes the top off it: a steel hammer at 0, a rubber
+# mallet at -24.
+#
+# The ring. A flat sheet does not vibrate in whole-number multiples of a
+# fundamental the way a string does. Its modes are inharmonic, and val:ModalBank's
+# plate table puts them at 1, 1.41, 2, 2.24, 2.45 and 2.83 times the lowest. Two
+# banks run in parallel on the same strike:
+#
+#   plate    the plate table at the MIDI note's frequency, the body of the sound
+#            and the pitch the ear takes. It rings longest.
+#   upper    the bar table (1, 2.76, 5.4, 8.9, 13.3, 18.6) an octave above the
+#            note. Its modes are far apart and spread high, which is the bright
+#            metallic shimmer on top. It decays faster.
+#
+# The mix of the two against each other is the Shimmer control. Both are tuned by
+# val:MidiPitch, so the sheet follows the keyboard.
+#
+# After the voices, in series:
+#
+#   highpass   takes out the sub-audio thump the strike leaves behind
+#   Tanh       the distortion, with antiderivative anti-aliasing, because a
+#              metal sound is full of high partials that would otherwise fold
+#   trim       makes up for the drive
+#   lowpass    takes the fizz off the distorted top
+#   compressor evens out the difference between a hard hit and a soft one
+#   room       two short delays, one a different length per side, mixed against
+#              the dry signal for width and a hint of the space the sheet is in
+#
+# Four voices, so a second strike does not choke the first.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:metalbash#> .
+
+################################################################
+# One voice: the hammer and the sheet                          #
+################################################################
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Struck sheet" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :sum ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "hardness" ; lv2:name "Hardness" ;
+               lv2:default 0.0 ; lv2:minimum -24.0 ; lv2:maximum 0.0 ; units:unit units:semitone ;
+               val:node :gran ; val:port "pitch" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "size" ; lv2:name "Hammer size" ;
+               lv2:default 4.0 ; lv2:minimum 1.0 ; lv2:maximum 30.0 ; units:unit units:ms ;
+               val:node :gran ; val:port "size" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bounce" ; lv2:name "Bounce" ;
+               lv2:default 500.0 ; lv2:minimum 50.0 ; lv2:maximum 2000.0 ; units:unit units:hz ;
+               lv2:portProperty lv2:logarithmic ;
+               val:node :gran ; val:port "density" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "body" ; lv2:name "Body decay" ;
+               lv2:default 2.5 ; lv2:minimum 0.2 ; lv2:maximum 8.0 ; units:unit units:s ;
+               lv2:portProperty lv2:logarithmic ;
+               val:node :plate ; val:port "decay" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "tone" ; lv2:name "Body tone" ;
+               lv2:default 0.6 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :plate ; val:port "brightness" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "shimmer" ; lv2:name "Shimmer" ;
+               lv2:default -6.0 ; lv2:minimum -40.0 ; lv2:maximum 12.0 ; units:unit units:db ;
+               val:node :shimmerGain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "ring" ; lv2:name "Shimmer decay" ;
+               lv2:default 2.0 ; lv2:minimum 0.1 ; lv2:maximum 6.0 ; units:unit units:s ;
+               lv2:portProperty lv2:logarithmic ;
+               val:node :upper ; val:port "decay" ] ;
+
+    val:element :pitch , :vel , :env , :amp , :noise , :gran , :hit , :plate , :shimmerGain , :upper , :octave , :sum ;
+    val:arc :v1 , :v2 , :v3 , :v4 , :v5 , :v6 , :v7 , :v8 , :v9 , :v10 , :v11 , :v12 , :v13 .
+
+# The note this voice was given, and how hard it was struck.
+:pitch a val:MidiPitch .
+:vel   a val:MidiVelocity .
+
+# The hammer's contact: instant attack, gone in a few tens of milliseconds, and
+# no sustain, so a held key does not keep hitting.
+:env a val:Envelope ;
+    val:attack 0.1 ; val:decay 18.0 ; val:sustain 0.0 ; val:release 10.0 .
+
+:amp a val:ControlMultiply .
+
+:noise a val:Noise ; val:colour 0.0 .
+
+# The history only has to hold some noise to read from, so it is short.
+:gran a val:Granulator ;
+    val:seconds 0.25 ;
+    val:position 0.5 ;
+    val:size 4.0 ;
+    val:density 500.0 ;
+    val:spray 1.0 ;            # anywhere in the noise: it is all alike
+    val:jitter 0.6 ;           # rebounds, not a metronome
+    val:sizeJitter 0.7 ;
+    val:curve 1.0 ;            # the struck window
+    val:shape 0.5 ;
+    val:spread 0.4 ;
+    val:pitch 0.0 ;
+    val:freeze 0.0 .
+
+:hit a val:VCA .
+
+:plate a val:ModalBank ;
+    val:mode 3.0 ;             # plate
+    val:decay 2.5 ;
+    val:brightness 0.6 .
+
+:shimmerGain a val:Gain ; val:gain -6.0 .
+
+:octave a val:ControlMultiply ; val:b 2.0 .
+
+:upper a val:ModalBank ;
+    val:mode 0.0 ;             # bar
+    val:decay 2.0 ;
+    val:brightness 0.9 .
+
+:sum a val:Mixer .
+
+:v1 a val:Arc ; val:from [ val:node :noise ; val:port "out" ] ;
+            val:to   [ val:node :gran ; val:port "in" ] .
+:v2 a val:Arc ; val:from [ val:node :gran ; val:port "out" ] ;
+            val:to   [ val:node :hit ; val:port "in" ] .
+:v3 a val:Arc ; val:from [ val:node :env ; val:port "out" ] ;
+            val:to   [ val:node :amp ; val:port "a" ] .
+:v4 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :amp ; val:port "b" ] .
+:v5 a val:Arc ; val:from [ val:node :amp ; val:port "out" ] ;
+            val:to   [ val:node :hit ; val:port "cv" ] .
+:v6 a val:Arc ; val:from [ val:node :hit ; val:port "out" ] ;
+            val:to   [ val:node :plate ; val:port "in" ] .
+:v7 a val:Arc ; val:from [ val:node :hit ; val:port "out" ] ;
+            val:to   [ val:node :shimmerGain ; val:port "in" ] .
+:v8 a val:Arc ; val:from [ val:node :shimmerGain ; val:port "out" ] ;
+            val:to   [ val:node :upper ; val:port "in" ] .
+:v9 a val:Arc ; val:from [ val:node :pitch ; val:port "out" ] ;
+            val:to   [ val:node :plate ; val:port "frequency" ] .
+:v10 a val:Arc ; val:from [ val:node :pitch ; val:port "out" ] ;
+             val:to   [ val:node :octave ; val:port "a" ] .
+:v11 a val:Arc ; val:from [ val:node :octave ; val:port "out" ] ;
+             val:to   [ val:node :upper ; val:port "frequency" ] .
+:v12 a val:Arc ; val:from [ val:node :plate ; val:port "out" ] ;
+             val:to   [ val:node :sum ; val:port "in" ] .
+:v13 a val:Arc ; val:from [ val:node :upper ; val:port "out" ] ;
+             val:to   [ val:node :sum ; val:port "in" ] .
+
+################################################################
+# After the voices                                             #
+################################################################
+
+:metalbash a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic", "Industrial", "Experimental" ;
+    rdfs:label "Metal Bash" ;
+    val:element :poly , :hp , :drive , :trim , :tone , :comp , :roomL , :roomR , :dwL , :dwR , :out ;
+    val:arc :m1 , :m2 , :m3 , :m4 , :m5 , :m6 , :m7 , :m8 , :m9 , :m10 , :m11 , :m12 , :m13 .
+
+:poly a :Voice ; val:voices 4 .
+
+:hp    a val:StateVariable ; val:cutoff 70.0 ; val:resonance 0.7071 .
+:drive a val:Tanh ; val:gain 6.0 ; val:antialiasing val:ADAA2 .
+:trim  a val:Gain ; val:gain -6.0 .
+:tone  a val:StateVariable ; val:cutoff 9000.0 ; val:resonance 0.7071 .
+:comp  a val:Compressor ;
+    val:threshold -14.0 ; val:ratio 3.0 ; val:knee 6.0 ; val:attack 2.0 ; val:release 120.0 .
+
+:roomL a val:Delay ; val:time 17.0 ; val:feedback 0.35 .
+:roomR a val:Delay ; val:time 23.0 ; val:feedback 0.35 .
+:dwL a val:DryWet ; val:mix 0.25 .
+:dwR a val:DryWet ; val:mix 0.25 .
+
+:out a val:Output .
+
+:m1 a val:Arc ; val:from [ val:node :poly ; val:port "out" ] ;
+            val:to   [ val:node :hp ; val:port "in" ] .
+:m2 a val:Arc ; val:from [ val:node :hp ; val:port "hp" ] ;
+            val:to   [ val:node :drive ; val:port "in" ] .
+:m3 a val:Arc ; val:from [ val:node :drive ; val:port "out" ] ;
+            val:to   [ val:node :trim ; val:port "in" ] .
+:m4 a val:Arc ; val:from [ val:node :trim ; val:port "out" ] ;
+            val:to   [ val:node :tone ; val:port "in" ] .
+:m5 a val:Arc ; val:from [ val:node :tone ; val:port "lp" ] ;
+            val:to   [ val:node :comp ; val:port "in" ] .
+:m6 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+            val:to   [ val:node :roomL ; val:port "in" ] .
+:m7 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+            val:to   [ val:node :roomR ; val:port "in" ] .
+:m8 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+            val:to   [ val:node :dwL ; val:port "dry" ] .
+:m9 a val:Arc ; val:from [ val:node :comp ; val:port "out" ] ;
+            val:to   [ val:node :dwR ; val:port "dry" ] .
+:m10 a val:Arc ; val:from [ val:node :roomL ; val:port "out" ] ;
+             val:to   [ val:node :dwL ; val:port "wet" ] .
+:m11 a val:Arc ; val:from [ val:node :roomR ; val:port "out" ] ;
+             val:to   [ val:node :dwR ; val:port "wet" ] .
+:m12 a val:Arc ; val:from [ val:node :dwL ; val:port "out" ] ;
+             val:to   [ val:node :out ; val:port "left" ] .
+:m13 a val:Arc ; val:from [ val:node :dwR ; val:port "out" ] ;
+             val:to   [ val:node :out ; val:port "right" ] .
+
+################################################################
+# Controls                                                     #
+################################################################
+
+:p0 a val:Param ; val:slot 0 ; val:target :poly ; val:property val:hardness ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ; val:section "Strike" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :poly ; val:property val:size ;
+    lv2:name "Hammer size" ; lv2:symbol "size" ; val:section "Strike" ; units:unit units:ms .
+
+:p2 a val:Param ; val:slot 2 ; val:target :poly ; val:property val:bounce ;
+    lv2:name "Bounce" ; lv2:symbol "bounce" ; val:section "Strike" ; units:unit units:hz .
+
+:p3 a val:Param ; val:slot 3 ; val:target :poly ; val:property val:body ;
+    lv2:name "Body decay" ; lv2:symbol "body" ; val:section "Sheet" ; units:unit units:s .
+
+:p4 a val:Param ; val:slot 4 ; val:target :poly ; val:property val:tone ;
+    lv2:name "Body tone" ; lv2:symbol "bodytone" ; val:section "Sheet" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :poly ; val:property val:shimmer ;
+    lv2:name "Shimmer" ; lv2:symbol "shimmer" ; val:section "Sheet" ; units:unit units:db .
+
+:p6 a val:Param ; val:slot 6 ; val:target :poly ; val:property val:ring ;
+    lv2:name "Shimmer decay" ; lv2:symbol "ring" ; val:section "Sheet" ; units:unit units:s .
+
+:p7 a val:Param ; val:slot 7 ; val:target :drive ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ; val:section "Distortion" .
+
+:p8 a val:Param ; val:slot 8 ; val:target :tone ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tonecut" ; val:section "Distortion" ; units:unit units:hz .
+
+:p9 a val:Param ; val:slot 9 ; val:target :dwL , :dwR ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room" ; val:section "Output" .
+
+:p10 a val:Param ; val:slot 10 ; val:target :trim ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ; val:section "Output" ; units:unit units:db .
+

@@ -1,0 +1,161 @@
+# examples/dx7-brass.ttl
+#
+# A brass pad with feedback that spans operators.
+#
+# The other DX7 examples are built from separate val:FMOperator elements, which
+# cannot loop back through more than one operator: an arc that returns to an
+# earlier element is a cycle, and val:UnitDelay, the only thing that breaks one,
+# delays a loop by a control slice and a sample. val:FMMatrix holds all six operators and the
+# modulation between them in one element, so a loop is closed a sample at a time.
+#
+#      2 -> 1        4 -> 3        carriers 1 and 3 are heard
+#      (2 feeds back on itself)
+#      4 <-> 6       operators 4 and 6 modulate each other
+#
+# Operator 6 drives 4 in the ordinary way, and operator 4 drives 6 back through
+# one sample of delay, because 4 is numbered lower than 6. That is the loop. Its
+# strength is the "Loop" knob: at zero it is a plain stack, and as it opens the
+# tone gets harder and then rough. Operator 4 is the one that drives carrier 3, so
+# the loop is heard as a change in the carrier's brightness.
+#
+# The slow first segment of every envelope is what makes it a swell rather than a
+# pluck. Velocity opens the modulators further than it raises the carriers.
+#
+# https://en.wikipedia.org/wiki/Frequency_modulation_synthesis
+# https://en.wikipedia.org/wiki/Yamaha_DX7
+#
+# This patch was written for this example. It is not a copy of a factory sound.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:dx7brass#> .
+
+################################################################
+# One voice                                                    #
+################################################################
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Loop brass voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :fm ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bright" ; lv2:name "Bright" ;
+               lv2:default 88.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :fm ; val:port "level4" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "loop" ; lv2:name "Loop" ;
+               lv2:default 0.25 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :fm ; val:port "m64" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "edge" ; lv2:name "Edge" ;
+               lv2:default 4.0 ; lv2:minimum 0.0 ; lv2:maximum 7.0 ;
+               val:node :fm ; val:port "m22" ] ;
+
+    val:element :pitch , :vel , :env1 , :env2 , :env3 , :env4 , :env5 , :env6 , :fm ;
+    val:arc :a0 , :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 , :a9 , :a10 , :a11 , :a12 .
+
+:pitch a val:MidiPitch .
+:vel   a val:MidiVelocity .
+
+# Operator 5 is unused, so its envelope is at rest and the operator is skipped.
+:env1 a val:RateLevelEnvelope ;
+    val:r1 55.0 ; val:r2 40.0 ; val:r3 50.0 ; val:r4 62.0 ;
+    val:l1 99.0 ; val:l2 96.0 ; val:l3 92.0 ; val:l4 0.0 ;
+    val:velsens 2.0 .
+:env2 a val:RateLevelEnvelope ;
+    val:r1 50.0 ; val:r2 40.0 ; val:r3 50.0 ; val:r4 62.0 ;
+    val:l1 92.0 ; val:l2 90.0 ; val:l3 88.0 ; val:l4 0.0 ;
+    val:velsens 5.0 .
+:env3 a val:RateLevelEnvelope ;
+    val:r1 55.0 ; val:r2 40.0 ; val:r3 50.0 ; val:r4 62.0 ;
+    val:l1 99.0 ; val:l2 96.0 ; val:l3 92.0 ; val:l4 0.0 ;
+    val:velsens 2.0 .
+:env4 a val:RateLevelEnvelope ;
+    val:r1 50.0 ; val:r2 40.0 ; val:r3 50.0 ; val:r4 62.0 ;
+    val:l1 92.0 ; val:l2 90.0 ; val:l3 88.0 ; val:l4 0.0 ;
+    val:velsens 5.0 .
+:env5 a val:RateLevelEnvelope ;
+    val:r1 99.0 ; val:r2 99.0 ; val:r3 99.0 ; val:r4 99.0 ;
+    val:l1 0.0 ; val:l2 0.0 ; val:l3 0.0 ; val:l4 0.0 ;
+    val:velsens 0.0 .
+:env6 a val:RateLevelEnvelope ;
+    val:r1 50.0 ; val:r2 40.0 ; val:r3 50.0 ; val:r4 62.0 ;
+    val:l1 92.0 ; val:l2 90.0 ; val:l3 88.0 ; val:l4 0.0 ;
+    val:velsens 5.0 .
+
+# Ratios, levels and the matrix are the patch. m<d><s> is how much operator s
+# modulates operator d, and m22 is operator 2's own feedback.
+:fm a val:FMMatrix ;
+    val:ratio1 1.0 ; val:level1 99.0 ; val:carrier1 1.0 ;
+    val:ratio2 1.0 ; val:level2 92.0 ; val:m12 0.8 ; val:m22 4.0 ;
+    val:ratio3 1.0 ; val:detune3 4.0 ; val:level3 87.0 ; val:carrier3 1.0 ;
+    val:ratio4 1.0 ; val:level4 88.0 ; val:m34 0.8 ;
+    val:ratio6 1.0 ; val:level6 86.0 ;
+    val:m46 1.0 ;
+    val:m64 0.25 .
+
+:a0 a val:Arc ; val:from [ val:node :pitch ; val:port "out" ] ;
+            val:to   [ val:node :fm ; val:port "frequency" ] .
+:a1 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :env1 ; val:port "velocity" ] .
+:a2 a val:Arc ; val:from [ val:node :env1 ; val:port "out" ] ;
+            val:to   [ val:node :fm ; val:port "amp1" ] .
+:a3 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :env2 ; val:port "velocity" ] .
+:a4 a val:Arc ; val:from [ val:node :env2 ; val:port "out" ] ;
+            val:to   [ val:node :fm ; val:port "amp2" ] .
+:a5 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :env3 ; val:port "velocity" ] .
+:a6 a val:Arc ; val:from [ val:node :env3 ; val:port "out" ] ;
+            val:to   [ val:node :fm ; val:port "amp3" ] .
+:a7 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :env4 ; val:port "velocity" ] .
+:a8 a val:Arc ; val:from [ val:node :env4 ; val:port "out" ] ;
+            val:to   [ val:node :fm ; val:port "amp4" ] .
+:a9 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+            val:to   [ val:node :env5 ; val:port "velocity" ] .
+:a10 a val:Arc ; val:from [ val:node :env5 ; val:port "out" ] ;
+             val:to   [ val:node :fm ; val:port "amp5" ] .
+:a11 a val:Arc ; val:from [ val:node :vel ; val:port "out" ] ;
+             val:to   [ val:node :env6 ; val:port "velocity" ] .
+:a12 a val:Arc ; val:from [ val:node :env6 ; val:port "out" ] ;
+             val:to   [ val:node :fm ; val:port "amp6" ] .
+
+################################################################
+# The circuit                                                  #
+################################################################
+
+:dx7brass a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic", "Pop", "Cinematic" ;
+    rdfs:label "Loop Brass" ;
+    val:element :poly , :master , :out ;
+    val:arc :b1 , :b2 .
+
+:poly a :Voice ; val:voices 6 .
+
+:master a val:Gain ; val:gain -12.0 .
+
+:out a val:Output .
+
+:b1 a val:Arc ; val:from [ val:node :poly   ; val:port "out" ] ;
+                val:to   [ val:node :master ; val:port "in"  ] .
+:b2 a val:Arc ; val:from [ val:node :master ; val:port "out" ] ;
+                val:to   [ val:node :out    ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :poly ; val:property val:bright ;
+    lv2:name "Bright" ; lv2:symbol "bright" .
+:p1 a val:Param ; val:slot 1 ; val:target :poly ; val:property val:loop ;
+    lv2:name "Loop" ; lv2:symbol "loop" .
+:p2 a val:Param ; val:slot 2 ; val:target :poly ; val:property val:edge ;
+    lv2:name "Edge" ; lv2:symbol "edge" .

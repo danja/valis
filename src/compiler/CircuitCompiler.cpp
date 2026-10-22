@@ -187,7 +187,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
             audioLinks.push_back(link);
             ++audioFanIn[arc.toNode + '\0' + arc.toPort];
 
-            // A unit delay reads the previous block, so it does not constrain
+            // A unit delay reads the previous slice, so it does not constrain
             // the order and its outgoing edge is cut before cycle detection.
             if (! isUnitDelay(*fromElement))
             {

@@ -122,6 +122,52 @@ granulate the most recent audio and lower values reach further back.
 | `spread` | Random stereo placement per grain. |
 | `reverse` | Probability that a grain plays backwards. |
 | `scan` | Drift of the read point through the buffer, in buffer lengths per second. |
+| `sizeJitter` | Random shortening of each grain, up to three quarters of its length at 1. |
+| `curve` | Blends the window toward a percussive one, a fast rise and an exponential fall, so grains sound struck. |
+| `range`, `direction`, `scale` | Each grain draws a pitch offset within `range` semitones of `pitch`, up, down or both, landing only on the notes of the scale. |
+| `seed` | One seed gives one cloud, every time. 0 is the default sequence. |
+
+The last three take their idea from the Grist plugin in the downspout project.
+`pitchJitter` detunes continuously, which blurs; `range` with a scale lands on
+notes, so a cloud can play a chord. Staying on `pitch` is always among the
+choices, so a sparse scale does not push every grain away from it. The scales are
+Free, Semitones, Octaves, Fifths, Major, Minor and Pentatonic, counted from the
+pitch itself so the transposed grains stay in tune with each other.
+
+Two control outputs report on the cloud. `grains` is how many are sounding and
+`onset` is 1 for each control slice in which a grain started. Connect `onset` to
+a `val:Envelope`'s gate, and the envelope to a `val:VCA` ahead of a
+`val:ModalBank`, and every grain strikes it.
+
+A new control draw is taken only when its control is used, so a circuit that
+leaves `sizeJitter`, `range` and `seed` alone renders exactly as it did before they
+existed.
+
+### Staying behind the write head
+
+While the buffer is recording, a grain that starts at the write head and plays
+faster than real time closes the gap as it goes, and would read audio that has not
+arrived. In a circular buffer that is the oldest audio in it. So a grain is kept
+behind the head by two samples, plus the distance it will close over its own
+length. Only recording grains are held back: a frozen buffer or a loaded file has
+no head to run into. `position` near 1 with a raised `pitch` therefore reads the
+recent past, as asked, instead of the start of the buffer.
+
+## Snapping to a scale
+
+`val:Quantise` snaps a pitch in semitones to the nearest note of a scale, counted
+from a root pitch class. Between two notes the lower is chosen. Put it between
+`val:MidiInterval` and the granulator's `pitch` and the keyboard plays only notes
+of the scale. The scales are the same ones the granulator draws from, and the
+code is shared (`src/dsp/Scale.h`).
+
+## Tempo and the grain clock
+
+`val:Transport` also reports `period`, the length of a pulse in milliseconds,
+which is the unit grain `size` and `val:Delay` time are measured in. Connecting it
+there ties a window or an echo to the host tempo. `examples/grist.ttl` does this
+through a `val:Select`, so a switch chooses between the knob's time and the
+tempo's.
 
 Overlapping grains sum, so a dense cloud would otherwise be much louder than a
 sparse one. The element divides its output by the square root of the overlap

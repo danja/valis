@@ -16,6 +16,7 @@ can read, edit and hand to a language model.
 
 - [Features](features.md) : what Valis can do, and a note on how it does each
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
+- [Examples](../examples.md) : every circuit in `examples/`, grouped by kind
 - [Element reference](elements.md) : every class the ontology declares
 - [Console](console.md) : the REPL tab and the AI circuit designer
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
@@ -30,6 +31,7 @@ can read, edit and hand to a language model.
 - [TR-909 drum synthesiser](909.md) : per-note drum routing, bridged-T resonators, and sectioned controls
 - [Flute](flute.md) : a jet-drive waveguide, and why the jet's offset is the timbre
 - [Clarinet](clarinet.md) : the same waveguide stopped at one end, and what that changes
+- [FM synthesis](dx7.md) : DX7-style operators and algorithms, with an electric piano, a bass and bells
 - [Granular synthesiser](granular.md) : grains from a sound file or live audio, timed by the host transport
 
 ### See Also

@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include "dsp/Scale.h"
+
 #include "dsp/Random.h"
 
 namespace valis::elements {
@@ -586,6 +588,31 @@ private:
     int  sounding = -1;   ///< the note the host currently believes is held
 };
 
+/// Snaps a pitch in semitones to a scale. See src/dsp/Scale.h.
+class Quantise final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        inIndex    = controlIndex(type, "in");
+        rootIndex  = controlIndex(type, "root");
+        scaleIndex = controlIndex(type, "scale");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const int scale = dsp::clampScale(static_cast<int>(controlAt(args, scaleIndex, 4.0f) + 0.5f));
+        const int root  = std::clamp(static_cast<int>(controlAt(args, rootIndex, 0.0f) + 0.5f), 0, 11);
+        args.controlOut[0] = dsp::nearestInScale(scale, controlAt(args, inIndex, 0.0f), root);
+    }
+
+private:
+    int inIndex = -1, rootIndex = -1, scaleIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -609,6 +636,7 @@ void registerUtility(ElementRegistry& registry)
     registry.add("Oscilloscope",    &make<elements::Oscilloscope>);
     registry.add("FreqAnalyzer",    &make<elements::FreqAnalyzer>);
     registry.add("NoteOut",         &make<elements::NoteOut>);
+    registry.add("Quantise",        &make<elements::Quantise>);
 }
 
 // The one place that knows the whole set. makeDefaultRegistry's keys and the
@@ -617,6 +645,7 @@ void registerSources(ElementRegistry&);
 void registerFilters(ElementRegistry&);
 void registerTransfers(ElementRegistry&);
 void registerDynamics(ElementRegistry&);
+void registerFm(ElementRegistry&);
 void registerGranular(ElementRegistry&);
 void registerSpectralElements(ElementRegistry&);
 void registerNam(ElementRegistry&);
@@ -628,6 +657,7 @@ ElementRegistry makeDefaultRegistry()
     registerFilters(registry);
     registerTransfers(registry);
     registerDynamics(registry);
+    registerFm(registry);
     registerGranular(registry);
     registerSpectralElements(registry);
     registerNam(registry);

@@ -22,6 +22,24 @@ Nonlinear.
 | `posVf` | Positive Vf | 0.3 | 0.01 to 2 | V |
 | `negVf` | Negative Vf | 0.6 | 0.01 to 2 | V |
 
+## val:Bow
+
+Nonlinear.
+
+**Audio in**: `drive`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 220 | 20 to 4000 | Hz |
+| `pressure` | Pressure | 0.5 | 0 to 1 |  |
+| `velocity` | Velocity | 0.4 | 0 to 1 |  |
+| `position` | Position | 0.12 | 0.02 to 0.5 |  |
+| `damping` | Damping | 0.3 | 0 to 1 |  |
+
 ## val:Choke
 
 Nonlinear.
@@ -126,9 +144,9 @@ Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
-| `thermalVoltage` | Vt | 0.02585 | 0.02 to 0.03 | V |
 | `saturationCurrent` | Is | 2.52e-09 | 1e-15 to 0.001 | A |
 | `emissionCoefficient` | n | 1.752 | 1 to 2 |  |
+| `thermalVoltage` | Vt | 0.02585 | 0.02 to 0.03 | V |
 
 ## val:DiodePair
 
@@ -207,6 +225,106 @@ Nonlinear.
 | `amount` | Amount | 0 | 0 to 1 |  |
 | `threshold` | Threshold | -60 | -140 to 0 | dB |
 | `ratio` | Ratio | 2 | 1 to 20 |  |
+
+## val:FMMatrix
+
+FM matrix. Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `m56` | 6 to 5 | 0 | 0 to 1 |  |
+| `m61` | 1 to 6 | 0 | 0 to 1 |  |
+| `m62` | 2 to 6 | 0 | 0 to 1 |  |
+| `m63` | 3 to 6 | 0 | 0 to 1 |  |
+| `m64` | 4 to 6 | 0 | 0 to 1 |  |
+| `m65` | 5 to 6 | 0 | 0 to 1 |  |
+| `m66` | Feedback 6 | 0 | 0 to 7 |  |
+| `frequency` | Frequency | 440 | 0.01 to 20000 | Hz |
+| `depth` | Depth | 12.5664 | 0 to 50 |  |
+| `ratio1` | Ratio 1 | 1 | 0 to 32 |  |
+| `detune1` | Detune 1 | 0 | -100 to 100 | ct |
+| `level1` | Level 1 | 99 | 0 to 99 |  |
+| `amp1` | Amp 1 | 1 | 0 to 1 |  |
+| `carrier1` | Carrier 1 | 0 | 0 to 1 |  |
+| `ratio2` | Ratio 2 | 1 | 0 to 32 |  |
+| `detune2` | Detune 2 | 0 | -100 to 100 | ct |
+| `level2` | Level 2 | 99 | 0 to 99 |  |
+| `amp2` | Amp 2 | 1 | 0 to 1 |  |
+| `carrier2` | Carrier 2 | 0 | 0 to 1 |  |
+| `ratio3` | Ratio 3 | 1 | 0 to 32 |  |
+| `detune3` | Detune 3 | 0 | -100 to 100 | ct |
+| `level3` | Level 3 | 99 | 0 to 99 |  |
+| `amp3` | Amp 3 | 1 | 0 to 1 |  |
+| `carrier3` | Carrier 3 | 0 | 0 to 1 |  |
+| `ratio4` | Ratio 4 | 1 | 0 to 32 |  |
+| `detune4` | Detune 4 | 0 | -100 to 100 | ct |
+| `level4` | Level 4 | 99 | 0 to 99 |  |
+| `amp4` | Amp 4 | 1 | 0 to 1 |  |
+| `carrier4` | Carrier 4 | 0 | 0 to 1 |  |
+| `ratio5` | Ratio 5 | 1 | 0 to 32 |  |
+| `detune5` | Detune 5 | 0 | -100 to 100 | ct |
+| `level5` | Level 5 | 99 | 0 to 99 |  |
+| `amp5` | Amp 5 | 1 | 0 to 1 |  |
+| `carrier5` | Carrier 5 | 0 | 0 to 1 |  |
+| `ratio6` | Ratio 6 | 1 | 0 to 32 |  |
+| `detune6` | Detune 6 | 0 | -100 to 100 | ct |
+| `level6` | Level 6 | 99 | 0 to 99 |  |
+| `amp6` | Amp 6 | 1 | 0 to 1 |  |
+| `carrier6` | Carrier 6 | 0 | 0 to 1 |  |
+| `m11` | Feedback 1 | 0 | 0 to 7 |  |
+| `m12` | 2 to 1 | 0 | 0 to 1 |  |
+| `m13` | 3 to 1 | 0 | 0 to 1 |  |
+| `m14` | 4 to 1 | 0 | 0 to 1 |  |
+| `m15` | 5 to 1 | 0 | 0 to 1 |  |
+| `m16` | 6 to 1 | 0 | 0 to 1 |  |
+| `m21` | 1 to 2 | 0 | 0 to 1 |  |
+| `m22` | Feedback 2 | 0 | 0 to 7 |  |
+| `m23` | 3 to 2 | 0 | 0 to 1 |  |
+| `m24` | 4 to 2 | 0 | 0 to 1 |  |
+| `m25` | 5 to 2 | 0 | 0 to 1 |  |
+| `m26` | 6 to 2 | 0 | 0 to 1 |  |
+| `m31` | 1 to 3 | 0 | 0 to 1 |  |
+| `m32` | 2 to 3 | 0 | 0 to 1 |  |
+| `m33` | Feedback 3 | 0 | 0 to 7 |  |
+| `m34` | 4 to 3 | 0 | 0 to 1 |  |
+| `m35` | 5 to 3 | 0 | 0 to 1 |  |
+| `m36` | 6 to 3 | 0 | 0 to 1 |  |
+| `m41` | 1 to 4 | 0 | 0 to 1 |  |
+| `m42` | 2 to 4 | 0 | 0 to 1 |  |
+| `m43` | 3 to 4 | 0 | 0 to 1 |  |
+| `m44` | Feedback 4 | 0 | 0 to 7 |  |
+| `m45` | 5 to 4 | 0 | 0 to 1 |  |
+| `m46` | 6 to 4 | 0 | 0 to 1 |  |
+| `m51` | 1 to 5 | 0 | 0 to 1 |  |
+| `m52` | 2 to 5 | 0 | 0 to 1 |  |
+| `m53` | 3 to 5 | 0 | 0 to 1 |  |
+| `m54` | 4 to 5 | 0 | 0 to 1 |  |
+| `m55` | Feedback 5 | 0 | 0 to 7 |  |
+
+## val:FMOperator
+
+FM operator. Nonlinear.
+
+**Audio in**: `pm`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 440 | 0.01 to 20000 | Hz |
+| `ratio` | Ratio | 1 | 0 to 32 |  |
+| `fixed` | Fixed | 0 | 0 to 10000 | Hz |
+| `detune` | Detune | 0 | -100 to 100 | ct |
+| `level` | Level | 99 | 0 to 99 |  |
+| `amp` | Amp | 1 | 0 to 1 |  |
+| `depth` | Depth | 12.5664 | 0 to 50 |  |
+| `feedback` | Feedback | 0 | 0 to 7 |  |
 
 ## val:Flanger
 
@@ -288,6 +406,8 @@ Nonlinear.
 
 **Audio out**: `out`, `left`, `right`
 
+**Control out**: `grains`, `onset`
+
 **Controls**
 
 | symbol | name | default | range | unit |
@@ -305,6 +425,12 @@ Nonlinear.
 | `scan` | Scan | 0 | -4 to 4 |  |
 | `freeze` | Freeze | 0 | 0 to 1 |  |
 | `trigger` | Trigger | -1 | -1 to 1 |  |
+| `sizeJitter` | Size jitter | 0 | 0 to 1 |  |
+| `curve` | Curve | 0 | 0 to 1 |  |
+| `range` | Range | 0 | 0 to 24 |  |
+| `direction` | Direction | 2 | 0 to 2 |  |
+| `scale` | Scale | 1 | 0 to 6 |  |
+| `seed` | Seed | 0 | 0 to 65535 |  |
 
 ## val:HardClip
 
@@ -324,7 +450,7 @@ Nonlinear.
 
 Linear.
 
-**Audio out**: `out`
+**Audio out**: `out`, `left`, `right`
 
 ## val:LFO
 
@@ -404,6 +530,22 @@ Linear.
 | `brightness` | Brightness | 0.5 | 0 to 1 |  |
 | `mode` | Mode | 0 | 0 to 3 |  |
 
+## val:NamModel
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `input` | Input | 0 | -24 to 24 | dB |
+| `output` | Output | 0 | -24 to 24 | dB |
+| `bypass` | Bypass | 0 | 0 to 1 |  |
+
 ## val:Noise
 
 Nonlinear.
@@ -427,6 +569,19 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `note` | Note | 60 | 0 to 127 |  |
+
+## val:NoteOut
+
+Nonlinear.
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `gate` | Gate | 0 | 0 to 1 |  |
+| `pitch` | Pitch | 440 | 8 to 12544 | Hz |
+| `velocity` | Velocity | 0.8 | 0 to 1 |  |
+| `channel` | Channel | 1 | 1 to 16 |  |
 
 ## val:OnePole
 
@@ -502,6 +657,42 @@ Nonlinear.
 | `depth` | Depth | 0.7 | 0 to 1 |  |
 | `feedback` | Feedback | 0.5 | 0 to 0.9 |  |
 | `mix` | Mix | 0.5 | 0 to 1 |  |
+
+## val:Quantise
+
+Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `in` | In | 0 | -96 to 96 |  |
+| `root` | Root | 0 | 0 to 11 |  |
+| `scale` | Scale | 4 | 0 to 6 |  |
+
+## val:RateLevelEnvelope
+
+Rate and level envelope. Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `r1` | Rate 1 | 99 | 0 to 99 |  |
+| `r2` | Rate 2 | 99 | 0 to 99 |  |
+| `r3` | Rate 3 | 99 | 0 to 99 |  |
+| `r4` | Rate 4 | 99 | 0 to 99 |  |
+| `l1` | Level 1 | 99 | 0 to 99 |  |
+| `l2` | Level 2 | 99 | 0 to 99 |  |
+| `l3` | Level 3 | 99 | 0 to 99 |  |
+| `l4` | Level 4 | 0 | 0 to 99 |  |
+| `velocity` | Velocity | 1 | 0 to 1 |  |
+| `velsens` | Velocity sensitivity | 0 | 0 to 7 |  |
+| `gate` | Gate | -1 | -1 to 1 |  |
 
 ## val:Reed
 
@@ -604,6 +795,20 @@ Nonlinear.
 |---|---|---|---|---|
 | `gain` | Gain | 1 | 0.1 to 100 |  |
 
+## val:SpectralGate
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `threshold` | Threshold | -60 | -120 to 0 | dB |
+
 ## val:StateVariable
 
 Linear.
@@ -654,7 +859,7 @@ Nonlinear.
 
 Nonlinear.
 
-**Control out**: `playing`, `tempo`, `phase`, `trigger`, `rate`
+**Control out**: `playing`, `tempo`, `phase`, `trigger`, `rate`, `period`
 
 **Controls**
 

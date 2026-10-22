@@ -40,6 +40,7 @@ private:
     void finishAiRequest(const ai::RouteResult& result, bool partialContext);
     void print(const juce::String& text);
 
+    using juce::Component::keyPressed;
     bool keyPressed(const juce::KeyPress&, juce::Component*) override;
 
     ValisProcessor& processor;

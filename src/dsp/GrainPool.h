@@ -17,7 +17,9 @@
 #pragma once
 
 #include "dsp/Random.h"
+#include "dsp/Scale.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -45,6 +47,47 @@ inline float grainWindow(float phase, float fade) noexcept
     return t * t * (3.0f - 2.0f * t);
 }
 
+/// A percussive window: a fast rise to a peak early in the grain, then an
+/// exponential fall. Tabulated and scaled so that its average is 0.5, as a full
+/// raised cosine's is, so blending between the two does not change the level.
+/// After the Grist plugin in downspout.
+class PercussiveWindow
+{
+public:
+    static constexpr int kSize = 512;
+
+    PercussiveWindow() noexcept
+    {
+        constexpr double peakAt = 0.08;
+        std::array<double, kSize + 1> raw{};
+        double sum = 0.0;
+
+        for (int i = 0; i <= kSize; ++i)
+        {
+            const double p = static_cast<double>(i) / kSize;
+            raw[static_cast<std::size_t>(i)] = p / peakAt * std::exp(1.0 - p / peakAt);
+            if (i > 0 && i < kSize)
+                sum += raw[static_cast<std::size_t>(i)];
+        }
+
+        const double mean = (sum + 0.5 * (raw[0] + raw[kSize])) / kSize;
+        for (int i = 0; i <= kSize; ++i)
+            table[static_cast<std::size_t>(i)] = static_cast<float>(raw[static_cast<std::size_t>(i)] * 0.5 / mean);
+    }
+
+    float at(float phase) const noexcept
+    {
+        const float x = std::clamp(phase, 0.0f, 1.0f) * static_cast<float>(kSize);
+        const int i = std::min(static_cast<int>(x), kSize - 1);
+        const float f = x - static_cast<float>(i);
+        return table[static_cast<std::size_t>(i)]
+             + f * (table[static_cast<std::size_t>(i) + 1] - table[static_cast<std::size_t>(i)]);
+    }
+
+private:
+    std::array<float, kSize + 1> table{};
+};
+
 /// What a grain is while it is sounding.
 struct Grain
 {
@@ -71,6 +114,23 @@ struct GrainSpec
     float  pitchJitter = 0.0f;  ///< semitones, randomised either way
     float  spread      = 0.0f;  ///< stereo width, 0 centred
     float  reverse     = 0.0f;  ///< probability of playing backwards
+
+    /// Fraction of the length a grain may lose, at random: 0 keeps every grain
+    /// the same, 1 lets one be a quarter as long.
+    float  lengthJitter = 0.0f;
+
+    /// A pitch drawn from `scale` within +-`range` semitones of `pitch`, in
+    /// `direction`. A range of 0 draws nothing and leaves the pitch alone.
+    float     range     = 0.0f;
+    Direction direction = Direction::Both;
+    ScaleKind scale     = ScaleKind::Semitones;
+
+    /// Where the write head is while the material is being recorded, or
+    /// negative when it is not. A grain is kept behind it: one that starts at
+    /// or ahead of it reads audio that has not arrived, which in a circular
+    /// buffer is the oldest audio in it, and one that plays faster than real
+    /// time closes the distance as it goes.
+    double head        = -1.0;
 };
 
 /// `Capacity` grains at most. When they are all busy an onset is dropped: the
@@ -127,7 +187,7 @@ public:
         while (start >= spec.span) start -= spec.span;
         while (start < 0.0)        start += spec.span;
 
-        const float semitones = spec.pitch + spec.pitchJitter * random.bipolar();
+        float semitones = spec.pitch + spec.pitchJitter * random.bipolar();
         double increment = std::pow(2.0, static_cast<double>(semitones) / 12.0);
         if (random.chance(spec.reverse))
             increment = -increment;
@@ -136,11 +196,47 @@ public:
         const float pan   = 0.5f + 0.5f * spec.spread * random.bipolar();
         const float angle = pan * 1.5707963267948966f;
 
+        // The draws below happen only when asked for, so a circuit that does
+        // not use them renders exactly as it did before they existed.
+        float lengthSamples = spec.lengthSamples;
+        if (spec.lengthJitter > 0.0f)
+            lengthSamples = std::max(2.0f, lengthSamples * (1.0f - 0.75f * spec.lengthJitter * random.next()));
+
+        if (spec.range > 0.0f)
+        {
+            semitones += drawOffset(random, static_cast<int>(std::lround(spec.pitch)), spec.range,
+                                    spec.direction, spec.scale);
+            increment = std::pow(2.0, static_cast<double>(semitones) / 12.0)
+                      * (increment < 0.0 ? -1.0 : 1.0);
+        }
+
+        if (spec.head >= 0.0)
+        {
+            // How far behind the head the grain starts, in [0, span).
+            double gap = std::fmod(std::fmod(spec.head, spec.span) - start, spec.span);
+            if (gap < 0.0)
+                gap += spec.span;
+
+            // The four-point read looks two samples ahead, and a grain that
+            // outruns the head closes the gap by (rate - 1) a sample.
+            double needed = 2.0;
+            if (increment > 1.0)
+                needed += (increment - 1.0) * static_cast<double>(lengthSamples);
+            needed = std::min(needed, spec.span - 2.0);
+
+            if (gap < needed)
+            {
+                start = std::fmod(spec.head, spec.span) - needed;
+                if (start < 0.0)
+                    start += spec.span;
+            }
+        }
+
         slot->active    = true;
         slot->readPos   = start;
         slot->increment = increment;
         slot->phase     = 0.0f;
-        slot->phaseInc  = 1.0f / spec.lengthSamples;
+        slot->phaseInc  = 1.0f / lengthSamples;
         slot->panL      = std::cos(angle);
         slot->panR      = std::sin(angle);
         return true;
@@ -151,15 +247,22 @@ public:
     /// returns the sample there; `span` is where the material wraps.
     ///
     /// A grain retires when its window runs out, which is the only way one ends.
+    ///
+    /// `curve` blends the Tukey window toward the percussive one: 0 is all
+    /// Tukey, 1 is all percussive.
     template <typename Read>
-    void mix(float& left, float& right, float fade, double span, Read&& read) noexcept
+    void mix(float& left, float& right, float fade, float curve, double span, Read&& read) noexcept
     {
         for (auto& grain : grains)
         {
             if (! grain.active)
                 continue;
 
-            const float value = read(grain.readPos) * grainWindow(grain.phase, fade);
+            float window = grainWindow(grain.phase, fade);
+            if (curve > 0.0f)
+                window += curve * (percussive.at(grain.phase) - window);
+
+            const float value = read(grain.readPos) * window;
 
             left  += value * grain.panL;
             right += value * grain.panR;
@@ -177,8 +280,9 @@ public:
     Random& generator() noexcept { return random; }
 
 private:
-    std::array<Grain, Capacity> grains{};
+    std::array<Grain, static_cast<std::size_t>(Capacity)> grains{};
     Random random{0x5eed1234u};
+    PercussiveWindow percussive;
 };
 
 }  // namespace valis::dsp

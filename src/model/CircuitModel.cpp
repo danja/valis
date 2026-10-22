@@ -776,9 +776,9 @@ bool CircuitModel::build(const rdf::TurtleStore& store,
         // has to keep level with each other.
         std::vector<std::pair<std::string, std::string>> endpoints;
         for (const auto& one : targets)
-            for (auto& resolved : expander.resolve(std::string(one.string()),
+            for (auto& endpoint : expander.resolve(std::string(one.string()),
                                                    vocab::shortName(property.string())))
-                endpoints.push_back(std::move(resolved));
+                endpoints.push_back(std::move(endpoint));
 
         if (endpoints.empty())
             continue;

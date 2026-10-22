@@ -1,0 +1,212 @@
+# examples/grist.ttl
+#
+# A grain delay after the Grist plugin in downspout: the input is recorded into
+# a short history and replayed by windowed grains, each with its own start,
+# direction, stereo position, length and pitch, and the grains are fed back into
+# the history through a delay and a filter.
+#
+# Signal path:
+#
+#   in ──► sum ──► Granulator ──┬─► left ──► DryWet L ──► out.left
+#          ▲                    ├─► right ─► DryWet R ──► out.right
+#          │                    └─► out ──► Delay ─► lowpass ─► Tanh ─► Gain
+#          └───────────────────────────────── UnitDelay ◄──────────────┘
+#   in ───────────────────────────────────► DryWet L and R (the dry side)
+#
+# What the granulator offers beyond a plain grain cloud, which this circuit uses:
+#
+#   Range, Direction and Scale   each grain draws its pitch from the notes of a
+#                                scale, so a cloud plays a chord instead of
+#                                blurring. Pitch sets the centre.
+#   Variance                     random shortening of each grain's length.
+#   Curve                        blends the grain window toward a struck shape.
+#   Seed                         one seed, one cloud, every time.
+#
+# The feedback loop. The granulator's output goes through a delay, a lowpass, a
+# soft limiter and a gain, and back into the signal the granulator records. A
+# loop must pass through a val:UnitDelay, and closing a loop through one costs a
+# control slice and a sample, 33 samples or 0.7 ms. That is added to the Delay
+# knob, which is why the loop is fine as an echo and would not be as a comb
+# filter. The Tanh keeps the loop from running away: Feedback is a gain in
+# decibels, so -60 is off and 0 is a loop gain of one.
+#
+# Tempo sync. Size and Delay each choose between a free time in milliseconds
+# and one tied to the host tempo. :size and :delayTime are val:Select elements:
+# off passes the knob's time, on passes the pulse length of a val:Transport,
+# whose division is the "division" knob in quarter notes (0.25 is a sixteenth,
+# 1 a beat). Transport's period output is in milliseconds, which is what grain
+# size and delay time are measured in.
+#
+# The history. Position is fixed at 0.98 of a two second buffer, about 40 ms
+# behind the write head, and Blur scatters grains around that point. Grains
+# that start at the head and play faster than real time are held back from it,
+# so a pitched-up cloud does not run into the oldest audio in the buffer.
+#
+# Differences from the plugin: Density is grains per second here, where Grist
+# counts grains per window; the feedback filter is a lowpass only; and the
+# plugin's latency is not reported.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:grist#> .
+
+:grist a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Experimental", "Ambient", "Electronic" ;
+    rdfs:label "Grain Delay" ;
+    val:element :in , :sum , :gran , :sizeClock , :size , :delayClock , :delayTime , :fbDelay , :fbFilter , :fbLimit , :fbGain , :fbBreak , :dwL , :dwR , :out ;
+    val:arc :a_in_sum , :a_sum_gran , :a_gran_dwL , :a_gran_dwR , :a_in_dwL , :a_in_dwR , :a_dwL_out , :a_dwR_out , :a_gran_fb , :a_fb_filter , :a_filter_limit , :a_limit_gain , :a_gain_break , :a_break_sum , :c_sizeClock , :c_size_gran , :c_delayClock , :c_delay_fb .
+
+:in  a val:Input .
+:sum a val:Mixer .
+:out a val:Output .
+
+:gran a val:Granulator ;
+    val:seconds  2.0 ;
+    val:position 0.98 ;        # about 40 ms behind the write head
+    val:size     50.0 ;        # set by :size, below
+    val:density  40.0 ;        # grains per second
+    val:spray    0.01 ;        # blur
+    val:shape    1.0 ;         # a full raised cosine
+    val:curve    0.0 ;
+    val:sizeJitter 0.0 ;
+    val:reverse  0.0 ;
+    val:spread   0.3 ;
+    val:pitch    0.0 ;
+    val:range    0.0 ;
+    val:direction 2.0 ;        # up and down
+    val:scale    1.0 ;         # semitones
+    val:seed     1.0 ;
+    val:freeze   0.0 .         # always recording
+
+# ── Dry and wet ──────────────────────────────────────────────────────────────
+
+:dwL a val:DryWet ; val:mix 0.5 .
+:dwR a val:DryWet ; val:mix 0.5 .
+
+# ── Feedback ─────────────────────────────────────────────────────────────────
+
+:fbDelay  a val:Delay ; val:feedback 0.0 .
+:fbFilter a val:StateVariable ; val:cutoff 6000.0 ; val:resonance 0.7071 .
+:fbLimit  a val:Tanh ; val:gain 1.0 .
+:fbGain   a val:Gain ; val:gain -60.0 .
+:fbBreak  a val:UnitDelay .
+
+# ── Tempo sync ───────────────────────────────────────────────────────────────
+
+:sizeClock  a val:Transport ; val:division 0.25 .
+:delayClock a val:Transport ; val:division 0.5 .
+
+:size      a val:Select ; val:a 50.0  ; val:select 0.0 .
+:delayTime a val:Select ; val:a 100.0 ; val:select 0.0 .
+
+:a_in_sum a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                  val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_gran a val:Arc ; val:from [ val:node :sum ; val:port "out" ] ;
+                    val:to   [ val:node :gran ; val:port "in" ] .
+:a_gran_dwL a val:Arc ; val:from [ val:node :gran ; val:port "left" ] ;
+                    val:to   [ val:node :dwL ; val:port "wet" ] .
+:a_gran_dwR a val:Arc ; val:from [ val:node :gran ; val:port "right" ] ;
+                    val:to   [ val:node :dwR ; val:port "wet" ] .
+:a_in_dwL a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                  val:to   [ val:node :dwL ; val:port "dry" ] .
+:a_in_dwR a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                  val:to   [ val:node :dwR ; val:port "dry" ] .
+:a_dwL_out a val:Arc ; val:from [ val:node :dwL ; val:port "out" ] ;
+                   val:to   [ val:node :out ; val:port "left" ] .
+:a_dwR_out a val:Arc ; val:from [ val:node :dwR ; val:port "out" ] ;
+                   val:to   [ val:node :out ; val:port "right" ] .
+:a_gran_fb a val:Arc ; val:from [ val:node :gran ; val:port "out" ] ;
+                   val:to   [ val:node :fbDelay ; val:port "in" ] .
+:a_fb_filter a val:Arc ; val:from [ val:node :fbDelay ; val:port "out" ] ;
+                     val:to   [ val:node :fbFilter ; val:port "in" ] .
+:a_filter_limit a val:Arc ; val:from [ val:node :fbFilter ; val:port "lp" ] ;
+                        val:to   [ val:node :fbLimit ; val:port "in" ] .
+:a_limit_gain a val:Arc ; val:from [ val:node :fbLimit ; val:port "out" ] ;
+                      val:to   [ val:node :fbGain ; val:port "in" ] .
+:a_gain_break a val:Arc ; val:from [ val:node :fbGain ; val:port "out" ] ;
+                      val:to   [ val:node :fbBreak ; val:port "in" ] .
+:a_break_sum a val:Arc ; val:from [ val:node :fbBreak ; val:port "out" ] ;
+                     val:to   [ val:node :sum ; val:port "in" ] .
+:c_sizeClock a val:Arc ; val:from [ val:node :sizeClock ; val:port "period" ] ;
+                     val:to   [ val:node :size ; val:port "b" ] .
+:c_size_gran a val:Arc ; val:from [ val:node :size ; val:port "out" ] ;
+                     val:to   [ val:node :gran ; val:port "size" ] .
+:c_delayClock a val:Arc ; val:from [ val:node :delayClock ; val:port "period" ] ;
+                      val:to   [ val:node :delayTime ; val:port "b" ] .
+:c_delay_fb a val:Arc ; val:from [ val:node :delayTime ; val:port "out" ] ;
+                    val:to   [ val:node :fbDelay ; val:port "time" ] .
+
+# ── Controls ─────────────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :dwL , :dwR ; val:property val:mix ;
+    lv2:name "Mix" ; lv2:symbol "mix" ; val:section "Grains" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :size ; val:property val:a ;
+    lv2:name "Size" ; lv2:symbol "size" ; val:section "Grains" ; units:unit units:ms ;
+    lv2:minimum 1 ; lv2:maximum 1000 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :size ; val:property val:select ;
+    lv2:name "Size sync" ; lv2:symbol "sizeSync" ; val:section "Grains" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :sizeClock ; val:property val:division ;
+    lv2:name "Size division" ; lv2:symbol "sizeDiv" ; val:section "Grains" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :gran ; val:property val:density ;
+    lv2:name "Density" ; lv2:symbol "density" ; val:section "Grains" ; units:unit units:hz .
+
+:p5 a val:Param ; val:slot 5 ; val:target :gran ; val:property val:spray ;
+    lv2:name "Blur" ; lv2:symbol "blur" ; val:section "Grains" ;
+    lv2:minimum 0.0 ; lv2:maximum 0.06 .
+
+:p6 a val:Param ; val:slot 6 ; val:target :gran ; val:property val:shape ;
+    lv2:name "Shape" ; lv2:symbol "shape" ; val:section "Grains" .
+
+:p7 a val:Param ; val:slot 7 ; val:target :gran ; val:property val:curve ;
+    lv2:name "Curve" ; lv2:symbol "curve" ; val:section "Grains" .
+
+:p8 a val:Param ; val:slot 8 ; val:target :gran ; val:property val:sizeJitter ;
+    lv2:name "Variance" ; lv2:symbol "variance" ; val:section "Grains" .
+
+:p9 a val:Param ; val:slot 9 ; val:target :gran ; val:property val:reverse ;
+    lv2:name "Reverse" ; lv2:symbol "reverse" ; val:section "Grains" .
+
+:p10 a val:Param ; val:slot 10 ; val:target :gran ; val:property val:spread ;
+    lv2:name "Spread" ; lv2:symbol "spread" ; val:section "Grains" .
+
+:p11 a val:Param ; val:slot 11 ; val:target :gran ; val:property val:pitch ;
+    lv2:name "Pitch" ; lv2:symbol "pitch" ; val:section "Pitch" ; units:unit units:semitone .
+
+:p12 a val:Param ; val:slot 12 ; val:target :gran ; val:property val:range ;
+    lv2:name "Range" ; lv2:symbol "range" ; val:section "Pitch" ; units:unit units:semitone .
+
+:p13 a val:Param ; val:slot 13 ; val:target :gran ; val:property val:direction ;
+    lv2:name "Direction" ; lv2:symbol "direction" ; val:section "Pitch" .
+
+:p14 a val:Param ; val:slot 14 ; val:target :gran ; val:property val:scale ;
+    lv2:name "Scale" ; lv2:symbol "scale" ; val:section "Pitch" .
+
+:p15 a val:Param ; val:slot 15 ; val:target :gran ; val:property val:seed ;
+    lv2:name "Seed" ; lv2:symbol "seed" ; val:section "Pitch" .
+
+:p16 a val:Param ; val:slot 16 ; val:target :fbGain ; val:property val:gain ;
+    lv2:name "Feedback" ; lv2:symbol "feedback" ; val:section "Feedback" ; units:unit units:db .
+
+:p17 a val:Param ; val:slot 17 ; val:target :delayTime ; val:property val:a ;
+    lv2:name "Delay" ; lv2:symbol "delay" ; val:section "Feedback" ; units:unit units:ms ;
+    lv2:minimum 1 ; lv2:maximum 1000 .
+
+:p18 a val:Param ; val:slot 18 ; val:target :delayTime ; val:property val:select ;
+    lv2:name "Delay sync" ; lv2:symbol "delaySync" ; val:section "Feedback" .
+
+:p19 a val:Param ; val:slot 19 ; val:target :delayClock ; val:property val:division ;
+    lv2:name "Delay division" ; lv2:symbol "delayDiv" ; val:section "Feedback" .
+
+:p20 a val:Param ; val:slot 20 ; val:target :fbFilter ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Feedback" ; units:unit units:hz .
+

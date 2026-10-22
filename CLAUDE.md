@@ -40,9 +40,9 @@ to confirm a running instance before using MCP tools that require a host.
 - `CompiledCircuit` is fully preallocated on the message thread and handed to the engine by atomic pointer swap; the retired one is freed on the message thread.
 - Surface failures (bad Turtle, unknown element, cycle) as located, recoverable errors. Never silence, never crash.
 - Anything that happens at a point in time is located by stream position, never by the index
-  within the current block and never by equality with a block boundary. Both MISTAKES.md
-  entries on this are the same bug from opposite directions: a per-sample event gated on the
-  block index, and a stream-position event compared for equality against one. An event fires
+  within the current block and never by equality with a block boundary. The MISTAKES.md
+  entry on this records the same bug twice, from opposite directions: a per-sample event gated on
+  the block index, and a stream-position event compared for equality against one. An event fires
   in the block that contains it.
 
 ## Architecture rules

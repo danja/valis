@@ -164,6 +164,9 @@ private:
 
 /// One sample of delay. The only thing that may break a feedback loop, which is
 /// why the compiler cuts its outgoing edge before looking for cycles.
+///
+/// Closing a loop it delays by one more control slice than that, because the
+/// elements run a slice at a time: see tests/engine/UnitDelayLoopTest.cpp.
 class UnitDelay final : public MonoElement
 {
 public:

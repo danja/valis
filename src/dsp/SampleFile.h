@@ -209,7 +209,7 @@ struct SampleExpectation
             return mismatch("val:channels", std::to_string(channels),
                             std::to_string(file.sourceChannels));
 
-        if (sampleRate != 0.0 && std::abs(sampleRate - file.sourceSampleRate) > 0.5)
+        if (sampleRate > 0.0 && std::abs(sampleRate - file.sourceSampleRate) > 0.5)
             return mismatch("val:sampleRate", std::to_string(static_cast<long long>(sampleRate)),
                             std::to_string(static_cast<long long>(file.sourceSampleRate)));
 

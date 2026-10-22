@@ -1,65 +1,41 @@
 ## Misc
 
-* check builds for warning messages. Any that can be resolved in the local codebase should be 
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
   (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
 * create emulations of all the instruments used by New Order to make "Blue Monday". Reuse elements as appropriate, something new may be needed for the bass sound, plucked string subcomponents if they don't already exist
-* create docs/examples.md - describe the existing instruments and the new ones below there (and clear the text below)
 
 ## New instruments
 
-* **val:NamModel follow-ups.** The element loads and runs .nam captures (build with
-  `-DVALIS_WITH_NAM=ON`; `examples/nam.ttl`). Still to do: check a declared `val:sha256`
-  as `val:SampleLoad` does; resample around a model trained at a rate other than the
-  engine's (it is refused now); optional use of the model's own input/output level and
-  loudness; time a WaveNet at the engine's 32-sample slice, since per-call overhead may
-  dominate; a session override for the model file like the one for `val:SampleLoad`;
-  regenerate `docs/manual/elements.md`.
+The instruments that are done are described in `docs/examples.md`. What is open:
 
-* **granular decomposed.** `src/dsp/Random.h` is now the one deterministic
-  generator (it replaced four separate copies), `src/dsp/GrainPool.h` is the
-  bounded grain population with its window and placement, and
-  `src/dsp/SampleFile.h` is the file reader and its resource checks. The
-  granulator is assembled from those rather than containing them. A grain pool
-  cannot yet be patched between elements, because there is no port that carries
-  a reference to a buffer; that is what it would take to split it further.
-* **chimera: a synth built on coupled bowed strings.** `examples/chimera.ttl`.
-  Each voice is two val:Bow instances shaking each other's bow arm through a
-  unit delay, so they lock, beat or refuse to settle depending on the tuning
-  ratio and the coupling. `val:Bow` gained a `drive` audio input for it.
-* **DMX done.** `examples/dmx.ttl` is the seventeen-voice kit on General MIDI
-  channel 10, playing the captures in `samples/Oberheim DMX`. The DMX was a
-  sample player, so modelling it faithfully means playing the samples rather
-  than synthesising an imitation; tuning is a playback rate, as it was on the
-  machine. The numbered samples are alternative sounds, not duplicates: see the
-  README beside them. Level, pan and tune are per voice card, which is where the
-  machine put them.
-* the DMX's voice cards are monophonic: one sound at a time, so a closed hi-hat
-  cuts an open one. Here the sounds on a card sum instead. val:Choke gates a
-  control signal and cannot stop a sample already playing, so this needs either
-  a stop on val:SampleLoad or a ducking VCA per card.
-* **val:option done.** A val:Subcircuit exposes an inner element's option under
-  a name an instance can set, the way lv2:port exposes an inner port. The
-  question of what happens when two inner elements recognise the same key does
-  not arise: the ontology does not declare which option keys an element accepts
-  and setOption answers true for keys it does not know, so nothing can tell.
-  The definition names its targets instead, and naming two is a fan-out the
-  author asked for. `examples/dmx.ttl` is one voice definition stamped out
-  seventeen times because of it.
-* **cello: done for C2 to D4, open above it.** `val:Bow` is a bowed-string
-  waveguide with a stick-slip friction curve, a soft stopped end, bow width and
-  rosin irregularity; `examples/cello.ttl` puts a body behind it. In tune to
-  0.3 cents and harmonically full from 65 to 294 Hz, measured in
-  `tests/dsp/CelloTest.cpp`. Above about D4 the odd harmonics fall away until
-  the fundamental is more than 26 dB below the second partial, so the tone
-  reads as an octave ambiguity rather than a note. Likely the fixed poles of the
-  loop filters becoming a large fraction of a short loop; the next step is to
-  scale them with frequency rather than leaving them constant.
-* the bow locks into a neighbouring mode at isolated combinations of pitch and
-  bow position (a band just above position 0.125 at 165 Hz, for one). The
-  default is clear of the bands found so far. Real strings do this when bow
-  force is wrong for the position, which the Schelleng diagram describes, so the
-  fix is probably to scale bow force with position rather than to suppress it.
+* **FM.** Not yet modelled: keyboard level and rate scaling, a pitch envelope, and the
+  DX7's 32 algorithms as named presets of `val:FMMatrix`.
+* **val:NamModel.** Build with `-DVALIS_WITH_NAM=ON`; `examples/nam.ttl`. Still to do:
+  check a declared `val:sha256` as `val:SampleLoad` does; resample around a model
+  trained at a rate other than the engine's (it is refused now); optional use of the
+  model's own input/output level and loudness; time a WaveNet at the engine's
+  32-sample slice, since per-call overhead may dominate; a session override for the
+  model file like the one for `val:SampleLoad`.
+* **Grist follow-ups.** `examples/grist.ttl` has a lowpass only in its feedback path,
+  where the plugin has lowpass, highpass and bandpass; a mode switch needs the
+  state-variable filter's three outputs selected by a control. Density is grains per
+  second here and grains per window in the plugin, which needs a divide that no element
+  offers. `val:Quantise` takes the seven built-in scales and no custom set.
+* **Granulator.** A grain pool cannot yet be patched between elements, because there is
+  no port that carries a reference to a buffer; that is what it would take to split
+  the granulator further.
+* **DMX voice cards** are monophonic on the real machine: one sound at a time, so a
+  closed hi-hat cuts an open one. Here the sounds on a card sum instead. `val:Choke`
+  gates a control signal and cannot stop a sample already playing, so this needs
+  either a stop on `val:SampleLoad` or a ducking VCA per card.
+* **Cello above D4.** The odd harmonics fall away until the fundamental is more than
+  26 dB below the second partial, so the tone reads as an octave ambiguity rather than
+  a note. Likely the fixed poles of the loop filters becoming a large fraction of a
+  short loop; the next step is to scale them with frequency.
+* **Bow mode locking.** The bow locks into a neighbouring mode at isolated combinations
+  of pitch and bow position (a band just above position 0.125 at 165 Hz, for one). Real
+  strings do this when bow force is wrong for the position (the Schelleng diagram), so
+  the fix is probably to scale bow force with position rather than to suppress it.
 * make an accurate simulation of the Boss DD-3 delay pedal
 
 ## From the plugin survey
@@ -112,6 +88,8 @@ reported to the host.
 
 ## Recurring - check periodically
 
+* check builds for warning messages (touch the sources and rebuild to see them all). Fix
+  any in this codebase; the one left is in the third-party `httplib.h` (`-Wswitch-enum`)
 * remove tasks that have been done from this file
 * check MISTAKES.md for any systematic problems, promote info on these to CLAUDE.md
 * if an issue in MISTAKES.md has been fully resolved, remove it from the file

@@ -43,6 +43,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Filters.cpp
   src/dsp/elements/Transfers.cpp
   src/dsp/elements/Dynamics.cpp
+  src/dsp/elements/FM.cpp
   src/dsp/elements/Granular.cpp
   src/dsp/elements/Spectral.cpp
   src/dsp/elements/NamModel.cpp

@@ -50,13 +50,19 @@ a circuit sounds the same whatever buffer size the host chooses.
 
 ## Feedback
 
-A cycle must pass through a `val:UnitDelay`, which reads the previous sample.
-Anything else has no latency in the loop and cannot be evaluated, so the
-compiler rejects it and prints the path round the loop:
+A cycle must pass through a `val:UnitDelay`. Anything else has no latency in the
+loop and cannot be evaluated, so the compiler rejects it and prints the path round
+the loop:
 
 ```
 feedback loop with no val:UnitDelay to break it: loop -> sat1 -> svf
 ```
+
+On its own a `val:UnitDelay` delays by one sample. Elements run a 32-sample control
+slice at a time, so a loop closed through one takes a slice plus one sample to come
+round, which is 33 samples or about 0.7 ms at 48 kHz. That is the loop time to
+reckon with, for a feedback comb's pitch for example. A loop that has to be sample
+accurate must be inside one element, as the operators of `val:FMMatrix` are.
 
 ## Summing
 

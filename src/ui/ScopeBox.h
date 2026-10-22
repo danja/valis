@@ -27,7 +27,7 @@ public:
 
     ScopeBox(ValisProcessor& processor, std::string nodeId, juce::String title);
 
-    void setTheme(const EquipmentTheme& theme) { this->theme = theme; }
+    void setTheme(const EquipmentTheme& newTheme) { theme = newTheme; }
 
     /// Message thread. Pulls the latest tap samples and control values, then
     /// repaints. Cheap enough to run at the view's refresh rate.

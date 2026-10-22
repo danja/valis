@@ -12,6 +12,7 @@
 
 #include "dsp/GrainPool.h"
 #include "dsp/Random.h"
+#include "dsp/Scale.h"
 #include "dsp/SampleFile.h"
 
 
@@ -55,6 +56,12 @@ public:
         freezeIndex      = controlIndex(type, "freeze");
         triggerIndex     = controlIndex(type, "trigger");
         scanIndex        = controlIndex(type, "scan");
+        sizeJitterIndex  = controlIndex(type, "sizeJitter");
+        curveIndex       = controlIndex(type, "curve");
+        rangeIndex       = controlIndex(type, "range");
+        directionIndex   = controlIndex(type, "direction");
+        scaleIndex       = controlIndex(type, "scale");
+        seedIndex        = controlIndex(type, "seed");
 
         outIndex   = audioOutIndex(type, "out");
         leftIndex  = audioOutIndex(type, "left");
@@ -108,7 +115,8 @@ public:
         scanOffset     = 0.0;
         lastTrigger    = 0.0f;
         lastInterval   = 0.0f;
-        grains.seed(0x5eed1234u);
+        lastSeed       = 0;
+        grains.seed(kDefaultSeed);
         grains.clear();
     }
 
@@ -146,6 +154,23 @@ public:
         const float  freezeCtl   = controlAt(args, freezeIndex, 0.0f);
         const float  trigger     = controlAt(args, triggerIndex, -1.0f);
         const float  scan        = std::clamp(controlAt(args, scanIndex, 0.0f), -4.0f, 4.0f);
+
+        const float  sizeJitter  = std::clamp(controlAt(args, sizeJitterIndex, 0.0f), 0.0f, 1.0f);
+        const float  curve       = std::clamp(controlAt(args, curveIndex, 0.0f), 0.0f, 1.0f);
+        const float  range       = std::clamp(controlAt(args, rangeIndex, 0.0f), 0.0f, 24.0f);
+        const auto   direction   = static_cast<dsp::Direction>(
+            std::clamp(static_cast<int>(controlAt(args, directionIndex, 2.0f) + 0.5f), 0, 2));
+        const auto   scale       = static_cast<dsp::ScaleKind>(
+            dsp::clampScale(static_cast<int>(controlAt(args, scaleIndex, 1.0f) + 0.5f)));
+        const int    seedCtl     = std::clamp(static_cast<int>(controlAt(args, seedIndex, 0.0f) + 0.5f), 0, 65535);
+
+        // A new seed restarts the generator, so the same seed gives the same
+        // cloud. 0 is the default sequence.
+        if (seedCtl != lastSeed)
+        {
+            grains.seed(seedCtl != 0 ? static_cast<std::uint32_t>(seedCtl) : kDefaultSeed);
+            lastSeed = seedCtl;
+        }
 
         const bool frozen = freezeCtl > 0.5f;
 
@@ -190,9 +215,26 @@ public:
         // The edge is tracked in both modes, so a circuit that switches between
         // them by moving the resting value of the arc behaves the same however
         // it got there.
+        int onsets = 0;
+        const auto spawn = [&](bool recording)
+        {
+            auto spec = grainSpec(positionCtl, grainLength, pitch, spray, pitchJitter, spread, reverse);
+            spec.lengthJitter = sizeJitter;
+            spec.range        = range;
+            spec.direction    = direction;
+            spec.scale        = scale;
+            if (recording)
+                spec.head = static_cast<double>(writeHead);
+            if (grains.spawn(spec))
+                ++onsets;
+        };
+
+        // Whether the buffer is being written, which is when a grain can run
+        // into the write head.
+        const bool recording = ! frozen && in != nullptr;
+
         if (externalTrigger && trigger > 0.5f && lastTrigger <= 0.5f)
-            grains.spawn(grainSpec(positionCtl, grainLength, pitch, spray,
-                                           pitchJitter, spread, reverse));
+            spawn(recording);
 
         lastTrigger = trigger;
 
@@ -215,8 +257,7 @@ public:
                 untilNextGrain -= 1.0;
                 while (untilNextGrain <= 0.0)
                 {
-                    grains.spawn(grainSpec(positionCtl, grainLength, pitch, spray,
-                                           pitchJitter, spread, reverse));
+                    spawn(recording);
                     const float wobble = 1.0f + jitter * grains.generator().bipolar() * 0.9f;
                     untilNextGrain += static_cast<double>(std::max(1.0f, interval * wobble));
                 }
@@ -226,7 +267,7 @@ public:
 
             float left = 0.0f, right = 0.0f;
 
-            grains.mix(left, right, fade, static_cast<double>(length),
+            grains.mix(left, right, fade, curve, static_cast<double>(length),
                        [this](double position) { return read(position); });
 
             left  *= makeup;
@@ -236,6 +277,11 @@ public:
             if (outRight != nullptr) outRight[i] = right;
             if (outMono  != nullptr) outMono[i]  = 0.5f * (left + right);
         }
+
+        // Outputs are written every block. onset is a pulse for any block in
+        // which a grain started, which is what a control-rate consumer can see.
+        if (args.numControlOut > 0) args.controlOut[0] = static_cast<float>(grains.activeCount());
+        if (args.numControlOut > 1) args.controlOut[1] = onsets > 0 ? 1.0f : 0.0f;
 
         // scanOffset is deliberately left unwrapped. spawn() reduces it modulo
         // the buffer length where it is used, and wrapping it here would change
@@ -359,11 +405,15 @@ private:
     int   fileLength = 0;
     float lastTrigger  = 0.0f;
     float lastInterval = 0.0f;
+    int   lastSeed     = 0;
+
+    static constexpr std::uint32_t kDefaultSeed = 0x5eed1234u;
 
     int positionIndex = -1, sizeIndex = -1, densityIndex = -1, pitchIndex = -1;
     int sprayIndex = -1, jitterIndex = -1, pitchJitterIndex = -1, shapeIndex = -1;
     int spreadIndex = -1, reverseIndex = -1, freezeIndex = -1, triggerIndex = -1;
-    int scanIndex = -1;
+    int scanIndex = -1, sizeJitterIndex = -1, curveIndex = -1, rangeIndex = -1;
+    int directionIndex = -1, scaleIndex = -1, seedIndex = -1;
     int outIndex = -1, leftIndex = -1, rightIndex = -1;
 };
 
@@ -583,6 +633,8 @@ public:
         args.controlOut[2] = static_cast<float>(phase);
         args.controlOut[3] = pulsed ? 1.0f : 0.0f;
         args.controlOut[4] = static_cast<float>(rate);
+        if (args.numControlOut > 5)
+            args.controlOut[5] = static_cast<float>(1000.0 / rate);
     }
 
 private:

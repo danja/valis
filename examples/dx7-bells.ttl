@@ -1,0 +1,297 @@
+# examples/dx7-bells.ttl
+#
+# Tubular bells in the manner of the DX7's.
+#
+# Algorithm 1 again, with a different use of it: two stacks and two carriers.
+#
+#      2 -> 1               6 -> 5 -> 4 -> 3         (6 feeds back on itself)
+#
+# A bell is inharmonic, and FM makes inharmonic spectra cheaply: a modulator at
+# a ratio that is not a whole number puts sidebands at frequencies that are not
+# multiples of the pitch. Operator 2 sits at 3.5 times the pitch, so the first
+# stack rings with partials at 1, 2.5, 4.5 and so on. The chain on the right is
+# tuned to ratios near those of a struck tube, and its top operator is the
+# strike: loud, with feedback, and gone almost at once.
+#
+# Release is slow, because a bell goes on sounding after the key comes up.
+#
+# https://en.wikipedia.org/wiki/Tubular_bells
+# https://en.wikipedia.org/wiki/Yamaha_DX7
+#
+# This is written in the spirit of the factory patch and is not a copy of it.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:dx7bells#> .
+
+################################################################
+# The operator                                                 #
+#                                                              #
+# One sine operator with its own envelope. A patch is six of    #
+# these wired together, and the wiring is the DX7's "algorithm". #
+################################################################
+
+:Op a val:Subcircuit ;
+    rdfs:label "FM operator" ;
+
+    lv2:port
+             [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :osc ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:AudioPort ;
+               lv2:symbol "pm" ; lv2:name "Phase mod" ;
+               val:node :osc ; val:port "pm" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "ratio" ; lv2:name "Ratio" ;
+               lv2:default 1.0 ; lv2:minimum 0.0 ; lv2:maximum 32.0 ;
+               val:node :osc ; val:port "ratio" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "detune" ; lv2:name "Detune" ;
+               lv2:default 0.0 ; lv2:minimum -100.0 ; lv2:maximum 100.0 ; units:unit units:cent ;
+               val:node :osc ; val:port "detune" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "level" ; lv2:name "Level" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :osc ; val:port "level" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "feedback" ; lv2:name "Feedback" ;
+               lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 7.0 ;
+               val:node :osc ; val:port "feedback" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "velsens" ; lv2:name "Velocity sensitivity" ;
+               lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 7.0 ;
+               val:node :eg ; val:port "velsens" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "r1" ; lv2:name "Rate 1" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "r1" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "r2" ; lv2:name "Rate 2" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "r2" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "r3" ; lv2:name "Rate 3" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "r3" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "r4" ; lv2:name "Rate 4" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "r4" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "l1" ; lv2:name "Level 1" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "l1" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "l2" ; lv2:name "Level 2" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "l2" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "l3" ; lv2:name "Level 3" ;
+               lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "l3" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "l4" ; lv2:name "Level 4" ;
+               lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :eg ; val:port "l4" ] ;
+
+    val:element :pitch , :vel , :eg , :osc ;
+    val:arc :pitchToOsc , :velToEg , :egToOsc .
+
+# Each operator reads the note its voice was given, so it needs no wiring
+# from outside beyond the modulation.
+:pitch a val:MidiPitch .
+:vel   a val:MidiVelocity .
+:eg    a val:RateLevelEnvelope .
+:osc   a val:FMOperator .
+
+:pitchToOsc a val:Arc ; val:from [ val:node :pitch ; val:port "out"       ] ;
+                        val:to   [ val:node :osc   ; val:port "frequency" ] .
+:velToEg    a val:Arc ; val:from [ val:node :vel   ; val:port "out"       ] ;
+                        val:to   [ val:node :eg    ; val:port "velocity"  ] .
+# The envelope sets the operator's amplitude, so as a modulator it is the
+# modulation index.
+:egToOsc    a val:Arc ; val:from [ val:node :eg    ; val:port "out"       ] ;
+                        val:to   [ val:node :osc   ; val:port "amp"       ] .
+
+
+################################################################
+# One voice                                                    #
+################################################################
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Tubular Bells voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :sum ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "strike" ; lv2:name "Strike" ;
+               lv2:default 85.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :op2 ; val:port "level" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "clang" ; lv2:name "Clang" ;
+               lv2:default 82.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :op6 ; val:port "level" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "ring" ; lv2:name "Ring" ;
+               lv2:default 22.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ;
+               val:node :op1 , :op3 ; val:port "r2" ] ;
+
+    val:element :op1 , :op2 , :op3 , :op4 , :op5 , :op6 , :sum ;
+    val:arc :m2to1 , :m6to5 , :m5to4 , :m4to3 , :c1 , :c3 .
+
+# Ratios, levels and envelopes are the DX7's own numbers: levels and rates run
+# 0 to 99, and r1 l1 .. r4 l4 are the four segments of the envelope.
+#
+# Operators 1 and 3 are the carriers. Ratios are not whole numbers on purpose.
+
+:op1 a :Op ;
+        val:ratio 1.0 ;
+        val:level 99.0 ;
+        val:velsens 2.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 20.0 ;
+        val:l2 80.0 ;
+        val:r3 20.0 ;
+        val:l3 0.0 ;
+        val:r4 35.0 ;
+        val:l4 0.0 .
+
+:op2 a :Op ;
+        val:ratio 3.5 ;
+        val:level 85.0 ;
+        val:velsens 4.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 40.0 ;
+        val:l2 60.0 ;
+        val:r3 35.0 ;
+        val:l3 0.0 ;
+        val:r4 35.0 ;
+        val:l4 0.0 .
+
+:op3 a :Op ;
+        val:ratio 2.76 ;
+        val:level 80.0 ;
+        val:velsens 2.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 25.0 ;
+        val:l2 70.0 ;
+        val:r3 25.0 ;
+        val:l3 0.0 ;
+        val:r4 35.0 ;
+        val:l4 0.0 .
+
+:op4 a :Op ;
+        val:ratio 1.41 ;
+        val:level 80.0 ;
+        val:velsens 3.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 45.0 ;
+        val:l2 50.0 ;
+        val:r3 40.0 ;
+        val:l3 0.0 ;
+        val:r4 35.0 ;
+        val:l4 0.0 .
+
+:op5 a :Op ;
+        val:ratio 5.4 ;
+        val:level 78.0 ;
+        val:velsens 4.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 60.0 ;
+        val:l2 30.0 ;
+        val:r3 50.0 ;
+        val:l3 0.0 ;
+        val:r4 40.0 ;
+        val:l4 0.0 .
+
+:op6 a :Op ;
+        val:ratio 7.0 ;
+        val:level 82.0 ;
+        val:feedback 3.0 ;
+        val:velsens 6.0 ;
+        val:r1 99.0 ;
+        val:l1 99.0 ;
+        val:r2 75.0 ;
+        val:l2 0.0 ;
+        val:r3 70.0 ;
+        val:l3 0.0 ;
+        val:r4 40.0 ;
+        val:l4 0.0 .
+
+:sum a val:Mixer .
+
+# A modulator's output goes to its target's phase input, not to the mix.
+:m2to1 a val:Arc ; val:from [ val:node :op2 ; val:port "out" ] ;
+                val:to   [ val:node :op1 ; val:port "pm" ] .
+:m6to5 a val:Arc ; val:from [ val:node :op6 ; val:port "out" ] ;
+                val:to   [ val:node :op5 ; val:port "pm" ] .
+:m5to4 a val:Arc ; val:from [ val:node :op5 ; val:port "out" ] ;
+                val:to   [ val:node :op4 ; val:port "pm" ] .
+:m4to3 a val:Arc ; val:from [ val:node :op4 ; val:port "out" ] ;
+                val:to   [ val:node :op3 ; val:port "pm" ] .
+
+# Only carriers are heard.
+:c1 a val:Arc ; val:from [ val:node :op1 ; val:port "out" ] ;
+             val:to   [ val:node :sum ; val:port "in" ] .
+:c3 a val:Arc ; val:from [ val:node :op3 ; val:port "out" ] ;
+             val:to   [ val:node :sum ; val:port "in" ] .
+
+################################################################
+# The circuit                                                  #
+################################################################
+
+:dx7bells a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Electronic", "Ambient", "Classical" ;
+    rdfs:label "Tubular Bells" ;
+    val:element :poly , :master , :out ;
+    val:arc :a1 , :a2 .
+
+:poly a :Voice ; val:voices 8 .
+
+# Carriers add, so the sum can be several times what one operator gives.
+:master a val:Gain ; val:gain -9.0 .
+
+:out a val:Output .
+
+:a1 a val:Arc ; val:from [ val:node :poly   ; val:port "out" ] ;
+                val:to   [ val:node :master ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :master ; val:port "out" ] ;
+                val:to   [ val:node :out    ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :poly ; val:property val:strike ;
+    lv2:name "Strike" ; lv2:symbol "strike" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :poly ; val:property val:clang ;
+    lv2:name "Clang" ; lv2:symbol "clang" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :poly ; val:property val:ring ;
+    lv2:name "Ring" ; lv2:symbol "ring" .

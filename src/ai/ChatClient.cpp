@@ -313,7 +313,7 @@ bool curlPost(const std::string& url,
         return false;
     }
     responseOut.body = curl.readAllProcessOutput().toStdString();
-    const int exitCode = curl.getExitCode();
+    const int exitCode = static_cast<int>(curl.getExitCode());
     if (exitCode != 0)
     {
         errorOut = "curl exited with code " + std::to_string(exitCode) +

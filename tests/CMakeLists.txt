@@ -12,12 +12,18 @@ set(VALIS_TESTS
   dsp/ElementRegistryTest.cpp
   dsp/ElementBehaviourTest.cpp
   dsp/GranulatorTest.cpp
+  dsp/GristFeaturesTest.cpp
   dsp/SpectralTest.cpp
   dsp/FluteTest.cpp
   dsp/ClarinetTest.cpp
   dsp/CelloTest.cpp
+  dsp/FMTest.cpp
   dsp/NamModelTest.cpp
   engine/ValisEngineTest.cpp
+  engine/UnitDelayLoopTest.cpp
+  engine/FmExamplesTest.cpp
+  engine/GristExampleTest.cpp
+  engine/MetalBashTest.cpp
   ops/OpDispatcherTest.cpp
   console/ConsoleTest.cpp)
 
