@@ -279,6 +279,88 @@ private:
     int rateIndex = -1, shapeIndex = -1;
 };
 
+/// Slow, bounded, random wander: an Ornstein-Uhlenbeck process, which is noise pulled
+/// back toward zero at a set rate (https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process).
+/// Unlike a low-frequency oscillator it never repeats, and unlike a random walk it
+/// never wanders off: it spends its time within `amount` of `centre`. Patched to pitch
+/// or cutoff it is the drift of an analogue circuit.
+///
+/// Each block is stepped by the exact solution of the process for that block's length,
+/// so the statistics do not depend on how the engine slices time.
+class Drift final : public DspElement
+{
+    static constexpr float kLimit = 3.0f;   // in units of amount
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate  = rate;
+        speedIndex  = controlIndex(type, "speed");
+        amountIndex = controlIndex(type, "amount");
+        seedIndex   = controlIndex(type, "seed");
+        centreIndex = controlIndex(type, "centre");
+        reset();
+    }
+
+    void reset() override
+    {
+        // reset() sees no controls, so the seed is applied on the next block.
+        value    = 0.0f;
+        reseeded = false;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const auto seed = static_cast<std::uint32_t>(std::max(controlAt(args, seedIndex, 1.0f), 0.0f));
+        if (! reseeded || seed != lastSeed)
+        {
+            // Never zero, which would stick xorshift; the multiply spreads small seeds.
+            state    = seed * 2654435761u + 0x9E3779B9u;
+            lastSeed = seed;
+            reseeded = true;
+            value    = 0.0f;
+        }
+
+        const float speed  = std::clamp(controlAt(args, speedIndex, 1.5f), 0.01f, 100.0f);
+        const float amount = std::max(controlAt(args, amountIndex, 1.0f), 0.0f);
+
+        // x' = x e^(-speed dt) + amount sqrt(1 - e^(-2 speed dt)) N(0, 1), exactly.
+        const float dt    = static_cast<float>(args.numSamples / sampleRate);
+        const float decay = std::exp(-speed * dt);
+        const float kick  = amount * std::sqrt(std::max(1.0f - decay * decay, 0.0f));
+
+        value = value * decay + kick * gaussian();
+        value = std::clamp(value, -kLimit * amount, kLimit * amount);
+        args.controlOut[0] = controlAt(args, centreIndex, 0.0f) + value;
+    }
+
+private:
+    float uniform() noexcept
+    {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return (static_cast<float>(state >> 8) + 0.5f) * (1.0f / 16777216.0f);
+    }
+
+    /// Box-Muller. Once per block, so the log and cosine cost nothing that matters.
+    float gaussian() noexcept
+    {
+        const float u1 = uniform();
+        const float u2 = uniform();
+        return std::sqrt(-2.0f * std::log(u1)) * std::cos(6.283185307179586f * u2);
+    }
+
+    double sampleRate = 44100.0;
+    float value = 0.0f;
+    std::uint32_t state = 0u, lastSeed = 0u;
+    bool reseeded = false;
+    int speedIndex = -1, amountIndex = -1, seedIndex = -1, centreIndex = -1;
+};
+
 /// Outputs the frequency (Hz) of the most recent MIDI note as a control signal.
 /// Holds the last value, so arcs driven by this read a stable pitch between
 /// notes. Default is A4 (440 Hz) until the first note arrives.
@@ -928,6 +1010,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("Noise",        &make<elements::Noise>);
     registry.add("TwinTBridge",   &make<elements::TwinTBridge>);
     registry.add("LFO",          &make<elements::LFO>);
+    registry.add("Drift",        &make<elements::Drift>);
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
     registry.add("NoteGate",     &make<elements::NoteGate>);

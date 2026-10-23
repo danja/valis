@@ -70,6 +70,14 @@ The [manual](manual/index.md) has case studies for some of them.
 - `vocal-enhancer.ttl`: a ladder filter, a saturator and a compressor on a voice.
   `vocal-enhancer-rig.ttl` is the test rig for it, with a signal generator,
   oscilloscopes and a spectrum analyser.
+- `split-reverb.ttl`: a reverb that leaves the low end alone. A crossover sends the
+  band above 300 Hz to a feedback delay network reverb and passes the band below it
+  dry. A slow `val:Drift` moves the room size, and a limiter holds the ceiling.
+- `lofi.ttl`: reduced bit depth and sample rate with jitter, a high cut whose corner
+  wanders with a `val:Drift`, a low cut ahead of the quantiser and a limiter.
+- `multiband.ttl`: a three-band compressor with an upward stage, built from two
+  crossovers and a compressor per band. The low band passes through a third crossover
+  so that all three bands carry the same phase shift and add back to a flat response.
 - `nam.ttl`: a Neural Amp Modeler capture. Needs a build with `-DVALIS_WITH_NAM=ON`.
 - `subcircuit.ttl`: one `val:Subcircuit` instantiated twice, once per channel,
   which is how stereo is built.

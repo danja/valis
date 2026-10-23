@@ -38,6 +38,32 @@ The instruments that are done are described in `docs/examples.md`. What is open:
   the fix is probably to scale bow force with position rather than to suppress it.
 * make an accurate simulation of the Boss DD-3 delay pedal
 
+## Elements from the Oxide Studio survey
+
+A review of `~/github/oxide-studio` (MIT/Apache, Rust) found these gaps in Valis. The
+oxide code is a pointer to what is missing, not code to port: write each from the
+algorithm, mono, with a test. In order of use:
+
+* **Dual-threshold dynamics.** `val:Compressor` has one threshold for both its
+  downward and upward stages and the lift is capped by `val:boost`. Oxide's band
+  dynamics has a separate threshold for each. `examples/multiband.ttl` works with one.
+* **Reverb size and decay.** Size glides, but a fractional delay low-passes the tail
+  slightly, so `decay` is exact only at size 1.
+* **STFT time-stretch** with formant preservation, beside `val:Granulator`. Oxide's warp
+  engine uses a phase vocoder with Laroche-Dolson phase locking and a spectral envelope
+  taken by cepstral liftering. `val:SpectralGate` in `src/dsp/elements/Spectral.cpp` has the
+  window, hop and latency machinery to build on. A time-stretch changes the length of the
+  signal, which an element that produces one output sample per input sample cannot do, so
+  it needs either a sound file source (as `val:Granulator` has) or a live version that
+  stretches a recent history.
+* **Wavetable follow-ups.** `val:Wavetable` switches mip level in steps as the pitch
+  moves; crossfading adjacent levels would hide the step in a wide pitch sweep. Tables
+  are the built-in three sets: loading a user table from a sound file, as
+  `val:SampleLoad` does, is the next step.
+* **PitchShift for chords.** The 30 ms two-head shifter is good on a single voice and
+  shows a 33 Hz flutter on a held chord. A longer grain with a correlation search for the
+  jump point (SOLA) would fix it at the cost of latency.
+
 ## From the plugin survey
 
 `reference/survey-1.md` is a 60-case architectural survey of native plugin source,

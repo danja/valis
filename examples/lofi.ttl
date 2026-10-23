@@ -1,0 +1,100 @@
+# examples/lofi.ttl
+#
+# A worn-sampler sound: reduced word length and sample rate, a dark tone, and a tone
+# control that never quite holds still.
+#
+# Redux holds each sample for about three and rounds it to ten bits, with the length of
+# each hold varied a little so the aliasing becomes grit and not a pitched whine. A high
+# cut then takes the top off, and a Drift control source moves its corner slowly, the way
+# the response of old tape or a tired converter shifts. A low cut at the front keeps
+# rumble out of the quantiser, where it would eat word length. A limiter ends the chain.
+#
+# The tone's resting value is the Drift's centre: the arc replaces the high cut's own
+# frequency, so a value set on the Biquad would never be heard.
+#
+# Signal path:
+#   Input ─► rumble ─► redux ─► tone ─► limit ─► Output
+#   drift ─► tone.frequency
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:lofi#> .
+
+:lofi a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Lo-fi", "Hip hop" ;
+    rdfs:label "Lo-fi" ;
+    val:element :in , :rumble , :redux , :tone , :limit , :out , :drift ;
+    val:arc :aInRumble , :aRumbleRedux , :aReduxTone , :aToneLimit , :aLimitOut ,
+            :aDriftTone .
+
+# ── Elements ─────────────────────────────────────────────────────────────────
+
+:in     a val:Input .
+:rumble a val:Biquad ; val:mode 4 ; val:frequency 60.0 ; val:q 0.7071 .   # low cut
+:redux  a val:Redux  ; val:bits 10 ; val:downsample 3.0 ; val:jitter 0.3 .
+:tone   a val:Biquad ; val:mode 5 ; val:q 0.7071 .                        # high cut
+:limit  a val:Limiter ; val:ceiling -1.0 ; val:release 60.0 .
+:out    a val:Output .
+
+# Corner at 4000 Hz with a typical spread of 600 Hz. Drift stays within three of that,
+# so the corner stays between 2200 and 5800 Hz.
+:drift  a val:Drift ; val:speed 0.25 ; val:centre 4000.0 ; val:amount 600.0 ; val:seed 11 .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aInRumble a val:Arc ;
+    val:from [ val:node :in     ; val:port "out" ] ;
+    val:to   [ val:node :rumble ; val:port "in"  ] .
+
+:aRumbleRedux a val:Arc ;
+    val:from [ val:node :rumble ; val:port "out" ] ;
+    val:to   [ val:node :redux  ; val:port "in"  ] .
+
+:aReduxTone a val:Arc ;
+    val:from [ val:node :redux ; val:port "out" ] ;
+    val:to   [ val:node :tone  ; val:port "in"  ] .
+
+:aToneLimit a val:Arc ;
+    val:from [ val:node :tone  ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in"  ] .
+
+:aLimitOut a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out   ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aDriftTone a val:Arc ;
+    val:from [ val:node :drift ; val:port "out"       ] ;
+    val:to   [ val:node :tone  ; val:port "frequency" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :redux ; val:property val:bits ;
+    lv2:name "Bits" ; lv2:symbol "bits" ; val:section "Degrade" .
+
+:p1 a val:Param ; val:slot 1 ; val:target :redux ; val:property val:downsample ;
+    lv2:name "Downsample" ; lv2:symbol "downsample" ; val:section "Degrade" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :redux ; val:property val:jitter ;
+    lv2:name "Jitter" ; lv2:symbol "jitter" ; val:section "Degrade" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :drift ; val:property val:centre ;
+    lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Tone" ; units:unit units:hz ;
+    lv2:minimum 800.0 ; lv2:maximum 12000.0 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :drift ; val:property val:amount ;
+    lv2:name "Wobble" ; lv2:symbol "wobble" ; val:section "Tone" ;
+    lv2:minimum 0.0 ; lv2:maximum 3000.0 .
+
+:p5 a val:Param ; val:slot 5 ; val:target :rumble ; val:property val:frequency ;
+    lv2:name "Rumble cut" ; lv2:symbol "rumble_cut" ; val:section "Tone" ; units:unit units:hz .
+
+:p6 a val:Param ; val:slot 6 ; val:target :limit ; val:property val:ceiling ;
+    lv2:name "Ceiling" ; lv2:symbol "ceiling" ; val:section "Output" ; units:unit units:db .

@@ -16,6 +16,7 @@ public:
         sampleRate = rate;
         cutoffIndex    = controlIndex(type, "cutoff");
         resonanceIndex = controlIndex(type, "resonance");
+        driveIndex     = controlIndex(type, "drive");
         lpOut = audioOutIndex(type, "lp");
         bpOut = audioOutIndex(type, "bp");
         hpOut = audioOutIndex(type, "hp");
@@ -32,12 +33,12 @@ public:
         const float cutoff = std::clamp(controlAt(args, cutoffIndex, 1000.0f),
                                         20.0f, static_cast<float>(sampleRate * 0.45));
         const float q      = std::max(controlAt(args, resonanceIndex, 0.7071f), 0.05f);
+        const float drive  = std::max(controlAt(args, driveIndex, 1.0f), 1.0f);
 
         const float g  = static_cast<float>(std::tan(3.14159265358979 * cutoff / sampleRate));
         const float k  = 1.0f / q;
         const float a1 = 1.0f / (1.0f + g * (g + k));
         const float a2 = g * a1;
-        const float a3 = g * a2;
 
         const float* in = args.audioIn[0];
         float* lp = lpOut >= 0 && lpOut < args.numAudioOut ? args.audioOut[lpOut] : nullptr;
@@ -48,8 +49,16 @@ public:
         {
             const float v0 = in[i];
             const float v3 = v0 - ic2eq;
-            const float v1 = a1 * ic1eq + a2 * v3;
-            const float v2 = ic2eq + a2 * ic1eq + a3 * v3;
+            float v1 = a1 * ic1eq + a2 * v3;
+
+            // Saturating the bandpass, which both integrators and the resonant feedback
+            // are driven from, bounds the resonance instead of the filter's output: a
+            // loud signal compresses and the filter can self-oscillate without growing.
+            // At unity drive the shape is not applied and the filter is exactly linear.
+            if (drive > 1.0f)
+                v1 = std::tanh(drive * v1) / drive;
+
+            const float v2 = ic2eq + g * v1;
 
             ic1eq = 2.0f * v1 - ic1eq;
             ic2eq = 2.0f * v2 - ic2eq;
@@ -63,7 +72,7 @@ public:
 private:
     double sampleRate = 44100.0;
     float ic1eq = 0.0f, ic2eq = 0.0f;
-    int cutoffIndex = -1, resonanceIndex = -1;
+    int cutoffIndex = -1, resonanceIndex = -1, driveIndex = -1;
     int lpOut = -1, bpOut = -1, hpOut = -1;
 };
 
@@ -731,6 +740,341 @@ private:
     int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
 };
 
+/// Second-order section with the response chosen by a selector: the shelves, bell and
+/// notch of an equaliser, and 12 dB per octave low and high cut. Coefficients are the
+/// RBJ cookbook's (https://www.w3.org/TR/audio-eq-cookbook/). Held in double
+/// precision, because a low shelf at 20 Hz puts the poles close to the unit circle and
+/// single precision rounds them onto it.
+class Biquad final : public MonoElement
+{
+    enum Mode { lowShelf, bell, highShelf, notch, lowCut, highCut };
+
+public:
+    void reset() override { z1 = z2 = 0.0; }
+
+protected:
+    void cacheIndices(const ElementType& type) override
+    {
+        modeIndex      = controlIndex(type, "mode");
+        frequencyIndex = controlIndex(type, "frequency");
+        gainIndex      = controlIndex(type, "gain");
+        qIndex         = controlIndex(type, "q");
+    }
+
+    void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
+    {
+        const int    mode = static_cast<int>(std::lround(controlAt(args, modeIndex, 1.0f)));
+        const double freq = std::clamp(static_cast<double>(controlAt(args, frequencyIndex, 1000.0f)),
+                                       20.0, sampleRate * 0.45);
+        const double gain = std::clamp(static_cast<double>(controlAt(args, gainIndex, 0.0f)), -24.0, 24.0);
+        const double q    = std::clamp(static_cast<double>(controlAt(args, qIndex, 0.7071f)), 0.1, 20.0);
+
+        const double w0    = 2.0 * 3.14159265358979323846 * freq / sampleRate;
+        const double cs    = std::cos(w0);
+        const double alpha = std::sin(w0) / (2.0 * q);
+        const double A     = std::pow(10.0, gain / 40.0);
+        const double beta  = 2.0 * std::sqrt(A) * alpha;
+
+        double b0 = 1.0, b1 = 0.0, b2 = 0.0, a0 = 1.0, a1 = 0.0, a2 = 0.0;
+        switch (mode)
+        {
+            case lowShelf:
+                b0 = A * ((A + 1) - (A - 1) * cs + beta);
+                b1 = 2 * A * ((A - 1) - (A + 1) * cs);
+                b2 = A * ((A + 1) - (A - 1) * cs - beta);
+                a0 = (A + 1) + (A - 1) * cs + beta;
+                a1 = -2 * ((A - 1) + (A + 1) * cs);
+                a2 = (A + 1) + (A - 1) * cs - beta;
+                break;
+            case highShelf:
+                b0 = A * ((A + 1) + (A - 1) * cs + beta);
+                b1 = -2 * A * ((A - 1) + (A + 1) * cs);
+                b2 = A * ((A + 1) + (A - 1) * cs - beta);
+                a0 = (A + 1) - (A - 1) * cs + beta;
+                a1 = 2 * ((A - 1) - (A + 1) * cs);
+                a2 = (A + 1) - (A - 1) * cs - beta;
+                break;
+            case notch:
+                b0 = 1; b1 = -2 * cs; b2 = 1;
+                a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+                break;
+            case lowCut:
+                b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0;
+                a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+                break;
+            case highCut:
+                b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = b0;
+                a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+                break;
+            case bell:
+            default:
+                b0 = 1 + alpha * A; b1 = -2 * cs; b2 = 1 - alpha * A;
+                a0 = 1 + alpha / A; a1 = -2 * cs; a2 = 1 - alpha / A;
+                break;
+        }
+
+        b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+
+        // Transposed direct form II.
+        for (int i = 0; i < n; ++i)
+        {
+            const double x = in[i];
+            const double y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            out[i] = static_cast<float>(y);
+        }
+    }
+
+private:
+    double z1 = 0.0, z2 = 0.0;
+    int modeIndex = -1, frequencyIndex = -1, gainIndex = -1, qIndex = -1;
+};
+
+/// Linkwitz-Riley 4th-order crossover (Linkwitz and Riley, JAES 1976): two Butterworth
+/// biquads in series per side. The two sides are 6 dB down at the corner and in phase
+/// with each other, so low + high is flat in magnitude at every frequency, and a band
+/// processed apart and summed again comes back unchanged.
+class Crossover final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate     = rate;
+        frequencyIndex = controlIndex(type, "frequency");
+        lowOut         = audioOutIndex(type, "low");
+        highOut        = audioOutIndex(type, "high");
+        reset();
+    }
+
+    void reset() override
+    {
+        for (auto& stage : lowStage)  stage = {};
+        for (auto& stage : highStage) stage = {};
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1)
+            return;
+
+        const double freq = std::clamp(static_cast<double>(controlAt(args, frequencyIndex, 1000.0f)),
+                                       20.0, sampleRate * 0.45);
+        const double w0    = 2.0 * 3.14159265358979323846 * freq / sampleRate;
+        const double cs    = std::cos(w0);
+        const double alpha = std::sin(w0) / (2.0 * 0.70710678118654752);
+        const double a0    = 1.0 + alpha;
+        const double a1    = -2.0 * cs / a0;
+        const double a2    = (1.0 - alpha) / a0;
+        const double lb0   = (1.0 - cs) / 2.0 / a0;
+        const double lb1   = (1.0 - cs) / a0;
+        const double hb0   = (1.0 + cs) / 2.0 / a0;
+        const double hb1   = -(1.0 + cs) / a0;
+
+        const float* in   = args.audioIn[0];
+        float*       low  = lowOut  >= 0 && lowOut  < args.numAudioOut ? args.audioOut[lowOut]  : nullptr;
+        float*       high = highOut >= 0 && highOut < args.numAudioOut ? args.audioOut[highOut] : nullptr;
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const double x = in[i];
+            const double l = lowStage[1].run(lowStage[0].run(x, lb0, lb1, lb0, a1, a2), lb0, lb1, lb0, a1, a2);
+            const double h = highStage[1].run(highStage[0].run(x, hb0, hb1, hb0, a1, a2), hb0, hb1, hb0, a1, a2);
+            if (low != nullptr)  low[i]  = static_cast<float>(l);
+            if (high != nullptr) high[i] = static_cast<float>(h);
+        }
+    }
+
+private:
+    struct Section
+    {
+        double z1 = 0.0, z2 = 0.0;
+
+        double run(double x, double b0, double b1, double b2, double a1, double a2) noexcept
+        {
+            const double y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            return y;
+        }
+    };
+
+    double sampleRate = 44100.0;
+    Section lowStage[2], highStage[2];
+    int frequencyIndex = -1, lowOut = -1, highOut = -1;
+};
+
+/// Bit-depth and sample-rate reducer. The input is held for `downsample` samples and
+/// rounded to `bits` bits, with nothing filtered either side, so the aliasing and the
+/// rounding error are the sound. Jitter varies the length of each hold, drawn from a
+/// generator that restarts at every reset, so a render is repeatable.
+class Redux final : public MonoElement
+{
+public:
+    void reset() override
+    {
+        held       = 0.0f;
+        untilNext  = 0.0f;
+        random     = 0x9E3779B9u;
+    }
+
+protected:
+    void cacheIndices(const ElementType& type) override
+    {
+        bitsIndex   = controlIndex(type, "bits");
+        factorIndex = controlIndex(type, "downsample");
+        jitterIndex = controlIndex(type, "jitter");
+    }
+
+    void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
+    {
+        const float bits   = std::clamp(controlAt(args, bitsIndex, 8.0f), 1.0f, 24.0f);
+        const float factor = std::clamp(controlAt(args, factorIndex, 4.0f), 1.0f, 64.0f);
+        const float jitter = std::clamp(controlAt(args, jitterIndex, 0.0f), 0.0f, 1.0f);
+
+        // A word of `bits` bits has 2^(bits-1) steps either side of zero. From 24 bits
+        // up the float itself is the limit, so the input is left alone.
+        const bool  rounds = bits < 24.0f;
+        const float steps  = std::exp2(bits - 1.0f);
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (untilNext <= 0.0f)
+            {
+                held = rounds ? std::round(in[i] * steps) / steps : in[i];
+
+                float length = factor;
+                if (jitter > 0.0f)
+                    length *= 1.0f + jitter * (nextRandom() - 0.5f);
+                untilNext += std::max(length, 1.0f);
+            }
+            untilNext -= 1.0f;
+            out[i] = held;
+        }
+    }
+
+private:
+    /// xorshift32 mapped to [0, 1).
+    float nextRandom() noexcept
+    {
+        random ^= random << 13;
+        random ^= random >> 17;
+        random ^= random << 5;
+        return static_cast<float>(random >> 8) * (1.0f / 16777216.0f);
+    }
+
+    float held = 0.0f, untilNext = 0.0f;
+    std::uint32_t random = 0x9E3779B9u;
+    int bitsIndex = -1, factorIndex = -1, jitterIndex = -1;
+};
+
+/// Pitch shifter with two read heads sweeping through a delay line.
+///
+/// Each head's delay changes by (1 - ratio) samples per sample, so it plays the line
+/// faster or slower than it was written: the pitch moves, as a tape would. A head can
+/// only sweep so far before it runs out of line, so it jumps back, and a window hides
+/// the jump. The two heads sit half a grain apart under complementary windows
+/// (sin^2 and cos^2, which sum to one), so one is always at full level while the other
+/// is jumping.
+///
+/// The dry signal is delayed by half a grain, which is the average delay of the shifted
+/// one, so mixing the two does not put a comb in the response. That half grain is
+/// declared as latency.
+class PitchShift final : public DspElement
+{
+    static constexpr double kGrainMs = 30.0;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        pitchIndex = controlIndex(type, "pitch");
+        mixIndex   = controlIndex(type, "mix");
+
+        grain = std::max(64, static_cast<int>(kGrainMs * 0.001 * rate));
+        line.assign(static_cast<std::size_t>(grain) * 2 + 8, 0.0f);
+        reset();
+    }
+
+    void reset() override
+    {
+        std::fill(line.begin(), line.end(), 0.0f);
+        writePos = 0;
+        // Head one starts at half a grain with the window fully open; head two at
+        // zero with it closed. At a shift of zero this is a plain half-grain delay.
+        phase = 0.5;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float semitones = std::clamp(controlAt(args, pitchIndex, 0.0f), -24.0f, 24.0f);
+        const float mix       = std::clamp(controlAt(args, mixIndex, 1.0f), 0.0f, 1.0f);
+        const double ratio    = std::exp2(static_cast<double>(semitones) / 12.0);
+
+        // Per sample, the delay as a fraction of a grain moves by (1 - ratio) / grain.
+        const double step = (1.0 - ratio) / static_cast<double>(grain);
+        const int    size = static_cast<int>(line.size());
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            line[static_cast<std::size_t>(writePos)] = in[i];
+
+            const double p1 = phase;
+            const double p2 = phase < 0.5 ? phase + 0.5 : phase - 0.5;
+
+            const float shifted = read(p1, size) * window(p1) + read(p2, size) * window(p2);
+            const float dry     = read(0.5, size);
+
+            out[i] = dry * (1.0f - mix) + shifted * mix;
+
+            phase += step;
+            if (phase >= 1.0) phase -= 1.0;
+            if (phase < 0.0)  phase += 1.0;
+
+            if (++writePos >= size)
+                writePos = 0;
+        }
+    }
+
+    int latencyInSamples() const override { return grain / 2; }
+
+private:
+    /// sin^2 of half a turn: 0 at the ends of the sweep, 1 in the middle.
+    static float window(double p) noexcept
+    {
+        const auto s = static_cast<float>(std::sin(3.14159265358979323846 * p));
+        return s * s;
+    }
+
+    /// The line `p` of a grain ago, linearly interpolated.
+    float read(double p, int size) const noexcept
+    {
+        const double delay = p * grain;
+        const int    whole = static_cast<int>(delay);
+        const float  frac  = static_cast<float>(delay - whole);
+
+        int a = writePos - whole;
+        if (a < 0) a += size;
+        int b = a - 1;
+        if (b < 0) b += size;
+
+        return line[static_cast<std::size_t>(a)] * (1.0f - frac) + line[static_cast<std::size_t>(b)] * frac;
+    }
+
+    double sampleRate = 44100.0;
+    int grain = 1323;
+    int writePos = 0;
+    double phase = 0.5;
+    std::vector<float> line;
+    int pitchIndex = -1, mixIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -750,5 +1094,9 @@ void registerFilters(ElementRegistry& registry)
     registry.add("Chorus",        &make<elements::Chorus>);
     registry.add("Flanger",       &make<elements::Flanger>);
     registry.add("Phaser",        &make<elements::Phaser>);
+    registry.add("Biquad",        &make<elements::Biquad>);
+    registry.add("Crossover",     &make<elements::Crossover>);
+    registry.add("Redux",         &make<elements::Redux>);
+    registry.add("PitchShift",    &make<elements::PitchShift>);
 }
 }  // namespace valis

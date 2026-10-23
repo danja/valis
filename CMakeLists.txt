@@ -47,6 +47,8 @@ add_library(valis_core STATIC
   src/dsp/elements/Granular.cpp
   src/dsp/elements/Spectral.cpp
   src/dsp/elements/NamModel.cpp
+  src/dsp/elements/Reverb.cpp
+  src/dsp/elements/Wavetable.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp

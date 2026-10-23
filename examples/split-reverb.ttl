@@ -1,0 +1,129 @@
+# examples/split-reverb.ttl
+#
+# A reverb that leaves the low end alone.
+#
+# A Linkwitz-Riley crossover splits the input at 300 Hz. The low band goes straight to
+# the output, so kick and bass stay tight. The high band feeds the reverb, a high cut
+# takes the harshness off the tail, and the dry and wet high band are blended. The two
+# bands are summed again and a lookahead limiter holds the ceiling.
+#
+# A Drift control source wanders the reverb's size by a few percent, slowly. A fixed
+# room has a metallic ring that a moving one does not. The resting size is the Drift's
+# centre, because a control arc replaces the port's value and a fixed size on the
+# Reverb itself would never be heard.
+#
+# Signal path:
+#   Input ─► split ─► low ───────────────────────────────┐
+#                └─► high ─► blend.dry ──────────────────┤
+#                      └───► verb ─► tail ─► blend.wet    ├─► sum ─► limit ─► Output
+#                                         blend.out ─────┘
+#   drift ─► verb.size
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:splitreverb#> .
+
+:splitreverb a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Ambient", "Mixing" ;
+    rdfs:label "Split Reverb" ;
+    val:element :in , :split , :verb , :tail , :blend , :sum , :limit , :out ,
+                :drift ;
+    val:arc :aInSplit , :aSplitLow , :aSplitHighDry , :aSplitHighVerb ,
+            :aVerbTail , :aTailBlend , :aBlendSum ,
+            :aSumLimit , :aLimitOut , :aDriftVerb .
+
+# ── Elements ─────────────────────────────────────────────────────────────────
+
+:in    a val:Input .
+:split a val:Crossover ; val:frequency 300.0 .
+
+# mix 1: only the tail comes out, since the dry high band is blended separately.
+:verb  a val:Reverb ; val:decay 2.5 ; val:damping 0.35 ; val:mix 1.0 .
+:tail  a val:Biquad ; val:mode 5 ; val:frequency 7000.0 ; val:q 0.7071 .   # high cut
+:blend a val:DryWet ; val:mix 0.35 .
+:sum   a val:Mixer .
+:limit a val:Limiter ; val:ceiling -1.0 ; val:release 80.0 .
+:out   a val:Output .
+
+# Size wanders around 1.0 with a typical spread of 0.12. Drift stays within three of
+# that, so the size stays between 0.64 and 1.36.
+:drift a val:Drift ; val:speed 0.4 ; val:centre 1.0 ; val:amount 0.12 ; val:seed 3 .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aInSplit a val:Arc ;
+    val:from [ val:node :in    ; val:port "out" ] ;
+    val:to   [ val:node :split ; val:port "in"  ] .
+
+:aSplitLow a val:Arc ;
+    val:from [ val:node :split ; val:port "low" ] ;
+    val:to   [ val:node :sum   ; val:port "in"  ] .
+
+:aSplitHighDry a val:Arc ;
+    val:from [ val:node :split ; val:port "high" ] ;
+    val:to   [ val:node :blend ; val:port "dry"  ] .
+
+:aSplitHighVerb a val:Arc ;
+    val:from [ val:node :split ; val:port "high" ] ;
+    val:to   [ val:node :verb  ; val:port "in"   ] .
+
+:aVerbTail a val:Arc ;
+    val:from [ val:node :verb ; val:port "out" ] ;
+    val:to   [ val:node :tail ; val:port "in"  ] .
+
+:aTailBlend a val:Arc ;
+    val:from [ val:node :tail  ; val:port "out" ] ;
+    val:to   [ val:node :blend ; val:port "wet" ] .
+
+:aBlendSum a val:Arc ;
+    val:from [ val:node :blend ; val:port "out" ] ;
+    val:to   [ val:node :sum   ; val:port "in"  ] .
+
+:aSumLimit a val:Arc ;
+    val:from [ val:node :sum   ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in"  ] .
+
+:aLimitOut a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out   ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+# The resting size is the drift's centre, so there is nothing to set on the reverb.
+:aDriftVerb a val:Arc ;
+    val:from [ val:node :drift ; val:port "out"  ] ;
+    val:to   [ val:node :verb  ; val:port "size" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :split ; val:property val:frequency ;
+    lv2:name "Split" ; lv2:symbol "split" ; val:section "Bands" ; units:unit units:hz .
+
+:p1 a val:Param ; val:slot 1 ; val:target :verb ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Reverb" ; units:unit units:s .
+
+:p2 a val:Param ; val:slot 2 ; val:target :verb ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ; val:section "Reverb" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :drift ; val:property val:centre ;
+    lv2:name "Size" ; lv2:symbol "size" ; val:section "Reverb" ;
+    lv2:minimum 0.3 ; lv2:maximum 1.8 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :drift ; val:property val:amount ;
+    lv2:name "Wander" ; lv2:symbol "wander" ; val:section "Reverb" ;
+    lv2:minimum 0.0 ; lv2:maximum 0.4 .
+
+:p5 a val:Param ; val:slot 5 ; val:target :tail ; val:property val:frequency ;
+    lv2:name "Tail tone" ; lv2:symbol "tail_tone" ; val:section "Reverb" ; units:unit units:hz .
+
+:p6 a val:Param ; val:slot 6 ; val:target :blend ; val:property val:mix ;
+    lv2:name "Reverb" ; lv2:symbol "reverb" ; val:section "Output" .
+
+:p7 a val:Param ; val:slot 7 ; val:target :limit ; val:property val:ceiling ;
+    lv2:name "Ceiling" ; lv2:symbol "ceiling" ; val:section "Output" ; units:unit units:db .

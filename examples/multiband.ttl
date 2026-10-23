@@ -1,0 +1,144 @@
+# examples/multiband.ttl
+#
+# A three-band compressor that also lifts what is quiet: the squashed, dense sound of
+# multiband "OTT" processing.
+#
+# Two Linkwitz-Riley crossovers split the input into low, mid and high bands. Each band
+# has its own compressor with the upward stage on, so loud parts of the band come down
+# and quiet parts come up, with the lift limited by val:boost so that silence stays
+# silent. Faster times on the higher bands follow how quickly their content moves. The
+# bands are summed and a lookahead limiter holds the ceiling.
+#
+# The low band also passes through a crossover at the upper split frequency and has its
+# two sides summed again. That changes nothing in level, but it gives the low band the
+# phase shift that the mid and high bands pick up from the second split, so the three
+# bands add back to a flat response when the compressors do nothing. Without it the sum
+# has a small dip near the lower split.
+#
+# Signal path:
+#   Input ─► x1 ─► low  ─► phase ─► phaseSum ─► lowComp ───┐
+#               └─► high ─► x2 ─► low  ─► midComp  ────────┼─► sum ─► limit ─► Output
+#                              └─► high ─► highComp ───────┘
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:multiband#> .
+
+:multiband a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Mastering", "Electronic" ;
+    rdfs:label "Multiband" ;
+    val:element :in , :x1 , :x2 , :phase , :phaseSum , :lowComp , :midComp , :highComp ,
+                :sum , :limit , :out ;
+    val:arc :aInX1 , :aX1Low , :aPhaseLowLo , :aPhaseLowHi , :aPhaseSum ,
+            :aX1High , :aX2Low , :aX2High , :aLowSum , :aMidSum , :aHighSum ,
+            :aSumLimit , :aLimitOut .
+
+# ── Elements ─────────────────────────────────────────────────────────────────
+
+:in    a val:Input .
+:x1    a val:Crossover ; val:frequency 200.0 .
+:x2    a val:Crossover ; val:frequency 3000.0 .
+:phase a val:Crossover ; val:frequency 3000.0 .
+:phaseSum a val:Mixer .
+
+# Threshold -30 dB and 3:1, upward 0.5 and at most 12 dB of lift.
+:lowComp  a val:Compressor ; val:threshold -30.0 ; val:ratio 3.0 ; val:knee 6.0 ;
+                             val:attack 20.0 ; val:release 200.0 ;
+                             val:upward 0.5 ; val:boost 12.0 .
+:midComp  a val:Compressor ; val:threshold -30.0 ; val:ratio 3.0 ; val:knee 6.0 ;
+                             val:attack 8.0 ; val:release 120.0 ;
+                             val:upward 0.5 ; val:boost 12.0 .
+:highComp a val:Compressor ; val:threshold -30.0 ; val:ratio 3.0 ; val:knee 6.0 ;
+                             val:attack 2.0 ; val:release 60.0 ;
+                             val:upward 0.5 ; val:boost 12.0 .
+
+:sum   a val:Mixer .
+:limit a val:Limiter ; val:ceiling -1.0 ; val:release 80.0 .
+:out   a val:Output .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aInX1 a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :x1 ; val:port "in" ] .
+
+:aX1Low a val:Arc ;
+    val:from [ val:node :x1 ; val:port "low" ] ;
+    val:to   [ val:node :phase ; val:port "in" ] .
+
+:aPhaseLowLo a val:Arc ;
+    val:from [ val:node :phase ; val:port "low" ] ;
+    val:to   [ val:node :phaseSum ; val:port "in" ] .
+
+:aPhaseLowHi a val:Arc ;
+    val:from [ val:node :phase ; val:port "high" ] ;
+    val:to   [ val:node :phaseSum ; val:port "in" ] .
+
+:aPhaseSum a val:Arc ;
+    val:from [ val:node :phaseSum ; val:port "out" ] ;
+    val:to   [ val:node :lowComp ; val:port "in" ] .
+
+:aX1High a val:Arc ;
+    val:from [ val:node :x1 ; val:port "high" ] ;
+    val:to   [ val:node :x2 ; val:port "in" ] .
+
+:aX2Low a val:Arc ;
+    val:from [ val:node :x2 ; val:port "low" ] ;
+    val:to   [ val:node :midComp ; val:port "in" ] .
+
+:aX2High a val:Arc ;
+    val:from [ val:node :x2 ; val:port "high" ] ;
+    val:to   [ val:node :highComp ; val:port "in" ] .
+
+:aLowSum a val:Arc ;
+    val:from [ val:node :lowComp ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+
+:aMidSum a val:Arc ;
+    val:from [ val:node :midComp ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+
+:aHighSum a val:Arc ;
+    val:from [ val:node :highComp ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+
+:aSumLimit a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+
+:aLimitOut a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :x1 ; val:property val:frequency ;
+    lv2:name "Low split" ; lv2:symbol "low_split" ; val:section "Bands" ; units:unit units:hz ;
+    lv2:minimum 50.0 ; lv2:maximum 1000.0 .
+
+# One knob drives both the upper split and the low band's compensating crossover.
+:p1 a val:Param ; val:slot 1 ; val:target :x2 , :phase ; val:property val:frequency ;
+    lv2:name "High split" ; lv2:symbol "high_split" ; val:section "Bands" ; units:unit units:hz ;
+    lv2:minimum 1500.0 ; lv2:maximum 10000.0 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :lowComp , :midComp , :highComp ; val:property val:threshold ;
+    lv2:name "Threshold" ; lv2:symbol "threshold" ; val:section "Dynamics" ; units:unit units:db .
+
+:p3 a val:Param ; val:slot 3 ; val:target :lowComp , :midComp , :highComp ; val:property val:ratio ;
+    lv2:name "Ratio" ; lv2:symbol "ratio" ; val:section "Dynamics" ;
+    lv2:minimum 1.0 ; lv2:maximum 10.0 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :lowComp , :midComp , :highComp ; val:property val:upward ;
+    lv2:name "Lift" ; lv2:symbol "upward" ; val:section "Dynamics" .
+
+:p5 a val:Param ; val:slot 5 ; val:target :lowComp , :midComp , :highComp ; val:property val:boost ;
+    lv2:name "Max lift" ; lv2:symbol "boost" ; val:section "Dynamics" ; units:unit units:db .
+
+:p6 a val:Param ; val:slot 6 ; val:target :limit ; val:property val:ceiling ;
+    lv2:name "Ceiling" ; lv2:symbol "ceiling" ; val:section "Output" ; units:unit units:db .

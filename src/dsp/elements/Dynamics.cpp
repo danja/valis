@@ -8,6 +8,8 @@
 
 #include "Common.h"
 
+#include <vector>
+
 namespace valis::elements {
 
 /// Peak or RMS detection with independent attack and release. Emits one value
@@ -106,6 +108,7 @@ protected:
         attackIndex    = controlIndex(type, "attack");
         releaseIndex   = controlIndex(type, "release");
         upwardIndex    = controlIndex(type, "upward");
+        boostIndex     = controlIndex(type, "boost");
     }
 
     void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
@@ -116,6 +119,7 @@ protected:
         const float attack    = timeToCoeff(controlAt(args, attackIndex, 5.0f), sampleRate);
         const float release   = timeToCoeff(controlAt(args, releaseIndex, 100.0f), sampleRate);
         const float upward    = std::clamp(controlAt(args, upwardIndex, 0.0f), 0.0f, 1.0f);
+        const float maxBoost  = std::max(controlAt(args, boostIndex, 18.0f), 0.0f);
 
         const float ratioInv = 1.0f / ratio;
 
@@ -140,9 +144,10 @@ protected:
                 targetDb = threshold + over * ratioInv;
             }
 
-            // Upward: lift what sits below the threshold.
+            // Upward: lift what sits below the threshold, by no more than maxBoost,
+            // or the noise floor of a quiet passage would be lifted a hundred decibels.
             if (upward > 0.0f && levelDb < threshold)
-                targetDb += upward * (threshold - levelDb) * (1.0f - ratioInv);
+                targetDb += std::min(upward * (threshold - levelDb) * (1.0f - ratioInv), maxBoost);
 
             out[i] = in[i] * dbToGain(targetDb - levelDb);
         }
@@ -151,7 +156,7 @@ protected:
 private:
     float envelope = 0.0f;
     int thresholdIndex = -1, ratioIndex = -1, kneeIndex = -1;
-    int attackIndex = -1, releaseIndex = -1, upwardIndex = -1;
+    int attackIndex = -1, releaseIndex = -1, upwardIndex = -1, boostIndex = -1;
 };
 
 /// ADSR contour on a control output, driven by note events.
@@ -265,6 +270,118 @@ private:
     int attackIndex = -1, decayIndex = -1, sustainIndex = -1, releaseIndex = -1, gateIndex = -1;
 };
 
+/// Lookahead brickwall limiter. No sample leaves above the ceiling.
+///
+/// The gain a sample needs is the ceiling over its size. The lowest of those across a
+/// window of L samples, averaged over L samples, reaches that gain before the sample
+/// does and moves to it in a ramp, so a peak is met by a smooth fall in gain rather than
+/// a snap. The audio is delayed by L - 1 samples to line up with the gain, and that is
+/// declared as latency. Recovery after a peak is an exponential release.
+///
+/// The optional link input is a second signal the detector also listens to. Patch each
+/// side of a stereo pair into the other's link and both compute the gain from the louder
+/// of the two, so both are turned down by the same amount and the image does not move.
+class Limiter final : public DspElement
+{
+    static constexpr double kLookaheadMs = 1.5;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate   = rate;
+        ceilingIndex = controlIndex(type, "ceiling");
+        releaseIndex = controlIndex(type, "release");
+
+        window = std::max<std::size_t>(2, static_cast<std::size_t>(std::lround(kLookaheadMs * 0.001 * rate)));
+        delayed.assign(window, 0.0f);
+        average.assign(window, 1.0f);
+        minValue.assign(window + 1, 1.0f);
+        minIndex.assign(window + 1, 0);
+        reset();
+    }
+
+    void reset() override
+    {
+        std::fill(delayed.begin(), delayed.end(), 0.0f);
+        std::fill(average.begin(), average.end(), 1.0f);
+        sum        = static_cast<double>(window);
+        position   = 0;
+        front      = 0;
+        count      = 0;
+        sampleTime = 0;
+        gain       = 1.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float ceiling = dbToGain(std::clamp(controlAt(args, ceilingIndex, -0.3f), -24.0f, 0.0f));
+        const float release = timeToCoeff(controlAt(args, releaseIndex, 60.0f), sampleRate);
+
+        const float* in   = args.audioIn[0];
+        const float* link = args.numAudioIn > 1 ? args.audioIn[1] : nullptr;
+        float*       out  = args.audioOut[0];
+        const std::size_t capacity = minValue.size();
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const float magnitude = link != nullptr ? std::max(std::abs(in[i]), std::abs(link[i]))
+                                                    : std::abs(in[i]);
+            const float needed    = magnitude > ceiling ? ceiling / magnitude : 1.0f;
+
+            // Sliding minimum of the needed gain: a deque kept in ascending order.
+            while (count > 0 && minValue[(front + count - 1) % capacity] >= needed)
+                --count;
+            const std::size_t back = (front + count) % capacity;
+            minValue[back] = needed;
+            minIndex[back] = sampleTime;
+            ++count;
+            while (minIndex[front] + static_cast<std::int64_t>(window) <= sampleTime)
+            {
+                front = (front + 1) % capacity;
+                --count;
+            }
+
+            // Moving average of that minimum. The terms are floats added to a double,
+            // so the sum is exact and does not drift.
+            const float lowest = minValue[front];
+            sum += static_cast<double>(lowest) - static_cast<double>(average[position]);
+            average[position] = lowest;
+            const float target = static_cast<float>(sum / static_cast<double>(window));
+
+            // Down at once, since the average is already a ramp; up by release. The
+            // gain never exceeds the average, so the ceiling holds.
+            gain = target < gain ? target : target + release * (gain - target);
+
+            // The oldest sample in the line is window - 1 samples old: the one the
+            // gain was computed for.
+            const std::size_t oldest = (position + 1) % window;
+            const float held = delayed[oldest];
+            delayed[position] = in[i];
+            position = oldest;
+
+            out[i] = std::clamp(held * gain, -ceiling, ceiling);
+            ++sampleTime;
+        }
+    }
+
+    int latencyInSamples() const override { return static_cast<int>(window) - 1; }
+
+private:
+    double sampleRate = 44100.0;
+    int ceilingIndex = -1, releaseIndex = -1;
+
+    std::size_t window = 2;
+    std::vector<float> delayed, average, minValue;
+    std::vector<std::int64_t> minIndex;
+    double sum = 0.0;
+    std::size_t position = 0, front = 0, count = 0;
+    std::int64_t sampleTime = 0;
+    float gain = 1.0f;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -274,6 +391,7 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 
 void registerDynamics(ElementRegistry& registry)
 {
+    registry.add("Limiter",          &make<elements::Limiter>);
     registry.add("EnvelopeFollower", &make<elements::EnvelopeFollower>);
     registry.add("Expander",         &make<elements::Expander>);
     registry.add("Compressor",       &make<elements::Compressor>);

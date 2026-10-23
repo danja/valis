@@ -19,10 +19,21 @@ set(VALIS_TESTS
   dsp/CelloTest.cpp
   dsp/FMTest.cpp
   dsp/NamModelTest.cpp
+  dsp/ReverbTest.cpp
+  dsp/LimiterTest.cpp
+  dsp/BiquadTest.cpp
+  dsp/CrossoverTest.cpp
+  dsp/ReduxTest.cpp
+  dsp/DriftTest.cpp
+  dsp/PitchShiftTest.cpp
+  dsp/WavetableTest.cpp
+  dsp/StateVariableDriveTest.cpp
+  dsp/CompressorTest.cpp
   engine/ValisEngineTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp
   engine/GristExampleTest.cpp
+  engine/DemoEffectsTest.cpp
   engine/MetalBashTest.cpp
   ops/OpDispatcherTest.cpp
   console/ConsoleTest.cpp)

@@ -130,7 +130,8 @@ Recent additions since milestones closed: new elements including `val:Scale`,
 `val:Delay`, `val:VCA`, `val:MidiPitch`, `val:MidiVelocity`, `val:AsymClip`,
 `val:CombFilter`, `val:StiffString`, `val:ModalBank`, `val:Reed`, `val:TwinTBridge`,
 `val:NoteGate`, `val:Oscilloscope`, `val:FreqAnalyzer`, `val:Chorus`, `val:Flanger`,
-and `val:Phaser`; worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl`,
+`val:Phaser`, `val:Reverb`, `val:Limiter`, `val:Biquad`, `val:Crossover`, `val:Redux`,
+`val:Drift`, `val:PitchShift` and `val:Wavetable`; worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl`,
 `modulation.ttl`, `clarinet.ttl`, `granular.ttl` with matching case-study docs); session state
 persisted to a platform settings file on a 3-second debounce; topological ordering
 includes control arcs so control sources such as `MidiPitch` and `Envelope` are always

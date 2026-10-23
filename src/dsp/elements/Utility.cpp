@@ -649,6 +649,8 @@ void registerFm(ElementRegistry&);
 void registerGranular(ElementRegistry&);
 void registerSpectralElements(ElementRegistry&);
 void registerNam(ElementRegistry&);
+void registerReverb(ElementRegistry&);
+void registerWavetable(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -661,6 +663,8 @@ ElementRegistry makeDefaultRegistry()
     registerGranular(registry);
     registerSpectralElements(registry);
     registerNam(registry);
+    registerReverb(registry);
+    registerWavetable(registry);
     registerUtility(registry);
     return registry;
 }

@@ -22,6 +22,23 @@ Nonlinear.
 | `posVf` | Positive Vf | 0.3 | 0.01 to 2 | V |
 | `negVf` | Negative Vf | 0.6 | 0.01 to 2 | V |
 
+## val:Biquad
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `mode` | Mode | 1 | 0 to 5 |  |
+| `frequency` | Frequency | 1000 | 20 to 20000 | Hz |
+| `gain` | Gain | 0 | -24 to 24 | dB |
+| `q` | Q | 0.7071 | 0.1 to 20 |  |
+
 ## val:Bow
 
 Nonlinear.
@@ -103,6 +120,7 @@ Nonlinear.
 | `attack` | Attack | 5 | 0.01 to 500 | ms |
 | `release` | Release | 100 | 1 to 5000 | ms |
 | `upward` | Upward | 0 | 0 to 1 |  |
+| `boost` | Max boost | 18 | 0 to 60 | dB |
 
 ## val:ControlMultiply
 
@@ -116,6 +134,20 @@ Linear.
 |---|---|---|---|---|
 | `a` | A | 0 | -1e+06 to 1e+06 |  |
 | `b` | B | 0 | -1e+06 to 1e+06 |  |
+
+## val:Crossover
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `low`, `high`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 1000 | 20 to 20000 | Hz |
 
 ## val:Delay
 
@@ -163,6 +195,21 @@ Nonlinear.
 | `saturationCurrent` | Is | 2.52e-09 | 1e-15 to 0.001 |  |
 | `emissionCoefficient` | n | 1.752 | 1 to 2 |  |
 | `seriesResistance` | Rs | 1000 | 1 to 1e+06 | ohm |
+
+## val:Drift
+
+Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `speed` | Speed | 1.5 | 0.01 to 100 |  |
+| `amount` | Amount | 1 | 0 to 1000 |  |
+| `centre` | Centre | 0 | -1e+06 to 1e+06 |  |
+| `seed` | Seed | 1 | 0 to 65535 |  |
 
 ## val:DryWet
 
@@ -236,6 +283,13 @@ FM matrix. Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
+| `m45` | 5 to 4 | 0 | 0 to 1 |  |
+| `m46` | 6 to 4 | 0 | 0 to 1 |  |
+| `m51` | 1 to 5 | 0 | 0 to 1 |  |
+| `m52` | 2 to 5 | 0 | 0 to 1 |  |
+| `m53` | 3 to 5 | 0 | 0 to 1 |  |
+| `m54` | 4 to 5 | 0 | 0 to 1 |  |
+| `m55` | Feedback 5 | 0 | 0 to 7 |  |
 | `m56` | 6 to 5 | 0 | 0 to 1 |  |
 | `m61` | 1 to 6 | 0 | 0 to 1 |  |
 | `m62` | 2 to 6 | 0 | 0 to 1 |  |
@@ -297,13 +351,6 @@ FM matrix. Nonlinear.
 | `m42` | 2 to 4 | 0 | 0 to 1 |  |
 | `m43` | 3 to 4 | 0 | 0 to 1 |  |
 | `m44` | Feedback 4 | 0 | 0 to 7 |  |
-| `m45` | 5 to 4 | 0 | 0 to 1 |  |
-| `m46` | 6 to 4 | 0 | 0 to 1 |  |
-| `m51` | 1 to 5 | 0 | 0 to 1 |  |
-| `m52` | 2 to 5 | 0 | 0 to 1 |  |
-| `m53` | 3 to 5 | 0 | 0 to 1 |  |
-| `m54` | 4 to 5 | 0 | 0 to 1 |  |
-| `m55` | Feedback 5 | 0 | 0 to 7 |  |
 
 ## val:FMOperator
 
@@ -480,6 +527,21 @@ Nonlinear.
 | `cutoff` | Cutoff | 1000 | 20 to 20000 | Hz |
 | `resonance` | Resonance | 0 | 0 to 1 |  |
 | `drive` | Drive | 1 | 1 to 20 |  |
+
+## val:Limiter
+
+Nonlinear.
+
+**Audio in**: `in`, `link`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `ceiling` | Ceiling | -0.3 | -24 to 0 | dB |
+| `release` | Release | 60 | 1 to 1000 | ms |
 
 ## val:MidiInterval
 
@@ -658,6 +720,21 @@ Nonlinear.
 | `feedback` | Feedback | 0.5 | 0 to 0.9 |  |
 | `mix` | Mix | 0.5 | 0 to 1 |  |
 
+## val:PitchShift
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `pitch` | Pitch | 0 | -24 to 24 |  |
+| `mix` | Mix | 1 | 0 to 1 |  |
+
 ## val:Quantise
 
 Nonlinear.
@@ -694,6 +771,22 @@ Rate and level envelope. Nonlinear.
 | `velsens` | Velocity sensitivity | 0 | 0 to 7 |  |
 | `gate` | Gate | -1 | -1 to 1 |  |
 
+## val:Redux
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `bits` | Bits | 8 | 1 to 24 |  |
+| `downsample` | Downsample | 4 | 1 to 64 |  |
+| `jitter` | Jitter | 0 | 0 to 1 |  |
+
 ## val:Reed
 
 Nonlinear.
@@ -709,6 +802,23 @@ Nonlinear.
 | `stiffness` | Stiffness | 0.5 | 0 to 1 |  |
 | `breath` | Breath | 0.02 | 0 to 1 |  |
 | `damping` | Damping | 0.2 | 0 to 1 |  |
+
+## val:Reverb
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`, `right`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `size` | Size | 1 | 0.1 to 2 |  |
+| `decay` | Decay | 2 | 0.1 to 20 | s |
+| `damping` | Damping | 0.3 | 0 to 1 |  |
+| `mix` | Mix | 0.3 | 0 to 1 |  |
 
 ## val:SampleLoad
 
@@ -823,6 +933,7 @@ Linear.
 |---|---|---|---|---|
 | `cutoff` | Cutoff | 1000 | 20 to 20000 | Hz |
 | `resonance` | Resonance | 0.7071 | 0.05 to 20 |  |
+| `drive` | Drive | 1 | 1 to 20 |  |
 
 ## val:StiffString
 
@@ -918,4 +1029,18 @@ Linear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `cv` | CV | 1 | 0 to 1 |  |
+
+## val:Wavetable
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `position` | Position | 0 | 0 to 1 |  |
+| `set` | Set | 0 | 0 to 2 |  |
+| `frequency` | Frequency | 220 | 0.01 to 20000 | Hz |
 

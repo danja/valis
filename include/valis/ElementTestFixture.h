@@ -81,7 +81,10 @@ public:
         transport.ppqPosition = ppqPosition;
     }
 
-    std::vector<float> run(const std::vector<float>& input, std::string_view outPort = "out")
+    /// `secondInput`, if given, drives the element's second audio input: a
+    /// sidechain or a link. Every other input reads silence.
+    std::vector<float> run(const std::vector<float>& input, std::string_view outPort = "out",
+                           const std::vector<float>* secondInput = nullptr)
     {
         const int n = static_cast<int>(input.size());
 
@@ -91,6 +94,8 @@ public:
                                              std::vector<float>(static_cast<std::size_t>(n), 0.0f));
         if (numAudioIn > 0)
             ins[0] = input;
+        if (secondInput != nullptr && numAudioIn > 1)
+            ins[1] = *secondInput;
 
         std::vector<const float*> inPtrs;
         std::vector<float*> outPtrs;

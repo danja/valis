@@ -76,3 +76,24 @@ that exposes it. `freeze` is now a plain `lv2:toggled` switch, and an unconnecte
 input is detected from `ProcessArgs::silence`. `PanelSlider` scrolls by default and
 adjusts only with Ctrl or Command held. Both rules in `CLAUDE.md` under the
 Controls view.
+
+## Oxide survey elements: four slips caught by the first test run
+
+All four were found by the new tests, or by the compiler, before anything else used the elements.
+
+- **Redux hold length:** the counter was decremented before it was tested, so a
+  hold of 4 lasted 3 samples. Test the counter first, then count down, and assert the
+  hold length against a strictly rising input (`tests/dsp/ReduxTest.cpp`).
+- **Reverb decay 3 to 4 dB short:** line lengths were fractional at size 1, and linear
+  interpolation of a fractional delay is a lowpass, so high-frequency modes decayed
+  faster than the time asked for. Base lengths are whole samples now. A delay that is
+  read between samples in a feedback loop is also a filter; measure the decay with the
+  damping off before blaming anything else.
+- **Wavetable loudness:** each frame was scaled once, to peak at 1 at full bandwidth.
+  A pulse-like frame then peaked at 0.12 at an ordinary pitch, where most harmonics are
+  dropped. Every table is scaled on its own now. When a normalisation depends on a
+  property of the data that the playback path changes, normalise after the change.
+- **A summed input needs a `val:Mixer`:** the split-reverb example had the same arc
+  written twice and the multiband example fed two arcs into one compressor. The
+  compiler caught both with located errors; nothing to prevent beyond rendering each
+  new example with `valis-render` before writing a test around it.
