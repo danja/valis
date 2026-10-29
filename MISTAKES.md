@@ -179,3 +179,16 @@ The ops were meant to be the single implementation the views sit on, but the vie
 **Prevention:** `testABindingsOwnRangeIsTheRangeTheOpsReport` holds the ops to the binding's range. Where a
 view and an op both need a value, the view should ask the op; the next step is to make the Controls view and
 the processor read their ranges from `listParams`.
+
+## `valis-render --midi` tripped a JUCE assertion on a relative path
+
+**What happened.** The first build of the `--midi` option constructed `juce::File` from the path
+as given. A relative path such as `chord.mid` fires `JUCE Assertion failure in juce_File.cpp:219`
+and the file is looked up against nothing in particular. The render still worked, which hid it.
+
+**Root cause.** `-o` already resolves against the working directory, but the new input option was
+written without looking at how the neighbouring one handled its path.
+
+**Prevention.** Any user-supplied path in a tool goes through
+`juce::File::getCurrentWorkingDirectory().getChildFile(...)`. Run the tool once with a relative
+path and watch stderr for JUCE assertions, not only for the exit code.

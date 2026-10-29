@@ -99,7 +99,7 @@ notes each drum voice answers are listed in its header.
 - `halloween-drums-low.ttl`: kick (bridged-T body with a long sub), two low toms into a dark hall, and a noise slam, through tape and a limiter.
 - `halloween-drums-high.ttl`: closed hat, an open hat through a feedback `val:FreqShifter`, a swelling shaker and wood block into a bucket-brigade echo, and a clap into a hall.
 - `halloween-bass.ttl`: three layers on one voice: a sine sub, detuned saws through a ladder filter whose cutoff wobbles in time with the host, and a clipped wavetable growl.
-- `halloween-organ.ttl`: six sine drawbars at the Hammond footages with key click, overdrive, a chorus for the scanner vibrato and a large room.
+- `halloween-organ.ttl`: eight voices of six sine drawbars at the Hammond footages with key click, then overdrive, a chorus for the scanner vibrato and a large room.
 - `halloween-guitar.ttl`: a plucked `val:StiffString` through a pickup, amp clip, spring-style reverb and a dotted-eighth echo. The string runs flat as it rises, so it is corrected for the middle of the range.
 - `halloween-theremin.ttl`: sine with a scoop into each note, wide vibrato and a random drift, then a slow phaser, echo and a long hall.
 - `halloween-ornaments1.ttl`: two drifting vowel-wavetable choirs and a modal glass bell, through a chorus, a spectral delay and a long hall.

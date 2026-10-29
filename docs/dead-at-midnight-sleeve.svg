@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- docs/dead-at-midnight-sleeve.svg
+     Record sleeve for "Dead at Midnight", drawn in the manner of a medieval woodcut:
+     black ink on parchment, bold outlines and hatching in place of tone, a rough edge
+     on every line. The scene sits in a pointed gothic window and is deliberately
+     lopsided: a cathedral crowds the left, a dead tree and a crescent moon the right,
+     and the figure stands off the centre line. Square, 1000 by 1000. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <title>Dead at Midnight</title>
+  <defs>
+    <!-- The wobble a gouge leaves on the edge of a line. -->
+    <filter id="cut" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- Paper grain and ink starvation. -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="3" result="t"/>
+      <feColorMatrix in="t" type="matrix"
+        values="0 0 0 0 0.35  0 0 0 0 0.26  0 0 0 0 0.14  0 0 0 -1.1 0.62"/>
+    </filter>
+    <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <line x1="0" y1="0" x2="0" y2="9" stroke="#14100c" stroke-width="3.4"/>
+    </pattern>
+    <pattern id="hatchFine" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-50)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#14100c" stroke-width="2.2"/>
+    </pattern>
+    <pattern id="hatchSky" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(-18)">
+      <line x1="0" y1="0" x2="0" y2="11" stroke="#14100c" stroke-width="3.2"/>
+    </pattern>
+    <!-- The night sky is hatched heavily at the top of the window and clears toward the horizon. -->
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/><stop offset="0.55" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#000"/>
+    </linearGradient>
+    <mask id="skyMask"><rect x="90" y="40" width="820" height="480" fill="url(#fade)"/></mask>
+    <!-- The pointed arch of the window. -->
+    <path id="arch" d="M90 790 L90 380 C90 230 290 120 500 44 C710 120 910 230 910 380 L910 790 Z"/>
+    <clipPath id="inArch"><use xlink:href="#arch"/></clipPath>
+    <!-- A lancet window. -->
+    <path id="lancet" d="M-10 28 L-10 -4 Q-10 -22 0 -36 Q10 -22 10 -4 L10 28 Z"/>
+    <!-- A four-lobed opening. -->
+    <path id="quatrefoil" d="M0 -22 C14 -34 34 -14 22 0 C34 14 14 34 0 22 C-14 34 -34 14 -22 0 C-34 -14 -14 -34 0 -22 Z"/>
+    <path id="star" d="M0 -17 L3 -3 L17 0 L3 3 L0 17 L-3 3 L-17 0 L-3 -3 Z"/>
+    <path id="bat" d="M0 0 C-8 -14 -30 -22 -62 -16 C-52 -8 -50 0 -46 8 C-38 -2 -30 -2 -22 6
+                      C-18 -2 -10 -2 -6 8 L-3 16 L0 8 L3 16 L6 8 C10 -2 18 -2 22 6
+                      C30 -2 38 -2 46 8 C50 0 52 -8 62 -16 C30 -22 8 -14 0 0 Z"/>
+    <!-- A raven, perched and facing left. -->
+    <path id="raven" d="M0 0 C6 -10 22 -12 34 -6 L58 4 L40 8 C46 16 40 24 30 22 L26 34 L22 22 C10 22 2 12 0 0 Z M0 0 L-16 -2 L-4 -8 C-10 -16 -2 -24 8 -20 C14 -18 14 -8 6 -4 Z"/>
+  </defs>
+
+  <!-- Parchment and grain -->
+  <rect width="1000" height="1000" fill="#e6d8b4"/>
+  <rect width="1000" height="1000" filter="url(#grain)" opacity="0.55"/>
+
+  <g filter="url(#cut)" stroke="#14100c" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- Frame -->
+    <rect x="22" y="22" width="956" height="956" fill="none" stroke-width="14"/>
+    <rect x="44" y="44" width="912" height="912" fill="#14100c" stroke-width="3"/>
+
+    <!-- Spandrels: the black beside the arch, cut with tracery -->
+    <g fill="#e6d8b4" stroke="none">
+      <use xlink:href="#quatrefoil" transform="translate(150 122) scale(1.6)"/>
+      <use xlink:href="#bat" transform="translate(850 150) scale(1.5) rotate(8)"/>
+      <circle cx="102" cy="224" r="9"/><circle cx="898" cy="256" r="7"/>
+    </g>
+    <g fill="none" stroke="#e6d8b4" stroke-width="2.5">
+      <use xlink:href="#quatrefoil" transform="translate(150 122) scale(2.1)"/>
+    </g>
+
+    <!-- The window itself -->
+    <use xlink:href="#arch" fill="none" stroke="#e6d8b4" stroke-width="26"/>
+    <use xlink:href="#arch" fill="#e6d8b4" stroke-width="9"/>
+
+    <g clip-path="url(#inArch)">
+      <!-- Night sky hatching, thick above and thinning to the horizon -->
+      <rect x="90" y="40" width="820" height="480" fill="url(#hatchSky)" stroke="none" mask="url(#skyMask)" opacity="0.85"/>
+
+      <!-- Crescent moon, high right -->
+      <g>
+        <circle cx="646" cy="262" r="130" fill="none" stroke-width="3" stroke-dasharray="3 14"/>
+        <path d="M660 150 A112 112 0 1 0 660 374 A46 112 0 1 1 660 150 Z" fill="#e6d8b4" stroke-width="7"/>
+        <path d="M580 210 C562 244 562 286 584 322" fill="none" stroke-width="3"/>
+        <path d="M596 196 C574 236 574 292 598 336" fill="none" stroke-width="2"/>
+      </g>
+
+      <!-- Stars, uneven -->
+      <g fill="#14100c" stroke="none">
+        <use xlink:href="#star" transform="translate(420 200) scale(0.8)"/>
+        <use xlink:href="#star" transform="translate(500 330) scale(0.5)"/>
+        <use xlink:href="#star" transform="translate(860 330) scale(0.7)"/>
+        <use xlink:href="#star" transform="translate(470 150) scale(0.45)"/>
+        <use xlink:href="#star" transform="translate(560 120) scale(0.6)"/>
+        <use xlink:href="#star" transform="translate(850 190) scale(0.45)"/>
+      </g>
+
+      <!-- Distant hills -->
+      <path d="M90 600 Q240 540 400 590 Q520 620 640 570 Q780 520 910 580 L910 800 L90 800 Z" fill="#e6d8b4" stroke-width="5"/>
+      <path d="M90 612 Q240 552 400 602 Q520 632 640 582 Q780 532 910 592 L910 660 L90 660 Z" fill="url(#hatchFine)" stroke="none" opacity="0.7"/>
+
+      <!-- The cathedral, crowding the left of the window -->
+      <g>
+        <!-- flying buttresses and piers -->
+        <g fill="none" stroke-width="13">
+          <path d="M330 560 Q384 500 408 560"/>
+          <path d="M330 640 Q398 576 440 640"/>
+        </g>
+        <g fill="#14100c" stroke-width="4">
+          <path d="M398 700 L398 540 L408 512 L418 540 L418 700Z"/>
+          <path d="M432 700 L432 600 L442 574 L452 600 L452 700Z"/>
+          <path d="M470 700 L470 650 L478 632 L486 650 L486 700Z"/>
+        </g>
+        <!-- nave and transept -->
+        <path d="M90 700 L90 470 L180 470 L180 420 L340 420 L340 700 Z" fill="#14100c" stroke-width="5"/>
+        <!-- the great west tower and its spire -->
+        <path d="M150 420 L150 270 L168 270 L168 214 L204 40 L240 214 L258 270 L276 270 L276 420 Z" fill="#14100c" stroke-width="5"/>
+        <!-- the lesser tower -->
+        <path d="M290 420 L290 330 L336 330 L336 420 Z" fill="#14100c" stroke-width="4"/>
+        <path d="M284 330 L313 232 L342 330 Z" fill="#14100c" stroke-width="4"/>
+        <!-- crockets along the spire -->
+        <g fill="none" stroke="#e6d8b4" stroke-width="3">
+          <path d="M196 90 L186 98 M212 90 L222 98 M190 130 L178 138 M218 130 L230 138 M184 170 L170 178 M224 170 L238 178"/>
+        </g>
+        <!-- rose window, lit -->
+        <circle cx="213" cy="352" r="38" fill="#e6d8b4" stroke-width="5"/>
+        <g stroke-width="3.5" fill="none">
+          <path d="M213 314 L213 390 M175 352 L251 352 M186 325 L240 379 M240 325 L186 379"/>
+          <circle cx="213" cy="352" r="12"/><circle cx="213" cy="352" r="26"/>
+        </g>
+        <g fill="#e6d8b4" stroke="none">
+          <use xlink:href="#lancet" transform="translate(213 262) scale(0.9 1.3)"/>
+          <use xlink:href="#lancet" transform="translate(313 292) scale(0.5 0.8)"/>
+          <use xlink:href="#lancet" transform="translate(130 470) scale(1.1 1.9)"/>
+          <use xlink:href="#lancet" transform="translate(296 480) scale(1.1 1.9)"/>
+          <use xlink:href="#lancet" transform="translate(256 590) scale(1.0 1.7)"/>
+          <use xlink:href="#lancet" transform="translate(150 600) scale(1.0 1.7)"/>
+        </g>
+        <!-- a door, dark under a pointed head -->
+        <path d="M190 700 L190 640 Q190 618 213 600 Q236 618 236 640 L236 700 Z" fill="#e6d8b4" stroke-width="4"/>
+        <path d="M200 700 L200 644 Q200 630 213 618 Q226 630 226 644 L226 700 Z" fill="#14100c" stroke="none"/>
+      </g>
+
+      <!-- Foreground ground, rising to the right -->
+      <path d="M90 744 Q290 708 480 730 Q690 748 910 700 L910 800 L90 800 Z" fill="#e6d8b4" stroke-width="6"/>
+      <path d="M90 752 Q290 716 480 738 Q690 756 910 710 L910 760 L90 760 Z" fill="url(#hatch)" stroke="none" opacity="0.75"/>
+
+      <!-- Gravestones leaning at their own angles -->
+      <g fill="#e6d8b4" stroke-width="5">
+        <path d="M110 760 L114 700 Q116 678 138 680 Q160 682 158 704 L156 764 Z" transform="rotate(-6 134 760)"/>
+        <path d="M246 770 L248 726 Q250 708 268 710 Q286 712 284 730 L282 772 Z" transform="rotate(5 266 770)"/>
+        <path d="M770 770 L772 704 Q774 676 802 678 Q830 680 828 708 L826 774 Z" transform="rotate(-4 800 770)"/>
+        <path d="M672 774 L674 740 Q676 726 690 728 Q704 730 702 744 L700 776 Z" transform="rotate(9 688 774)"/>
+      </g>
+      <g fill="none" stroke-width="4.5">
+        <path d="M134 704 L136 744 M120 718 L150 720" transform="rotate(-6 134 760)"/>
+        <path d="M798 702 L800 748 M782 718 L816 720" transform="rotate(-4 800 770)"/>
+        <path d="M266 730 L268 758 M256 740 L278 742" transform="rotate(5 266 770)"/>
+      </g>
+
+      <!-- The Count, off to the right of centre, one arm raised to the moon -->
+      <g transform="translate(560 756)">
+        <!-- the cloak streaming left, hem in points -->
+        <path d="M-24 -176 C-70 -150 -130 -96 -178 -4 L-150 -20 L-138 4 L-112 -14 L-96 6 L-72 -8 L-54 8 L-34 -2 L-20 8 L24 8
+                 C30 -60 26 -120 28 -176 Z" fill="#14100c" stroke-width="5"/>
+        <path d="M-60 -120 C-86 -90 -110 -52 -130 -16 M-44 -110 C-62 -80 -80 -44 -96 -10 M-28 -100 C-40 -70 -50 -40 -58 -6"
+              fill="none" stroke="#e6d8b4" stroke-width="3"/>
+        <!-- raised sleeve, a wing of black -->
+        <path d="M22 -158 L96 -250 L132 -300 L134 -272 L152 -274 L142 -250 L160 -240 L138 -226 L52 -112 Z" fill="#14100c" stroke-width="4"/>
+        <path d="M70 -214 L120 -262 M64 -190 L128 -246" stroke="#e6d8b4" stroke-width="3" fill="none"/>
+        <!-- the hand, long fingers toward the moon -->
+        <path d="M134 -300 L146 -332 M134 -300 L158 -322 M134 -302 L166 -308 M132 -298 L160 -296" stroke-width="4" fill="none"/>
+        <!-- high collar and shirt -->
+        <path d="M-24 -176 L-34 -216 L-8 -196 L2 -214 L12 -196 L38 -216 L28 -176 Z" fill="#14100c" stroke-width="4"/>
+        <path d="M-6 -176 L2 -120 L10 -176 Z" fill="#e6d8b4" stroke-width="2.5"/>
+        <!-- head, turned to the moon -->
+        <path d="M-18 -218 Q-20 -254 4 -258 Q28 -258 28 -226 L26 -204 Q4 -184 -14 -204 Z" fill="#e6d8b4" stroke-width="5"/>
+        <path d="M-20 -224 Q-22 -262 6 -266 Q34 -264 30 -226 Q22 -240 12 -240 L4 -230 L-4 -240 Q-14 -240 -20 -224 Z" fill="#14100c" stroke-width="3"/>
+        <path d="M-12 -222 L2 -216 M22 -222 L8 -216" stroke-width="3.5" fill="none"/>
+        <ellipse cx="-2" cy="-210" rx="5" ry="3.5" fill="#14100c" stroke-width="1.5"/>
+        <ellipse cx="14" cy="-210" rx="5" ry="3.5" fill="#14100c" stroke-width="1.5"/>
+        <path d="M2 -204 L-2 -194 L8 -194 M-6 -186 Q6 -180 16 -188" fill="none" stroke-width="2.8"/>
+        <path d="M-2 -187 L0 -179 L3 -187 M8 -187 L10 -179 L13 -188" fill="#e6d8b4" stroke-width="2"/>
+      </g>
+
+      <!-- The dead tree, crossing the moon -->
+      <g fill="none" stroke-width="3">
+        <path d="M900 800 C880 740 862 700 872 640 C880 590 850 560 826 520 C806 486 770 460 730 410
+                 C710 382 690 370 660 358" stroke-width="22"/>
+        <path d="M872 640 C900 600 916 560 910 520" stroke-width="14"/>
+        <path d="M826 520 C860 490 880 470 890 430" stroke-width="12"/>
+        <path d="M770 456 C760 410 770 380 800 350 C816 332 820 316 818 290" stroke-width="12"/>
+        <path d="M730 410 C710 420 690 410 674 428 M660 358 C640 352 628 336 624 318 M660 358 C648 372 632 376 618 370"
+              stroke-width="7"/>
+        <path d="M800 350 C830 344 850 330 862 304 M818 290 C806 270 808 250 822 236 M818 290 C834 276 850 272 868 276"
+              stroke-width="6"/>
+        <path d="M890 430 C906 410 926 402 940 388 M910 520 C926 504 940 500 954 490" stroke-width="6"/>
+        <path d="M624 318 C614 308 612 294 618 282 M674 428 C672 442 662 450 650 454" stroke-width="4"/>
+      </g>
+      <!-- ravens on the bough -->
+      <g fill="#14100c" stroke-width="2">
+        <use xlink:href="#raven" transform="translate(768 458) scale(0.9)"/>
+        <use xlink:href="#raven" transform="translate(846 520) scale(0.7)"/>
+        <use xlink:href="#raven" transform="translate(826 290) scale(0.6)"/>
+      </g>
+
+      <!-- Bats, a cloud of them leaving the spire -->
+      <g fill="#14100c" stroke-width="2">
+        <use xlink:href="#bat" transform="translate(296 150) scale(0.75) rotate(-18)"/>
+        <use xlink:href="#bat" transform="translate(372 100) scale(0.5) rotate(-8)"/>
+        <use xlink:href="#bat" transform="translate(344 232) scale(0.42) rotate(6)"/>
+        <use xlink:href="#bat" transform="translate(448 262) scale(0.55) rotate(-22)"/>
+        <use xlink:href="#bat" transform="translate(150 150) scale(0.36) rotate(10)"/>
+        <use xlink:href="#bat" transform="translate(520 200) scale(0.34) rotate(-14)"/>
+      </g>
+
+      <!-- Skeletal hands in the earth -->
+      <g fill="#e6d8b4" stroke-width="4">
+        <path d="M440 770 L438 740 M452 770 L454 730 M464 770 L470 736 M476 770 L482 748 M430 774 L420 754"/>
+        <path d="M600 782 L598 756 M610 782 L614 748 M620 782 L626 754 M590 784 L582 766"/>
+      </g>
+      <g fill="#14100c" stroke="none">
+        <ellipse cx="456" cy="774" rx="36" ry="9"/><ellipse cx="608" cy="786" rx="28" ry="8"/>
+      </g>
+    </g>
+
+    <!-- Title block under the window, set to the left -->
+    <rect x="70" y="812" width="860" height="132" fill="#e6d8b4" stroke-width="6"/>
+    <rect x="80" y="822" width="840" height="112" fill="none" stroke-width="2.5"/>
+    <text x="104" y="890" font-family="'IM Fell English SC','Cinzel','Trajan Pro','Palatino Linotype',Georgia,serif"
+          font-size="64" font-weight="700" letter-spacing="4" fill="#14100c" stroke="none">DEAD AT MIDNIGHT</text>
+    <text x="106" y="926" font-family="'IM Fell English SC','Cinzel','Trajan Pro','Palatino Linotype',Georgia,serif"
+          font-size="22" font-weight="700" letter-spacing="5" fill="#14100c" stroke="none">A DUB OF THE UNDEAD</text>
+    <text x="900" y="926" text-anchor="end" font-family="'IM Fell English SC','Cinzel','Trajan Pro','Palatino Linotype',Georgia,serif"
+          font-size="22" font-weight="700" letter-spacing="5" fill="#14100c" stroke="none">MADE WITH VALIS</text>
+  </g>
+</svg>

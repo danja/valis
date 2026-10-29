@@ -291,6 +291,38 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
 * **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.
+* **Running a circuit inside Reaper.** Each Valis plugin instance would start its own MCP server on
+  the same port, and a circuit chosen over MCP lives only in that instance. So eight instances in one
+  session cannot each be given a circuit by an agent. For the track the circuits were rendered with
+  `valis-render --midi` and the stems imported. Give the MCP port a per-instance choice (or let a
+  second instance take the next free port and say so), and a way to set a circuit from a path in the
+  plugin state so a project can be written without opening the GUI.
+* **`valis-render --midi` is new** (a standard MIDI file played at `--tempo`; add `--rolling` for a tempo-synced
+  circuit). It reads only note events and a fixed tempo; tempo changes and controllers are ignored. The `render` MCP tool
+  still takes one note, so give it the same `midi`, `tempo` and `rolling` parameters.
+* **`reaper-mcp` bugs** are listed in `/chalet/github/reaper-mcp/TODO.md`. The project at
+  `~/Music/dead-at-midnight/` is affected by two of them: the master has two ReaLimit plug-ins, and
+  no mix was rendered by Reaper.
+* **Test `valis-render --midi`.** Nothing covers it. Add a console test that renders a MIDI file whose
+  notes fall at offsets that are not multiples of the block size, and asserts every note sounds (the
+  MISTAKES.md rule on events and block boundaries). Also: a file with a note-on and no note-off, tempo
+  meta events (ignored today), and a path that does not exist.
+* **List `--midi` in the manual.** `docs/manual` has no page for `valis-render` options; `usage()` is
+  the only description. Add one, with `--tempo --rolling --midi` as the way to render a part.
+* **Make `halloween-ornaments1.ttl` polyphonic** like the organ (a `val:Subcircuit` with `val:voices`),
+  so the choir can hold a chord. It plays one note at a time now, and the song uses single notes.
+* **Make the Halloween guitar and bass polyphonic or document that they are not.** The guitar riff is
+  single notes by design; say so in the header of each file.
+* **Listen to the song** (`~/Music/dead-at-midnight/dead-at-midnight-reference-mix.wav`) and write down what
+  is wrong: balance, the wobble rate against the drums, the guitar's pitch near the top of its range, the
+  theremin scoop. Everything so far is measured, not heard. Changes belong in `score/song.py` and the
+  circuits.
+* **Put the song into the plug-in once a circuit can be chosen per instance** (see the Reaper item
+  above): replace the audio stems with eight Valis tracks driven by the MIDI files in `midi/`, so the
+  project edits the instruments rather than recordings of them.
+* **Keep the song's generator scripts in the repository?** `score/song.py` and the circuit generators
+  (`gen.py`, the eight `*.py` files) are in the session scratchpad and `~/Music/dead-at-midnight/score/`
+  only. Decide whether a terse circuit writer belongs in `scripts/` (see "Authoring cost").
 
 ## Recurring - check periodically
 
