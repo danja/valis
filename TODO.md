@@ -302,7 +302,7 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   still takes one note, so give it the same `midi`, `tempo` and `rolling` parameters.
 * **`reaper-mcp` bugs** are listed in `/chalet/github/reaper-mcp/TODO.md`. The project at
   `~/Music/dead-at-midnight/` is affected by two of them: the master has two ReaLimit plug-ins, and
-  no mix was rendered by Reaper.
+  no mix could be rendered through `reaper-mcp` (a manual render from Reaper worked).
 * **Test `valis-render --midi`.** Nothing covers it. Add a console test that renders a MIDI file whose
   notes fall at offsets that are not multiples of the block size, and asserts every note sounds (the
   MISTAKES.md rule on events and block boundaries). Also: a file with a note-on and no note-off, tempo
