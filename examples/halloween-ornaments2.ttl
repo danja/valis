@@ -1,0 +1,274 @@
+# examples/halloween-ornaments2.ttl
+#
+# A disturbing ornament for the track's breakdowns: each note dives from four times its pitch
+# down to the note, with a fast warble, then is wavefolded, bit-crushed with jitter and run
+# through a frequency shifter with high feedback, so the harmonics smear into something that
+# is not quite a pitch. A feedback echo set to a plain 233 ms gives it a stuttering tail.
+#
+# The dive and the warble are ratios applied to the keyboard pitch by ControlMultiply stages.
+# Keep the notes short and let the echo carry them.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweenornaments2#> .
+
+:halloweenornaments2 a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Horror", "Sci-fi", "Effects" ;
+    rdfs:label "Halloween: falling saucer" ;
+    val:element :pitch , :dive , :diveScale , :diveMul , :wob , :wobScale , :wobMul , :osc , :sub , :subRatio , :mix , :fold , :crush , :shift , :amp , :vca , :echo , :wet , :tone , :dc , :hall , :trim , :limit , :out ;
+    val:arc :a_dive_out__diveScale_in ,
+        :a_pitch_out__diveMul_a ,
+        :a_diveScale_out__diveMul_b ,
+        :a_wob_out__wobScale_in ,
+        :a_diveMul_out__wobMul_a ,
+        :a_wobScale_out__wobMul_b ,
+        :a_wobMul_out__osc_frequency ,
+        :a_wobMul_out__subRatio_a ,
+        :a_subRatio_out__sub_frequency ,
+        :a_osc_out__mix_in ,
+        :a_sub_out__mix_in ,
+        :a_mix_out__fold_in ,
+        :a_fold_out__crush_in ,
+        :a_crush_out__shift_in ,
+        :a_shift_out__vca_in ,
+        :a_amp_out__vca_cv ,
+        :a_vca_out__echo_in ,
+        :a_vca_out__wet_in ,
+        :a_echo_out__wet_in ,
+        :a_wet_out__tone_in ,
+        :a_tone_out__dc_in ,
+        :a_dc_out__hall_in ,
+        :a_hall_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:dive a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 900.0 ;
+    val:sustain 0.0 ;
+    val:release 300.0 .
+
+:diveScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 4.0 .
+
+:diveMul a val:ControlMultiply .
+
+:wob a val:LFO ;
+    val:shape 0 ;
+    val:rate 7.5 .
+
+:wobScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.04 .
+
+:wobMul a val:ControlMultiply .
+
+:osc a val:Oscillator ;
+    val:shape 1 .
+
+:sub a val:Oscillator ;
+    val:shape 2 .
+
+:subRatio a val:ControlMultiply ;
+    val:b 0.5 .
+
+:mix a val:Mixer .
+
+:fold a val:Fold ;
+    val:gain 4.5 .
+
+:crush a val:Redux ;
+    val:bits 6.0 ;
+    val:downsample 5.0 ;
+    val:jitter 0.35 .
+
+:shift a val:FreqShifter ;
+    val:shift -61.0 ;
+    val:feedback 0.72 ;
+    val:mix 0.6 .
+
+:amp a val:Envelope ;
+    val:attack 3.0 ;
+    val:decay 1800.0 ;
+    val:sustain 0.0 ;
+    val:release 900.0 .
+
+:vca a val:VCA .
+
+:echo a val:Delay ;
+    val:time 233.0 ;
+    val:feedback 0.68 .
+
+:wet a val:Mixer .
+
+:tone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 6500.0 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:hall a val:Reverb ;
+    val:size 1.6 ;
+    val:decay 6.0 ;
+    val:damping 0.25 ;
+    val:mix 0.4 .
+
+:trim a val:Gain ;
+    val:gain -8.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_dive_out__diveScale_in a val:Arc ;
+    val:from [ val:node :dive ; val:port "out" ] ;
+    val:to   [ val:node :diveScale ; val:port "in" ] .
+:a_pitch_out__diveMul_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :diveMul ; val:port "a" ] .
+:a_diveScale_out__diveMul_b a val:Arc ;
+    val:from [ val:node :diveScale ; val:port "out" ] ;
+    val:to   [ val:node :diveMul ; val:port "b" ] .
+:a_wob_out__wobScale_in a val:Arc ;
+    val:from [ val:node :wob ; val:port "out" ] ;
+    val:to   [ val:node :wobScale ; val:port "in" ] .
+:a_diveMul_out__wobMul_a a val:Arc ;
+    val:from [ val:node :diveMul ; val:port "out" ] ;
+    val:to   [ val:node :wobMul ; val:port "a" ] .
+:a_wobScale_out__wobMul_b a val:Arc ;
+    val:from [ val:node :wobScale ; val:port "out" ] ;
+    val:to   [ val:node :wobMul ; val:port "b" ] .
+:a_wobMul_out__osc_frequency a val:Arc ;
+    val:from [ val:node :wobMul ; val:port "out" ] ;
+    val:to   [ val:node :osc ; val:port "frequency" ] .
+:a_wobMul_out__subRatio_a a val:Arc ;
+    val:from [ val:node :wobMul ; val:port "out" ] ;
+    val:to   [ val:node :subRatio ; val:port "a" ] .
+:a_subRatio_out__sub_frequency a val:Arc ;
+    val:from [ val:node :subRatio ; val:port "out" ] ;
+    val:to   [ val:node :sub ; val:port "frequency" ] .
+:a_osc_out__mix_in a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_sub_out__mix_in a val:Arc ;
+    val:from [ val:node :sub ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__fold_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :fold ; val:port "in" ] .
+:a_fold_out__crush_in a val:Arc ;
+    val:from [ val:node :fold ; val:port "out" ] ;
+    val:to   [ val:node :crush ; val:port "in" ] .
+:a_crush_out__shift_in a val:Arc ;
+    val:from [ val:node :crush ; val:port "out" ] ;
+    val:to   [ val:node :shift ; val:port "in" ] .
+:a_shift_out__vca_in a val:Arc ;
+    val:from [ val:node :shift ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_amp_out__vca_cv a val:Arc ;
+    val:from [ val:node :amp ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__echo_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_vca_out__wet_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_echo_out__wet_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_wet_out__tone_in a val:Arc ;
+    val:from [ val:node :wet ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "in" ] .
+:a_tone_out__dc_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__hall_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__trim_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :diveScale ; val:property val:max ;
+    lv2:name "Dive" ; lv2:symbol "dive" ;
+    lv2:minimum 1.0 ; lv2:maximum 8.0 ;
+    val:section "Saucer" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :dive ; val:property val:decay ;
+    lv2:name "Dive time" ; lv2:symbol "dive_time" ;
+    lv2:minimum 50 ; lv2:maximum 3000 ;
+    val:section "Saucer" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :wob ; val:property val:rate ;
+    lv2:name "Warble rate" ; lv2:symbol "warble_rate" ;
+    lv2:minimum 0.5 ; lv2:maximum 20 ;
+    val:section "Saucer" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :wobScale ; val:property val:max ;
+    lv2:name "Warble depth" ; lv2:symbol "warble_depth" ;
+    lv2:minimum 1.0 ; lv2:maximum 1.2 ;
+    val:section "Saucer" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :fold ; val:property val:gain ;
+    lv2:name "Fold" ; lv2:symbol "fold" ;
+    lv2:minimum 0.5 ; lv2:maximum 12 ;
+    val:section "Damage" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :crush ; val:property val:bits ;
+    lv2:name "Bits" ; lv2:symbol "bits" ;
+    lv2:minimum 2 ; lv2:maximum 16 ;
+    val:section "Damage" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :crush ; val:property val:downsample ;
+    lv2:name "Downsample" ; lv2:symbol "downsample" ;
+    lv2:minimum 1 ; lv2:maximum 32 ;
+    val:section "Damage" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :shift ; val:property val:shift ;
+    lv2:name "Shift" ; lv2:symbol "shift" ;
+    lv2:minimum -300 ; lv2:maximum 300 ;
+    val:section "Damage" ;
+    units:unit units:hertz .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :shift ; val:property val:feedback ;
+    lv2:name "Shift feedback" ; lv2:symbol "shift_fb" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Damage" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :echo ; val:property val:time ;
+    lv2:name "Echo time" ; lv2:symbol "echo_time" ;
+    lv2:minimum 20 ; lv2:maximum 900 ;
+    val:section "Space" ;
+    units:unit units:ms .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_fb" ;
+    lv2:minimum 0 ; lv2:maximum 0.95 ;
+    val:section "Space" .
+:p11 a val:Param ; val:slot 11 ;
+    val:target :hall ; val:property val:mix ;
+    lv2:name "Hall mix" ; lv2:symbol "hall_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .

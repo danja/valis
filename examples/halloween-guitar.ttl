@@ -1,0 +1,247 @@
+# examples/halloween-guitar.ttl
+#
+# A plucked electric guitar for the song's high, echoing figure: a short noise burst
+# through a state-variable low-pass excites a stiff string (a comb filter with allpass
+# dispersion), a bandpass stands in for the pickup, a soft clip for the amp, a small
+# spring-style reverb, and a bucket-brigade echo set to a dotted eighth that darkens as
+# it repeats. The tape stage adds a slow wobble.
+#
+# The string runs flat by an amount that grows with pitch (about 25 cents at E3 and 100 cents at E5),
+# so the pitch is raised by 2.5 per cent to centre the middle of the range; it is in tune near
+# G3 to G4. Play it there. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweenguitar#> .
+
+:halloweenguitar a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Guitar", "Surf", "Gothic" ;
+    rdfs:label "Halloween: twang guitar" ;
+    val:element :pitch , :tuneFix , :dc , :pluckEnv , :noise , :pluckVca , :pick , :string , :ampEnv , :ampVca , :pickup , :body , :bodyLp , :amp , :spring , :echo , :wet , :trem , :trim , :limit , :out ;
+    val:arc :a_pitch_out__tuneFix_a ,
+        :a_tuneFix_out__string_frequency ,
+        :a_pluckEnv_out__pluckVca_cv ,
+        :a_noise_out__pluckVca_in ,
+        :a_pluckVca_out__pick_in ,
+        :a_pick_lp__string_in ,
+        :a_string_out__ampVca_in ,
+        :a_ampEnv_out__ampVca_cv ,
+        :a_ampVca_out__dc_in ,
+        :a_dc_out__pickup_in ,
+        :a_pickup_bp__body_in ,
+        :a_dc_out__body_in ,
+        :a_body_out__bodyLp_in ,
+        :a_bodyLp_out__amp_in ,
+        :a_amp_out__spring_in ,
+        :a_spring_out__echo_in ,
+        :a_spring_out__wet_in ,
+        :a_echo_out__wet_in ,
+        :a_wet_out__trem_in ,
+        :a_trem_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:tuneFix a val:ControlMultiply ;
+    val:b 1.025 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 35.0 .
+
+:pluckEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 6.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:noise a val:Noise ;
+    val:colour 0.15 .
+
+:pluckVca a val:VCA .
+
+:pick a val:StateVariable ;
+    val:cutoff 3800.0 ;
+    val:resonance 0.9 .
+
+:string a val:StiffString ;
+    val:feedback 0.988 ;
+    val:damping 0.28 ;
+    val:dispersion 0.015 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 2800.0 ;
+    val:sustain 0.0 ;
+    val:release 450.0 .
+
+:ampVca a val:VCA .
+
+:pickup a val:StateVariable ;
+    val:cutoff 2600.0 ;
+    val:resonance 1.1 .
+
+:body a val:Mixer .
+
+:bodyLp a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 6500.0 .
+
+:amp a val:Tanh ;
+    val:gain 2.2 .
+
+:spring a val:Reverb ;
+    val:size 0.35 ;
+    val:decay 1.6 ;
+    val:damping 0.2 ;
+    val:mix 0.3 .
+
+:echo a val:BucketBrigade ;
+    val:time 375.0 ;
+    val:feedback 0.5 ;
+    val:bandwidth 0.28 .
+
+:wet a val:Mixer .
+
+:trem a val:Tape ;
+    val:drive 4.0 ;
+    val:bump 2.0 ;
+    val:wow 0.4 ;
+    val:flutter 0.3 ;
+    val:hf 9000.0 .
+
+:trim a val:Gain ;
+    val:gain 6.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__tuneFix_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :tuneFix ; val:port "a" ] .
+:a_tuneFix_out__string_frequency a val:Arc ;
+    val:from [ val:node :tuneFix ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:a_pluckEnv_out__pluckVca_cv a val:Arc ;
+    val:from [ val:node :pluckEnv ; val:port "out" ] ;
+    val:to   [ val:node :pluckVca ; val:port "cv" ] .
+:a_noise_out__pluckVca_in a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :pluckVca ; val:port "in" ] .
+:a_pluckVca_out__pick_in a val:Arc ;
+    val:from [ val:node :pluckVca ; val:port "out" ] ;
+    val:to   [ val:node :pick ; val:port "in" ] .
+:a_pick_lp__string_in a val:Arc ;
+    val:from [ val:node :pick ; val:port "lp" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:a_string_out__ampVca_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "in" ] .
+:a_ampEnv_out__ampVca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "cv" ] .
+:a_ampVca_out__dc_in a val:Arc ;
+    val:from [ val:node :ampVca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__pickup_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :pickup ; val:port "in" ] .
+:a_pickup_bp__body_in a val:Arc ;
+    val:from [ val:node :pickup ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_dc_out__body_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__bodyLp_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :bodyLp ; val:port "in" ] .
+:a_bodyLp_out__amp_in a val:Arc ;
+    val:from [ val:node :bodyLp ; val:port "out" ] ;
+    val:to   [ val:node :amp ; val:port "in" ] .
+:a_amp_out__spring_in a val:Arc ;
+    val:from [ val:node :amp ; val:port "out" ] ;
+    val:to   [ val:node :spring ; val:port "in" ] .
+:a_spring_out__echo_in a val:Arc ;
+    val:from [ val:node :spring ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_spring_out__wet_in a val:Arc ;
+    val:from [ val:node :spring ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_echo_out__wet_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_wet_out__trem_in a val:Arc ;
+    val:from [ val:node :wet ; val:port "out" ] ;
+    val:to   [ val:node :trem ; val:port "in" ] .
+:a_trem_out__trim_in a val:Arc ;
+    val:from [ val:node :trem ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :string ; val:property val:feedback ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" ;
+    lv2:minimum 0.9 ; lv2:maximum 0.998 ;
+    val:section "String" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :string ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :string ; val:property val:dispersion ;
+    lv2:name "Dispersion" ; lv2:symbol "dispersion" ;
+    lv2:minimum 0 ; lv2:maximum 0.2 ;
+    val:section "String" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :pick ; val:property val:cutoff ;
+    lv2:name "Pick brightness" ; lv2:symbol "pick_bright" ;
+    lv2:minimum 800 ; lv2:maximum 9000 ;
+    val:section "String" ;
+    units:unit units:hertz .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :amp ; val:property val:gain ;
+    lv2:name "Amp drive" ; lv2:symbol "amp_drive" ;
+    lv2:minimum 1 ; lv2:maximum 12 ;
+    val:section "Amp" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :spring ; val:property val:mix ;
+    lv2:name "Spring mix" ; lv2:symbol "spring_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Amp" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :echo ; val:property val:time ;
+    lv2:name "Echo time" ; lv2:symbol "echo_time" ;
+    lv2:minimum 80 ; lv2:maximum 700 ;
+    val:section "Echo" ;
+    units:unit units:ms .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_fb" ;
+    lv2:minimum 0 ; lv2:maximum 1.0 ;
+    val:section "Echo" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Ring time" ; lv2:symbol "ring_time" ;
+    lv2:minimum 300 ; lv2:maximum 6000 ;
+    val:section "String" ;
+    units:unit units:ms .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :trem ; val:property val:wow ;
+    lv2:name "Wobble" ; lv2:symbol "wobble" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Amp" .

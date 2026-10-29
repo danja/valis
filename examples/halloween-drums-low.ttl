@@ -1,0 +1,414 @@
+# examples/halloween-drums-low.ttl
+#
+# Kick, two tom drums and a noise slam for a slow, heavy dubstep half-time groove in the
+# manner of Bauhaus's "Bela Lugosi's Dead": the kick is a bridged-T body with a long sub
+# tone under it, the toms are tuned low and sent to a large dark hall, and the slam is a
+# burst of noise through a closing ladder filter. Everything passes through tape
+# saturation and a limiter.
+#
+# MIDI notes: 36 kick, 39 slam, 41 low tom, 45 mid tom.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweendrumslow#> .
+
+:halloweendrumslow a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Dubstep", "Gothic", "Percussion" ;
+    rdfs:label "Halloween: low drums" ;
+    val:element :kGate , :kPEnv , :kPScale , :kAEnv , :kOsc , :kVca , :kSub , :kSubGain , :kMix , :kSat , :t1Gate , :t1PEnv , :t1PScale , :t1AEnv , :t1Osc , :t1Vca , :t2Gate , :t2PEnv , :t2PScale , :t2AEnv , :t2Osc , :t2Vca , :tomMix , :sGate , :sNoise , :sEnv , :sCut , :sFilter , :sVca , :sLvl , :sHp , :wetMix , :hall , :master , :trim , :tape , :limit , :out ;
+    val:arc :a_kGate_gate__kPEnv_gate ,
+        :a_kGate_gate__kAEnv_gate ,
+        :a_kGate_gate__kOsc_trigger ,
+        :a_kGate_velocity__kOsc_velocity ,
+        :a_kPEnv_out__kPScale_in ,
+        :a_kPScale_out__kOsc_frequency ,
+        :a_kAEnv_out__kVca_cv ,
+        :a_kGate_gate__kSub_trigger ,
+        :a_kGate_velocity__kSub_velocity ,
+        :a_kSub_out__kSubGain_in ,
+        :a_kOsc_out__kMix_in ,
+        :a_kSubGain_out__kMix_in ,
+        :a_kMix_out__kSat_in ,
+        :a_kSat_out__kVca_in ,
+        :a_t1Gate_gate__t1PEnv_gate ,
+        :a_t1Gate_gate__t1AEnv_gate ,
+        :a_t1Gate_gate__t1Osc_trigger ,
+        :a_t1Gate_velocity__t1Osc_velocity ,
+        :a_t1PEnv_out__t1PScale_in ,
+        :a_t1PScale_out__t1Osc_frequency ,
+        :a_t1AEnv_out__t1Vca_cv ,
+        :a_t2Gate_gate__t2PEnv_gate ,
+        :a_t2Gate_gate__t2AEnv_gate ,
+        :a_t2Gate_gate__t2Osc_trigger ,
+        :a_t2Gate_velocity__t2Osc_velocity ,
+        :a_t2PEnv_out__t2PScale_in ,
+        :a_t2PScale_out__t2Osc_frequency ,
+        :a_t2AEnv_out__t2Vca_cv ,
+        :a_t1Osc_out__t1Vca_in ,
+        :a_t2Osc_out__t2Vca_in ,
+        :a_t1Vca_out__tomMix_in ,
+        :a_t2Vca_out__tomMix_in ,
+        :a_sGate_gate__sEnv_gate ,
+        :a_sEnv_out__sCut_in ,
+        :a_sCut_out__sFilter_cutoff ,
+        :a_sNoise_out__sFilter_in ,
+        :a_sFilter_out__sHp_in ,
+        :a_sHp_out__sLvl_in ,
+        :a_sLvl_out__sVca_in ,
+        :a_sEnv_out__sVca_cv ,
+        :a_tomMix_out__wetMix_in ,
+        :a_sVca_out__wetMix_in ,
+        :a_wetMix_out__hall_in ,
+        :a_kVca_out__master_in ,
+        :a_hall_out__master_in ,
+        :a_master_out__trim_in ,
+        :a_trim_out__tape_in ,
+        :a_tape_out__limit_in ,
+        :a_limit_out__out_in .
+
+:kGate a val:NoteGate ;
+    val:note 36 .
+
+:kPEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 45.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:kPScale a val:Scale ;
+    val:min 46.0 ;
+    val:max 200.0 .
+
+:kAEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 3000.0 ;
+    val:sustain 0.0 ;
+    val:release 1500.0 .
+
+:kOsc a val:TwinTBridge ;
+    val:decay 650.0 .
+
+:kVca a val:VCA .
+
+:kSub a val:TwinTBridge ;
+    val:frequency 34.0 ;
+    val:decay 1400.0 .
+
+:kSubGain a val:Gain ;
+    val:gain -3.0 .
+
+:kMix a val:Mixer .
+
+:kSat a val:Tanh ;
+    val:gain 4.0 .
+
+:t1Gate a val:NoteGate ;
+    val:note 41 .
+
+:t1PEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 120.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:t1PScale a val:Scale ;
+    val:min 64.0 ;
+    val:max 150.0 .
+
+:t1AEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 4000.0 ;
+    val:sustain 0.0 ;
+    val:release 2000.0 .
+
+:t1Osc a val:TwinTBridge ;
+    val:decay 1100.0 .
+
+:t1Vca a val:VCA .
+
+:t2Gate a val:NoteGate ;
+    val:note 45 .
+
+:t2PEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 100.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:t2PScale a val:Scale ;
+    val:min 88.0 ;
+    val:max 190.0 .
+
+:t2AEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 3200.0 ;
+    val:sustain 0.0 ;
+    val:release 1600.0 .
+
+:t2Osc a val:TwinTBridge ;
+    val:decay 850.0 .
+
+:t2Vca a val:VCA .
+
+:tomMix a val:Mixer .
+
+:sGate a val:NoteGate ;
+    val:note 39 .
+
+:sNoise a val:Noise ;
+    val:colour 0.6 .
+
+:sEnv a val:Envelope ;
+    val:attack 2.0 ;
+    val:decay 900.0 ;
+    val:sustain 0.0 ;
+    val:release 600.0 .
+
+:sCut a val:Scale ;
+    val:min 300.0 ;
+    val:max 6500.0 .
+
+:sFilter a val:Ladder ;
+    val:resonance 0.35 ;
+    val:drive 3.0 .
+
+:sVca a val:VCA .
+
+:sLvl a val:Gain ;
+    val:gain 14.0 .
+
+:sHp a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 45.0 .
+
+:wetMix a val:Mixer .
+
+:hall a val:Reverb ;
+    val:size 1.7 ;
+    val:decay 6.0 ;
+    val:damping 0.65 ;
+    val:mix 0.5 .
+
+:master a val:Mixer .
+
+:trim a val:Gain ;
+    val:gain -9.0 .
+
+:tape a val:Tape ;
+    val:drive 9.0 ;
+    val:bump 5.0 ;
+    val:wow 0.35 ;
+    val:flutter 0.25 ;
+    val:hf 9000.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_kGate_gate__kPEnv_gate a val:Arc ;
+    val:from [ val:node :kGate ; val:port "gate" ] ;
+    val:to   [ val:node :kPEnv ; val:port "gate" ] .
+:a_kGate_gate__kAEnv_gate a val:Arc ;
+    val:from [ val:node :kGate ; val:port "gate" ] ;
+    val:to   [ val:node :kAEnv ; val:port "gate" ] .
+:a_kGate_gate__kOsc_trigger a val:Arc ;
+    val:from [ val:node :kGate ; val:port "gate" ] ;
+    val:to   [ val:node :kOsc ; val:port "trigger" ] .
+:a_kGate_velocity__kOsc_velocity a val:Arc ;
+    val:from [ val:node :kGate ; val:port "velocity" ] ;
+    val:to   [ val:node :kOsc ; val:port "velocity" ] .
+:a_kPEnv_out__kPScale_in a val:Arc ;
+    val:from [ val:node :kPEnv ; val:port "out" ] ;
+    val:to   [ val:node :kPScale ; val:port "in" ] .
+:a_kPScale_out__kOsc_frequency a val:Arc ;
+    val:from [ val:node :kPScale ; val:port "out" ] ;
+    val:to   [ val:node :kOsc ; val:port "frequency" ] .
+:a_kAEnv_out__kVca_cv a val:Arc ;
+    val:from [ val:node :kAEnv ; val:port "out" ] ;
+    val:to   [ val:node :kVca ; val:port "cv" ] .
+:a_kGate_gate__kSub_trigger a val:Arc ;
+    val:from [ val:node :kGate ; val:port "gate" ] ;
+    val:to   [ val:node :kSub ; val:port "trigger" ] .
+:a_kGate_velocity__kSub_velocity a val:Arc ;
+    val:from [ val:node :kGate ; val:port "velocity" ] ;
+    val:to   [ val:node :kSub ; val:port "velocity" ] .
+:a_kSub_out__kSubGain_in a val:Arc ;
+    val:from [ val:node :kSub ; val:port "out" ] ;
+    val:to   [ val:node :kSubGain ; val:port "in" ] .
+:a_kOsc_out__kMix_in a val:Arc ;
+    val:from [ val:node :kOsc ; val:port "out" ] ;
+    val:to   [ val:node :kMix ; val:port "in" ] .
+:a_kSubGain_out__kMix_in a val:Arc ;
+    val:from [ val:node :kSubGain ; val:port "out" ] ;
+    val:to   [ val:node :kMix ; val:port "in" ] .
+:a_kMix_out__kSat_in a val:Arc ;
+    val:from [ val:node :kMix ; val:port "out" ] ;
+    val:to   [ val:node :kSat ; val:port "in" ] .
+:a_kSat_out__kVca_in a val:Arc ;
+    val:from [ val:node :kSat ; val:port "out" ] ;
+    val:to   [ val:node :kVca ; val:port "in" ] .
+:a_t1Gate_gate__t1PEnv_gate a val:Arc ;
+    val:from [ val:node :t1Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t1PEnv ; val:port "gate" ] .
+:a_t1Gate_gate__t1AEnv_gate a val:Arc ;
+    val:from [ val:node :t1Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t1AEnv ; val:port "gate" ] .
+:a_t1Gate_gate__t1Osc_trigger a val:Arc ;
+    val:from [ val:node :t1Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t1Osc ; val:port "trigger" ] .
+:a_t1Gate_velocity__t1Osc_velocity a val:Arc ;
+    val:from [ val:node :t1Gate ; val:port "velocity" ] ;
+    val:to   [ val:node :t1Osc ; val:port "velocity" ] .
+:a_t1PEnv_out__t1PScale_in a val:Arc ;
+    val:from [ val:node :t1PEnv ; val:port "out" ] ;
+    val:to   [ val:node :t1PScale ; val:port "in" ] .
+:a_t1PScale_out__t1Osc_frequency a val:Arc ;
+    val:from [ val:node :t1PScale ; val:port "out" ] ;
+    val:to   [ val:node :t1Osc ; val:port "frequency" ] .
+:a_t1AEnv_out__t1Vca_cv a val:Arc ;
+    val:from [ val:node :t1AEnv ; val:port "out" ] ;
+    val:to   [ val:node :t1Vca ; val:port "cv" ] .
+:a_t2Gate_gate__t2PEnv_gate a val:Arc ;
+    val:from [ val:node :t2Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t2PEnv ; val:port "gate" ] .
+:a_t2Gate_gate__t2AEnv_gate a val:Arc ;
+    val:from [ val:node :t2Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t2AEnv ; val:port "gate" ] .
+:a_t2Gate_gate__t2Osc_trigger a val:Arc ;
+    val:from [ val:node :t2Gate ; val:port "gate" ] ;
+    val:to   [ val:node :t2Osc ; val:port "trigger" ] .
+:a_t2Gate_velocity__t2Osc_velocity a val:Arc ;
+    val:from [ val:node :t2Gate ; val:port "velocity" ] ;
+    val:to   [ val:node :t2Osc ; val:port "velocity" ] .
+:a_t2PEnv_out__t2PScale_in a val:Arc ;
+    val:from [ val:node :t2PEnv ; val:port "out" ] ;
+    val:to   [ val:node :t2PScale ; val:port "in" ] .
+:a_t2PScale_out__t2Osc_frequency a val:Arc ;
+    val:from [ val:node :t2PScale ; val:port "out" ] ;
+    val:to   [ val:node :t2Osc ; val:port "frequency" ] .
+:a_t2AEnv_out__t2Vca_cv a val:Arc ;
+    val:from [ val:node :t2AEnv ; val:port "out" ] ;
+    val:to   [ val:node :t2Vca ; val:port "cv" ] .
+:a_t1Osc_out__t1Vca_in a val:Arc ;
+    val:from [ val:node :t1Osc ; val:port "out" ] ;
+    val:to   [ val:node :t1Vca ; val:port "in" ] .
+:a_t2Osc_out__t2Vca_in a val:Arc ;
+    val:from [ val:node :t2Osc ; val:port "out" ] ;
+    val:to   [ val:node :t2Vca ; val:port "in" ] .
+:a_t1Vca_out__tomMix_in a val:Arc ;
+    val:from [ val:node :t1Vca ; val:port "out" ] ;
+    val:to   [ val:node :tomMix ; val:port "in" ] .
+:a_t2Vca_out__tomMix_in a val:Arc ;
+    val:from [ val:node :t2Vca ; val:port "out" ] ;
+    val:to   [ val:node :tomMix ; val:port "in" ] .
+:a_sGate_gate__sEnv_gate a val:Arc ;
+    val:from [ val:node :sGate ; val:port "gate" ] ;
+    val:to   [ val:node :sEnv ; val:port "gate" ] .
+:a_sEnv_out__sCut_in a val:Arc ;
+    val:from [ val:node :sEnv ; val:port "out" ] ;
+    val:to   [ val:node :sCut ; val:port "in" ] .
+:a_sCut_out__sFilter_cutoff a val:Arc ;
+    val:from [ val:node :sCut ; val:port "out" ] ;
+    val:to   [ val:node :sFilter ; val:port "cutoff" ] .
+:a_sNoise_out__sFilter_in a val:Arc ;
+    val:from [ val:node :sNoise ; val:port "out" ] ;
+    val:to   [ val:node :sFilter ; val:port "in" ] .
+:a_sFilter_out__sHp_in a val:Arc ;
+    val:from [ val:node :sFilter ; val:port "out" ] ;
+    val:to   [ val:node :sHp ; val:port "in" ] .
+:a_sHp_out__sLvl_in a val:Arc ;
+    val:from [ val:node :sHp ; val:port "out" ] ;
+    val:to   [ val:node :sLvl ; val:port "in" ] .
+:a_sLvl_out__sVca_in a val:Arc ;
+    val:from [ val:node :sLvl ; val:port "out" ] ;
+    val:to   [ val:node :sVca ; val:port "in" ] .
+:a_sEnv_out__sVca_cv a val:Arc ;
+    val:from [ val:node :sEnv ; val:port "out" ] ;
+    val:to   [ val:node :sVca ; val:port "cv" ] .
+:a_tomMix_out__wetMix_in a val:Arc ;
+    val:from [ val:node :tomMix ; val:port "out" ] ;
+    val:to   [ val:node :wetMix ; val:port "in" ] .
+:a_sVca_out__wetMix_in a val:Arc ;
+    val:from [ val:node :sVca ; val:port "out" ] ;
+    val:to   [ val:node :wetMix ; val:port "in" ] .
+:a_wetMix_out__hall_in a val:Arc ;
+    val:from [ val:node :wetMix ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_kVca_out__master_in a val:Arc ;
+    val:from [ val:node :kVca ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_hall_out__master_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_master_out__trim_in a val:Arc ;
+    val:from [ val:node :master ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__tape_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :tape ; val:port "in" ] .
+:a_tape_out__limit_in a val:Arc ;
+    val:from [ val:node :tape ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :kPScale ; val:property val:min ;
+    lv2:name "Kick tune" ; lv2:symbol "kick_tune" ;
+    lv2:minimum 34 ; lv2:maximum 90 ;
+    val:section "Kick" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :kOsc ; val:property val:decay ;
+    lv2:name "Kick decay" ; lv2:symbol "kick_decay" ;
+    lv2:minimum 200 ; lv2:maximum 1200 ;
+    val:section "Kick" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :kSubGain ; val:property val:gain ;
+    lv2:name "Sub level" ; lv2:symbol "sub_level" ;
+    lv2:minimum -30 ; lv2:maximum 6 ;
+    val:section "Kick" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :kSat ; val:property val:gain ;
+    lv2:name "Kick drive" ; lv2:symbol "kick_drive" ;
+    lv2:minimum 1 ; lv2:maximum 15 ;
+    val:section "Kick" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :t1Osc ; val:property val:decay ;
+    lv2:name "Tom decay" ; lv2:symbol "tom_decay" ;
+    lv2:minimum 300 ; lv2:maximum 2500 ;
+    val:section "Toms" ;
+    units:unit units:ms .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :hall ; val:property val:mix ;
+    lv2:name "Hall mix" ; lv2:symbol "hall_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Hall" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :hall ; val:property val:decay ;
+    lv2:name "Hall decay" ; lv2:symbol "hall_decay" ;
+    lv2:minimum 1 ; lv2:maximum 12 ;
+    val:section "Hall" ;
+    units:unit units:s .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :sCut ; val:property val:max ;
+    lv2:name "Slam brightness" ; lv2:symbol "slam_bright" ;
+    lv2:minimum 1000 ; lv2:maximum 9000 ;
+    val:section "Slam" ;
+    units:unit units:hertz .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :tape ; val:property val:drive ;
+    lv2:name "Tape drive" ; lv2:symbol "tape_drive" ;
+    lv2:minimum 0 ; lv2:maximum 24 ;
+    val:section "Master" ;
+    units:unit units:db .

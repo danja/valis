@@ -1,0 +1,341 @@
+# examples/halloween-drums-high.ttl
+#
+# Hi-hats and small percussion with a different treatment on each voice, for the top of
+# a slow dubstep groove: a dry closed hat, an open hat run through a frequency shifter
+# with feedback so it rings inharmonically, a swelling bandpassed shaker and a wood block
+# into a darkening tape-style echo, and a clap into a hall.
+#
+# MIDI notes: 39 clap, 42 closed hat, 46 open hat, 70 shaker, 75 wood block.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweendrumshigh#> .
+
+:halloweendrumshigh a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Dubstep", "Gothic", "Percussion" ;
+    rdfs:label "Halloween: high drums" ;
+    val:element :chNoise , :chHp , :chGate , :chEnv , :chVca , :ohNoise , :ohHp , :ohGate , :ohEnv , :ohVca , :ohShift , :shNoise , :shBp , :shGate , :shEnv , :shVca , :wdGate , :wdOsc , :wdEnv , :wdVca , :clNoise , :clBp , :clGate , :clEnv , :clVca , :clLvl , :echoMix , :echo , :hall , :master , :trim , :limit , :out ;
+    val:arc :a_chNoise_out__chHp_in ,
+        :a_chGate_gate__chEnv_gate ,
+        :a_chEnv_out__chVca_cv ,
+        :a_chHp_out__chVca_in ,
+        :a_ohNoise_out__ohHp_in ,
+        :a_ohGate_gate__ohEnv_gate ,
+        :a_ohEnv_out__ohVca_cv ,
+        :a_ohHp_out__ohVca_in ,
+        :a_ohVca_out__ohShift_in ,
+        :a_shNoise_out__shBp_in ,
+        :a_shGate_gate__shEnv_gate ,
+        :a_shEnv_out__shVca_cv ,
+        :a_shBp_bp__shVca_in ,
+        :a_wdGate_gate__wdOsc_trigger ,
+        :a_wdGate_velocity__wdOsc_velocity ,
+        :a_wdGate_gate__wdEnv_gate ,
+        :a_wdOsc_out__wdVca_in ,
+        :a_wdEnv_out__wdVca_cv ,
+        :a_clNoise_out__clBp_in ,
+        :a_clGate_gate__clEnv_gate ,
+        :a_clEnv_out__clVca_cv ,
+        :a_clBp_bp__clVca_in ,
+        :a_clVca_out__clLvl_in ,
+        :a_shVca_out__echoMix_in ,
+        :a_wdVca_out__echoMix_in ,
+        :a_echoMix_out__echo_in ,
+        :a_clLvl_out__hall_in ,
+        :a_chVca_out__master_in ,
+        :a_ohShift_out__master_in ,
+        :a_echoMix_out__master_in ,
+        :a_echo_out__master_in ,
+        :a_hall_out__master_in ,
+        :a_master_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:chNoise a val:Noise ;
+    val:colour 0.0 .
+
+:chHp a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 8500.0 .
+
+:chGate a val:NoteGate ;
+    val:note 42 .
+
+:chEnv a val:Envelope ;
+    val:attack 0.3 ;
+    val:decay 45.0 ;
+    val:sustain 0.0 ;
+    val:release 22.5 .
+
+:chVca a val:VCA .
+
+:ohNoise a val:Noise ;
+    val:colour 0.0 .
+
+:ohHp a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 5200.0 .
+
+:ohGate a val:NoteGate ;
+    val:note 46 .
+
+:ohEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 480.0 ;
+    val:sustain 0.0 ;
+    val:release 240.0 .
+
+:ohVca a val:VCA .
+
+:ohShift a val:FreqShifter ;
+    val:shift 43.0 ;
+    val:feedback 0.55 ;
+    val:mix 0.45 .
+
+:shNoise a val:Noise ;
+    val:colour 0.25 .
+
+:shBp a val:StateVariable ;
+    val:cutoff 6800.0 ;
+    val:resonance 2.2 .
+
+:shGate a val:NoteGate ;
+    val:note 70 .
+
+:shEnv a val:Envelope ;
+    val:attack 30.0 ;
+    val:decay 110.0 ;
+    val:sustain 0.0 ;
+    val:release 55.0 .
+
+:shVca a val:VCA .
+
+:wdGate a val:NoteGate ;
+    val:note 75 .
+
+:wdOsc a val:TwinTBridge ;
+    val:frequency 1850.0 ;
+    val:decay 75.0 .
+
+:wdEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 400.0 ;
+    val:sustain 0.0 ;
+    val:release 300.0 .
+
+:wdVca a val:VCA .
+
+:clNoise a val:Noise ;
+    val:colour 0.1 .
+
+:clBp a val:StateVariable ;
+    val:cutoff 1500.0 ;
+    val:resonance 1.6 .
+
+:clGate a val:NoteGate ;
+    val:note 39 .
+
+:clEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 190.0 ;
+    val:sustain 0.0 ;
+    val:release 95.0 .
+
+:clVca a val:VCA .
+
+:clLvl a val:Gain ;
+    val:gain 5.0 .
+
+:echoMix a val:Mixer .
+
+:echo a val:BucketBrigade ;
+    val:time 375.0 ;
+    val:feedback 0.55 ;
+    val:bandwidth 0.3 .
+
+:hall a val:Reverb ;
+    val:size 1.4 ;
+    val:decay 3.2 ;
+    val:damping 0.35 ;
+    val:mix 1.0 .
+
+:master a val:Mixer .
+
+:trim a val:Gain ;
+    val:gain -4.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_chNoise_out__chHp_in a val:Arc ;
+    val:from [ val:node :chNoise ; val:port "out" ] ;
+    val:to   [ val:node :chHp ; val:port "in" ] .
+:a_chGate_gate__chEnv_gate a val:Arc ;
+    val:from [ val:node :chGate ; val:port "gate" ] ;
+    val:to   [ val:node :chEnv ; val:port "gate" ] .
+:a_chEnv_out__chVca_cv a val:Arc ;
+    val:from [ val:node :chEnv ; val:port "out" ] ;
+    val:to   [ val:node :chVca ; val:port "cv" ] .
+:a_chHp_out__chVca_in a val:Arc ;
+    val:from [ val:node :chHp ; val:port "out" ] ;
+    val:to   [ val:node :chVca ; val:port "in" ] .
+:a_ohNoise_out__ohHp_in a val:Arc ;
+    val:from [ val:node :ohNoise ; val:port "out" ] ;
+    val:to   [ val:node :ohHp ; val:port "in" ] .
+:a_ohGate_gate__ohEnv_gate a val:Arc ;
+    val:from [ val:node :ohGate ; val:port "gate" ] ;
+    val:to   [ val:node :ohEnv ; val:port "gate" ] .
+:a_ohEnv_out__ohVca_cv a val:Arc ;
+    val:from [ val:node :ohEnv ; val:port "out" ] ;
+    val:to   [ val:node :ohVca ; val:port "cv" ] .
+:a_ohHp_out__ohVca_in a val:Arc ;
+    val:from [ val:node :ohHp ; val:port "out" ] ;
+    val:to   [ val:node :ohVca ; val:port "in" ] .
+:a_ohVca_out__ohShift_in a val:Arc ;
+    val:from [ val:node :ohVca ; val:port "out" ] ;
+    val:to   [ val:node :ohShift ; val:port "in" ] .
+:a_shNoise_out__shBp_in a val:Arc ;
+    val:from [ val:node :shNoise ; val:port "out" ] ;
+    val:to   [ val:node :shBp ; val:port "in" ] .
+:a_shGate_gate__shEnv_gate a val:Arc ;
+    val:from [ val:node :shGate ; val:port "gate" ] ;
+    val:to   [ val:node :shEnv ; val:port "gate" ] .
+:a_shEnv_out__shVca_cv a val:Arc ;
+    val:from [ val:node :shEnv ; val:port "out" ] ;
+    val:to   [ val:node :shVca ; val:port "cv" ] .
+:a_shBp_bp__shVca_in a val:Arc ;
+    val:from [ val:node :shBp ; val:port "bp" ] ;
+    val:to   [ val:node :shVca ; val:port "in" ] .
+:a_wdGate_gate__wdOsc_trigger a val:Arc ;
+    val:from [ val:node :wdGate ; val:port "gate" ] ;
+    val:to   [ val:node :wdOsc ; val:port "trigger" ] .
+:a_wdGate_velocity__wdOsc_velocity a val:Arc ;
+    val:from [ val:node :wdGate ; val:port "velocity" ] ;
+    val:to   [ val:node :wdOsc ; val:port "velocity" ] .
+:a_wdGate_gate__wdEnv_gate a val:Arc ;
+    val:from [ val:node :wdGate ; val:port "gate" ] ;
+    val:to   [ val:node :wdEnv ; val:port "gate" ] .
+:a_wdOsc_out__wdVca_in a val:Arc ;
+    val:from [ val:node :wdOsc ; val:port "out" ] ;
+    val:to   [ val:node :wdVca ; val:port "in" ] .
+:a_wdEnv_out__wdVca_cv a val:Arc ;
+    val:from [ val:node :wdEnv ; val:port "out" ] ;
+    val:to   [ val:node :wdVca ; val:port "cv" ] .
+:a_clNoise_out__clBp_in a val:Arc ;
+    val:from [ val:node :clNoise ; val:port "out" ] ;
+    val:to   [ val:node :clBp ; val:port "in" ] .
+:a_clGate_gate__clEnv_gate a val:Arc ;
+    val:from [ val:node :clGate ; val:port "gate" ] ;
+    val:to   [ val:node :clEnv ; val:port "gate" ] .
+:a_clEnv_out__clVca_cv a val:Arc ;
+    val:from [ val:node :clEnv ; val:port "out" ] ;
+    val:to   [ val:node :clVca ; val:port "cv" ] .
+:a_clBp_bp__clVca_in a val:Arc ;
+    val:from [ val:node :clBp ; val:port "bp" ] ;
+    val:to   [ val:node :clVca ; val:port "in" ] .
+:a_clVca_out__clLvl_in a val:Arc ;
+    val:from [ val:node :clVca ; val:port "out" ] ;
+    val:to   [ val:node :clLvl ; val:port "in" ] .
+:a_shVca_out__echoMix_in a val:Arc ;
+    val:from [ val:node :shVca ; val:port "out" ] ;
+    val:to   [ val:node :echoMix ; val:port "in" ] .
+:a_wdVca_out__echoMix_in a val:Arc ;
+    val:from [ val:node :wdVca ; val:port "out" ] ;
+    val:to   [ val:node :echoMix ; val:port "in" ] .
+:a_echoMix_out__echo_in a val:Arc ;
+    val:from [ val:node :echoMix ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_clLvl_out__hall_in a val:Arc ;
+    val:from [ val:node :clLvl ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_chVca_out__master_in a val:Arc ;
+    val:from [ val:node :chVca ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_ohShift_out__master_in a val:Arc ;
+    val:from [ val:node :ohShift ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_echoMix_out__master_in a val:Arc ;
+    val:from [ val:node :echoMix ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_echo_out__master_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_hall_out__master_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_master_out__trim_in a val:Arc ;
+    val:from [ val:node :master ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :chHp ; val:property val:cutoff ;
+    lv2:name "Closed hat tone" ; lv2:symbol "ch_tone" ;
+    lv2:minimum 4000 ; lv2:maximum 12000 ;
+    val:section "Hats" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :chEnv ; val:property val:decay ;
+    lv2:name "Closed hat decay" ; lv2:symbol "ch_decay" ;
+    lv2:minimum 10 ; lv2:maximum 150 ;
+    val:section "Hats" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :ohEnv ; val:property val:decay ;
+    lv2:name "Open hat decay" ; lv2:symbol "oh_decay" ;
+    lv2:minimum 100 ; lv2:maximum 1200 ;
+    val:section "Hats" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :ohShift ; val:property val:shift ;
+    lv2:name "Open hat shift" ; lv2:symbol "oh_shift" ;
+    lv2:minimum -200 ; lv2:maximum 200 ;
+    val:section "Hats" ;
+    units:unit units:hertz .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :ohShift ; val:property val:feedback ;
+    lv2:name "Open hat feedback" ; lv2:symbol "oh_fb" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Hats" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :shBp ; val:property val:cutoff ;
+    lv2:name "Shaker tone" ; lv2:symbol "sh_tone" ;
+    lv2:minimum 3000 ; lv2:maximum 10000 ;
+    val:section "Shaker" ;
+    units:unit units:hertz .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :echo ; val:property val:time ;
+    lv2:name "Echo time" ; lv2:symbol "echo_time" ;
+    lv2:minimum 80 ; lv2:maximum 700 ;
+    val:section "Echo" ;
+    units:unit units:ms .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_fb" ;
+    lv2:minimum 0 ; lv2:maximum 1.0 ;
+    val:section "Echo" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :hall ; val:property val:decay ;
+    lv2:name "Clap hall decay" ; lv2:symbol "hall_decay" ;
+    lv2:minimum 0.5 ; lv2:maximum 8 ;
+    val:section "Clap" ;
+    units:unit units:s .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :wdOsc ; val:property val:frequency ;
+    lv2:name "Block pitch" ; lv2:symbol "wd_pitch" ;
+    lv2:minimum 800 ; lv2:maximum 3500 ;
+    val:section "Block" ;
+    units:unit units:hertz .

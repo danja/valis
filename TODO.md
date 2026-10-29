@@ -261,6 +261,37 @@ reported to the host.
   a node range with N times the buffers. Worth doing only if the per-element form
   turns out to cost too much in a real pedal chain.
 
+## Found while building the Halloween set
+
+Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants a fix in the program.
+
+* **MCP server is off after launch.** The Standalone starts with the server disabled, and an agent sees
+  only a refused connection. Either start it with the app when a token or port is configured, or have
+  the Standalone say in its window that the server is off and how to turn it on.
+* **MCP tools were not visible to the session.** Neither the Valis nor the Reaper server was registered
+  with Claude Code for this project. Ship a `.mcp.json` (`{"mcpServers": {"valis": {"type": "http",
+  "url": "http://localhost:7676/mcp"}}}`) so a checkout works without a manual `claude mcp add`.
+* **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone while `render` uses 48000. The
+  live figure looks wrong, or the Standalone has no audio device open. Find out which.
+* **No glide or slew element.** A theremin, portamento bass or legato lead needs a control signal to move
+  to its target over a time. `halloween-theremin.ttl` fakes it with a scooping envelope. Add `val:Slew`
+  (rise and fall times, in milliseconds).
+* **No control-rate add.** `val:ControlMultiply` is the only arithmetic, so a detune in cents, a pitch
+  offset in Hz, or the compensation for a loop's delay cannot be written. Add `val:ControlAdd`.
+* **`val:StiffString` is not tuned.** It runs flat by a delay that does not depend on pitch (about 90 to
+  100 microseconds), measured as 25 cents at E3, 58 at E4 and 104 at E5. The damping filter and the
+  dispersion allpasses lengthen the loop. Subtract their phase delay as `Loss::phaseDelay` does in
+  `Waveguide.h`, and add a test across the range. `halloween-guitar.ttl` multiplies the pitch by 1.025
+  as a stopgap and is in tune only near G3 to G4.
+* **`analyze` reports the wrong octave** for a pure tone with a bright second partial: the wood block
+  at 1850 Hz was named as 925.6 Hz (A#5). Check the pitch tracker against a sine and a TwinTBridge ping.
+* **`render` cannot run a transport.** The tempo-synced wobble LFO in `halloween-bass.ttl` free-runs in
+  a `render`, so its musical timing cannot be checked through MCP. `valis-render --tempo --rolling` can.
+  Add `tempo` and `rolling` parameters to `render`.
+* **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
+  `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
+  `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.
+
 ## Recurring - check periodically
 
 * check builds for warning messages (touch the sources and rebuild to see them all). Fix

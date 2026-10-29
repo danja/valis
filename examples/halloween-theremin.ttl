@@ -1,0 +1,246 @@
+# examples/halloween-theremin.ttl
+#
+# A theremin for the song's unearthly lead. There is no glide element yet, so the glide is
+# made another way: every note scoops up from about a semitone below, a wide vibrato rides on
+# the pitch, and a slow random drift stops it sounding like a sequencer. The pitch passes through
+# three ControlMultiply stages (scoop, vibrato, drift), each a ratio close to 1.
+#
+# The tone is a sine pushed slightly into a soft clipper and low-passed, then a slow phaser, a
+# long echo and a cavernous hall. Play long notes with legato touch for the best effect.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweentheremin#> .
+
+:halloweentheremin a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Theremin", "Lead", "Gothic" ;
+    rdfs:label "Halloween: theremin" ;
+    val:element :pitch , :scoopEnv , :scoop , :scoopMul , :vib , :vibScale , :vibMul , :wander , :wanderMul , :osc , :edge , :tone , :ampEnv , :vca , :phase , :echo , :wet , :hall , :trim , :limit , :out ;
+    val:arc :a_scoopEnv_out__scoop_in ,
+        :a_pitch_out__scoopMul_a ,
+        :a_scoop_out__scoopMul_b ,
+        :a_vib_out__vibScale_in ,
+        :a_scoopMul_out__vibMul_a ,
+        :a_vibScale_out__vibMul_b ,
+        :a_vibMul_out__wanderMul_a ,
+        :a_wander_out__wanderMul_b ,
+        :a_wanderMul_out__osc_frequency ,
+        :a_osc_out__edge_in ,
+        :a_edge_out__tone_in ,
+        :a_tone_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__phase_in ,
+        :a_phase_out__echo_in ,
+        :a_phase_out__wet_in ,
+        :a_echo_out__wet_in ,
+        :a_wet_out__hall_in ,
+        :a_hall_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:scoopEnv a val:Envelope ;
+    val:attack 170.0 ;
+    val:decay 10.0 ;
+    val:sustain 1.0 ;
+    val:release 50.0 .
+
+:scoop a val:Scale ;
+    val:min 0.935 ;
+    val:max 1.0 .
+
+:scoopMul a val:ControlMultiply .
+
+:vib a val:LFO ;
+    val:shape 0 ;
+    val:rate 5.6 .
+
+:vibScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.011 .
+
+:vibMul a val:ControlMultiply .
+
+:wander a val:Drift ;
+    val:centre 1.0 ;
+    val:amount 0.0025 ;
+    val:speed 0.7 ;
+    val:seed 13 .
+
+:wanderMul a val:ControlMultiply .
+
+:osc a val:Oscillator ;
+    val:shape 0 .
+
+:edge a val:Tanh ;
+    val:gain 1.8 .
+
+:tone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 2600.0 .
+
+:ampEnv a val:Envelope ;
+    val:attack 140.0 ;
+    val:decay 100.0 ;
+    val:sustain 1.0 ;
+    val:release 520.0 .
+
+:vca a val:VCA .
+
+:phase a val:Phaser ;
+    val:rate 0.12 ;
+    val:depth 0.8 ;
+    val:feedback 0.55 ;
+    val:mix 0.4 .
+
+:echo a val:BucketBrigade ;
+    val:time 560.0 ;
+    val:feedback 0.58 ;
+    val:bandwidth 0.3 .
+
+:wet a val:Mixer .
+
+:hall a val:Reverb ;
+    val:size 1.9 ;
+    val:decay 9.0 ;
+    val:damping 0.5 ;
+    val:mix 0.45 .
+
+:trim a val:Gain ;
+    val:gain -11.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_scoopEnv_out__scoop_in a val:Arc ;
+    val:from [ val:node :scoopEnv ; val:port "out" ] ;
+    val:to   [ val:node :scoop ; val:port "in" ] .
+:a_pitch_out__scoopMul_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :scoopMul ; val:port "a" ] .
+:a_scoop_out__scoopMul_b a val:Arc ;
+    val:from [ val:node :scoop ; val:port "out" ] ;
+    val:to   [ val:node :scoopMul ; val:port "b" ] .
+:a_vib_out__vibScale_in a val:Arc ;
+    val:from [ val:node :vib ; val:port "out" ] ;
+    val:to   [ val:node :vibScale ; val:port "in" ] .
+:a_scoopMul_out__vibMul_a a val:Arc ;
+    val:from [ val:node :scoopMul ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "a" ] .
+:a_vibScale_out__vibMul_b a val:Arc ;
+    val:from [ val:node :vibScale ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "b" ] .
+:a_vibMul_out__wanderMul_a a val:Arc ;
+    val:from [ val:node :vibMul ; val:port "out" ] ;
+    val:to   [ val:node :wanderMul ; val:port "a" ] .
+:a_wander_out__wanderMul_b a val:Arc ;
+    val:from [ val:node :wander ; val:port "out" ] ;
+    val:to   [ val:node :wanderMul ; val:port "b" ] .
+:a_wanderMul_out__osc_frequency a val:Arc ;
+    val:from [ val:node :wanderMul ; val:port "out" ] ;
+    val:to   [ val:node :osc ; val:port "frequency" ] .
+:a_osc_out__edge_in a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :edge ; val:port "in" ] .
+:a_edge_out__tone_in a val:Arc ;
+    val:from [ val:node :edge ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "in" ] .
+:a_tone_out__vca_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__phase_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :phase ; val:port "in" ] .
+:a_phase_out__echo_in a val:Arc ;
+    val:from [ val:node :phase ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_phase_out__wet_in a val:Arc ;
+    val:from [ val:node :phase ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_echo_out__wet_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :wet ; val:port "in" ] .
+:a_wet_out__hall_in a val:Arc ;
+    val:from [ val:node :wet ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__trim_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :scoop ; val:property val:min ;
+    lv2:name "Scoop depth" ; lv2:symbol "scoop_depth" ;
+    lv2:minimum 0.8 ; lv2:maximum 1.0 ;
+    val:section "Hand" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :scoopEnv ; val:property val:attack ;
+    lv2:name "Scoop time" ; lv2:symbol "scoop_time" ;
+    lv2:minimum 10 ; lv2:maximum 600 ;
+    val:section "Hand" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :vib ; val:property val:rate ;
+    lv2:name "Vibrato rate" ; lv2:symbol "vib_rate" ;
+    lv2:minimum 2 ; lv2:maximum 9 ;
+    val:section "Hand" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :vibScale ; val:property val:max ;
+    lv2:name "Vibrato depth" ; lv2:symbol "vib_depth" ;
+    lv2:minimum 1.0 ; lv2:maximum 1.05 ;
+    val:section "Hand" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :wander ; val:property val:amount ;
+    lv2:name "Wander" ; lv2:symbol "wander" ;
+    lv2:minimum 0 ; lv2:maximum 0.02 ;
+    val:section "Hand" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :edge ; val:property val:gain ;
+    lv2:name "Edge" ; lv2:symbol "edge" ;
+    lv2:minimum 1 ; lv2:maximum 10 ;
+    val:section "Tone" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :tone ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tone" ;
+    lv2:minimum 500 ; lv2:maximum 8000 ;
+    val:section "Tone" ;
+    units:unit units:hertz .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :phase ; val:property val:depth ;
+    lv2:name "Phaser depth" ; lv2:symbol "phase_depth" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_fb" ;
+    lv2:minimum 0 ; lv2:maximum 1.0 ;
+    val:section "Space" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :hall ; val:property val:mix ;
+    lv2:name "Hall mix" ; lv2:symbol "hall_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :hall ; val:property val:decay ;
+    lv2:name "Hall decay" ; lv2:symbol "hall_decay" ;
+    lv2:minimum 1 ; lv2:maximum 20 ;
+    val:section "Space" ;
+    units:unit units:s .

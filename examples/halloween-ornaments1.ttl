@@ -1,0 +1,267 @@
+# examples/halloween-ornaments1.ttl
+#
+# An eerie ornament voice: two vowel-wavetable choirs a few cents apart, with the vowel
+# wandering at random, swell in over more than a second and fade over several, run through a
+# slowly rising frequency shifter feedback loop; and over it a glass bell, a noise tick into
+# a modal resonator an octave above the note. A chorus, a spectral delay and a long hall
+# finish it.
+#
+# Best played as a few held notes or a slow, wide chord.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:halloweenornaments1#> .
+
+:halloweenornaments1 a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Ambient", "Horror", "Choir" ;
+    rdfs:label "Halloween: ghost choir and glass" ;
+    val:element :pitch , :ghostRatio , :bellRatio , :vowelDrift , :choirA , :choirB , :choirMix , :choirLvl , :swell , :choirVca , :shimmer , :tick , :tickEnv , :tickVca , :bell , :bellLvl , :sum , :chorus , :spec , :hall , :trim , :limit , :out ;
+    val:arc :a_pitch_out__ghostRatio_a ,
+        :a_pitch_out__bellRatio_a ,
+        :a_pitch_out__choirA_frequency ,
+        :a_ghostRatio_out__choirB_frequency ,
+        :a_vowelDrift_out__choirA_position ,
+        :a_vowelDrift_out__choirB_position ,
+        :a_choirA_out__choirMix_in ,
+        :a_choirB_out__choirMix_in ,
+        :a_choirMix_out__choirLvl_in ,
+        :a_choirLvl_out__choirVca_in ,
+        :a_swell_out__choirVca_cv ,
+        :a_choirVca_out__shimmer_in ,
+        :a_tickEnv_out__tickVca_cv ,
+        :a_tick_out__tickVca_in ,
+        :a_tickVca_out__bell_in ,
+        :a_bellRatio_out__bell_frequency ,
+        :a_bell_out__bellLvl_in ,
+        :a_shimmer_out__sum_in ,
+        :a_bellLvl_out__sum_in ,
+        :a_sum_out__chorus_in ,
+        :a_chorus_out__spec_in ,
+        :a_spec_out__hall_in ,
+        :a_hall_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:ghostRatio a val:ControlMultiply ;
+    val:b 1.0075 .
+
+:bellRatio a val:ControlMultiply ;
+    val:b 2.0 .
+
+:vowelDrift a val:Drift ;
+    val:centre 0.45 ;
+    val:amount 0.18 ;
+    val:speed 0.25 ;
+    val:seed 5 .
+
+:choirA a val:Wavetable ;
+    val:set 2 .
+
+:choirB a val:Wavetable ;
+    val:set 2 .
+
+:choirMix a val:Mixer .
+
+:choirLvl a val:Gain ;
+    val:gain -8.0 .
+
+:swell a val:Envelope ;
+    val:attack 1400.0 ;
+    val:decay 600.0 ;
+    val:sustain 0.9 ;
+    val:release 2600.0 .
+
+:choirVca a val:VCA .
+
+:shimmer a val:FreqShifter ;
+    val:shift 2.7 ;
+    val:feedback 0.42 ;
+    val:mix 0.3 .
+
+:tick a val:Noise ;
+    val:colour 0.0 .
+
+:tickEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 4.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:tickVca a val:VCA .
+
+:bell a val:ModalBank ;
+    val:decay 7.0 ;
+    val:brightness 0.75 ;
+    val:mode 1 .
+
+:bellLvl a val:Gain ;
+    val:gain -4.0 .
+
+:sum a val:Mixer .
+
+:chorus a val:Chorus ;
+    val:rate 0.31 ;
+    val:depth 3.2 ;
+    val:mix 0.5 .
+
+:spec a val:SpectralDelay ;
+    val:time 420.0 ;
+    val:spread 0.6 ;
+    val:feedback 0.5 ;
+    val:mix 0.35 .
+
+:hall a val:Reverb ;
+    val:size 2.0 ;
+    val:decay 14.0 ;
+    val:damping 0.45 ;
+    val:mix 0.5 .
+
+:trim a val:Gain ;
+    val:gain 10.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__ghostRatio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :ghostRatio ; val:port "a" ] .
+:a_pitch_out__bellRatio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :bellRatio ; val:port "a" ] .
+:a_pitch_out__choirA_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :choirA ; val:port "frequency" ] .
+:a_ghostRatio_out__choirB_frequency a val:Arc ;
+    val:from [ val:node :ghostRatio ; val:port "out" ] ;
+    val:to   [ val:node :choirB ; val:port "frequency" ] .
+:a_vowelDrift_out__choirA_position a val:Arc ;
+    val:from [ val:node :vowelDrift ; val:port "out" ] ;
+    val:to   [ val:node :choirA ; val:port "position" ] .
+:a_vowelDrift_out__choirB_position a val:Arc ;
+    val:from [ val:node :vowelDrift ; val:port "out" ] ;
+    val:to   [ val:node :choirB ; val:port "position" ] .
+:a_choirA_out__choirMix_in a val:Arc ;
+    val:from [ val:node :choirA ; val:port "out" ] ;
+    val:to   [ val:node :choirMix ; val:port "in" ] .
+:a_choirB_out__choirMix_in a val:Arc ;
+    val:from [ val:node :choirB ; val:port "out" ] ;
+    val:to   [ val:node :choirMix ; val:port "in" ] .
+:a_choirMix_out__choirLvl_in a val:Arc ;
+    val:from [ val:node :choirMix ; val:port "out" ] ;
+    val:to   [ val:node :choirLvl ; val:port "in" ] .
+:a_choirLvl_out__choirVca_in a val:Arc ;
+    val:from [ val:node :choirLvl ; val:port "out" ] ;
+    val:to   [ val:node :choirVca ; val:port "in" ] .
+:a_swell_out__choirVca_cv a val:Arc ;
+    val:from [ val:node :swell ; val:port "out" ] ;
+    val:to   [ val:node :choirVca ; val:port "cv" ] .
+:a_choirVca_out__shimmer_in a val:Arc ;
+    val:from [ val:node :choirVca ; val:port "out" ] ;
+    val:to   [ val:node :shimmer ; val:port "in" ] .
+:a_tickEnv_out__tickVca_cv a val:Arc ;
+    val:from [ val:node :tickEnv ; val:port "out" ] ;
+    val:to   [ val:node :tickVca ; val:port "cv" ] .
+:a_tick_out__tickVca_in a val:Arc ;
+    val:from [ val:node :tick ; val:port "out" ] ;
+    val:to   [ val:node :tickVca ; val:port "in" ] .
+:a_tickVca_out__bell_in a val:Arc ;
+    val:from [ val:node :tickVca ; val:port "out" ] ;
+    val:to   [ val:node :bell ; val:port "in" ] .
+:a_bellRatio_out__bell_frequency a val:Arc ;
+    val:from [ val:node :bellRatio ; val:port "out" ] ;
+    val:to   [ val:node :bell ; val:port "frequency" ] .
+:a_bell_out__bellLvl_in a val:Arc ;
+    val:from [ val:node :bell ; val:port "out" ] ;
+    val:to   [ val:node :bellLvl ; val:port "in" ] .
+:a_shimmer_out__sum_in a val:Arc ;
+    val:from [ val:node :shimmer ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_bellLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :bellLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__chorus_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :chorus ; val:port "in" ] .
+:a_chorus_out__spec_in a val:Arc ;
+    val:from [ val:node :chorus ; val:port "out" ] ;
+    val:to   [ val:node :spec ; val:port "in" ] .
+:a_spec_out__hall_in a val:Arc ;
+    val:from [ val:node :spec ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__trim_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :vowelDrift ; val:property val:amount ;
+    lv2:name "Vowel wander" ; lv2:symbol "vowel_wander" ;
+    lv2:minimum 0 ; lv2:maximum 0.5 ;
+    val:section "Choir" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :vowelDrift ; val:property val:centre ;
+    lv2:name "Vowel" ; lv2:symbol "vowel" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Choir" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :swell ; val:property val:attack ;
+    lv2:name "Swell" ; lv2:symbol "swell" ;
+    lv2:minimum 50 ; lv2:maximum 4000 ;
+    val:section "Choir" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :swell ; val:property val:release ;
+    lv2:name "Fade" ; lv2:symbol "fade" ;
+    lv2:minimum 100 ; lv2:maximum 8000 ;
+    val:section "Choir" ;
+    units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :choirLvl ; val:property val:gain ;
+    lv2:name "Choir level" ; lv2:symbol "choir_level" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Mix" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :bellLvl ; val:property val:gain ;
+    lv2:name "Bell level" ; lv2:symbol "bell_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Mix" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :bell ; val:property val:decay ;
+    lv2:name "Bell decay" ; lv2:symbol "bell_decay" ;
+    lv2:minimum 0.5 ; lv2:maximum 10 ;
+    val:section "Bell" ;
+    units:unit units:s .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :shimmer ; val:property val:shift ;
+    lv2:name "Shimmer shift" ; lv2:symbol "shimmer_shift" ;
+    lv2:minimum -20 ; lv2:maximum 20 ;
+    val:section "Shimmer" ;
+    units:unit units:hertz .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :spec ; val:property val:time ;
+    lv2:name "Spectral delay" ; lv2:symbol "spec_time" ;
+    lv2:minimum 50 ; lv2:maximum 900 ;
+    val:section "Space" ;
+    units:unit units:ms .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :hall ; val:property val:mix ;
+    lv2:name "Hall mix" ; lv2:symbol "hall_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
