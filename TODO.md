@@ -291,12 +291,11 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
 * **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.
-* **Running a circuit inside Reaper.** Each Valis plugin instance would start its own MCP server on
-  the same port, and a circuit chosen over MCP lives only in that instance. So eight instances in one
-  session cannot each be given a circuit by an agent. For the track the circuits were rendered with
-  `valis-render --midi` and the stems imported. Give the MCP port a per-instance choice (or let a
-  second instance take the next free port and say so), and a way to set a circuit from a path in the
-  plugin state so a project can be written without opening the GUI.
+* **Running a circuit inside Reaper.** Several instances now each get an MCP port (7676, 7677, and so
+  on) and `/health` reports the port and the host's track name. Still to do: a way to set a circuit from
+  a path in the plug-in's saved state, so a project can be written without opening the GUI; and a check,
+  in a real Reaper session with eight instances, that the track name is passed on (`updateTrackProperties`
+  is only called by some hosts) and that the ports are what the Settings menu says.
 * **`valis-render --midi` is new** (a standard MIDI file played at `--tempo`; add `--rolling` for a tempo-synced
   circuit). It reads only note events and a fixed tempo; tempo changes and controllers are ignored. The `render` MCP tool
   still takes one note, so give it the same `midi`, `tempo` and `rolling` parameters.

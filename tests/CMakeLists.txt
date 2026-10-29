@@ -136,3 +136,14 @@ endif()
 add_executable(ui_FileOptionTest ui/FileOptionTest.cpp)
 target_link_libraries(ui_FileOptionTest PRIVATE valis_core)
 add_test(NAME ui_FileOptionTest COMMAND ui_FileOptionTest)
+
+# The MCP server is part of the plug-in, not valis_core, so it is compiled in here. Only the port
+# handling is exercised; no tool is called.
+if(VALIS_WITH_MCP)
+  add_executable(mcp_McpServerPortTest mcp/McpServerPortTest.cpp
+                                       ${CMAKE_SOURCE_DIR}/src/mcp/McpServer.cpp)
+  target_link_libraries(mcp_McpServerPortTest PRIVATE valis_core valis_httplib juce::juce_events)
+  target_include_directories(mcp_McpServerPortTest PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_compile_definitions(mcp_McpServerPortTest PRIVATE VALIS_WITH_MCP=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+  add_test(NAME mcp_McpServerPortTest COMMAND mcp_McpServerPortTest)
+endif()

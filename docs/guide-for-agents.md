@@ -28,7 +28,9 @@ asking the running program:
    ```
 
    If it cannot connect, the server is off. It binds to `127.0.0.1` on port 7676
-   (`VALIS_MCP_PORT` changes that) and is enabled from Settings in the plugin.
+   (`VALIS_MCP_PORT` changes that) and is enabled from Settings in the plugin. With several
+   instances loaded, each takes the next free port above that, and `/health` names the one that
+   answered: see [the MCP manual](manual/mcp.md#several-instances).
 
 2. Read the current circuit and the available element types:
 

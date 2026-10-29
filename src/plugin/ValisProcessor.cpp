@@ -204,6 +204,11 @@ ValisProcessor::ValisProcessor()
    #if VALIS_WITH_MCP
     // Created here; started only when the user enables it via Settings → MCP Server.
     mcpServer = std::make_unique<McpServer>([this] { return ops(); });
+    mcpServer->setIdentity([this]
+    {
+        const juce::ScopedLock lock(trackNameLock);
+        return trackName.toStdString();
+    });
    #endif
 
     // Retired graphs are freed here, and parameter changes are applied here.
@@ -743,6 +748,12 @@ void ValisProcessor::timerCallback()
     }
 }
 
+void ValisProcessor::updateTrackProperties(const TrackProperties& properties)
+{
+    const juce::ScopedLock lock(trackNameLock);
+    trackName = properties.name.has_value() ? *properties.name : juce::String();
+}
+
 void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto tree = apvts.copyState();
@@ -784,7 +795,10 @@ bool ValisProcessor::startMcp(int requestedPort, const std::string& token)
     const int portToUse = requestedPort > 0 ? requestedPort
         : juce::SystemStats::getEnvironmentVariable("VALIS_MCP_PORT", "7676").getIntValue();
 
-    return mcpServer->start(portToUse, token);
+    // One server per instance: a host with several tracks of Valis loads several instances into
+    // one process, and they cannot all bind the same port.
+    constexpr int kPortsToTry = 32;
+    return mcpServer->start(portToUse, token, kPortsToTry);
 }
 
 void ValisProcessor::stopMcp()

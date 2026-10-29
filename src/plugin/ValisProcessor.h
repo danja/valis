@@ -106,6 +106,10 @@ public:
     void changeProgramName(int, const juce::String&) override {}
 
     void getStateInformation(juce::MemoryBlock&) override;
+
+    /// The host's name for the track this instance is on, when it says. Reported by the MCP
+    /// server's /health so a client can tell instances apart.
+    void updateTrackProperties(const TrackProperties& properties) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& state() { return apvts; }
@@ -202,7 +206,9 @@ public:
    #if VALIS_WITH_MCP
     McpServer& mcp() { return *mcpServer; }
 
-    /// Start or restart the MCP server. Port 0 falls back to VALIS_MCP_PORT or 7676.
+    /// Start or restart the MCP server. Port 0 falls back to VALIS_MCP_PORT or 7676. If that port
+    /// is taken (another instance, usually) the next ones are tried, so every instance gets a
+    /// server; `mcpPort()` says which it got.
     bool startMcp(int port = 0, const std::string& token = {});
     void stopMcp();
     bool isMcpRunning() const;
@@ -268,6 +274,9 @@ private:
    #if VALIS_WITH_MCP
     std::unique_ptr<McpServer> mcpServer;
    #endif
+
+    juce::CriticalSection trackNameLock;   // the host sets it; the MCP thread reads it
+    juce::String trackName;
 
     juce::AudioProcessorValueTreeState apvts;
 

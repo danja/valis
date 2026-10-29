@@ -8,6 +8,7 @@
 
 #include <httplib.h>
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -523,7 +524,9 @@ struct McpServer::Gate : MessageThreadGate
 
 struct McpServer::Impl
 {
-    httplib::Server server;
+    // A server that fails to bind cannot be reused (httplib decommissions it), so each attempt
+    // makes a new one and the one that binds is kept here.
+    std::unique_ptr<httplib::Server> server;
     std::thread thread;
     std::shared_ptr<Gate> gate = std::make_shared<Gate>();
 };
@@ -876,50 +879,104 @@ std::string McpServer::handleMessage(const std::string& request)
     return juce::JSON::toString(juce::var(response), true).toStdString();
 }
 
-bool McpServer::start(int requestedPort, const std::string& bearerToken)
+void McpServer::setIdentity(std::function<std::string()> describe)
+{
+    const std::lock_guard<std::mutex> lock(identityMutex);
+    identity = std::move(describe);
+}
+
+bool McpServer::start(int requestedPort, const std::string& bearerToken, int portsToTry)
 {
     if (running.load(std::memory_order_acquire))
         return true;
 
     token = bearerToken;
-    port  = requestedPort;
 
-    impl->server.Post("/mcp", [this](const httplib::Request& request, httplib::Response& response)
+    const auto configure = [this](httplib::Server& server)
     {
-        if (! token.empty())
+        server.Post("/mcp", [this](const httplib::Request& request, httplib::Response& response)
         {
-            const auto header = request.get_header_value("Authorization");
-            if (header != "Bearer " + token)
+            if (! token.empty())
             {
-                response.status = 401;
-                response.set_content(R"({"error":"unauthorized"})", "application/json");
+                const auto header = request.get_header_value("Authorization");
+                if (header != "Bearer " + token)
+                {
+                    response.status = 401;
+                    response.set_content(R"({"error":"unauthorized"})", "application/json");
+                    return;
+                }
+            }
+
+            const auto reply = handleMessage(request.body);
+            if (reply.empty())
+            {
+                response.status = 202;   // a notification was accepted
                 return;
             }
-        }
 
-        const auto reply = handleMessage(request.body);
-        if (reply.empty())
+            response.set_content(reply, "application/json");
+        });
+
+        server.Get("/health", [this](const httplib::Request&, httplib::Response& response)
         {
-            response.status = 202;   // a notification was accepted
-            return;
-        }
+            std::string name;
+            {
+                const std::lock_guard<std::mutex> lock(identityMutex);
+                if (identity) name = identity();
+            }
 
-        response.set_content(reply, "application/json");
-    });
+            auto* object = new juce::DynamicObject();
+            object->setProperty("status", "ok");
+            object->setProperty("server", "valis");
+            object->setProperty("port", port);
+            object->setProperty("name", juce::String(name));
+            response.set_content(juce::JSON::toString(juce::var(object), true).toStdString(),
+                                 "application/json");
+        });
 
-    impl->server.Get("/health", [this](const httplib::Request&, httplib::Response& response)
-    {
-        response.set_content(R"({"status":"ok","server":"valis"})", "application/json");
-    });
+        // httplib's default options include SO_REUSEPORT, which lets a second server bind a port
+        // the first one holds, and the kernel then hands each request to either. Two instances
+        // would answer for each other without either noticing. Allow only a quick rebind after a
+        // stop.
+        server.set_socket_options([](socket_t socket)
+        {
+            int yes = 1;
+           #ifdef _WIN32
+            setsockopt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&yes), sizeof(yes));
+           #else
+            setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+           #endif
+        });
+    };
 
     // Loopback only. This is an editing surface for the machine the plugin runs
     // on, not a service.
-    if (! impl->server.bind_to_port("127.0.0.1", port))
-        return false;
+    for (int attempt = 0; attempt < std::max(1, portsToTry); ++attempt)
+    {
+        const int candidate = requestedPort + attempt;
+        if (candidate > 65535)
+            break;
 
-    running.store(true, std::memory_order_release);
-    impl->thread = std::thread([this] { impl->server.listen_after_bind(); });
-    return true;
+        auto candidateServer = std::make_unique<httplib::Server>();
+        configure(*candidateServer);
+
+        if (candidateServer->bind_to_port("127.0.0.1", candidate))
+        {
+            port = candidate;
+            impl->server = std::move(candidateServer);
+            running.store(true, std::memory_order_release);
+            impl->thread = std::thread([this] { impl->server->listen_after_bind(); });
+
+            // stop() does nothing to a server that has not begun to listen, and the thread would
+            // then listen for ever and never join. Return only once it is listening.
+            for (int waited = 0; waited < 400 && ! impl->server->is_running(); ++waited)
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return true;
+        }
+    }
+
+    port = 0;
+    return false;
 }
 
 void McpServer::stop()
@@ -927,9 +984,10 @@ void McpServer::stop()
     if (! running.exchange(false, std::memory_order_acq_rel))
         return;
 
-    impl->server.stop();
+    impl->server->stop();
     if (impl->thread.joinable())
         impl->thread.join();
+    impl->server.reset();
 }
 
 }  // namespace valis

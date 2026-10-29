@@ -131,11 +131,16 @@ the silent tail after the last echo if a release needs an exact length.
 
 ## Why the stems are not live plug-ins
 
-Each Valis plug-in instance starts its own MCP server, all on the same port (7676 by default), and
-a circuit chosen over MCP lives only in that instance. So an agent cannot give eight instances in
-one Reaper session eight different circuits. Setting a circuit from a file in the plug-in's saved
-state, and letting a second instance take the next free port, would fix it. Until then, a
-project holds recordings.
+When the song was made, each Valis plug-in instance started its own MCP server on the same port
+(7676 by default), and a circuit chosen over MCP lives only in that instance. So an agent could not
+give eight instances in one Reaper session eight different circuits. The port half of this is now
+fixed: an instance whose port is taken moves up to the next free one, and `/health` reports the port
+and the host's track name (see `docs/manual/mcp.md`, "Several instances").
+
+What is still missing is a way to give an instance its circuit without opening its window: a
+circuit path in the plug-in's saved state, so a project can be written by a tool. Until then, a
+project holds recordings, and a session with eight live tracks would need each circuit loaded over
+its own port after the project is opened. This is in `TODO.md`.
 
 ## Setting up the tools
 
@@ -185,15 +190,16 @@ In this repository:
 - `docs/dead-at-midnight-sleeve.svg` and `.png`: the sleeve, in the style of a medieval woodcut.
 - `docs/dead-at-midnight-lyrics.md`: the lyrics, laid out against the bars above.
 - `src/tools/RenderMain.cpp`: the `--midi` option.
+- `scripts/halloween/`: the Python that wrote the notes (`song.py`, `midiw.py`) and generated the circuit
+  Turtle files (`circuits/`). See its `README.md`. The files in `examples/` are the product and can be
+  edited directly; the scripts are kept for reference and are not needed to build or test anything.
 
 In `~/Music/dead-at-midnight/`:
 
 - `dead-at-midnight.rpp`: the Reaper project.
 - `stems/`, `midi/`: the audio and the notes it was made from.
 - `score/song.py`, `score/midiw.py`: the composition script and its MIDI writer.
-- `score/circuits/`: the scripts that generated the circuit Turtle files (`gen.py` is the shared
-  helper). The files in `examples/` are the product and can be edited directly; the scripts are
-  kept only for reference and are not needed to build or test anything.
+- `score/circuits/`: a copy of the circuit generator scripts (see below).
 - `dead-at-midnight-stems.wav`: the mix, rendered from Reaper by hand. `dead-at-midnight-stems.RPP` and
   `Media/` are the same project with its audio copied in.
 - `lyrics.md` and `dead-at-midnight-reference-mix.wav` (the Python sum of the stems, kept for comparison).

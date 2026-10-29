@@ -192,3 +192,21 @@ written without looking at how the neighbouring one handled its path.
 **Prevention.** Any user-supplied path in a tool goes through
 `juce::File::getCurrentWorkingDirectory().getChildFile(...)`. Run the tool once with a relative
 path and watch stderr for JUCE assertions, not only for the exit code.
+
+## Two MCP servers could bind the same port, and a failed bind ruined the server
+
+**What happened.** A second Valis instance asked for the same MCP port as the first and was told it
+had bound it. Requests then went to either server, so a client talked to the wrong circuit. The
+fix, trying the next port, then failed on the first attempt: after `bind_to_port` fails, httplib
+marks that `Server` object decommissioned and every later bind on it fails too. A third problem
+showed up in the test: `stop()` straight after `start()` hangs, because stopping a server that has
+not begun to listen does nothing and its thread then listens for ever.
+
+**Root cause.** httplib's default socket options include `SO_REUSEPORT`, which the plug-in never
+looked at. The other two come from httplib's lifetime rules, which are not stated where the API is
+used.
+
+**Prevention.** The server sets its own socket options (`SO_REUSEADDR`, or `SO_EXCLUSIVEADDRUSE` on
+Windows), makes a new `httplib::Server` for each port it tries, and `start()` returns only once the
+server is listening. `tests/mcp/McpServerPortTest.cpp` covers all three. Any code that wraps a library
+with its own lifecycle rules gets a start, stop and restart test as well as a first-use test.

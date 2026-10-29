@@ -158,7 +158,9 @@ limits and moves to another provider when one will not serve a request.
 ## Running it
 
 **Standalone, VST3 and LV2 build by default**, with CLAP behind a CMake option.
-One command, `./build.sh`, builds everything and runs the tests.
+One command, `./build.sh`, builds everything and runs the tests. The
+[standalone app](manual/standalone.md) runs a circuit with no DAW, with its own audio and MIDI
+settings, and is the easiest way to drive Valis from an agent.
 
 **`valis-render` is a headless renderer** that needs no host, GUI or audio
 device. It synthesises a transport from a tempo, can send note events, and

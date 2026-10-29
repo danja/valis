@@ -36,7 +36,7 @@ Options: `VALIS_BUILD_TESTS` (ON), `VALIS_BUILD_PLUGIN` (ON), `VALIS_WITH_MCP`
 ## Running
 
 ```sh
-./valis                                   # the standalone
+./valis                                   # the standalone (see standalone.md)
 ctest --test-dir build --output-on-failure
 ./build/valis_render_artefacts/Debug/valis_render examples/skream.ttl \
     -o out.wav --tone 100

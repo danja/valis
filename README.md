@@ -208,7 +208,7 @@ ctest --test-dir build --output-on-failure
 ```
 
 Launch the standalone application - it prefers the Release build, falling back to
-Debug:
+Debug (see [`docs/manual/standalone.md`](docs/manual/standalone.md)):
 
 ```sh
 ./valis

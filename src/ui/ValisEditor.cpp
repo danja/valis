@@ -124,7 +124,9 @@ juce::PopupMenu ValisEditor::getMenuForIndex(int menuIndex, const juce::String&)
     {
        #if VALIS_WITH_MCP
         const bool running = processor.isMcpRunning();
-        menu.addItem(settingsMcpToggle, "MCP Server", true, running);
+        menu.addItem(settingsMcpToggle,
+                     running ? "MCP Server (port " + juce::String(processor.mcpPort()) + ")" : juce::String("MCP Server"),
+                     true, running);
        #else
         menu.addItem(settingsMcpToggle, "MCP Server (not built)", false, false);
        #endif
@@ -198,8 +200,12 @@ void ValisEditor::menuItemSelected(int menuItemID, int)
         case fileSave: saveCircuit(); break;
        #if VALIS_WITH_MCP
         case settingsMcpToggle:
-            if (processor.isMcpRunning()) processor.stopMcp();
-            else                          processor.startMcp();
+            if (processor.isMcpRunning())
+                processor.stopMcp();
+            else if (! processor.startMcp())
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::WarningIcon, "MCP Server",
+                    "Could not bind a port. Every port from the first one tried upward was in use.");
             break;
        #endif
         case settingsAutolayout:

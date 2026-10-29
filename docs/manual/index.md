@@ -1,7 +1,7 @@
 # Valis
 
-Valis is a DAW plugin that builds virtual-analog circuits from RDF/Turtle
-descriptions. The circuit is not compiled into the plugin: it is a document you
+Valis is a standalone app and a DAW plugin that builds virtual-analog circuits from
+RDF/Turtle descriptions. The circuit is not compiled into the plugin: it is a document you
 can read, edit and hand to a language model.
 
 [Releases](https://github.com/danja/valis/releases)
@@ -20,6 +20,7 @@ can read, edit and hand to a language model.
 - [Element reference](elements.md) : every class the ontology declares
 - [Console](console.md) : the REPL tab and the AI circuit designer
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
+- [The standalone app](standalone.md) : running Valis without a DAW, and driving it from an agent
 - [Building](building.md) : prerequisites and the build
 - [Guide for agents](guide-for-agents.md) : how to build instruments and processors via MCP
 

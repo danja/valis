@@ -24,6 +24,35 @@ Check it is up:
 curl -s localhost:7676/health
 ```
 
+The reply says which instance answered:
+
+```json
+{ "status": "ok", "server": "valis", "port": 7676, "name": "Bass" }
+```
+
+### Several instances
+
+A host that has several Valis tracks loads several instances into one process, and each gets
+an MCP server of its own. An instance asks for the configured port (7676 unless
+`VALIS_MCP_PORT` says otherwise) and, if that is taken, tries the next one, and the next, up to
+32 ports. The first instance is on 7676, the second on 7677, and so on. The Settings menu shows
+the port an instance got ("MCP Server (port 7677)"), and a saved session remembers it as a
+preference, not a promise: an instance that finds its saved port taken moves up.
+
+`name` in the `/health` reply is the track name the host gives the instance, when it gives one,
+so a client can tell which instance is which. To find them all:
+
+```sh
+for p in $(seq 7676 7707); do curl -s -m 1 localhost:$p/health && echo; done
+```
+
+Register each one with the client under its own name, for example
+`claude mcp add --transport http valis-bass http://localhost:7677/mcp`. The port an instance gets
+depends on the order the host loads them, so check `/health` rather than assuming.
+
+Before this, two servers asked for the same port could both bind it (the HTTP library sets
+`SO_REUSEPORT`), and the system then handed each request to either one. That is now refused.
+
 ## Protocol
 
 JSON-RPC 2.0 over `POST /mcp`. `initialize`, `tools/list`, `tools/call`,

@@ -19,6 +19,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace valis {
@@ -33,8 +34,15 @@ public:
 
     /// Starts listening. An empty token means no authentication, which is only
     /// reasonable because the socket is bound to loopback.
-    bool start(int port, const std::string& bearerToken = {});
+    /// If `port` is taken, tries the next `portsToTry - 1` ports in turn, so several instances
+    /// (one per track in a host) each get a server of their own. `boundPort()` says which.
+    /// Returns false, and binds nothing, if none was free.
+    bool start(int port, const std::string& bearerToken = {}, int portsToTry = 1);
     void stop();
+
+    /// Says what this instance is, for `/health`, so a client scanning ports can tell instances
+    /// apart (the host's track name, say). Called on the HTTP thread, so it must be thread-safe.
+    void setIdentity(std::function<std::string()> describe);
 
     bool isRunning() const { return running.load(std::memory_order_acquire); }
     int  boundPort() const { return port; }
@@ -52,6 +60,9 @@ private:
     std::function<OpDispatcher()> makeDispatcher;
     std::string token;
     int port = 0;
+
+    std::mutex identityMutex;
+    std::function<std::string()> identity;
 
     std::atomic<bool> running{false};
     struct Impl;
