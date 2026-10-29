@@ -129,6 +129,21 @@ and a `Media/` folder holding the stems, so that project is self-contained and `
 (which points at `stems/`) is the lighter one. The render is 186 seconds because the stems are; trim
 the silent tail after the last echo if a release needs an exact length.
 
+## The MIDI project
+
+`dead-at-midnight-midi.rpp` holds the arrangement itself rather than the recorded stems. It has the
+same eight tracks, named as in the table above, at 140 BPM. Each track has one item of about 178.6
+seconds that reads its notes from `midi/<instrument>.mid`, so the notes stay in the files that
+`song.py` wrote and are not copied into the project.
+
+`scripts/halloween/mkrpp.py` writes the project text directly, because `reaper-mcp` has no tool to
+import a MIDI file. Reaper then loaded it through `load_project`, and the levels and pans in the
+table were applied with `set_track_volume` and `set_track_pan`. Those settings are not in
+`mkrpp.py`, so running it again gives a project at unity gain and centre pan.
+
+The tracks make no sound on their own. To hear them, add a Valis plug-in to each track and load the
+matching `examples/halloween-*.ttl`. See the next section for why that step is still manual.
+
 ## Why the stems are not live plug-ins
 
 When the song was made, each Valis plug-in instance started its own MCP server on the same port

@@ -6,6 +6,9 @@ The process is described in `docs/halloween-process.md`.
 
 - `song.py` writes the song's notes as one MIDI file per instrument, using `midiw.py`. It writes to
   `~/Music/dead-at-midnight/midi/` (the `OUT` path at the top). Run `python3 song.py`.
+- `mkrpp.py` writes `~/Music/dead-at-midnight/dead-at-midnight-midi.rpp`, a Reaper project with one
+  track per MIDI file, each item reading its file from `midi/`. Run `song.py` first. Track levels and
+  pans are not in the file; they were set afterwards through reaper-mcp (see `docs/halloween-process.md`).
 - `circuits/gen.py` expands a short description of nodes, arcs and parameters into the long Turtle
   form the examples use, for a monophonic circuit (`build`) or a polyphonic one (`build_poly`).
 - `circuits/dl.py`, `dh.py`, `bass.py`, `organ.py`, `guitar.py`, `theremin.py`, `orn1.py` and `orn2.py`
