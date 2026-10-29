@@ -1,0 +1,53 @@
+# examples/timestretch.ttl
+#
+# A sound file played at a different speed from its pitch. Speed stretches or squeezes
+# time and leaves the pitch alone; Pitch moves the pitch and leaves the length alone. Turn
+# Speed to 0 and the sound holds one moment of the file for as long as you like, which is
+# the usual way to make a drone out of a recording.
+#
+# Keep formants is for voices: it holds the spectral envelope where it was while the pitch
+# moves, so a shifted voice keeps its vowel. On a tone or a bell, leave it off.
+#
+# The file is summed to mono and resampled to the engine's rate. To use another, change
+# val:file, or use the file slot in the Controls view.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:timestretch#> .
+
+:stretch a val:Circuit , trn:PluginProfile ;
+    trn:role trn:Instrument ;
+    trn:produces trn:Audio ;
+    trn:genre "Ambient", "Sound design" ;
+    rdfs:label "Time stretch" ;
+    val:element :player , :gain , :out ;
+    val:arc :aPlayerGain , :aGainOut .
+
+:player a val:TimeStretch ; val:file "samples/bell.wav" ; val:speed 0.25 ; val:loop 1.0 .
+:gain   a val:Gain ; val:gain -3.0 .
+:out    a val:Output .
+
+:aPlayerGain a val:Arc ; val:from [ val:node :player ; val:port "out" ] ;
+                         val:to   [ val:node :gain   ; val:port "in"  ] .
+:aGainOut a val:Arc ; val:from [ val:node :gain ; val:port "out" ] ;
+                      val:to   [ val:node :out  ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :player ; val:property val:speed ;
+    lv2:name "Speed" ; lv2:symbol "speed" ; lv2:minimum 0.0 ; lv2:maximum 4.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :player ; val:property val:pitch ;
+    lv2:name "Pitch" ; lv2:symbol "pitch" ; units:unit units:semitone12TET ;
+    lv2:minimum -24 ; lv2:maximum 24 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :player ; val:property val:formant ;
+    lv2:name "Keep formants" ; lv2:symbol "formant" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :player ; val:property val:start ;
+    lv2:name "Start" ; lv2:symbol "start" .
+
+:p4 a val:Param ; val:slot 4 ; val:target :gain ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ; units:unit units:db ;
+    lv2:minimum -40 ; lv2:maximum 6 .

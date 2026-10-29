@@ -103,6 +103,15 @@ struct ProcessArgs
     }
 };
 
+/// Material one element owns and another reads, handed over by a buffer arc. The base is
+/// empty on purpose: what is shared is a matter between the two elements, which agree on a
+/// derived type, and the engine only carries the pointer. The owner outlives every reader,
+/// since they live and die with one compiled circuit.
+struct SharedBuffer
+{
+    virtual ~SharedBuffer() = default;
+};
+
 /// Defaults degrade gracefully rather than abort: an element that does not care
 /// about a call should not have to implement it.
 class DspElement
@@ -129,6 +138,22 @@ public:
     {
         (void) key; (void) value; (void) error;
         return true;
+    }
+
+    /// Message thread. What this element offers on a val:BufferPort output, or null if the
+    /// port is not one it knows. Asked once, after every element is prepared and has its
+    /// options, and the pointer is valid for the life of the circuit.
+    virtual SharedBuffer* bufferOut(std::string_view port) { (void) port; return nullptr; }
+
+    /// Message thread. Connects a val:BufferPort input to what another element offered.
+    /// Returns false, writing why, when this element has no such port or cannot use what
+    /// it was given; the circuit then fails to load with that message. The element runs
+    /// after the owner, so by process() time the material is there to read.
+    virtual bool bufferIn(std::string_view port, SharedBuffer* buffer, std::string& error)
+    {
+        (void) buffer;
+        error = "has no buffer input '" + std::string(port) + "'";
+        return false;
     }
 
     /// Message thread. A problem the element recovered from instead of failing

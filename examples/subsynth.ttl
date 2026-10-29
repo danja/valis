@@ -1,3 +1,13 @@
+# examples/subsynth.ttl
+#
+# A subtractive synthesiser played from MIDI: an oscillator through a resonant ladder filter and
+# two amplifiers. Separate amplitude and filter envelopes shape the note, and velocity scales its
+# level. The filter envelope goes through a val:Scale, so the resting cutoff is the Scale's min and
+# the envelope lifts it toward the max. The oscillator's waveform is a parameter.
+#
+# Signal path: Oscillator -> Ladder -> VCA (velocity) -> VCA (envelope) -> Gain -> Output
+# Controls:    MidiPitch -> Oscillator.frequency;  Envelope -> Scale -> Ladder.cutoff
+
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .

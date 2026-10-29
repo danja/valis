@@ -48,7 +48,6 @@
 # feedback controls sustain (how loud each cycle is relative to the last).
 # damping controls brightness: 0 = all harmonics sustained equally, 1 = highs die fast.
 :comb a val:CombFilter ;
-    val:frequency 220.0 ;
     val:feedback  0.98 ;
     val:damping   0.15 .
 

@@ -4,6 +4,7 @@
 // exercised here with no editor constructed and no host present.
 
 #include "valis/CircuitCompiler.h"
+#include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
 #include "valis/Ontology.h"
 #include "valis/Ops.h"
@@ -12,8 +13,10 @@
 #include "valis/Vocabulary.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cassert>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -43,6 +46,8 @@ struct Host
     CircuitModel model;
     std::string turtle;
     bool loaded = false;
+    CircuitHistory history;
+    int installs = 0;   ///< how many times a circuit has been handed to the engine to install
 
     /// Stands in for the plugin's per-node sample choices.
     std::map<std::string, std::string> samples;
@@ -64,6 +69,7 @@ struct Host
 
     bool write(const std::string& source, std::vector<Diagnostic>& diagnostics)
     {
+        ++installs;
         turtle = source;
         diagnostics.clear();
 
@@ -103,6 +109,7 @@ struct Host
         ctx.ontology  = &ontology;
         ctx.engine    = &engine;
         ctx.registry  = &registry;
+        ctx.history   = &history;
         ctx.readTurtle = [this] { return turtle; };
         ctx.writeTurtle = [this](const std::string& s, std::vector<Diagnostic>& d) { return write(s, d); };
         ctx.readModel = [this]() -> const CircuitModel* { return loaded ? &model : nullptr; };
@@ -332,6 +339,628 @@ void testDiagnostics()
     assert(result.value.find("\"loaded\":true") != std::string::npos);
     assert(result.value.find("\"elements\":14") != std::string::npos);
     assert(result.value.find("\"latency\":3") != std::string::npos);
+    assert(result.value.find("\"problems\":[]") != std::string::npos);   // nothing to report
+}
+
+/// A circuit can load with an element that could not do what it was asked. The diagnostics
+/// have to say so, or the caller sees a healthy circuit that makes no sound.
+/// The text of a failure.
+std::string message(const OpResult& result)
+{
+    return result.diagnostics.empty() ? std::string() : result.diagnostics.front().message;
+}
+
+void testDescribeElement()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    auto ops = host.ops();
+
+    const auto result = ops.describeElement("val:StepSequencer");
+    assert(result.ok);
+    const auto& json = result.value;
+
+    // What it is for, in words; its ports with their numbers; and its option, which is not a port.
+    assert(json.find("\"class\":\"StepSequencer\"") != std::string::npos);
+    assert(json.find("\"description\":\"Plays a pattern of notes and rests") != std::string::npos);
+    assert(json.find("\"symbol\":\"gatelength\"") != std::string::npos);
+    assert(json.find("\"default\":0.5") != std::string::npos);
+    assert(json.find("\"name\":\"pattern\",\"type\":\"string\"") != std::string::npos);
+    assert(json.find("note name") != std::string::npos);                       // the option says what it takes
+    assert(json.find("\"name\":\"oversampling\"") != std::string::npos);       // every element takes this
+
+    int braces = 0, brackets = 0;
+    for (const char c : json)
+    {
+        braces += c == '{' ? 1 : (c == '}' ? -1 : 0);
+        brackets += c == '[' ? 1 : (c == ']' ? -1 : 0);
+    }
+    assert(braces == 0 && brackets == 0);
+
+    // The name can be written any way a person would write it.
+    for (const char* spelling : {"Ladder", "val:Ladder", "ladder", "VAL:LADDER", "http://purl.org/stuff/valis/Ladder"})
+    {
+        const auto r = ops.describeElement(spelling);
+        if (! r.ok) std::printf("  describe %s: %s\n", spelling, message(r).c_str());
+        assert(r.ok);
+    }
+    assert(ops.describeElement("ladder").ok);
+    assert(ops.describeElement("ladder").value.find("\"class\":\"Ladder\"") != std::string::npos);
+
+    // Named choices come with their labels.
+    const auto granulator = ops.describeElement("Granulator");
+    assert(granulator.ok);
+    assert(granulator.value.find("\"label\":\"Pentatonic\"") != std::string::npos);
+    assert(granulator.value.find("\"name\":\"file\"") != std::string::npos);
+    assert(granulator.value.find("\"name\":\"seconds\"") != std::string::npos);
+
+    // A control input has its range and unit; an audio port has neither.
+    const auto ladder = ops.describeElement("Ladder").value;
+    assert(ladder.find("\"symbol\":\"cutoff\"") != std::string::npos);
+    assert(ladder.find("\"unit\":\"Hz\"") != std::string::npos);
+
+    // An unknown name says what was probably meant.
+    const auto bad = ops.describeElement("val:Laddr");
+    assert(! bad.ok);
+    assert(message(bad).find("Did you mean val:Ladder") != std::string::npos);
+    assert(message(ops.describeElement("Tnah")).find("val:Tanh") != std::string::npos);
+    const auto nonsense = ops.describeElement("zzzzzzzz");
+    assert(! nonsense.ok && message(nonsense).find("Did you mean") == std::string::npos);
+
+    // The same suggestion when a class is added by name.
+    const auto added = ops.addNode("urn:valis:basic#x", "val:Ladde");
+    assert(! added.ok && message(added).find("Did you mean val:Ladder") != std::string::npos);
+}
+
+const char* kSkeleton = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:new#> .
+:main a val:Circuit ; rdfs:label "New" ; val:element :out .
+:out a val:Output .
+)";
+
+GraphEdit addNode(const char* id, const char* cls)
+{
+    GraphEdit e; e.kind = GraphEdit::Kind::addNode; e.id = id; e.classIri = cls; return e;
+}
+GraphEdit connect(const char* from, const char* fromPort, const char* to, const char* toPort)
+{
+    GraphEdit e; e.kind = GraphEdit::Kind::connect; e.fromNode = from; e.fromPort = fromPort; e.toNode = to; e.toPort = toPort; return e;
+}
+
+void testABatchBuildsACircuitInOneInstall()
+{
+    Host host(kSkeleton);
+    assert(host.loaded);
+    auto ops = host.ops();
+    const int before = host.installs;
+
+    // Short ids, and later edits that use nodes the earlier ones added.
+    const auto result = ops.applyEdits({
+        addNode("pitch", "val:MidiPitch"), addNode("osc", "val:Oscillator"),
+        addNode("env", "val:Envelope"),    addNode("vca", "val:VCA"),
+        connect("osc", "out", "vca", "in"), connect("vca", "out", "out", "in"),
+        connect("pitch", "out", "osc", "frequency"), connect("env", "out", "vca", "cv")});
+    if (! result.ok) std::printf("  %s\n", result.diagnostics.empty() ? "" : result.diagnostics.front().message.c_str());
+    assert(result.ok);
+    assert(result.value.find("\"applied\":8") != std::string::npos);
+
+    // Eight edits, one install: what is playing never passed through a half-built circuit.
+    assert(host.installs == before + 1);
+
+    const auto graph = ops.getGraph().value;
+    for (const char* name : {"urn:valis:new#osc", "urn:valis:new#vca", "urn:valis:new#env", "urn:valis:new#pitch"})
+        assert(graph.find(name) != std::string::npos);
+    assert(host.model.arcs().size() == 4);
+
+    // And it works: a note makes sound.
+    const auto played = ops.lint();
+    assert(played.value.find("\"errors\":0") != std::string::npos);
+}
+
+void testABatchThatFailsLeavesNothingBehind()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    const auto turtleBefore = host.turtle;
+    const int installsBefore = host.installs;
+
+    const auto result = ops.applyEdits({
+        addNode("osc", "val:Oscillator"), addNode("vca", "val:VCA"),
+        connect("osc", "out", "vca", "Input"),                       // no such port
+        connect("vca", "out", "out", "in")});
+    assert(! result.ok);
+
+    const auto& message = result.diagnostics.front().message;
+    std::printf("  %s\n", message.c_str());
+    assert(message.find("Edit 3 of 4") != std::string::npos);
+    assert(message.find("connect osc.out to vca.Input") != std::string::npos);
+    assert(message.find("Did you mean 'in'") != std::string::npos);   // the real error comes through
+    assert(message.find("Nothing was changed") != std::string::npos);
+
+    // Not one thing changed, and nothing was handed to the engine.
+    assert(host.turtle == turtleBefore);
+    assert(host.installs == installsBefore);
+    assert(host.model.elements().size() == 1);
+
+    // A bad class in the middle is the same.
+    const auto badClass = ops.applyEdits({addNode("a", "val:Oscillator"), addNode("b", "val:Laddr")});
+    assert(! badClass.ok && badClass.diagnostics.front().message.find("Edit 2 of 2") != std::string::npos);
+    assert(badClass.diagnostics.front().message.find("Did you mean val:Ladder") != std::string::npos);
+    assert(host.turtle == turtleBefore);
+
+    // Naming something that is not there.
+    const auto missing = ops.applyEdits({connect("ghost", "out", "out", "in")});
+    assert(! missing.ok && host.turtle == turtleBefore);
+}
+
+void testABatchMayPassThroughAStateThatWouldNotInstall()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+
+    // Remove the only output and add another: on its own the first edit leaves a circuit with no
+    // output, which would be refused. In a batch only the result has to be sound.
+    GraphEdit remove; remove.kind = GraphEdit::Kind::removeNode; remove.id = "out";
+    const auto result = ops.applyEdits({addNode("osc", "val:Oscillator"), remove, addNode("master", "val:Output"),
+                                        connect("osc", "out", "master", "in")});
+    if (! result.ok) std::printf("  %s\n", result.diagnostics.front().message.c_str());
+    assert(result.ok);
+    assert(host.model.findElement("urn:valis:new#master") != nullptr);
+    assert(host.model.findElement("urn:valis:new#out") == nullptr);
+
+    // Taken one at a time, removing the output is refused: the circuit would have none.
+    Host alone(kSkeleton);
+    assert(alone.ops().addNode("urn:valis:new#osc", "val:Oscillator").ok);
+    assert(! alone.ops().removeNode("urn:valis:new#out").ok);
+}
+
+void testABatchThatIsWrongOnlyAsAWholeIsNotInstalled()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    const auto turtleBefore = host.turtle;
+
+    // Two audio arcs into one input: each edit is fine, together they are not a circuit.
+    const auto result = ops.applyEdits({addNode("a", "val:Oscillator"), addNode("b", "val:Oscillator"),
+                                        connect("a", "out", "out", "in"), connect("b", "out", "out", "in")});
+    assert(! result.ok);
+    const auto& message = result.diagnostics.front().message;
+    std::printf("  %s\n", message.c_str());
+    assert(message.find("could not be installed") != std::string::npos);
+    assert(message.find("Nothing was changed") != std::string::npos);
+    assert(host.turtle == turtleBefore);
+}
+
+void testBatchLimits()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(! ops.applyEdits({}).ok);
+
+    std::vector<GraphEdit> many(501, addNode("x", "val:Gain"));
+    assert(! ops.applyEdits(many).ok);
+
+    // Disconnect works too.
+    assert(ops.applyEdits({addNode("osc", "val:Oscillator"), connect("osc", "out", "out", "in")}).ok);
+    GraphEdit cut; cut.kind = GraphEdit::Kind::disconnect;
+    cut.fromNode = "osc"; cut.fromPort = "out"; cut.toNode = "out"; cut.toPort = "in";
+    assert(ops.applyEdits({cut}).ok);
+    assert(host.model.arcs().empty());
+}
+
+int countOf(const std::string& text, const std::string& fragment)
+{
+    int n = 0;
+    for (auto at = text.find(fragment); at != std::string::npos; at = text.find(fragment, at + 1))
+        ++n;
+    return n;
+}
+
+/// Four gain stages in a row, each with its knob allowed +20 to +24 dB: set anywhere in range, they
+/// multiply to about +90 dB.
+const char* kRunaway = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:runaway#> .
+:c a val:Circuit ; rdfs:label "Runaway" ; val:element :in , :g1 , :g2 , :g3 , :g4 , :out ;
+  val:arc :a0 , :a1 , :a2 , :a3 , :a4 .
+:in a val:Input .
+:g1 a val:Gain . :g2 a val:Gain . :g3 a val:Gain . :g4 a val:Gain .
+:out a val:Output .
+:a0 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ; val:to [ val:node :g1 ; val:port "in" ] .
+:a1 a val:Arc ; val:from [ val:node :g1 ; val:port "out" ] ; val:to [ val:node :g2 ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :g2 ; val:port "out" ] ; val:to [ val:node :g3 ; val:port "in" ] .
+:a3 a val:Arc ; val:from [ val:node :g3 ; val:port "out" ] ; val:to [ val:node :g4 ; val:port "in" ] .
+:a4 a val:Arc ; val:from [ val:node :g4 ; val:port "out" ] ; val:to [ val:node :out ; val:port "in" ] .
+:p0 a val:Param ; val:slot 0 ; val:target :g1 ; val:property val:gain ; lv2:name "One" ; lv2:symbol "one" ; lv2:minimum 20.0 ; lv2:maximum 24.0 .
+:p1 a val:Param ; val:slot 1 ; val:target :g2 ; val:property val:gain ; lv2:name "Two" ; lv2:symbol "two" ; lv2:minimum 20.0 ; lv2:maximum 24.0 .
+:p2 a val:Param ; val:slot 2 ; val:target :g3 ; val:property val:gain ; lv2:name "Three" ; lv2:symbol "three" ; lv2:minimum 20.0 ; lv2:maximum 24.0 .
+:p3 a val:Param ; val:slot 3 ; val:target :g4 ; val:property val:gain ; lv2:name "Four" ; lv2:symbol "four" ; lv2:minimum 20.0 ; lv2:maximum 24.0 .
+)";
+
+void testStabilityCheckFindsARunawayAndGivesTheSettings()
+{
+    Host host(kRunaway);
+    assert(host.loaded);
+    auto ops = host.ops();
+
+    const auto result = ops.checkStability(4, 0.5, -1);
+    assert(result.ok);
+    const auto& json = result.value;
+    std::printf("  %s\n", json.substr(0, 400).c_str());
+
+    // The first run is the declared settings (all at 0 dB) and is fine; the three random ones are not.
+    assert(json.find("\"trials\":4") != std::string::npos && json.find("\"parameters\":4") != std::string::npos);
+    assert(json.find("\"blowUps\":3") != std::string::npos);
+    assert(countOf(json, "\"verdict\":\"blows-up\"") == 3 && countOf(json, "\"verdict\":\"ok\"") == 1);
+
+    // For each run that failed, the settings that did it, before and after the jump.
+    assert(countOf(json, "\"settings\":[") == 3);
+    assert(json.find("\"name\":\"Three\"") != std::string::npos && json.find("\"afterJump\":") != std::string::npos);
+    assert(json.find("val:Limiter") != std::string::npos);                    // and what to do about it
+
+    // Repeatable: the same call gives the same answer.
+    assert(ops.checkStability(4, 0.5, -1).value == json);
+}
+
+/// A binding that gives its own range (a knob that goes from 20 to 24 on a port that allows -60 to 24)
+/// is held to it by the Controls view and the host, and has to be by the ops: a caller that reads a
+/// wider range is told values are fine that the knob will not take.
+void testABindingsOwnRangeIsTheRangeTheOpsReport()
+{
+    Host host(kRunaway);
+    auto ops = host.ops();
+
+    const auto listed = ops.listParams();
+    assert(listed.size() == 4);
+    for (const auto& p : listed)
+        assert(p.minimum == 20.0 && p.maximum == 24.0);
+
+    const auto low = ops.setParam(0, -30.0);
+    assert(low.ok && std::abs(std::stod(low.value) - 20.0) < 1.0e-6);
+    assert(! low.diagnostics.empty() && low.diagnostics.front().message.find("clamped to [20, 24]") != std::string::npos);
+
+    const auto high = ops.setParam(0, 24.0);
+    assert(high.ok && high.diagnostics.empty());
+
+    // A binding with no range of its own still reports the port's.
+    Host plain(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    bool sawPortRange = false;
+    for (const auto& p : plain.ops().listParams())
+        sawPortRange = sawPortRange || (p.minimum == 20.0 && p.maximum == 20000.0);   // Cutoff, as the Ladder declares it
+    assert(sawPortRange);
+}
+
+void testStabilityCheckLeavesTheLiveCircuitAlone()
+{
+    Host host(kRunaway);
+    auto ops = host.ops();
+    ops.setParam(0, 22.0);
+    const auto turtle = host.turtle;
+    const int installs = host.installs;
+    const auto versions = host.history.versions().size();
+
+    assert(ops.checkStability(3, 0.5, -1).ok);
+
+    assert(host.turtle == turtle && host.installs == installs);
+    assert(host.history.versions().size() == versions);                    // not an edit
+    assert(std::abs(std::stod(ops.getParam(0).value) - 22.0) < 1.0e-6);     // the check did not move it
+}
+
+void testStabilityCheckOnAStableCircuit()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    auto ops = host.ops();
+
+    const auto result = ops.checkStability(5, 0.5, -1);
+    assert(result.ok);
+    const auto& json = result.value;
+    assert(json.find("\"blowUps\":0") != std::string::npos && json.find("\"nonFinite\":0") != std::string::npos);
+    assert(json.find("Every run stayed finite") != std::string::npos);
+    assert(json.find("\"settings\"") == std::string::npos || json.find("\"verdict\":\"ok\"") == std::string::npos);
+    assert(countOf(json, "\"seed\":") == 5);
+}
+
+void testStabilityCheckSaysWhenNothingIsBound()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(ops.applyEdits({addNode("osc", "val:Oscillator"), connect("osc", "out", "out", "in")}).ok);
+
+    const auto result = ops.checkStability(3, 0.25, -1);
+    assert(result.ok);
+    assert(result.value.find("\"parameters\":0") != std::string::npos);
+    assert(result.value.find("No parameters are bound") != std::string::npos);
+}
+
+void testStabilityCheckFindsASilentSetting()
+{
+    Host host(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:shut#> .
+:c a val:Circuit ; rdfs:label "Shut" ; val:element :in , :vca , :out ; val:arc :a0 , :a1 .
+:in a val:Input .
+:vca a val:VCA .
+:out a val:Output .
+:a0 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ; val:to [ val:node :vca ; val:port "in" ] .
+:a1 a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ; val:to [ val:node :out ; val:port "in" ] .
+:p0 a val:Param ; val:slot 0 ; val:target :vca ; val:property val:cv ; lv2:name "Level" ; lv2:symbol "level" ; lv2:minimum 0.0 ; lv2:maximum 0.0 .
+)");
+    auto ops = host.ops();
+    const auto result = ops.checkStability(3, 0.25, -1);
+    assert(result.ok);
+    assert(result.value.find("\"silent\":2") != std::string::npos);           // the two random runs; the declared one passes input
+    assert(result.value.find("closes the sound off") != std::string::npos);
+}
+
+void testStabilityCheckPlaysTheNoteForAnInstrument()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+    const auto withNote = ops.checkStability(2, 0.5, 60);
+    assert(withNote.ok && withNote.value.find("\"verdict\":\"silent\"") == std::string::npos);
+    assert(ops.checkStability(0, 100.0, 999).ok);                              // arguments are brought into range
+}
+
+/// The circuits shipped in examples/ are what an agent starts from, so each should stay finite and
+/// bounded whatever its knobs are set to, all of them moving at once.
+void testEveryShippedExampleSurvivesItsKnobs()
+{
+    int checked = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(VALIS_EXAMPLES_DIR))
+    {
+        if (entry.path().extension() != ".ttl")
+            continue;
+
+        Host host(readFile(entry.path().string().c_str()));
+        if (! host.loaded)
+            continue;   // some need an optional build, such as the neural amp
+
+        const auto result = host.ops().checkStability(4, 0.5, 60);
+        assert(result.ok);
+        ++checked;
+
+        const auto& json = result.value;
+        if (json.find("\"nonFinite\":0") == std::string::npos || json.find("\"blowUps\":0") == std::string::npos)
+        {
+            std::printf("  %s is not stable under its own knobs:\n    %s\n", entry.path().filename().string().c_str(), json.substr(0, 700).c_str());
+            assert(false);
+        }
+    }
+    std::printf("  %d examples survived random settings of their knobs\n", checked);
+    assert(checked > 30);
+}
+
+void testUndoAndRedoWalkTheVersions()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(! ops.undo().ok);                         // nothing yet to go back to
+    assert(! ops.redo().ok);
+
+    assert(ops.addNode("urn:valis:new#osc", "val:Oscillator").ok);
+    assert(ops.connect("urn:valis:new#osc", "out", "urn:valis:new#out", "in").ok);
+    assert(host.model.arcs().size() == 1);
+
+    // Each change is a version, with what made it; the start is the first.
+    const auto listed = ops.history().value;
+    assert(listed.find("starting point") != std::string::npos);
+    assert(listed.find("add_node osc (val:Oscillator)") != std::string::npos);
+    assert(listed.find("connect osc.out to out.in") != std::string::npos);
+    assert(host.history.versions().size() == 3);
+
+    // Back over the connect: the arc is gone, the node is not.
+    const auto undone = ops.undo();
+    assert(undone.ok && undone.value.find("connect osc.out to out.in") != std::string::npos);
+    assert(host.model.arcs().empty() && host.model.findElement("urn:valis:new#osc") != nullptr);
+
+    assert(ops.undo().ok);                           // and over the add
+    assert(host.model.findElement("urn:valis:new#osc") == nullptr);
+    assert(! ops.undo().ok);                         // at the start
+
+    assert(ops.redo().ok && host.model.findElement("urn:valis:new#osc") != nullptr);
+    assert(ops.redo().ok && host.model.arcs().size() == 1);
+    assert(! ops.redo().ok);
+
+    // A new change after an undo ends the redo, as in any editor.
+    assert(ops.undo().ok);
+    assert(ops.addNode("urn:valis:new#other", "val:Gain").ok);
+    assert(! ops.redo().ok);
+    assert(ops.history().value.find("canRedo\":false") != std::string::npos);
+}
+
+void testABatchIsOneVersionAndAFailureIsNone()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+
+    assert(ops.applyEdits({addNode("a", "val:Oscillator"), addNode("b", "val:VCA"), connect("a", "out", "b", "in"),
+                           connect("b", "out", "out", "in")}).ok);
+    assert(host.history.versions().size() == 2);     // the start, and the batch
+    assert(host.history.current()->label == "apply_edits (4 edits)");
+
+    // A failed edit is not a version.
+    assert(! ops.addNode("urn:valis:new#x", "val:NotAThing").ok);
+    assert(! ops.connect("urn:valis:new#a", "nonsense", "urn:valis:new#b", "in").ok);
+    assert(! ops.applyEdits({addNode("c", "val:Gain"), connect("c", "bad", "out", "in")}).ok);
+    assert(host.history.versions().size() == 2);
+
+    // One undo takes back the whole batch.
+    assert(ops.undo().ok);
+    assert(host.model.elements().size() == 1);
+}
+
+void testTheDiffSaysWhatTheLastChangeDid()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(! ops.diff().ok);                         // one version: nothing to compare with
+
+    assert(ops.addNode("urn:valis:new#osc", "val:Oscillator").ok);
+    assert(ops.connect("urn:valis:new#osc", "out", "urn:valis:new#out", "in").ok);
+
+    const auto last = ops.diff();
+    assert(last.ok);
+    std::printf("  %s\n", last.value.c_str());
+    assert(last.value.find("\"count\":1") != std::string::npos);
+    assert(last.value.find("connected osc.out to out.in") != std::string::npos);
+
+    // Across several versions, by number.
+    const auto all = ops.diff(1, 3);
+    assert(all.ok && all.value.find("added osc (val:Oscillator)") != std::string::npos);
+    assert(all.value.find("connected osc.out to out.in") != std::string::npos);
+    assert(all.value.find("\"count\":2") != std::string::npos);
+
+    // And the other way round says the opposite.
+    const auto back = ops.diff(3, 1);
+    assert(back.value.find("removed osc") != std::string::npos && back.value.find("disconnected") != std::string::npos);
+
+    assert(! ops.diff(1, 99).ok);
+    assert(! ops.diff(99).ok);
+    assert(! ops.diff(1, 1).value.empty() && ops.diff(1, 1).value.find("\"count\":0") != std::string::npos);
+}
+
+void testAnEditMadeOutsideTheToolsIsNotLost()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(ops.addNode("urn:valis:new#osc", "val:Oscillator").ok);
+
+    // The editor changes the circuit without going through the ops.
+    std::vector<Diagnostic> ignored;
+    std::string typed = host.turtle;
+    typed += "\n:extra a val:Gain .\n:main val:element :extra .\n";
+    assert(host.write(typed, ignored));
+    assert(host.model.findElement("urn:valis:new#extra") != nullptr);
+
+    // The next change records that state first, so it can be returned to.
+    assert(ops.addNode("urn:valis:new#vca", "val:VCA").ok);
+    const auto versions = ops.history().value;
+    assert(versions.find("changed outside these tools") != std::string::npos);
+
+    // Undo goes back over the add and lands on the typed circuit, with its node.
+    assert(ops.undo().ok);
+    assert(host.model.findElement("urn:valis:new#extra") != nullptr);
+    assert(host.model.findElement("urn:valis:new#vca") == nullptr);
+
+    // And one more goes back to before the typing.
+    assert(ops.undo().ok);
+    assert(host.model.findElement("urn:valis:new#extra") == nullptr);
+    assert(host.model.findElement("urn:valis:new#osc") != nullptr);
+}
+
+void testUndoWhenTheTextDoesNotCompileRestoresTheLastGoodOne()
+{
+    Host host(kSkeleton);
+    auto ops = host.ops();
+    assert(ops.addNode("urn:valis:new#osc", "val:Oscillator").ok);
+    const auto good = host.turtle;
+
+    // The editor holds text that is mid-edit and broken. The circuit that is playing is the last good one.
+    std::vector<Diagnostic> ignored;
+    assert(! host.write("this is not turtle {{{", ignored));
+    assert(host.model.findElement("urn:valis:new#osc") != nullptr);   // still the playing circuit
+
+    const auto restored = ops.undo();
+    assert(restored.ok);
+    assert(restored.value.find("did not compile") != std::string::npos);
+    assert(host.turtle == good);                      // the broken text is gone and the good text is back
+    assert(host.history.versions().size() == 2);      // and the broken text was never a version
+}
+
+void testNoHistoryNoUndo()
+{
+    Host host(kSkeleton);
+    OpContext ctx;
+    ctx.ontology = &host.ontology;
+    ctx.engine = &host.engine;
+    ctx.readTurtle = [&] { return host.turtle; };
+    ctx.writeTurtle = [&](const std::string& s, std::vector<Diagnostic>& d) { return host.write(s, d); };
+    ctx.readModel = [&]() -> const CircuitModel* { return &host.model; };
+    OpDispatcher bare(ctx);
+
+    assert(bare.addNode("urn:valis:new#osc", "val:Oscillator").ok);   // editing works without one
+    assert(! bare.undo().ok && ! bare.redo().ok && ! bare.history().ok && ! bare.diff().ok);
+}
+
+void testAnUnknownPortOffersTheRealOnes()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    auto ops = host.ops();
+
+    // The end of an arc: an input is wanted, so the inputs are what is offered.
+    const auto bad = ops.connect("urn:valis:basic#in", "out", "urn:valis:basic#vcf", "Cutoff");
+    assert(! bad.ok);
+    std::string text;
+    for (const auto& d : bad.diagnostics) text += d.message + "\n";
+    std::printf("  %s", text.c_str());
+    assert(text.find("has no port 'Cutoff'") != std::string::npos);
+    assert(text.find("Did you mean 'cutoff'") != std::string::npos);
+    assert(text.find("Its input ports are") != std::string::npos);
+    assert(text.find("resonance") != std::string::npos);
+
+    // The start of an arc: an output is wanted.
+    const auto badSource = ops.connect("urn:valis:basic#vcf", "outt", "urn:valis:basic#drive", "in");
+    assert(! badSource.ok);
+    text.clear();
+    for (const auto& d : badSource.diagnostics) text += d.message + "\n";
+    assert(text.find("Did you mean 'out'") != std::string::npos);
+    assert(text.find("Its output ports are") != std::string::npos);
+
+    // A name nothing like any port gets the list but no guess.
+    const auto nonsense = ops.connect("urn:valis:basic#in", "out", "urn:valis:basic#vcf", "zzzzzzzz");
+    text.clear();
+    for (const auto& d : nonsense.diagnostics) text += d.message + "\n";
+    assert(text.find("Did you mean") == std::string::npos && text.find("Its input ports are") != std::string::npos);
+}
+
+void testLintThroughTheOp()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    const auto clean = host.ops().lint();
+    assert(clean.ok);
+    assert(clean.value.find("\"errors\":0") != std::string::npos);
+    assert(clean.value.find("\"warnings\":0") != std::string::npos);
+
+    // Nothing wired to the output is an error, and it is reported rather than refused.
+    Host mute(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:mute#> .
+:c a val:Circuit ; rdfs:label "Mute" ; val:element :in , :out .
+:in a val:Input .
+:out a val:Output .
+)");
+    const auto bad = mute.ops().lint();
+    assert(bad.ok);
+    assert(bad.value.find("\"errors\":1") != std::string::npos);
+    assert(bad.value.find("nothing-reaches-output") != std::string::npos);
+}
+
+void testDiagnosticsReportARecoveredProblem()
+{
+    Host host(R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:valis:problem#> .
+:c a val:Circuit ; rdfs:label "Problem" ; val:element :in , :amp , :out ; val:arc :a1 , :a2 .
+:in a val:Input .
+:amp a val:NamModel ; val:model "/no/such/model.nam" .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ; val:to [ val:node :amp ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :amp ; val:port "out" ] ; val:to [ val:node :out ; val:port "in" ] .
+)");
+    assert(host.loaded);
+
+    const auto result = host.ops().getDiagnostics();
+    assert(result.ok);
+    assert(result.value.find("\"loaded\":true") != std::string::npos);
+    assert(result.value.find("\"node\":\"urn:valis:problem#amp\"") != std::string::npos);
+    assert(result.value.find("Not found") != std::string::npos);
 }
 
 /// Load 909.ttl and verify that triggering MIDI note 36 produces audio output.
@@ -520,6 +1149,24 @@ void testRender()
     const auto peakAt = result.value.find("\"peak\":");
     assert(peakAt != std::string::npos);
     assert(std::stod(result.value.substr(peakAt + 7)) > 0.01);
+
+    // The render carries a measurement of what it made. A note was played at middle C, but the
+    // SH-101 mixes in a sub-oscillator an octave below, and the waveform that results repeats at
+    // that lower pitch, which is the pitch a listener names.
+    const auto pitchAt = result.value.find("\"hz\":");
+    assert(pitchAt != std::string::npos);
+    const double hz = std::stod(result.value.substr(pitchAt + 5));
+    std::printf("  sh101 note 60 renders at %.2f Hz\n", hz);
+    assert(std::abs(1200.0 * std::log2(hz / 130.81)) < 50.0);
+    assert(result.value.find("\"notes\":[") != std::string::npos);
+
+    // And the same measurement of the file on disk.
+    const auto measured = ops.analyze(path);
+    assert(measured.ok);
+    assert(measured.value.find("\"note\":\"C3\"") != std::string::npos);
+    assert(! ops.analyze("").ok);
+    assert(! ops.analyze("/no/such/file.wav").ok);
+    assert(! ops.analyze(std::string(VALIS_ROOT_DIR) + "/vocabs/valis.ttl").ok);   // not audio
 
     std::FILE* written = std::fopen(path.c_str(), "rb");
     assert(written != nullptr);
@@ -746,6 +1393,29 @@ int main()
     testGraphEditing();
     testParameters();
     testDiagnostics();
+    testDescribeElement();
+    testStabilityCheckFindsARunawayAndGivesTheSettings();
+    testABindingsOwnRangeIsTheRangeTheOpsReport();
+    testStabilityCheckLeavesTheLiveCircuitAlone();
+    testStabilityCheckOnAStableCircuit();
+    testStabilityCheckSaysWhenNothingIsBound();
+    testStabilityCheckFindsASilentSetting();
+    testStabilityCheckPlaysTheNoteForAnInstrument();
+    testEveryShippedExampleSurvivesItsKnobs();
+    testUndoAndRedoWalkTheVersions();
+    testABatchIsOneVersionAndAFailureIsNone();
+    testTheDiffSaysWhatTheLastChangeDid();
+    testAnEditMadeOutsideTheToolsIsNotLost();
+    testUndoWhenTheTextDoesNotCompileRestoresTheLastGoodOne();
+    testNoHistoryNoUndo();
+    testABatchBuildsACircuitInOneInstall();
+    testABatchThatFailsLeavesNothingBehind();
+    testABatchMayPassThroughAStateThatWouldNotInstall();
+    testABatchThatIsWrongOnlyAsAWholeIsNotInstalled();
+    testBatchLimits();
+    testAnUnknownPortOffersTheRealOnes();
+    testLintThroughTheOp();
+    testDiagnosticsReportARecoveredProblem();
     testEditsSurviveAReparse();
     test909BassdrumProducesOutput();
 

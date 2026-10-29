@@ -49,9 +49,14 @@ add_library(valis_core STATIC
   src/dsp/elements/NamModel.cpp
   src/dsp/elements/Reverb.cpp
   src/dsp/elements/Wavetable.cpp
+  src/dsp/elements/TimeStretch.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
+  src/ops/Analysis.cpp
+  src/ops/Lint.cpp
+  src/ops/CircuitDiff.cpp
+  src/ops/AgentResources.cpp
   src/console/Console.cpp
   src/console/AiPrompt.cpp
   # Pure rate-limit arithmetic, no JUCE and no I/O. It lives here rather than

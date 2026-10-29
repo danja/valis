@@ -1,6 +1,7 @@
 // src/model/Ontology.cpp
 
 #include "valis/Ontology.h"
+#include "valis/Suggest.h"
 
 #include "valis/TurtleStore.h"
 #include "valis/Vocabulary.h"
@@ -60,6 +61,7 @@ std::optional<PortDesc> readPortDesc(const rdf::TurtleStore& store, const rdf::N
     const bool isOutput  = store.contains(port, vocab::rdf::type, store.uri(vocab::lv2::OutputPort));
     const bool isControl = store.contains(port, vocab::rdf::type, store.uri(vocab::lv2::ControlPort));
     const bool isEvent   = store.contains(port, vocab::rdf::type, store.uri(vocab::atom::AtomPort));
+    const bool isBuffer  = store.contains(port, vocab::rdf::type, store.uri(vocab::val::BufferPort));
 
     if (! isInput && ! isOutput)
         return std::nullopt;
@@ -67,6 +69,7 @@ std::optional<PortDesc> readPortDesc(const rdf::TurtleStore& store, const rdf::N
     desc.input   = isInput;
     desc.control = isControl;
     desc.event   = isEvent;
+    desc.buffer  = isBuffer;
 
     if (auto v = store.object(port, vocab::lv2::defaultV); v.asDouble())
         desc.defaultValue = *v.asDouble();
@@ -76,6 +79,9 @@ std::optional<PortDesc> readPortDesc(const rdf::TurtleStore& store, const rdf::N
         desc.maximum = *v.asDouble();
 
     desc.unitSymbol = readUnitSymbol(store, port, units);
+
+    if (auto comment = store.object(port, vocab::rdfs::comment))
+        desc.comment = std::string(comment.string());
 
     for (const auto& prop : store.objects(port, vocab::lv2::portProperty))
     {
@@ -123,7 +129,7 @@ const PortDesc* ElementType::findPort(std::string_view symbol, bool input, bool 
     const auto it = std::find_if(ports.begin(), ports.end(),
                                  [&](const PortDesc& p)
                                  {
-                                     return ! p.event && p.symbol == symbol
+                                     return p.carriesSignal() && p.symbol == symbol
                                          && p.input == input && p.control == control;
                                  });
     return it != ports.end() ? &*it : nullptr;
@@ -133,7 +139,7 @@ std::vector<const PortDesc*> ElementType::portsMatching(bool input, bool control
 {
     std::vector<const PortDesc*> result;
     for (const auto& p : ports)
-        if (! p.event && p.input == input && p.control == control)
+        if (p.carriesSignal() && p.input == input && p.control == control)
             result.push_back(&p);
 
     return result;
@@ -144,9 +150,23 @@ int ElementType::countPorts(bool input, bool control) const
     return static_cast<int>(std::count_if(ports.begin(), ports.end(),
                                           [&](const PortDesc& p)
                                           {
-                                              return ! p.event && p.input == input
+                                              return p.carriesSignal() && p.input == input
                                                   && p.control == control;
                                           }));
+}
+
+std::string ElementType::missingPortMessage(std::string_view wanted, bool input) const
+{
+    std::vector<std::string> names;
+    for (const auto& port : ports)
+        if (port.input == input)
+            names.push_back(port.symbol);
+
+    const std::string wantedName(wanted);
+    return vocab::shortName(classIri) + " has no port '" + wantedName + "'."
+         + didYouMean("", closestNames(wantedName, names), "'")
+         + (names.empty() ? std::string(" It has no ") + (input ? "input" : "output") + " ports."
+                          : std::string(" Its ") + (input ? "input" : "output") + " ports are " + listNames(names) + ".");
 }
 
 const PortDesc* ElementType::findProperty(std::string_view localName) const
@@ -215,6 +235,23 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
                                             store.uri(vocab::val::Transfer)))
         aliases[std::string(alias.string())] = vocab::val::Transfer;
 
+    // The words for every option: any rdf:Property in the val: namespace. An element lists the
+    // ones it takes with val:hasOption.
+    for (const auto& property : store.subjectsOfType(vocab::rdf::Property))
+    {
+        const std::string iri(property.string());
+        if (iri.rfind(vocab::VAL, 0) != 0)
+            continue;
+
+        OptionDesc option;
+        option.name = vocab::shortName(iri);
+        if (auto comment = store.object(property, vocab::rdfs::comment))
+            option.comment = std::string(comment.string());
+        if (auto range = store.object(property, std::string(vocab::RDFS) + "range"))
+            option.range = vocab::shortName(range.string());
+        optionsByName[option.name] = std::move(option);
+    }
+
     // A class is instantiable exactly when it carries val:implementation.
     const auto implProperty = vocab::val::implementation;
     for (const auto& type : store.subjectsOfType(vocab::rdfs::Class))
@@ -229,6 +266,13 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
 
         if (auto label = store.object(type, vocab::rdfs::label))
             element.label = std::string(label.string());
+
+        if (auto comment = store.object(type, vocab::rdfs::comment))
+            element.comment = std::string(comment.string());
+
+        for (const auto& option : store.objects(type, vocab::val::hasOption))
+            element.options.push_back(vocab::shortName(option.string()));
+        std::sort(element.options.begin(), element.options.end());
 
         if (auto linear = store.object(type, vocab::val::linear); linear.asBool())
             element.linear = *linear.asBool();
@@ -263,6 +307,12 @@ bool Ontology::loadFromStore(const rdf::TurtleStore& store, std::vector<std::str
         errors.push_back("ontology declares no implementable classes");
 
     return errors.empty();
+}
+
+const OptionDesc* Ontology::findOption(std::string_view name) const
+{
+    const auto it = optionsByName.find(std::string(name));
+    return it != optionsByName.end() ? &it->second : nullptr;
 }
 
 const ElementType* Ontology::find(std::string_view classIri) const

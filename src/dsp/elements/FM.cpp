@@ -6,6 +6,8 @@
 
 #include "Common.h"
 
+#include <array>
+
 namespace valis::elements {
 
 namespace {
@@ -151,6 +153,77 @@ private:
 /// m<d><s> is how much operator s modulates operator d, as a fraction of
 /// val:depth. On the diagonal it is the DX7's feedback, 0 to 7, which averages
 /// the operator's last two outputs as val:FMOperator does.
+/// The DX7's 32 algorithms, as which operators modulate which and which are heard.
+///
+/// The machine describes each as six bytes, one per operator from 6 down to 1, naming the
+/// bus the operator reads, the bus it writes and whether it adds to that bus or replaces
+/// it (the layout is the one the open-source msfa engine uses). Reading the bytes through
+/// a simulation of the buses gives the diagram: an operator's modulators are whatever was
+/// last written to the bus it reads. The table is decoded once, when the first element is
+/// prepared.
+struct DxAlgorithm
+{
+    unsigned modulators[6] = {};   ///< bit s set: operator s+1 modulates this one
+    unsigned carriers = 0;         ///< bit n set: operator n+1 is heard
+    int feedbackOp = -1;           ///< the operator that reads the feedback, 0 to 5
+    int feedbackFrom = -1;         ///< the operator it reads from; the same one for self feedback
+};
+
+const std::array<DxAlgorithm, 32>& dxAlgorithms()
+{
+    static const unsigned char kBytes[32][6] = {
+        {0xc1, 0x11, 0x11, 0x14, 0x01, 0x14}, {0x01, 0x11, 0x11, 0x14, 0xc1, 0x14},
+        {0xc1, 0x11, 0x14, 0x01, 0x11, 0x14}, {0xc1, 0x11, 0x94, 0x01, 0x11, 0x14},
+        {0xc1, 0x14, 0x01, 0x14, 0x01, 0x14}, {0xc1, 0x94, 0x01, 0x14, 0x01, 0x14},
+        {0xc1, 0x11, 0x05, 0x14, 0x01, 0x14}, {0x01, 0x11, 0xc5, 0x14, 0x01, 0x14},
+        {0x01, 0x11, 0x05, 0x14, 0xc1, 0x14}, {0x01, 0x05, 0x14, 0xc1, 0x11, 0x14},
+        {0xc1, 0x05, 0x14, 0x01, 0x11, 0x14}, {0x01, 0x05, 0x05, 0x14, 0xc1, 0x14},
+        {0xc1, 0x05, 0x05, 0x14, 0x01, 0x14}, {0xc1, 0x05, 0x11, 0x14, 0x01, 0x14},
+        {0x01, 0x05, 0x11, 0x14, 0xc1, 0x14}, {0xc1, 0x11, 0x02, 0x25, 0x05, 0x14},
+        {0x01, 0x11, 0x02, 0x25, 0xc5, 0x14}, {0x01, 0x11, 0x11, 0xc5, 0x05, 0x14},
+        {0xc1, 0x14, 0x14, 0x01, 0x11, 0x14}, {0x01, 0x05, 0x14, 0xc1, 0x14, 0x14},
+        {0x01, 0x14, 0x14, 0xc1, 0x14, 0x14}, {0xc1, 0x14, 0x14, 0x14, 0x01, 0x14},
+        {0xc1, 0x14, 0x14, 0x01, 0x14, 0x04}, {0xc1, 0x14, 0x14, 0x14, 0x04, 0x04},
+        {0xc1, 0x14, 0x14, 0x04, 0x04, 0x04}, {0xc1, 0x05, 0x14, 0x01, 0x14, 0x04},
+        {0x01, 0x05, 0x14, 0xc1, 0x14, 0x04}, {0x04, 0xc1, 0x11, 0x14, 0x01, 0x14},
+        {0xc1, 0x14, 0x01, 0x14, 0x04, 0x04}, {0x04, 0xc1, 0x11, 0x14, 0x04, 0x04},
+        {0xc1, 0x14, 0x04, 0x04, 0x04, 0x04}, {0xc4, 0x04, 0x04, 0x04, 0x04, 0x04},
+    };
+
+    static const std::array<DxAlgorithm, 32> table = []
+    {
+        std::array<DxAlgorithm, 32> decoded;
+        for (std::size_t a = 0; a < decoded.size(); ++a)
+        {
+            unsigned bus[3] = {};   // who has written each bus; bus 0 is the output
+            int feedbackIn = -1, feedbackOut = -1;
+
+            for (int step = 0; step < 6; ++step)
+            {
+                const int op = 5 - step;
+                const unsigned flags = kBytes[a][step];
+                const int readBus  = static_cast<int>(flags >> 4) & 3;
+                const int writeBus = static_cast<int>(flags) & 3;
+                const bool add     = (flags & 0x04) != 0;
+
+                decoded[a].modulators[op] = readBus != 0 ? bus[readBus] : 0u;
+
+                if (writeBus == 0)
+                    decoded[a].carriers |= 1u << op;
+                else
+                    bus[writeBus] = add && bus[writeBus] != 0 ? bus[writeBus] | (1u << op) : 1u << op;
+
+                if (flags & 0x40) feedbackIn  = op;
+                if (flags & 0x80) feedbackOut = op;   // the last operator to write it is the source
+            }
+            decoded[a].feedbackOp   = feedbackIn;
+            decoded[a].feedbackFrom = feedbackOut;
+        }
+        return decoded;
+    }();
+    return table;
+}
+
 class FMMatrix final : public DspElement
 {
 public:
@@ -161,6 +234,9 @@ public:
         sampleRate   = rate;
         frequencyIdx = controlIndex(type, "frequency");
         depthIdx     = controlIndex(type, "depth");
+        algorithmIdx = controlIndex(type, "algorithm");
+        feedbackIdx  = controlIndex(type, "feedback");
+        dxAlgorithms();   // decoded here, on the message thread, the first time
         for (int i = 0; i < kOps; ++i)
         {
             const std::string n = std::to_string(i + 1);
@@ -202,6 +278,14 @@ public:
         int count[kOps];
         int source[kOps][kOps];
         float weight[kOps][kOps];
+        bool average[kOps][kOps] = {};   // feedback: the source's last two outputs, not its last
+
+        // A chosen algorithm replaces the matrix and the carriers; the feedback port
+        // is the DX7's single feedback control.
+        const int algorithm = std::clamp(static_cast<int>(controlAt(args, algorithmIdx, 0.0f) + 0.5f), 0, 32);
+        const DxAlgorithm* fixed = algorithm > 0 ? &dxAlgorithms()[static_cast<std::size_t>(algorithm - 1)] : nullptr;
+        const float feedbackAmount = std::clamp(controlAt(args, feedbackIdx, 0.0f), 0.0f, 7.0f)
+                                   * kFeedbackPerStep * 0.5f * (1.0f / kTwoPi);
 
         for (int i = 0; i < kOps; ++i)
         {
@@ -214,7 +298,8 @@ public:
             if (! primed)
                 gain[i] = target[i];
             step[i] = n > 0 ? (target[i] - gain[i]) / static_cast<float>(n) : 0.0f;
-            carrier[i] = std::clamp(controlAt(args, carrierIdx[i], 0.0f), 0.0f, 1.0f);
+            carrier[i] = fixed != nullptr ? ((fixed->carriers >> i) & 1u ? 1.0f : 0.0f)
+                                          : std::clamp(controlAt(args, carrierIdx[i], 0.0f), 0.0f, 1.0f);
 
             // Below -140 dB the operator is off, so it can be skipped outright.
             if (target[i] < 1.0e-7f && gain[i] < 1.0e-7f)
@@ -227,14 +312,33 @@ public:
             count[i] = 0;
             for (int j = 0; j < kOps; ++j)
             {
-                const float amount = controlAt(args, matrixIdx[i][j], 0.0f);
+                float amount;
+                if (fixed == nullptr)
+                    amount = controlAt(args, matrixIdx[i][j], 0.0f);
+                else if (i == j)
+                    amount = fixed->feedbackOp == i && fixed->feedbackFrom == i ? 1.0f : 0.0f;
+                else
+                    amount = ((fixed->modulators[i] >> j) & 1u) != 0 ? 1.0f : 0.0f;
+
                 if (amount <= 0.0f)
                     continue;
 
                 source[i][count[i]] = j;
                 weight[i][count[i]] = i == j
-                    ? std::min(amount, 7.0f) * kFeedbackPerStep * 0.5f * (1.0f / kTwoPi)
+                    ? (fixed != nullptr ? feedbackAmount
+                                        : std::min(amount, 7.0f) * kFeedbackPerStep * 0.5f * (1.0f / kTwoPi))
                     : amount * depth;
+                ++count[i];
+            }
+
+            // A loop through several operators, as in algorithms 4 and 6: the operator
+            // that closes it reads the source's output with the feedback control's weight.
+            if (fixed != nullptr && fixed->feedbackOp == i && fixed->feedbackFrom != i
+                && fixed->feedbackFrom >= 0 && feedbackAmount > 0.0f)
+            {
+                source[i][count[i]]  = fixed->feedbackFrom;
+                weight[i][count[i]]  = feedbackAmount;
+                average[i][count[i]] = true;
                 ++count[i];
             }
         }
@@ -262,6 +366,8 @@ public:
                         const int j = source[i][k];
                         if (j == i)
                             p += weight[i][k] * (y1[i] + y2[i]);
+                        else if (average[i][k])
+                            p += weight[i][k] * (y1[j] + y2[j]);
                         else
                             p += weight[i][k] * (j > i ? current[j] : y1[j]);
                     }
@@ -294,7 +400,7 @@ private:
     double phase[kOps] = {};
     float y1[kOps] = {}, y2[kOps] = {}, gain[kOps] = {};
     bool primed = false;
-    int frequencyIdx = -1, depthIdx = -1;
+    int frequencyIdx = -1, depthIdx = -1, algorithmIdx = -1, feedbackIdx = -1;
     int ratioIdx[kOps], detuneIdx[kOps], levelIdx[kOps], ampIdx[kOps], carrierIdx[kOps];
     int matrixIdx[kOps][kOps];
 };
@@ -322,6 +428,11 @@ public:
         gateIdx     = controlIndex(type, "gate");
         velocityIdx = controlIndex(type, "velocity");
         velsensIdx  = controlIndex(type, "velsens");
+        rateScaleIdx  = controlIndex(type, "ratescale");
+        breakpointIdx = controlIndex(type, "breakpoint");
+        leftDepthIdx  = controlIndex(type, "leftdepth");
+        rightDepthIdx = controlIndex(type, "rightdepth");
+        pitchRangeIdx = controlIndex(type, "pitchrange");
         for (int i = 0; i < 4; ++i)
         {
             const std::string n = std::to_string(i + 1);
@@ -344,10 +455,16 @@ public:
         if (args.numControlOut < 1)
             return;
 
+        // Keyboard rate scaling: the higher the key, the faster every segment, up to about
+        // 27 steps of rate at the top of the keyboard at full depth. The machine's own
+        // curve is stepped in groups of notes; this one is smooth.
+        const float keyPosition = std::clamp((static_cast<float>(args.noteNumber) - 21.0f) / 87.0f, 0.0f, 1.0f);
+        const float rateBoost   = std::clamp(controlAt(args, rateScaleIdx, 0.0f), 0.0f, 7.0f) * keyPosition * (27.0f / 7.0f);
+
         float rates[4], levels[4];
         for (int i = 0; i < 4; ++i)
         {
-            rates[i]  = std::clamp(controlAt(args, rateIdx[i], 99.0f), 0.0f, 99.0f);
+            rates[i]  = std::clamp(controlAt(args, rateIdx[i], 99.0f) + rateBoost, 0.0f, 99.0f);
             levels[i] = std::clamp(controlAt(args, levelIdx[i], i == 3 ? 0.0f : 99.0f), 0.0f, 99.0f);
         }
 
@@ -399,7 +516,23 @@ public:
         const float velocityGain = std::exp2(std::clamp(controlAt(args, velsensIdx, 0.0f), 0.0f, 7.0f)
                                              * (vel - 1.0f));
 
-        args.controlOut[0] = dxLevelToGain(level) * velocityGain;
+        // Keyboard level scaling: steps of level added or taken away, growing in a straight
+        // line with the distance from the breakpoint, full depth at three octaves.
+        const float away = static_cast<float>(args.noteNumber) - std::clamp(controlAt(args, breakpointIdx, 60.0f), 0.0f, 127.0f);
+        const float depth = away < 0.0f ? controlAt(args, leftDepthIdx, 0.0f) : controlAt(args, rightDepthIdx, 0.0f);
+        const float scaling = std::clamp(depth, -99.0f, 99.0f) * std::min(std::abs(away) / 36.0f, 1.0f);
+
+        args.controlOut[0] = dxLevelToGain(std::clamp(level + scaling, 0.0f, 99.0f)) * velocityGain;
+
+        // The same contour as a frequency ratio, for the pitch envelope: a level of 50
+        // is no change, 99 is `pitchrange` octaves up and 0 is as many down. Connect it
+        // through a val:ControlMultiply to the note's frequency. With the range at its
+        // default of 0 the ratio is always 1.
+        if (args.numControlOut >= 2)
+        {
+            const float octaves = std::clamp(controlAt(args, pitchRangeIdx, 0.0f), 0.0f, 4.0f);
+            args.controlOut[1] = std::exp2(octaves * (level - 50.0f) * (1.0f / 50.0f));
+        }
     }
 
 private:
@@ -415,6 +548,7 @@ private:
     int stage = 3;
     bool wasGated = false, primed = false;
     int gateIdx = -1, velocityIdx = -1, velsensIdx = -1;
+    int rateScaleIdx = -1, breakpointIdx = -1, leftDepthIdx = -1, rightDepthIdx = -1, pitchRangeIdx = -1;
     int rateIdx[4] = {-1, -1, -1, -1};
     int levelIdx[4] = {-1, -1, -1, -1};
 };

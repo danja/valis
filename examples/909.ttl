@@ -123,10 +123,10 @@
 :bdGate a val:NoteGate ; val:note 36 .
 
 # Triangle oscillator (shape 3). Pitch is set entirely by the control arc
-# from bdPitchScale; the baked frequency is the fallback if the arc is absent.
+# from bdPitchScale, whose min and max hold the resting and peak pitch. A frequency
+# set here would never be used, since the arc replaces it every block.
 :bdOsc a val:Oscillator ;
-    val:shape 3 ;
-    val:frequency 55.0 .
+    val:shape 3 .
 
 # Very fast pitch drop: from the attack peak to the body frequency.
 :bdPitchEnv a val:Envelope ;

@@ -46,7 +46,6 @@
 :vca a val:VCA .
 
 :string a val:StiffString ;
-    val:frequency   220.0 ;
     val:feedback    0.97 ;    # long decay
     val:damping     0.08 ;    # fairly bright
     val:dispersion  0.2 .     # light inharmonicity (piano-like)

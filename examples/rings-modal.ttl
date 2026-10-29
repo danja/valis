@@ -55,7 +55,6 @@
 :vca a val:VCA .
 
 :bank a val:ModalBank ;
-    val:frequency  220.0 ;
     val:decay      2.0 ;      # T60 for the fundamental, seconds
     val:brightness 0.6 ;
     val:mode       0.0 .      # 0 = marimba

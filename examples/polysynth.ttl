@@ -63,7 +63,7 @@
 # The note this voice was given, as a frequency.
 :pitch a val:MidiPitch .
 
-:osc a val:Oscillator ; val:wave 1.0 .            # saw
+:osc a val:Oscillator ; val:shape 1.0 .           # saw
 :vcf a val:Ladder ; val:drive 1.2 .
 :env a val:Envelope ; val:attack 5.0 ; val:sustain 0.7 .
 :vca a val:VCA .

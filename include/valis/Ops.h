@@ -52,7 +52,16 @@ struct PortInfo
     /// as one it can connect a signal to.
     bool event = false;
 
+    /// A val:BufferPort: it hands material to another element and takes no signal.
+    bool buffer = false;
+
     double defaultValue = 0.0, minimum = 0.0, maximum = 1.0;
+
+    /// "audio", "control", "event" or "buffer", for the tools that list ports.
+    const char* rateName() const
+    {
+        return event ? "event" : buffer ? "buffer" : control ? "control" : "audio";
+    }
 };
 
 struct ElementTypeInfo
@@ -70,8 +79,21 @@ struct ParamInfo
     std::optional<double> morphA, morphB;   ///< val:valueA and val:valueB, if declared
 };
 
+/// One structural edit for OpDispatcher::applyEdits.
+struct GraphEdit
+{
+    enum class Kind { addNode, removeNode, connect, disconnect };
+
+    Kind kind = Kind::connect;
+    std::string id, classIri;                       ///< addNode, removeNode
+    std::string fromNode, fromPort, toNode, toPort; ///< connect, disconnect
+    std::optional<double> depth;                    ///< connect, control arcs
+};
+
 /// Anything the ops need to reach. Injected rather than owned, so the same ops
 /// serve the plugin, the CLI and the tests.
+class CircuitHistory;
+
 struct OpContext
 {
     const Ontology* ontology = nullptr;
@@ -86,7 +108,12 @@ struct OpContext
     /// The model matching the Turtle currently installed.
     std::function<const CircuitModel*()> readModel;
 
-    /// Reads and replaces the sound file a val:SampleLoad node is playing. The
+    /// The versions the circuit has had, lent by whoever owns the circuit. Null means no history is
+    /// kept, and the history ops say so. Every Op that changes the circuit adds a version to it.
+    CircuitHistory* history = nullptr;
+
+    /// Reads and replaces the sound file a val:SampleLoad or val:TimeStretch node is
+    /// playing, or the model a val:NamModel runs. The
     /// document declares one with val:file; this is the session's choice on top
     /// of it, exactly as a turned knob sits on top of a declared value.
     std::function<std::string(const std::string& nodeId)> readSample;
@@ -110,6 +137,13 @@ public:
     std::vector<ElementTypeInfo> listElementTypes() const;
     OpResult getGraph() const;                     ///< the circuit as JSON
 
+    /// Everything about one element class in one call: what it is for and how to use it, in
+    /// the ontology's own words; every port with its range, unit, choices and description; and
+    /// the options it takes besides its ports (a file, a pattern), which no port list shows.
+    /// `name` is val:Ladder, Ladder, a full IRI, or any capitalisation of the name. An unknown
+    /// name fails with the nearest real ones.
+    OpResult describeElement(const std::string& name) const;
+
     // -- graph editing -----------------------------------------------------
     OpResult addNode(const std::string& id, const std::string& classIri);
     OpResult removeNode(const std::string& id);
@@ -118,6 +152,32 @@ public:
                      std::optional<double> depth = std::nullopt);
     OpResult disconnect(const std::string& fromNode, const std::string& fromPort,
                         const std::string& toNode,   const std::string& toPort);
+
+    /// Several of the edits above as one: all of them take effect, or none do. They are applied
+    /// in order to a private copy, so a later edit can refer to a node an earlier one added, and
+    /// the circuit is installed once, as a whole, so what plays never passes through a half-built
+    /// state. The first edit that cannot be applied stops the batch and is named by its position,
+    /// and the circuit is left as it was. A circuit that is wrong only as a whole (two arcs into
+    /// one audio input, no output) is reported when the result is installed, not before.
+    ///
+    /// An id without a colon is taken to be in the circuit's own namespace, so "osc" means
+    /// the same as "urn:valis:new#osc" in a circuit whose id is "urn:valis:new#main".
+    OpResult applyEdits(const std::vector<GraphEdit>& edits);
+
+    // -- history -------------------------------------------------------------
+    /// The versions the circuit has had, oldest first, with what made each and which is current.
+    OpResult history() const;
+
+    /// Takes back the last change: the circuit goes back to the version before this one, and the
+    /// version it left stays, to `redo`. If the circuit's text was changed somewhere that does not
+    /// record (the editor), that state is kept as a version first, so nothing is lost.
+    OpResult undo();
+    OpResult redo();
+
+    /// What changed between two versions, in plain sentences: elements added and removed, values
+    /// and options set, arcs made and broken, parameters bound. By default the version before the
+    /// current one against the current one. `from` and `to` are version numbers from `history`.
+    OpResult diff(std::optional<int> from = std::nullopt, std::optional<int> to = std::nullopt) const;
 
     // -- samples -----------------------------------------------------------
     /// The sound file a node is playing, or a failure if it is not a node that
@@ -155,6 +215,24 @@ public:
     /// val:FreqAnalyzer, and it is how a caller measures what it built.
     OpResult readOutputs(const std::string& nodeId = {}) const;
 
+    /// Runs the circuit on a fresh engine with random settings of its own parameters, every one of
+    /// them jumping partway through, and reports any run that goes non-finite, blows up (a peak
+    /// above +40 dBFS), clips or falls silent. `trials` runs, the first on the declared settings and
+    /// the rest from seeds 1 and up, so a result can be repeated; each is `seconds` long, with a note
+    /// held if `note` is not negative, and a noise-and-tone input for an effect to process. What is
+    /// playing is not touched. For a run that is not ok the settings are returned.
+    OpResult checkStability(int trials = 8, double seconds = 1.5, int note = 60) const;
+
+    /// Static checks on the loaded circuit: values a control arc overwrites, knobs that move
+    /// nothing, parts that cannot be heard, effects with nothing to process, nothing wired to
+    /// the output. See include/valis/Lint.h. A circuit that compiles can still earn findings.
+    OpResult lint() const;
+
+    /// Measures a wav file in place of listening: level, clipping, DC, the pitch it sits on,
+    /// the level of each octave, brightness, where notes begin, how the level moves, and plain
+    /// notes on anything wrong. The first sixty seconds. See include/valis/Analysis.h.
+    OpResult analyze(const std::string& path) const;
+
     /// Renders the circuit offline into a wav file and reports what came out.
     /// A fresh engine, so it neither touches nor is touched by whatever the
     /// plugin is playing. `note` below zero renders without a note event.
@@ -176,7 +254,27 @@ public:
     OpResult getDiagnostics() const;
 
 private:
+    // The edits above, before a version is recorded. Public ones call these through `recorded`.
+    OpResult setTurtleUnrecorded(const std::string& turtle);
+    OpResult addNodeUnrecorded(const std::string& id, const std::string& classIri);
+    OpResult removeNodeUnrecorded(const std::string& id);
+    OpResult connectUnrecorded(const std::string& fromNode, const std::string& fromPort,
+                               const std::string& toNode, const std::string& toPort, std::optional<double> depth);
+    OpResult disconnectUnrecorded(const std::string& fromNode, const std::string& fromPort,
+                                  const std::string& toNode, const std::string& toPort);
+    OpResult applyEditsUnrecorded(const std::vector<GraphEdit>& edits);
+
+    /// Runs an edit and, if it worked, records the circuit it made as a version. Only the outermost
+    /// edit records: one that is built from others (a connect is a set_turtle underneath) is one version.
+    template <typename Run>
+    OpResult recorded(const std::string& label, Run&& run);
+
+    /// Makes the history's current version match the circuit's text, if that text is a circuit.
+    /// Returns whether the history now ends at the circuit's text.
+    bool syncHistory();
+
     OpContext ctx;
+    int editDepth = 0;
 };
 
 }  // namespace valis

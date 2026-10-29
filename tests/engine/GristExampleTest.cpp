@@ -150,6 +150,29 @@ void testFeedbackMakesATail()
     assert(tail(-3.0f) > 100.0f * tail(-60.0f));
 }
 
+void testTheFeedbackFilterHasThreeTypes()
+{
+    // The same tone fed round the loop, with a corner at 2 kHz: a lowpass lets the tail
+    // through and a highpass takes it away, because the tone is well below the corner.
+    const auto tail = [](float type)
+    {
+        Rig rig;
+        rig.setParam("feedback", -3.0f);
+        rig.setParam("delay", 150.0f);
+        rig.setParam("tone", 2000.0f);
+        rig.setParam("filterMode", type);
+        rig.play(1.0, true);
+        const auto quiet = rig.play(2.0, false);
+        return rms(quiet, quiet.size() - 24000);
+    };
+
+    const float low = tail(0.0f), band = tail(1.0f), high = tail(2.0f);
+    std::printf("  feedback tail: lowpass %.3e, bandpass %.3e, highpass %.3e\n", low, band, high);
+    assert(low > 1.0e-7f);
+    assert(low > 10.0f * high);
+    assert(low > band);
+}
+
 void testTheLoopCanBeTurnedFullyUp()
 {
     // A loop gain of one, with the grains and the limiter in it: loud, but it
@@ -183,6 +206,7 @@ int main()
 {
     testItSoundsAndHasControls();
     testFeedbackMakesATail();
+    testTheFeedbackFilterHasThreeTypes();
     testTheLoopCanBeTurnedFullyUp();
     testTempoSyncReachesTheGranulator();
     std::puts("GristExampleTest passed");

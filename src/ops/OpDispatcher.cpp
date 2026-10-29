@@ -2,8 +2,13 @@
 
 #include "valis/Ops.h"
 
+#include "valis/Analysis.h"
 #include "valis/CircuitCompiler.h"
+#include "valis/CircuitDiff.h"
+#include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
+#include "valis/Lint.h"
+#include "valis/Suggest.h"
 #include "valis/Ontology.h"
 #include "valis/TurtleStore.h"
 #include "valis/ValisEngine.h"
@@ -83,7 +88,7 @@ OpResult OpDispatcher::getTurtle() const
     return OpResult::success(ctx.readTurtle());
 }
 
-OpResult OpDispatcher::setTurtle(const std::string& turtle)
+OpResult OpDispatcher::setTurtleUnrecorded(const std::string& turtle)
 {
     if (! ctx.writeTurtle)
         return OpResult::failure("this circuit is read only");
@@ -143,7 +148,7 @@ std::vector<ElementTypeInfo> OpDispatcher::listElementTypes() const
 
         for (const auto& port : type->ports)
             info.ports.push_back({port.symbol, port.name, port.unitSymbol,
-                                  port.input, port.control, port.event,
+                                  port.input, port.control, port.event, port.buffer,
                                   port.defaultValue, port.minimum, port.maximum});
 
         result.push_back(std::move(info));
@@ -266,14 +271,137 @@ std::string withCircuitMember(const std::string& turtle,
 
 }  // namespace
 
-OpResult OpDispatcher::addNode(const std::string& id, const std::string& classIri)
+namespace {
+
+/// The local names of every element class, for the nearest-name suggestions.
+std::vector<std::string> elementNames(const Ontology& ontology)
+{
+    std::vector<std::string> names;
+    for (const auto* type : ontology.types())
+        names.push_back(vocab::shortName(type->classIri));
+    return names;
+}
+
+}  // namespace
+
+OpResult OpDispatcher::describeElement(const std::string& name) const
+{
+    if (ctx.ontology == nullptr)
+        return OpResult::failure("no ontology loaded");
+
+    // val:Ladder, Ladder, the full IRI and ladder all mean the same thing.
+    std::string local = name;
+    const auto startsWith = [&](std::string_view prefix)
+    {
+        return local.size() >= prefix.size() &&
+               std::equal(prefix.begin(), prefix.end(), local.begin(),
+                          [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); });
+    };
+    if (startsWith("val:"))
+        local = local.substr(4);
+    else if (local.rfind(vocab::VAL, 0) == 0)
+        local = local.substr(vocab::VAL.size());
+
+    const ElementType* type = ctx.ontology->find(vocab::valTerm(local));
+    if (type == nullptr)
+    {
+        for (const auto* candidate : ctx.ontology->types())
+        {
+            const auto short_ = vocab::shortName(candidate->classIri);
+            if (short_.size() == local.size() &&
+                std::equal(short_.begin(), short_.end(), local.begin(),
+                           [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); }))
+            {
+                type = candidate;
+                break;
+            }
+        }
+    }
+
+    if (type == nullptr)
+        return OpResult::failure("no element class '" + name + "'." +
+                                 didYouMean("val:", closestNames(local, elementNames(*ctx.ontology))) +
+                                 " list_element_types names every class.");
+
+    std::string json = "{\"class\":" + jsonString(vocab::shortName(type->classIri))
+                     + ",\"label\":" + jsonString(type->label)
+                     + ",\"linear\":" + (type->linear ? "true" : "false")
+                     + ",\"description\":" + jsonString(type->comment) + ",\"ports\":[";
+
+    for (std::size_t i = 0; i < type->ports.size(); ++i)
+    {
+        const auto& port = type->ports[i];
+        json += std::string(i ? "," : "") + "{\"symbol\":" + jsonString(port.symbol)
+              + ",\"name\":" + jsonString(port.name)
+              + ",\"direction\":" + (port.input ? "\"in\"" : "\"out\"")
+              + ",\"rate\":" + jsonString(port.rateName());
+
+        if (port.control && port.input)
+        {
+            json += ",\"default\":" + number(port.defaultValue) + ",\"minimum\":" + number(port.minimum)
+                  + ",\"maximum\":" + number(port.maximum);
+            if (! port.unitSymbol.empty())
+                json += ",\"unit\":" + jsonString(port.unitSymbol);
+            if (port.logarithmic)
+                json += ",\"logarithmic\":true";
+            if (port.isBinary())
+                json += ",\"toggle\":true";
+        }
+
+        if (! port.scalePoints.empty())
+        {
+            json += ",\"choices\":[";
+            for (std::size_t c = 0; c < port.scalePoints.size(); ++c)
+                json += std::string(c ? "," : "") + "{\"value\":" + number(port.scalePoints[c].first)
+                      + ",\"label\":" + jsonString(port.scalePoints[c].second) + "}";
+            json += "]";
+        }
+
+        if (! port.comment.empty())
+            json += ",\"description\":" + jsonString(port.comment);
+        json += "}";
+    }
+    json += "],\"options\":[";
+
+    // The options this class lists, then the one every element takes.
+    std::vector<std::string> options = type->options;
+    options.push_back("oversampling");
+    bool first = true;
+    for (const auto& option : options)
+    {
+        const auto* described = ctx.ontology->findOption(option);
+
+        // The first paragraph only. An option such as oversampling carries a long essay in the
+        // ontology, and sending it with every element would bury the ones that matter.
+        std::string words = described != nullptr ? described->comment : "";
+        if (const auto end = words.find("\n\n"); end != std::string::npos)
+            words.resize(end);
+
+        json += std::string(first ? "" : ",") + "{\"name\":" + jsonString(option)
+              + ",\"type\":" + jsonString(described != nullptr ? described->range : "")
+              + ",\"description\":" + jsonString(words) + "}";
+        first = false;
+    }
+    json += "]}";
+
+    return OpResult::success(std::move(json));
+}
+
+OpResult OpDispatcher::addNodeUnrecorded(const std::string& id, const std::string& classIri)
 {
     if (ctx.ontology == nullptr)
         return OpResult::failure("no ontology loaded");
 
     const auto resolved = vocab::expand(classIri);
     if (ctx.ontology->find(resolved) == nullptr)
-        return OpResult::failure("unknown or abstract element class " + classIri);
+    {
+        std::string local = classIri;
+        if (local.rfind("val:", 0) == 0)
+            local = local.substr(4);
+
+        return OpResult::failure("unknown or abstract element class " + classIri + "." +
+                                 didYouMean("val:", closestNames(local, elementNames(*ctx.ontology))));
+    }
 
     const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
     if (model == nullptr)
@@ -289,7 +417,137 @@ OpResult OpDispatcher::addNode(const std::string& id, const std::string& classIr
     return applyEdit(*this, ctx.readTurtle, std::move(turtle));
 }
 
-OpResult OpDispatcher::removeNode(const std::string& id)
+OpResult OpDispatcher::applyEditsUnrecorded(const std::vector<GraphEdit>& edits)
+{
+    if (ctx.ontology == nullptr)
+        return OpResult::failure("no ontology loaded");
+    if (edits.empty())
+        return OpResult::failure("there are no edits to apply");
+    if (edits.size() > 500)
+        return OpResult::failure("at most 500 edits at a time; " + std::to_string(edits.size()) + " were sent");
+
+    const auto* current = ctx.readModel ? ctx.readModel() : nullptr;
+    if (current == nullptr || ! ctx.readTurtle || ! ctx.writeTurtle)
+        return OpResult::failure("no circuit is loaded");
+
+    // The private copy: the source text and the model built from it. Each edit reads the model and
+    // writes the text, exactly as it would on the real circuit, and the copy only has to parse
+    // and build, since a state between two edits need not be a circuit that could be installed
+    // (the output may be gone until a new one is added).
+    struct Scratch
+    {
+        std::string turtle;
+        CircuitModel model;
+    } scratch;
+    scratch.turtle = ctx.readTurtle();
+
+    {
+        rdf::TurtleStore store;
+        std::vector<rdf::ParseError> parseErrors;
+        std::vector<Diagnostic> ignored;
+        if (! store.parse(scratch.turtle, "urn:valis:circuit", parseErrors) ||
+            ! scratch.model.build(store, *ctx.ontology, ignored))
+            return OpResult::failure("the current circuit no longer builds");
+    }
+
+    OpContext inner;
+    inner.ontology  = ctx.ontology;
+    inner.registry  = ctx.registry;
+    inner.readTurtle = [&scratch] { return scratch.turtle; };
+    inner.readModel  = [&scratch]() -> const CircuitModel* { return &scratch.model; };
+    inner.writeTurtle = [&scratch, this](const std::string& text, std::vector<Diagnostic>& diagnostics)
+    {
+        rdf::TurtleStore store;
+        std::vector<rdf::ParseError> parseErrors;
+        if (! store.parse(text, "urn:valis:circuit", parseErrors))
+        {
+            for (const auto& e : parseErrors)
+                diagnostics.push_back({e.message, {}, e.line, e.col});
+            return false;
+        }
+
+        CircuitModel built;
+        if (! built.build(store, *ctx.ontology, diagnostics))
+            return false;
+
+        scratch.turtle = text;
+        scratch.model = std::move(built);
+        return true;
+    };
+    OpDispatcher trial(inner);
+
+    // An id with no colon belongs to the circuit's own namespace.
+    const auto base = [&]
+    {
+        const auto& id = scratch.model.id();
+        const auto hash = id.find('#');
+        return hash == std::string::npos ? std::string() : id.substr(0, hash + 1);
+    }();
+    const auto qualify = [&](const std::string& id)
+    {
+        return id.find(':') == std::string::npos && ! base.empty() ? base + id : id;
+    };
+
+    for (std::size_t i = 0; i < edits.size(); ++i)
+    {
+        const auto& edit = edits[i];
+        OpResult result;
+        std::string what;
+
+        switch (edit.kind)
+        {
+            case GraphEdit::Kind::addNode:
+                what = "add_node " + edit.id;
+                result = trial.addNode(qualify(edit.id), edit.classIri);
+                break;
+            case GraphEdit::Kind::removeNode:
+                what = "remove_node " + edit.id;
+                result = trial.removeNode(qualify(edit.id));
+                break;
+            case GraphEdit::Kind::connect:
+                what = "connect " + edit.fromNode + "." + edit.fromPort + " to " + edit.toNode + "." + edit.toPort;
+                result = trial.connect(qualify(edit.fromNode), edit.fromPort, qualify(edit.toNode), edit.toPort, edit.depth);
+                break;
+            case GraphEdit::Kind::disconnect:
+                what = "disconnect " + edit.fromNode + "." + edit.fromPort + " from " + edit.toNode + "." + edit.toPort;
+                result = trial.disconnect(qualify(edit.fromNode), edit.fromPort, qualify(edit.toNode), edit.toPort);
+                break;
+        }
+
+        if (! result.ok)
+        {
+            std::string why = result.diagnostics.empty() ? std::string("it failed") : result.diagnostics.front().message;
+            OpResult failure = OpResult::failure("Edit " + std::to_string(i + 1) + " of " + std::to_string(edits.size())
+                                                 + " (" + what + ") failed: " + why + " Nothing was changed.");
+            for (std::size_t d = 1; d < result.diagnostics.size(); ++d)
+                failure.diagnostics.push_back(result.diagnostics[d]);
+            return failure;
+        }
+    }
+
+    // All of them applied to the copy. Now the circuit as a whole has to compile and load, once.
+    const auto previous = ctx.readTurtle();
+    OpResult installed;
+    installed.ok = ctx.writeTurtle(scratch.turtle, installed.diagnostics);
+    if (! installed.ok)
+    {
+        // The host keeps the text of a refused circuit so that an editor can show it. Here nobody
+        // typed it, so the text goes back to what it was, as with any single edit.
+        std::vector<Diagnostic> ignored;
+        ctx.writeTurtle(previous, ignored);
+
+        std::string why = installed.diagnostics.empty() ? std::string("it was refused") : installed.diagnostics.front().message;
+        OpResult failure = OpResult::failure("All " + std::to_string(edits.size()) + " edits applied, but the circuit they make "
+                                             "could not be installed: " + why + " Nothing was changed.");
+        for (std::size_t d = 1; d < installed.diagnostics.size(); ++d)
+            failure.diagnostics.push_back(installed.diagnostics[d]);
+        return failure;
+    }
+
+    return OpResult::success("{\"applied\":" + std::to_string(edits.size()) + "}");
+}
+
+OpResult OpDispatcher::removeNodeUnrecorded(const std::string& id)
 {
     const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
     if (model == nullptr)
@@ -335,7 +593,7 @@ OpResult OpDispatcher::removeNode(const std::string& id)
     return applyEdit(*this, ctx.readTurtle, store.serialise());
 }
 
-OpResult OpDispatcher::connect(const std::string& fromNode, const std::string& fromPort,
+OpResult OpDispatcher::connectUnrecorded(const std::string& fromNode, const std::string& fromPort,
                                const std::string& toNode,   const std::string& toPort,
                                std::optional<double> depth)
 {
@@ -351,13 +609,16 @@ OpResult OpDispatcher::connect(const std::string& fromNode, const std::string& f
     const auto* source = model->findElement(fromNode);
     const auto* dest   = model->findElement(toNode);
 
-    const auto* sourcePort = source->type != nullptr ? source->type->findPort(fromPort) : nullptr;
-    const auto* destPort   = dest->type   != nullptr ? dest->type->findPort(toPort)     : nullptr;
+    if (source->type == nullptr || dest->type == nullptr)
+        return OpResult::failure("an element of this arc has no known class");
+
+    const auto* sourcePort = source->type->findPort(fromPort);
+    const auto* destPort   = dest->type->findPort(toPort);
 
     if (sourcePort == nullptr)
-        return OpResult::failure(vocab::shortName(source->typeIri) + " has no port '" + fromPort + "'");
+        return OpResult::failure(source->type->missingPortMessage(fromPort, false));
     if (destPort == nullptr)
-        return OpResult::failure(vocab::shortName(dest->typeIri) + " has no port '" + toPort + "'");
+        return OpResult::failure(dest->type->missingPortMessage(toPort, true));
     if (sourcePort->input)
         return OpResult::failure("'" + fromPort + "' is an input port; an arc starts at an output");
     if (! destPort->input)
@@ -391,7 +652,7 @@ OpResult OpDispatcher::connect(const std::string& fromNode, const std::string& f
     return applyEdit(*this, ctx.readTurtle, std::move(turtle));
 }
 
-OpResult OpDispatcher::disconnect(const std::string& fromNode, const std::string& fromPort,
+OpResult OpDispatcher::disconnectUnrecorded(const std::string& fromNode, const std::string& fromPort,
                                   const std::string& toNode,   const std::string& toPort)
 {
     const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
@@ -424,6 +685,215 @@ OpResult OpDispatcher::disconnect(const std::string& fromNode, const std::string
 
     store.registerPrefix("val", vocab::VAL);
     return applyEdit(*this, ctx.readTurtle, store.serialise());
+}
+
+
+// ---------------------------------------------------------------------------
+// History
+// ---------------------------------------------------------------------------
+
+bool OpDispatcher::syncHistory()
+{
+    if (ctx.history == nullptr || ! ctx.readTurtle)
+        return false;
+
+    const auto text = ctx.readTurtle();
+    if (! ctx.history->empty() && ctx.history->current()->turtle == text)
+        return true;
+
+    // Text that is not a circuit (an editor mid-edit) is not a version to return to.
+    if (! validate(text).ok)
+        return false;
+
+    ctx.history->sync(text);
+    return true;
+}
+
+template <typename Run>
+OpResult OpDispatcher::recorded(const std::string& label, Run&& run)
+{
+    if (ctx.history == nullptr || editDepth > 0 || ! ctx.readTurtle)
+        return run();
+
+    syncHistory();
+
+    ++editDepth;
+    auto result = run();
+    --editDepth;
+
+    if (result.ok)
+        ctx.history->record(label, ctx.readTurtle());
+    return result;
+}
+
+OpResult OpDispatcher::setTurtle(const std::string& turtle)
+{
+    return recorded("set_turtle", [&] { return setTurtleUnrecorded(turtle); });
+}
+
+OpResult OpDispatcher::addNode(const std::string& id, const std::string& classIri)
+{
+    return recorded("add_node " + vocab::shortName(id) + " (" + classIri + ")", [&] { return addNodeUnrecorded(id, classIri); });
+}
+
+OpResult OpDispatcher::removeNode(const std::string& id)
+{
+    return recorded("remove_node " + vocab::shortName(id), [&] { return removeNodeUnrecorded(id); });
+}
+
+OpResult OpDispatcher::connect(const std::string& fromNode, const std::string& fromPort,
+                               const std::string& toNode, const std::string& toPort, std::optional<double> depth)
+{
+    return recorded("connect " + vocab::shortName(fromNode) + "." + fromPort + " to " + vocab::shortName(toNode) + "." + toPort,
+                    [&] { return connectUnrecorded(fromNode, fromPort, toNode, toPort, depth); });
+}
+
+OpResult OpDispatcher::disconnect(const std::string& fromNode, const std::string& fromPort,
+                                  const std::string& toNode, const std::string& toPort)
+{
+    return recorded("disconnect " + vocab::shortName(fromNode) + "." + fromPort + " from " + vocab::shortName(toNode) + "." + toPort,
+                    [&] { return disconnectUnrecorded(fromNode, fromPort, toNode, toPort); });
+}
+
+OpResult OpDispatcher::applyEdits(const std::vector<GraphEdit>& edits)
+{
+    return recorded("apply_edits (" + std::to_string(edits.size()) + " edits)", [&] { return applyEditsUnrecorded(edits); });
+}
+
+OpResult OpDispatcher::history() const
+{
+    if (ctx.history == nullptr)
+        return OpResult::failure("no history is kept for this circuit");
+
+    std::string json = "{\"current\":" + (ctx.history->empty() ? std::string("null") : std::to_string(ctx.history->current()->id))
+                     + ",\"canUndo\":" + (ctx.history->canUndo() ? "true" : "false")
+                     + ",\"canRedo\":" + (ctx.history->canRedo() ? "true" : "false") + ",\"versions\":[";
+
+    bool first = true;
+    for (const auto& version : ctx.history->versions())
+    {
+        json += std::string(first ? "" : ",") + "{\"version\":" + std::to_string(version.id)
+              + ",\"label\":" + jsonString(version.label)
+              + ",\"current\":" + (&version == ctx.history->current() ? "true" : "false") + "}";
+        first = false;
+    }
+    return OpResult::success(json + "]}");
+}
+
+OpResult OpDispatcher::undo()
+{
+    if (ctx.history == nullptr || ! ctx.readTurtle || ! ctx.writeTurtle)
+        return OpResult::failure("no history is kept for this circuit");
+
+    // If the text now is not a version and does not compile (an editor mid-edit), the nearest thing to
+    // undoing it is to go back to the last text that did: nothing else is lost.
+    const bool synced = syncHistory();
+    if (ctx.history->empty())
+        return OpResult::failure("there is nothing to undo: no version of the circuit has been kept");
+
+    if (! synced)
+    {
+        const auto& last = *ctx.history->current();
+        std::vector<Diagnostic> diagnostics;
+        if (! ctx.writeTurtle(last.turtle, diagnostics))
+            return OpResult::failure("the circuit's text does not compile and the last good version could not be restored");
+        return OpResult::success("{\"version\":" + std::to_string(last.id) + ",\"restored\":" + jsonString(last.label)
+                                 + ",\"note\":\"the circuit's text did not compile, so the last version that did was restored\"}");
+    }
+
+    if (! ctx.history->canUndo())
+        return OpResult::failure("there is nothing to undo: this is the oldest version kept");
+
+    const std::string undone = ctx.history->current()->label;
+    const auto* target = ctx.history->undo();
+
+    std::vector<Diagnostic> diagnostics;
+    if (! ctx.writeTurtle(target->turtle, diagnostics))
+    {
+        ctx.history->redo();
+        OpResult failure = OpResult::failure("the earlier version could not be installed");
+        failure.diagnostics.insert(failure.diagnostics.end(), diagnostics.begin(), diagnostics.end());
+        return failure;
+    }
+
+    return OpResult::success("{\"version\":" + std::to_string(target->id) + ",\"undone\":" + jsonString(undone)
+                             + ",\"canUndo\":" + (ctx.history->canUndo() ? "true" : "false")
+                             + ",\"canRedo\":true}");
+}
+
+OpResult OpDispatcher::redo()
+{
+    if (ctx.history == nullptr || ! ctx.writeTurtle)
+        return OpResult::failure("no history is kept for this circuit");
+
+    if (! ctx.history->canRedo())
+        return OpResult::failure("there is nothing to redo: nothing has been undone since the last change");
+
+    // Text typed since the undo would be lost by moving forward; it becomes the new latest version
+    // instead, which ends the redo as any new edit does.
+    if (ctx.readTurtle && ! ctx.history->empty() && ctx.history->current()->turtle != ctx.readTurtle() && syncHistory())
+        return OpResult::failure("the circuit was changed after the undo, so there is nothing to redo");
+
+    const auto* target = ctx.history->redo();
+    std::vector<Diagnostic> diagnostics;
+    if (! ctx.writeTurtle(target->turtle, diagnostics))
+    {
+        ctx.history->undo();
+        OpResult failure = OpResult::failure("the later version could not be installed");
+        failure.diagnostics.insert(failure.diagnostics.end(), diagnostics.begin(), diagnostics.end());
+        return failure;
+    }
+
+    return OpResult::success("{\"version\":" + std::to_string(target->id) + ",\"label\":" + jsonString(target->label)
+                             + ",\"canUndo\":true,\"canRedo\":" + (ctx.history->canRedo() ? "true" : "false") + "}");
+}
+
+OpResult OpDispatcher::diff(std::optional<int> from, std::optional<int> to) const
+{
+    if (ctx.history == nullptr || ctx.history->empty() || ctx.ontology == nullptr)
+        return OpResult::failure("no versions have been kept to compare");
+
+    const auto& versions = ctx.history->versions();
+    const CircuitVersion* after = to ? ctx.history->find(*to) : ctx.history->current();
+    if (after == nullptr)
+        return OpResult::failure("there is no version " + std::to_string(*to) + "; history lists the versions kept");
+
+    const CircuitVersion* before = nullptr;
+    if (from)
+    {
+        before = ctx.history->find(*from);
+        if (before == nullptr)
+            return OpResult::failure("there is no version " + std::to_string(*from) + "; history lists the versions kept");
+    }
+    else
+    {
+        // The one just before `after`.
+        for (std::size_t i = 1; i < versions.size(); ++i)
+            if (&versions[i] == after)
+                before = &versions[i - 1];
+        if (before == nullptr)
+            return OpResult::failure("version " + std::to_string(after->id) + " is the oldest kept, so there is nothing before it to compare with");
+    }
+
+    const auto build = [&](const std::string& text, CircuitModel& model) -> bool
+    {
+        rdf::TurtleStore store;
+        std::vector<rdf::ParseError> parseErrors;
+        std::vector<Diagnostic> ignored;
+        return store.parse(text, "urn:valis:circuit", parseErrors) && model.build(store, *ctx.ontology, ignored);
+    };
+
+    CircuitModel a, b;
+    if (! build(before->turtle, a) || ! build(after->turtle, b))
+        return OpResult::failure("one of those versions no longer builds, so they cannot be compared");
+
+    const auto changes = diffCircuits(a, b);
+
+    std::string json = "{\"from\":" + std::to_string(before->id) + ",\"to\":" + std::to_string(after->id)
+                     + ",\"label\":" + jsonString(after->label) + ",\"count\":" + std::to_string(changes.size()) + ",\"changes\":[";
+    for (std::size_t i = 0; i < changes.size(); ++i)
+        json += (i ? "," : "") + jsonString(changes[i]);
+    return OpResult::success(json + "]}");
 }
 
 // ---------------------------------------------------------------------------
@@ -489,8 +959,10 @@ std::vector<ParamInfo> OpDispatcher::listParams() const
         {
             if (const auto* port = element->type->findProperty(binding.propertySymbol))
             {
-                info.minimum = port->minimum;
-                info.maximum = port->maximum;
+                // The binding's own range, where it gives one, is the knob's range: it is what the
+                // Controls view and the host parameter use, so it is what a caller must see and be clamped to.
+                info.minimum = binding.minimum.value_or(port->minimum);
+                info.maximum = binding.maximum.value_or(port->maximum);
                 info.unit    = port->unitSymbol;
 
                 // What is running, not what the Turtle declared: a host or an
@@ -663,6 +1135,19 @@ OpResult OpDispatcher::getDiagnostics() const
     {
         json += ",\"latency\":" + std::to_string(ctx.engine->latencyInSamples());
         json += ",\"sampleRate\":" + number(ctx.engine->currentSampleRate());
+
+        // A circuit can load and still have an element that could not do what it was asked,
+        // such as a player whose sound file is missing. It plays on, silent or unchanged, so
+        // without this list a caller would see a healthy circuit that makes no sound.
+        json += ",\"problems\":[";
+        bool first = true;
+        for (const auto& [node, message] : ctx.engine->notes())
+        {
+            json += std::string(first ? "" : ",") + "{\"node\":" + jsonString(node)
+                  + ",\"message\":" + jsonString(message) + "}";
+            first = false;
+        }
+        json += "]";
     }
 
     json += "}";
@@ -755,21 +1240,24 @@ OpResult OpDispatcher::readOutputs(const std::string& nodeId) const
     return OpResult::success(std::move(json));
 }
 
-OpResult OpDispatcher::render(const std::string& path, double seconds, double sampleRate,
-                              int note, double velocity) const
+namespace {
+
+/// A model, a compiled circuit and an engine made from the circuit's current text, apart from the
+/// one that is playing: for work that needs to run the circuit without touching it.
+struct FreshRig
+{
+    CircuitModel model;
+    CompiledCircuit compiled;
+    ValisEngine engine;
+};
+
+OpResult buildFreshRig(const OpContext& ctx, double sampleRate, int block, FreshRig& rig)
 {
     if (ctx.ontology == nullptr || ctx.registry == nullptr)
         return OpResult::failure("no ontology or registry");
     if (! ctx.readTurtle)
         return OpResult::failure("no circuit is loaded");
-    if (path.empty())
-        return OpResult::failure("render needs an output path");
 
-    seconds    = std::clamp(seconds, 0.05, 60.0);
-    sampleRate = std::clamp(sampleRate, 8000.0, 192000.0);
-
-    // A fresh model, compiler and engine, so rendering neither reads nor
-    // disturbs whatever the plugin is currently playing.
     rdf::TurtleStore store;
     std::vector<rdf::ParseError> parseErrors;
     if (! store.parse(ctx.readTurtle(), "urn:valis:render", parseErrors))
@@ -780,32 +1268,51 @@ OpResult OpDispatcher::render(const std::string& path, double seconds, double sa
         return result;
     }
 
-    CircuitModel model;
     std::vector<Diagnostic> diagnostics;
-    if (! model.build(store, *ctx.ontology, diagnostics))
+    if (! rig.model.build(store, *ctx.ontology, diagnostics))
     {
         OpResult result = OpResult::failure("the circuit will not build");
         result.diagnostics = std::move(diagnostics);
         return result;
     }
 
-    CompiledCircuit compiled;
     CircuitCompiler compiler;
-    if (! compiler.compile(model, *ctx.ontology, compiled, diagnostics))
+    if (! compiler.compile(rig.model, *ctx.ontology, rig.compiled, diagnostics))
     {
         OpResult result = OpResult::failure("the circuit will not compile");
         result.diagnostics = std::move(diagnostics);
         return result;
     }
 
-    constexpr int kBlock = 512;
-
-    ValisEngine engine;
-    engine.prepare(sampleRate, kBlock);
+    rig.engine.prepare(sampleRate, block);
 
     std::string error;
-    if (! engine.load(compiled, *ctx.registry, error))
+    if (! rig.engine.load(rig.compiled, *ctx.registry, error))
         return OpResult::failure("the circuit will not load: " + error);
+
+    return OpResult::success();
+}
+
+}  // namespace
+
+OpResult OpDispatcher::render(const std::string& path, double seconds, double sampleRate,
+                              int note, double velocity) const
+{
+    if (path.empty())
+        return OpResult::failure("render needs an output path");
+
+    seconds    = std::clamp(seconds, 0.05, 60.0);
+    sampleRate = std::clamp(sampleRate, 8000.0, 192000.0);
+
+    constexpr int kBlock = 512;
+
+    // A fresh model, compiler and engine, so rendering neither reads nor
+    // disturbs whatever the plugin is currently playing.
+    FreshRig rig;
+    if (auto built = buildFreshRig(ctx, sampleRate, kBlock, rig); ! built.ok)
+        return built;
+    auto& engine   = rig.engine;
+    auto& compiled = rig.compiled;
 
     const auto total = static_cast<int>(seconds * sampleRate);
     std::vector<float> left(static_cast<std::size_t>(total), 0.0f);
@@ -857,30 +1364,244 @@ OpResult OpDispatcher::render(const std::string& path, double seconds, double sa
     writer->writeFromFloatArrays(channels, 2, total);
     writer.reset();
 
-    float peak = 0.0f;
-    double sum = 0.0;
-    bool finite = true;
-    for (int i = 0; i < total; ++i)
-    {
-        const float s = left[static_cast<std::size_t>(i)];
-        if (! std::isfinite(s))
-            finite = false;
-        peak = std::max(peak, std::abs(s));
-        sum += static_cast<double>(s) * s;
-    }
-    const double rms = total > 0 ? std::sqrt(sum / static_cast<double>(total)) : 0.0;
+    // Measured over both channels, so a circuit that is silent on the left and loud on the
+    // right is not reported as silent. The analysis says what kind of sound it is.
+    const auto report = analyseSignal(left, right, sampleRate);
+    const double peak = report.peak;
+    const double rms = report.rms;
+    const bool finite = report.nonFinite == 0;
 
     std::string json = "{\"path\":" + jsonString(outputFile.getFullPathName().toStdString())
                      + ",\"seconds\":" + number(seconds)
                      + ",\"sampleRate\":" + number(sampleRate)
                      + ",\"nodes\":" + std::to_string(compiled.nodes.size())
                      + ",\"latency\":" + std::to_string(engine.latencyInSamples())
-                     + ",\"peak\":" + number(static_cast<double>(peak))
+                     + ",\"peak\":" + number(peak)
                      + ",\"rms\":" + number(rms)
                      + ",\"finite\":" + (finite ? "true" : "false")
+                     + ",\"analysis\":" + reportToJson(report)
                      + "}";
 
     return OpResult::success(std::move(json));
+}
+
+OpResult OpDispatcher::lint() const
+{
+    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
+    if (model == nullptr)
+        return OpResult::failure("no circuit is loaded");
+
+    return OpResult::success(lintToJson(lintCircuit(*model)));
+}
+
+OpResult OpDispatcher::analyze(const std::string& path) const
+{
+    if (path.empty())
+        return OpResult::failure("analyze needs the path of a wav file");
+
+    const juce::File file(juce::File::isAbsolutePath(juce::String(path))
+                              ? juce::File(juce::String(path))
+                              : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path)));
+    if (! file.existsAsFile())
+        return OpResult::failure("no such file: " + file.getFullPathName().toStdString());
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+    if (reader == nullptr)
+        return OpResult::failure("not an audio file this build can read: " + file.getFullPathName().toStdString());
+
+    // Sixty seconds is plenty to say what a sound is, and bounds the work and the memory.
+    const auto frames = static_cast<int>(std::min<juce::int64>(reader->lengthInSamples,
+                                                               static_cast<juce::int64>(reader->sampleRate * 60.0)));
+    if (frames <= 0)
+        return OpResult::failure("the file holds no audio");
+
+    juce::AudioBuffer<float> buffer(static_cast<int>(std::min<unsigned>(reader->numChannels, 2u)), frames);
+    reader->read(&buffer, 0, frames, 0, true, buffer.getNumChannels() > 1);
+
+    const std::vector<float> left(buffer.getReadPointer(0), buffer.getReadPointer(0) + frames);
+    std::vector<float> right;
+    if (buffer.getNumChannels() > 1)
+        right.assign(buffer.getReadPointer(1), buffer.getReadPointer(1) + frames);
+
+    return OpResult::success(reportToJson(analyseSignal(left, right, reader->sampleRate)));
+}
+
+OpResult OpDispatcher::checkStability(int trials, double seconds, int note) const
+{
+    trials  = std::clamp(trials, 1, 32);
+    seconds = std::clamp(seconds, 0.25, 10.0);
+
+    constexpr double kRate = 48000.0;
+    constexpr int    kBlock = 512;
+
+    const auto params = listParams();
+    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
+    if (model == nullptr)
+        return OpResult::failure("no circuit is loaded");
+
+    // One input for every trial: noise and a tone, quiet enough that gain is what is being tested.
+    const auto total = static_cast<int>(seconds * kRate);
+    std::vector<float> input(static_cast<std::size_t>(total));
+    {
+        dsp::Random noise(0xC0FFEEu);
+        for (int i = 0; i < total; ++i)
+            input[static_cast<std::size_t>(i)] = 0.15f * noise.bipolar()
+                + 0.15f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 220.0 * i / kRate));
+    }
+
+    // A setting for each parameter: spread evenly, or evenly in the logarithm where the range spans
+    // decades, as a person sweeps a frequency. A range of plus or minus a million means "unbounded"
+    // and is held to a thousand.
+    const auto draw = [](dsp::Random& random, const ParamInfo& p)
+    {
+        const double lo = std::max(p.minimum, -1000.0), hi = std::min(p.maximum, 1000.0);
+        if (! (hi > lo))
+            return lo;
+        const double t = static_cast<double>(random.next());
+        if (lo > 0.0 && hi / lo >= 50.0)
+            return lo * std::pow(hi / lo, t);
+        return lo + (hi - lo) * t;
+    };
+
+    struct Trial
+    {
+        int seed = 0;
+        std::string verdict;
+        double peak = 0.0, rms = 0.0;
+        long nonFinite = 0;
+        std::vector<double> before, after;
+    };
+    std::vector<Trial> results;
+
+    int blewUp = 0, nonFiniteRuns = 0, clipping = 0, silent = 0;
+
+    for (int t = 0; t < trials; ++t)
+    {
+        Trial trial;
+        trial.seed = t;   // 0 is the declared settings
+
+        FreshRig rig;
+        if (auto built = buildFreshRig(ctx, kRate, kBlock, rig); ! built.ok)
+            return built;
+
+        dsp::Random random(static_cast<std::uint32_t>(t) * 2654435761u + 0x9E3779B9u);
+        if (t > 0)
+        {
+            for (const auto& p : params) trial.before.push_back(draw(random, p));
+            for (const auto& p : params) trial.after.push_back(draw(random, p));
+        }
+
+        const auto apply = [&](const std::vector<double>& values)
+        {
+            for (std::size_t i = 0; i < params.size() && i < values.size(); ++i)
+            {
+                rig.engine.setControl(params[i].targetNode, params[i].property, static_cast<float>(values[i]));
+
+                for (const auto& binding : rig.model.params())
+                    if (binding.slot == params[i].slot)
+                        for (const auto& [node, port] : binding.alsoTargets)
+                            rig.engine.setControl(node, port, static_cast<float>(values[i]));
+            }
+        };
+        apply(trial.before);
+
+        std::vector<float> left(static_cast<std::size_t>(kBlock)), right(static_cast<std::size_t>(kBlock));
+        const int jumpAt = total / 2;
+        const int noteOffAt = static_cast<int>(static_cast<double>(total) * 0.8);
+        double sumSquares = 0.0;
+        long counted = 0;
+
+        for (int at = 0; at < total; at += kBlock)
+        {
+            const int n = std::min(kBlock, total - at);
+
+            if (note >= 0 && note <= 127)
+            {
+                if (at == 0)
+                    rig.engine.queueNoteOn(note, 0.9f, 0);
+                if (noteOffAt >= at && noteOffAt < at + n)
+                    rig.engine.queueNoteOff(note, noteOffAt - at);
+            }
+
+            // Every parameter at once, as a preset change or a scene would.
+            if (t > 0 && jumpAt >= at && jumpAt < at + n)
+                apply(trial.after);
+
+            rig.engine.process(input.data() + at, left.data(), right.data(), n);
+
+            for (int i = 0; i < n; ++i)
+                for (const float s : {left[static_cast<std::size_t>(i)], right[static_cast<std::size_t>(i)]})
+                {
+                    if (! std::isfinite(s)) { ++trial.nonFinite; continue; }
+                    trial.peak = std::max(trial.peak, static_cast<double>(std::abs(s)));
+                    sumSquares += static_cast<double>(s) * s;
+                    ++counted;
+                }
+        }
+        trial.rms = counted > 0 ? std::sqrt(sumSquares / static_cast<double>(counted)) : 0.0;
+
+        if (trial.nonFinite > 0)      { trial.verdict = "non-finite"; ++nonFiniteRuns; }
+        else if (trial.peak > 100.0)  { trial.verdict = "blows-up";   ++blewUp; }
+        else if (trial.peak > 1.0)    { trial.verdict = "clips";      ++clipping; }
+        else if (trial.peak < 1.0e-6) { trial.verdict = "silent";     ++silent; }
+        else                          { trial.verdict = "ok"; }
+
+        results.push_back(std::move(trial));
+    }
+
+    const auto db = [](double v) { return 20.0 * std::log10(std::max(v, 1.0e-6)); };
+
+    std::string json = "{\"trials\":" + std::to_string(trials) + ",\"seconds\":" + number(seconds)
+                     + ",\"parameters\":" + std::to_string(params.size())
+                     + ",\"blowUps\":" + std::to_string(blewUp) + ",\"nonFinite\":" + std::to_string(nonFiniteRuns)
+                     + ",\"clipping\":" + std::to_string(clipping) + ",\"silent\":" + std::to_string(silent)
+                     + ",\"results\":[";
+
+    for (std::size_t i = 0; i < results.size(); ++i)
+    {
+        const auto& r = results[i];
+        json += std::string(i ? "," : "") + "{\"seed\":" + std::to_string(r.seed) + ",\"verdict\":" + jsonString(r.verdict)
+              + ",\"peakDb\":" + number(db(r.peak)) + ",\"rmsDb\":" + number(db(r.rms));
+        if (r.nonFinite > 0)
+            json += ",\"nonFiniteSamples\":" + std::to_string(r.nonFinite);
+
+        // The settings, for a run that is not fine, so that it can be set up again.
+        if (r.verdict != "ok" && ! r.before.empty())
+        {
+            json += ",\"settings\":[";
+            for (std::size_t p = 0; p < params.size(); ++p)
+                json += std::string(p ? "," : "") + "{\"slot\":" + std::to_string(params[p].slot)
+                      + ",\"name\":" + jsonString(params[p].name)
+                      + ",\"start\":" + number(r.before[p]) + ",\"afterJump\":" + number(r.after[p]) + "}";
+            json += "]";
+        }
+        json += "}";
+    }
+    json += "],\"notes\":[";
+
+    std::vector<std::string> notes;
+    const auto count = [&](int n) { return std::to_string(n) + " of " + std::to_string(trials); };
+    if (params.empty())
+        notes.push_back("No parameters are bound, so only the declared settings were tried. Bind the controls a player would reach "
+                        "with val:Param to test them.");
+    if (nonFiniteRuns > 0)
+        notes.push_back(count(nonFiniteRuns) + " runs produced values that are not numbers (NaN or infinity): something becomes "
+                        "unstable at some setting. The settings are listed for each.");
+    if (blewUp > 0)
+        notes.push_back(count(blewUp) + " runs peaked above +40 dBFS: a combination of settings multiplies gain without limit. "
+                        "Put a val:Limiter before the output, or narrow the parameter ranges.");
+    if (clipping > 0)
+        notes.push_back(count(clipping) + " runs clipped (peak above 0 dBFS) but stayed bounded.");
+    if (silent > 0)
+        notes.push_back(count(silent) + " runs were silent: some setting closes the sound off entirely.");
+    if (nonFiniteRuns == 0 && blewUp == 0)
+        notes.push_back("Every run stayed finite and below +40 dBFS, with every parameter changing at once partway through.");
+    for (std::size_t i = 0; i < notes.size(); ++i)
+        json += (i ? "," : "") + jsonString(notes[i]);
+
+    return OpResult::success(json + "]}");
 }
 
 OpResult OpDispatcher::saveFile(const std::string& path) const

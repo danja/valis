@@ -6,6 +6,7 @@
 #include "valis/CircuitModel.h"
 #include "valis/DspElement.h"
 #include "valis/Ontology.h"
+#include "valis/CircuitHistory.h"
 #include "valis/Ops.h"
 #include "valis/ValisEngine.h"
 
@@ -151,7 +152,7 @@ public:
     /// Sample rate the engine is running at, for display scaling.
     double engineSampleRate() const { return engine.currentSampleRate(); }
 
-    /// The sound file a val:SampleLoad node is playing. The document declares
+    /// The sound file a node with a file slot (see hasFileSlot) is playing. The document declares
     /// one with val:file; choosing another from the Controls view overrides it
     /// for the session without rewriting the circuit, which is how a turned
     /// knob already treats a value the document declared. Message thread only.
@@ -273,6 +274,9 @@ private:
     // Guards turtleSource / lastGoodTurtle against the editor and the MCP thread.
     // Never taken on the audio callback.
     mutable juce::CriticalSection turtleLock;
+
+    /// The versions the circuit has had, for undo and diff. Message thread only.
+    CircuitHistory history;
     juce::String turtleSource;
     juce::String lastGoodTurtle;
 

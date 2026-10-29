@@ -1,0 +1,170 @@
+# examples/blue-monday-sketch.ttl
+#
+# A sketch in the manner of 1983 synth-pop at 130 bpm: a sequenced analogue bass over
+# a drum machine. It is NOT a transcription of any record. The pattern is a placeholder
+# of the right kind, and the notes and the drum hits are there to be changed.
+#
+# The parts follow how that kind of record was made. A step sequencer plays the bass
+# (the New Order record used a home-built Powertran sequencer driving a Moog Source). A
+# saw oscillator goes through a resonant ladder filter whose cutoff a fast envelope
+# opens on every note, then an amplifier. Four more sequencers fire the drum sounds,
+# which are captures of the Oberheim DMX in samples/Oberheim DMX, as in dmx.ttl.
+#
+# Play it with the host rolling. In valis-render:
+#   valis-render examples/blue-monday-sketch.ttl --tempo 130 --rolling --seconds 16
+#
+# Sixteen steps of a sixteenth are one bar of four-four. Edit val:pattern on any
+# sequencer, or val:transpose to change key.
+#
+# Not here: the choir sampled on an Emulator, and the bass guitar lead.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:bluemondaysketch#> .
+
+:sketch a val:Circuit , trn:PluginProfile ;
+    trn:role trn:Instrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Synth-pop", "Electro" ;
+    trn:caution """A sketch, not a transcription: the patterns are placeholders. It plays from the host's transport and is silent when the transport is stopped only if the host reports no tempo; otherwise it free-runs.""" ;
+    rdfs:label "Synth-pop sketch" ;
+    val:element :bass , :osc , :ampEnv , :filtEnv , :cutScale , :vcf , :vca , :bassGain , :kickSeq , :kickPlay , :kickGain , :clapSeq , :clapPlay , :clapGain , :hatSeq , :hatPlay , :hatGain , :openhatSeq , :openhatPlay , :openhatGain , :mix , :master , :out ;
+    val:arc :bassPitch , :bassGateAmp , :bassGateFilt , :filtScale , :scaleCut , :ampVca , :oscVcf , :vcfVca , :vcaBassGain , :bassMix , :kickTrig , :kickOut , :kickMix , :clapTrig , :clapOut , :clapMix , :hatTrig , :hatOut , :hatMix , :openhatTrig , :openhatOut , :openhatMix , :mixMaster , :masterOut .
+
+# ── The bass ─────────────────────────────────────────────────────────────────
+
+:bass a val:StepSequencer ;
+    val:pattern "F2 F3 F2 F3 F2 F3 F2 F3 Eb2 Eb3 Eb2 Eb3 C2 C3 C2 C3" ;
+    val:gatelength 0.6 .
+
+:osc a val:Oscillator ; val:shape 1.0 .
+
+# The filter opens on the gate and closes again. The cutoff is replaced by the control
+# arc, so its resting value is the scale's minimum.
+:filtEnv a val:Envelope ; val:attack 2.0 ; val:decay 140.0 ; val:sustain 0.1 ; val:release 60.0 .
+:cutScale a val:Scale ; val:min 180.0 ; val:max 2400.0 .
+:vcf a val:Ladder ; val:resonance 0.45 ; val:drive 1.0 .
+
+:ampEnv a val:Envelope ; val:attack 2.0 ; val:decay 200.0 ; val:sustain 0.7 ; val:release 80.0 .
+:vca a val:VCA .
+:bassGain a val:Gain ; val:gain -6.0 .
+
+# ── The drums ────────────────────────────────────────────────────────────────
+
+:kickSeq a val:StepSequencer ; val:pattern "C1 . . . C1 . . . C1 . . C1 . . C1 ." ; val:gatelength 0.3 .
+:clapSeq a val:StepSequencer ; val:pattern ". . . . C1 . . . . . . . C1 . . ." ; val:gatelength 0.3 .
+:hatSeq  a val:StepSequencer ; val:pattern ". . C1 . . . C1 . . . C1 . . . C1 ." ; val:gatelength 0.3 .
+:openhatSeq a val:StepSequencer ; val:pattern ". . . . . . . C1 . . . . . . . C1" ; val:gatelength 0.3 .
+
+:kickPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Kick01.wav" ; val:loop 0.0 .
+:clapPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Clap.wav" ; val:loop 0.0 .
+:hatPlay  a val:SampleLoad ; val:file "samples/Oberheim DMX/Hat_C.wav" ; val:loop 0.0 .
+:openhatPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Hat_O.wav" ; val:loop 0.0 .
+
+:kickGain a val:Gain ; val:gain 0.0 .
+:clapGain a val:Gain ; val:gain -4.0 .
+:hatGain  a val:Gain ; val:gain -10.0 .
+:openhatGain a val:Gain ; val:gain -10.0 .
+
+:mix a val:Mixer .
+:master a val:Gain ; val:gain -5.0 .
+:out a val:Output .
+
+# ── Arcs ─────────────────────────────────────────────────────────────────────
+
+:bassPitch a val:ControlArc ; val:from [ val:node :bass ; val:port "pitch" ] ;
+    val:to [ val:node :osc ; val:port "frequency" ] .
+
+:bassGateAmp a val:ControlArc ; val:from [ val:node :bass ; val:port "gate" ] ;
+    val:to [ val:node :ampEnv ; val:port "gate" ] .
+
+:bassGateFilt a val:ControlArc ; val:from [ val:node :bass ; val:port "gate" ] ;
+    val:to [ val:node :filtEnv ; val:port "gate" ] .
+
+:filtScale a val:ControlArc ; val:from [ val:node :filtEnv ; val:port "out" ] ;
+    val:to [ val:node :cutScale ; val:port "in" ] .
+
+:scaleCut a val:ControlArc ; val:from [ val:node :cutScale ; val:port "out" ] ;
+    val:to [ val:node :vcf ; val:port "cutoff" ] .
+
+:ampVca a val:ControlArc ; val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to [ val:node :vca ; val:port "cv" ] .
+
+:oscVcf a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+    val:to [ val:node :vcf ; val:port "in" ] .
+
+:vcfVca a val:Arc ; val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to [ val:node :vca ; val:port "in" ] .
+
+:vcaBassGain a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
+    val:to [ val:node :bassGain ; val:port "in" ] .
+
+:bassMix a val:Arc ; val:from [ val:node :bassGain ; val:port "out" ] ;
+    val:to [ val:node :mix ; val:port "in" ] .
+
+:kickTrig a val:ControlArc ; val:from [ val:node :kickSeq ; val:port "gate" ] ;
+    val:to [ val:node :kickPlay ; val:port "trigger" ] .
+
+:kickOut a val:Arc ; val:from [ val:node :kickPlay ; val:port "out" ] ;
+    val:to [ val:node :kickGain ; val:port "in" ] .
+
+:kickMix a val:Arc ; val:from [ val:node :kickGain ; val:port "out" ] ;
+    val:to [ val:node :mix ; val:port "in" ] .
+
+:clapTrig a val:ControlArc ; val:from [ val:node :clapSeq ; val:port "gate" ] ;
+    val:to [ val:node :clapPlay ; val:port "trigger" ] .
+
+:clapOut a val:Arc ; val:from [ val:node :clapPlay ; val:port "out" ] ;
+    val:to [ val:node :clapGain ; val:port "in" ] .
+
+:clapMix a val:Arc ; val:from [ val:node :clapGain ; val:port "out" ] ;
+    val:to [ val:node :mix ; val:port "in" ] .
+
+:hatTrig a val:ControlArc ; val:from [ val:node :hatSeq ; val:port "gate" ] ;
+    val:to [ val:node :hatPlay ; val:port "trigger" ] .
+
+:hatOut a val:Arc ; val:from [ val:node :hatPlay ; val:port "out" ] ;
+    val:to [ val:node :hatGain ; val:port "in" ] .
+
+:hatMix a val:Arc ; val:from [ val:node :hatGain ; val:port "out" ] ;
+    val:to [ val:node :mix ; val:port "in" ] .
+
+:openhatTrig a val:ControlArc ; val:from [ val:node :openhatSeq ; val:port "gate" ] ;
+    val:to [ val:node :openhatPlay ; val:port "trigger" ] .
+
+:openhatOut a val:Arc ; val:from [ val:node :openhatPlay ; val:port "out" ] ;
+    val:to [ val:node :openhatGain ; val:port "in" ] .
+
+:openhatMix a val:Arc ; val:from [ val:node :openhatGain ; val:port "out" ] ;
+    val:to [ val:node :mix ; val:port "in" ] .
+
+:mixMaster a val:Arc ; val:from [ val:node :mix ; val:port "out" ] ;
+    val:to [ val:node :master ; val:port "in" ] .
+
+:masterOut a val:Arc ; val:from [ val:node :master ; val:port "out" ] ;
+    val:to [ val:node :out ; val:port "in" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :bass ; val:property val:transpose ;
+    lv2:name "Transpose" ; lv2:symbol "transpose" ; val:section "Bass" ;
+    lv2:minimum -12 ; lv2:maximum 12 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :cutScale ; val:property val:max ;
+    lv2:name "Filter opens to" ; lv2:symbol "filter_max" ; val:section "Bass" ; units:unit units:hz ;
+    lv2:minimum 400 ; lv2:maximum 6000 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" ; val:section "Bass" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :bassGain ; val:property val:gain ;
+    lv2:name "Bass level" ; lv2:symbol "bass_level" ; val:section "Mix" ; units:unit units:db ;
+    lv2:minimum -30 ; lv2:maximum 6 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :kickGain ; val:property val:gain ;
+    lv2:name "Kick level" ; lv2:symbol "kick_level" ; val:section "Mix" ; units:unit units:db ;
+    lv2:minimum -30 ; lv2:maximum 6 .

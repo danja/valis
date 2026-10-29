@@ -97,3 +97,85 @@ All four were found by the new tests, or by the compiler, before anything else u
   written twice and the multiband example fed two arcs into one compressor. The
   compiler caught both with located errors; nothing to prevent beyond rendering each
   new example with `valis-render` before writing a test around it.
+
+## Running only the nearest tests after changing a shipped example
+
+**What happened:** adding a choke to each DMX voice card changed the number of
+elements the circuit compiles to. The new tests and the DMX engine test passed;
+`CircuitCompilerTest`, which counts the DMX nodes (`8 * 9 + 4`), was not run until
+the full suite at the end, where it failed.
+
+**Root cause:** the tests chosen were the ones for the code being written, and
+a shipped example is read by tests that have nothing to do with the element that
+changed. A test that pins a count of a shipped file's contents is exactly the kind
+that no targeted run will include.
+
+**Prevention:** after editing anything under `examples/`, run the whole suite, or
+at least `grep -rl <example name> tests/` and run those. A count asserted on an
+example is a reason to update the count when the example grows, not a sign the
+example is wrong.
+
+## Adding a mode port to an element whose test says it has none
+
+**What happened:** to give the Grist feedback filter a lowpass, bandpass and highpass
+choice, `val:StateVariable` got a `mode` port and a selected output. `OntologyTest`
+asserts the element has no `mode` port: the Scream circuit taps `lp` and `hp` at the
+same time, so the design is named outputs, not a switch. The full suite caught it.
+
+**Root cause:** the change was made to the nearest element that had the three signals,
+without reading the test that pins how that element is meant to be used.
+
+**Prevention:** before adding a port to an existing element, grep `tests/` for the
+element's name and read any assertion about its ports. A test that says why a port is
+absent is a design decision, so put the feature in a new element
+(`val:AudioSelect`) rather than reversing it.
+
+## Modulation effects that moved once per block
+
+**What happened:** `val:Chorus`, `val:Flanger` and `val:Phaser` read their LFO once per block and held
+the delay, or the allpass pole, for the whole block. The delay stepped at every block boundary, which
+a fast rate or a long block made audible, and the sound depended on how the host cut the stream. None
+of the three put its LFO back to its starting phase on `reset()`, and `val:Noise` did not restart its
+sequence. A conformance suite written over every element found all four in one run.
+
+**Root cause:** the elements were written when the engine's block was the unit of time, and nothing
+checked that a different cut of the same stream gave the same sound. It is the "events located by
+block" mistake above in a different place: a continuous quantity sampled at the block rather than at the
+sample.
+
+**Prevention:** `tests/dsp/ElementConformanceTest.cpp` now holds every element to determinism, reset,
+block-size independence, boundedness under random controls, no allocation in `process()` and decay.
+A new element is checked without a line of test code, and an exception needs a reason written next to
+it. A modulation source that runs inside an element advances per sample (or per fixed count of
+samples carried across blocks), never per block.
+
+## A context built twice, and only one of them complete
+
+**What happened:** the `render` tool refused to run inside the plugin ("no ontology or registry") from the
+day it was written. `ValisProcessor::ops()` built the context the ops run in and never set `ctx.registry`.
+Every test passed, because every test builds its own context by hand and sets everything.
+
+**Root cause:** the context is assembled in two places that share no code, and the tests' copy was the
+complete one. A field an op needs but the plugin forgot is invisible to any test that does not use the
+plugin's copy, and the plugin cannot be constructed headless.
+
+**Prevention:** `tests/ops/ContextWiringTest.cpp` reads `OpContext` from `Ops.h` and the body of
+`ValisProcessor::ops()` as text and fails if any field is not assigned. Adding a field to the context now
+fails the build until the plugin sets it. The general lesson: where a thing that tests cannot construct is
+assembled by hand in one place, test the assembly against the declaration of what it must contain.
+
+## A rule applied in the views and not in the ops
+
+**What happened:** a `val:Param` can give its own `lv2:minimum` and `lv2:maximum`, narrower than the port's.
+The Controls view and the host parameter both used it. `list_params` and `set_param` did not: they reported
+the port's range, so a caller was told a knob went from -60 to 24 dB when it went from 20 to 24, and
+`set_param` clamped to the wrong range. Found when the stability check drew values from `list_params`'
+ranges and they were outside the knob's.
+
+**Root cause:** the same fact ("what range does this knob have") was worked out separately in the UI, in the
+processor and in the ops, and the ops copy was written first and never updated when the override was added.
+The ops were meant to be the single implementation the views sit on, but the views had grown their own.
+
+**Prevention:** `testABindingsOwnRangeIsTheRangeTheOpsReport` holds the ops to the binding's range. Where a
+view and an op both need a value, the view should ask the op; the next step is to make the Controls view and
+the processor read their ranges from `listParams`.

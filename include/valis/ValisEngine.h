@@ -102,6 +102,10 @@ public:
     /// note has still loaded.
     std::string noteFor(const std::string& nodeId) const;
 
+    /// Message thread. Every such note of the installed circuit, as (node id, message),
+    /// for a caller that wants the whole list rather than one element's.
+    const std::vector<std::pair<std::string, std::string>>& notes() const { return loadNotes; }
+
     /// Latency of the installed circuit, in samples.
     int latencyInSamples() const { return reportedLatency.load(std::memory_order_relaxed); }
 

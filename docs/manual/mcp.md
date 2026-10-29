@@ -45,6 +45,9 @@ a tool first.
 | `valis://diagnostics` | load state, size, latency, and any diagnostics |
 | `valis://element-types` | every declared element class with ports, ranges, units, and which ports carry events rather than signal |
 | `valis://params` | the circuit's current parameter bindings |
+| `valis://guide` | the [guide for agents](../guide-for-agents.md) |
+| `valis://examples` | an index of every circuit in `examples/` and what each is |
+| `valis://examples/NAME` | one example's Turtle, such as `valis://examples/basic` |
 
 ## Tools
 
@@ -54,17 +57,26 @@ a tool first.
 | `set_turtle` | replace the circuit; rejected if it will not compile |
 | `validate` | check Turtle without installing it |
 | `list_element_types` | every class, with ports, ranges and units |
+| `describe_element` | one class in full: its description, every port with range, unit and choices, and the options it takes |
 | `get_graph` | the circuit as JSON |
 | `add_node` / `remove_node` | add an element, or remove it and its arcs |
 | `connect` / `disconnect` | join or separate two ports |
+| `history` / `undo` / `redo` | the versions the circuit has had (up to 100), and going back and forward over them; a batch is one version |
+| `diff` | what changed between two versions, in plain sentences |
+| `apply_edits` | several `add_node`, `remove_node`, `connect` and `disconnect` edits as one: all take effect or none do, and the result is installed once |
 | `list_params` / `get_param` / `set_param` | the bound parameter slots |
-| `get_sample` / `set_sample` | the sound file a `val:SampleLoad` node plays |
+| `get_sample` / `set_sample` | the sound file a `val:SampleLoad` or `val:TimeStretch` node plays, or the model a `val:NamModel` runs |
+| `morph` | move every parameter that has a `val:valueA` and `val:valueB` between them, 0 to 1 |
+| `randomize` | give the parameters new random values within their ranges, from a seed |
 | `load_file` / `save_file` | read or write a Turtle file on the server machine |
 | `note_on` / `note_off` / `all_notes_off` | play the circuit, as the editor's keyboard does |
 | `get_profile` | what the circuit says it is: role, signals, genre, cautions |
 | `read_outputs` | every control output's live value, or one node's |
-| `render` | render the circuit offline to a wav and report peak and RMS |
-| `get_diagnostics` | whether the circuit loaded, its size, latency, voices |
+| `check_stability` | run the circuit on a fresh engine with random settings of its bound parameters, all moving at once partway through, and report runs that blow up, go non-finite, clip or fall silent, with the settings that did it |
+| `lint` | static checks on the loaded circuit: values an arc overwrites, knobs that do nothing, parts that cannot be heard, effects with nothing connected, nothing wired to the output |
+| `analyze` | measure a wav file: level, clipping, DC, pitch with note name and cents, octave levels, brightness, onsets, level over time, and plain notes on anything wrong |
+| `render` | render the circuit offline to a wav and report peak and RMS, with the same analysis `analyze` gives |
+| `get_diagnostics` | whether the circuit loaded, its size, latency, voices, and `problems`: what an element recovered from, such as a missing sound file |
 
 Every tool is an adapter over the same `Op` the views use, so anything the UI
 can do is reachable here. Three of them are worth knowing about when building a

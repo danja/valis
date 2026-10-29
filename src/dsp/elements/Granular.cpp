@@ -10,6 +10,7 @@
 
 #include "Common.h"
 
+#include "dsp/GrainCloud.h"
 #include "dsp/GrainPool.h"
 #include "dsp/Random.h"
 #include "dsp/Scale.h"
@@ -25,53 +26,20 @@ namespace valis::elements {
 using dsp::SampleFile;
 using dsp::SampleExpectation;
 
-/// Granular synthesiser and processor.
-///
-/// One circular buffer holds the material: live audio arrives at the audio
-/// input and is written at the write head unless the element is frozen, and
-/// val:file replaces the contents with a sound file. Grains are short windowed
-/// reads from that buffer, each with its own position, playback rate, window
-/// and stereo placement, overlapping into a continuous texture.
-///
-/// See Roads, "Microsound" (MIT Press, 2001) for the technique, and
-/// https://pichenettes.github.io/mutable-instruments-documentation/modules/clouds/
-/// for the live-buffer arrangement this follows.
-class Granulator final : public DspElement
+/// Where grain material comes from: the buffer, and the options that fill it. A sound
+/// file is read on the message thread, in setOption, while the element is still outside
+/// the running graph; process() only reads what that left behind.
+struct GrainSource
 {
-public:
-    void prepare(const ElementType& type, double rate, int) override
+    GrainMaterial material;
+
+    void prepare(double rate)
     {
-        sampleRate = rate;
-
-        positionIndex    = controlIndex(type, "position");
-        sizeIndex        = controlIndex(type, "size");
-        densityIndex     = controlIndex(type, "density");
-        pitchIndex       = controlIndex(type, "pitch");
-        sprayIndex       = controlIndex(type, "spray");
-        jitterIndex      = controlIndex(type, "jitter");
-        pitchJitterIndex = controlIndex(type, "pitchJitter");
-        shapeIndex       = controlIndex(type, "shape");
-        spreadIndex      = controlIndex(type, "spread");
-        reverseIndex     = controlIndex(type, "reverse");
-        freezeIndex      = controlIndex(type, "freeze");
-        triggerIndex     = controlIndex(type, "trigger");
-        scanIndex        = controlIndex(type, "scan");
-        sizeJitterIndex  = controlIndex(type, "sizeJitter");
-        curveIndex       = controlIndex(type, "curve");
-        rangeIndex       = controlIndex(type, "range");
-        directionIndex   = controlIndex(type, "direction");
-        scaleIndex       = controlIndex(type, "scale");
-        seedIndex        = controlIndex(type, "seed");
-
-        outIndex   = audioOutIndex(type, "out");
-        leftIndex  = audioOutIndex(type, "left");
-        rightIndex = audioOutIndex(type, "right");
-
-        allocateBuffer(bufferSeconds);
-        reset();
+        material.sampleRate = rate;
+        material.allocate(material.bufferSeconds);
     }
 
-    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    bool setOption(std::string_view key, std::string_view value, std::string& error)
     {
         if (key == "seconds")
         {
@@ -82,8 +50,8 @@ public:
                 return false;
             }
 
-            allocateBuffer(std::clamp(seconds, 0.25, 60.0));
-            reset();
+            material.allocate(std::clamp(seconds, 0.25, 60.0));
+            material.restore();
             return true;
         }
 
@@ -100,255 +68,9 @@ public:
         return true;
     }
 
-    void reset() override
-    {
-        std::fill(buffer.begin(), buffer.end(), 0.0f);
-
-        // val:seconds may have shrunk the buffer since the file was read, so
-        // what is restored is whatever still fits.
-        length = std::min(fileLength, static_cast<int>(buffer.size()));
-        if (length > 0)
-            std::copy(fileContent.begin(), fileContent.begin() + length, buffer.begin());
-
-        writeHead     = 0;
-        untilNextGrain = 0.0;
-        scanOffset     = 0.0;
-        lastTrigger    = 0.0f;
-        lastInterval   = 0.0f;
-        lastSeed       = 0;
-        grains.seed(kDefaultSeed);
-        grains.clear();
-    }
-
-    void process(const ProcessArgs& args) noexcept override
-    {
-        if (args.numAudioOut < 1)
-            return;
-
-        float* outMono  = outIndex   >= 0 && outIndex   < args.numAudioOut ? args.audioOut[outIndex]   : nullptr;
-        float* outLeft  = leftIndex  >= 0 && leftIndex  < args.numAudioOut ? args.audioOut[leftIndex]  : nullptr;
-        float* outRight = rightIndex >= 0 && rightIndex < args.numAudioOut ? args.audioOut[rightIndex] : nullptr;
-
-        const int n = args.numSamples;
-
-        // Every declared output is written on every block, silence included:
-        // an output left untouched would hand the next reader whatever the
-        // buffer happened to hold.
-        if (outMono  != nullptr) std::fill(outMono,  outMono  + n, 0.0f);
-        if (outLeft  != nullptr) std::fill(outLeft,  outLeft  + n, 0.0f);
-        if (outRight != nullptr) std::fill(outRight, outRight + n, 0.0f);
-
-        if (buffer.empty())
-            return;
-
-        const float  positionCtl = std::clamp(controlAt(args, positionIndex, 0.0f), 0.0f, 1.0f);
-        const float  sizeMs      = std::clamp(controlAt(args, sizeIndex, 120.0f), 1.0f, 2000.0f);
-        const float  density     = std::clamp(controlAt(args, densityIndex, 20.0f), 0.01f, 200.0f);
-        const float  pitch       = std::clamp(controlAt(args, pitchIndex, 0.0f), -48.0f, 48.0f);
-        const float  spray       = std::clamp(controlAt(args, sprayIndex, 0.0f), 0.0f, 1.0f);
-        const float  jitter      = std::clamp(controlAt(args, jitterIndex, 0.0f), 0.0f, 1.0f);
-        const float  pitchJitter = std::clamp(controlAt(args, pitchJitterIndex, 0.0f), 0.0f, 24.0f);
-        const float  shape       = std::clamp(controlAt(args, shapeIndex, 0.5f), 0.0f, 1.0f);
-        const float  spread      = std::clamp(controlAt(args, spreadIndex, 0.5f), 0.0f, 1.0f);
-        const float  reverse     = std::clamp(controlAt(args, reverseIndex, 0.0f), 0.0f, 1.0f);
-        const float  freezeCtl   = controlAt(args, freezeIndex, 0.0f);
-        const float  trigger     = controlAt(args, triggerIndex, -1.0f);
-        const float  scan        = std::clamp(controlAt(args, scanIndex, 0.0f), -4.0f, 4.0f);
-
-        const float  sizeJitter  = std::clamp(controlAt(args, sizeJitterIndex, 0.0f), 0.0f, 1.0f);
-        const float  curve       = std::clamp(controlAt(args, curveIndex, 0.0f), 0.0f, 1.0f);
-        const float  range       = std::clamp(controlAt(args, rangeIndex, 0.0f), 0.0f, 24.0f);
-        const auto   direction   = static_cast<dsp::Direction>(
-            std::clamp(static_cast<int>(controlAt(args, directionIndex, 2.0f) + 0.5f), 0, 2));
-        const auto   scale       = static_cast<dsp::ScaleKind>(
-            dsp::clampScale(static_cast<int>(controlAt(args, scaleIndex, 1.0f) + 0.5f)));
-        const int    seedCtl     = std::clamp(static_cast<int>(controlAt(args, seedIndex, 0.0f) + 0.5f), 0, 65535);
-
-        // A new seed restarts the generator, so the same seed gives the same
-        // cloud. 0 is the default sequence.
-        if (seedCtl != lastSeed)
-        {
-            grains.seed(seedCtl != 0 ? static_cast<std::uint32_t>(seedCtl) : kDefaultSeed);
-            lastSeed = seedCtl;
-        }
-
-        const bool frozen = freezeCtl > 0.5f;
-
-        const int   capacity    = static_cast<int>(buffer.size());
-        const float grainLength = std::max(2.0f, sizeMs * 0.001f * static_cast<float>(sampleRate));
-        const float fade        = std::max(0.002f, shape * 0.5f);
-
-        // Overlapping grains sum, so a dense cloud is louder than a sparse one
-        // by roughly the square root of the overlap count. Taking that back out
-        // keeps density usable as a texture control rather than a level one.
-        const float overlap = std::max(1.0f, density * sizeMs * 0.001f);
-        const float makeup  = 1.0f / std::sqrt(overlap);
-
-        const bool  externalTrigger = trigger >= -0.5f;
-        const float interval = static_cast<float>(sampleRate) / density;
-
-        // A countdown left over from a slower density would keep the element
-        // quiet long after the control moved, so a change of density shortens
-        // the current wait to what it now asks for. Only a change does this:
-        // clamping on every block would cut the long half off jitter, and would
-        // make the result depend on where the block boundaries fell.
-        if (std::abs(interval - lastInterval) > 1.0e-6f * std::max(1.0f, interval))
-        {
-            untilNextGrain = std::min(untilNextGrain, static_cast<double>(interval));
-            lastInterval = interval;
-        }
-
-        // Nothing wired to the input points at the engine's shared silence, and
-        // recording that would erase material val:file had loaded. An input
-        // that is merely quiet still records, which is what freezing is for.
-        const float* in = args.numAudioIn > 0 ? args.audioIn[0] : nullptr;
-        if (in != nullptr && in == args.silence)
-            in = nullptr;
-
-        // The read point drifts at `scan` buffer lengths per second. It advances
-        // per sample rather than per block, so a grain spawned part-way through
-        // a block starts where it would have at any other buffer size.
-        const double scanStep = static_cast<double>(scan)
-                              * static_cast<double>(std::max(length, 1)) / sampleRate;
-
-        // One grain per rising edge when an external clock drives the element.
-        // The edge is tracked in both modes, so a circuit that switches between
-        // them by moving the resting value of the arc behaves the same however
-        // it got there.
-        int onsets = 0;
-        const auto spawn = [&](bool recording)
-        {
-            auto spec = grainSpec(positionCtl, grainLength, pitch, spray, pitchJitter, spread, reverse);
-            spec.lengthJitter = sizeJitter;
-            spec.range        = range;
-            spec.direction    = direction;
-            spec.scale        = scale;
-            if (recording)
-                spec.head = static_cast<double>(writeHead);
-            if (grains.spawn(spec))
-                ++onsets;
-        };
-
-        // Whether the buffer is being written, which is when a grain can run
-        // into the write head.
-        const bool recording = ! frozen && in != nullptr;
-
-        if (externalTrigger && trigger > 0.5f && lastTrigger <= 0.5f)
-            spawn(recording);
-
-        lastTrigger = trigger;
-
-        for (int i = 0; i < n; ++i)
-        {
-            if (! frozen && in != nullptr)
-            {
-                buffer[static_cast<std::size_t>(writeHead)] = in[i];
-                if (++writeHead >= capacity)
-                    writeHead = 0;
-                if (length < capacity)
-                    ++length;
-            }
-
-            // Free-running grain onsets. The countdown lives in a member and is
-            // driven by the sample stream, never by the index within this
-            // block, so the result does not change with the host's buffer size.
-            if (! externalTrigger)
-            {
-                untilNextGrain -= 1.0;
-                while (untilNextGrain <= 0.0)
-                {
-                    spawn(recording);
-                    const float wobble = 1.0f + jitter * grains.generator().bipolar() * 0.9f;
-                    untilNextGrain += static_cast<double>(std::max(1.0f, interval * wobble));
-                }
-            }
-
-            scanOffset += scanStep;
-
-            float left = 0.0f, right = 0.0f;
-
-            grains.mix(left, right, fade, curve, static_cast<double>(length),
-                       [this](double position) { return read(position); });
-
-            left  *= makeup;
-            right *= makeup;
-
-            if (outLeft  != nullptr) outLeft[i]  = left;
-            if (outRight != nullptr) outRight[i] = right;
-            if (outMono  != nullptr) outMono[i]  = 0.5f * (left + right);
-        }
-
-        // Outputs are written every block. onset is a pulse for any block in
-        // which a grain started, which is what a control-rate consumer can see.
-        if (args.numControlOut > 0) args.controlOut[0] = static_cast<float>(grains.activeCount());
-        if (args.numControlOut > 1) args.controlOut[1] = onsets > 0 ? 1.0f : 0.0f;
-
-        // scanOffset is deliberately left unwrapped. spawn() reduces it modulo
-        // the buffer length where it is used, and wrapping it here would change
-        // grain positions while the buffer is still filling, since the length it
-        // would be reduced by is not the length it is later used with. A double
-        // drifting at the fastest rate this port allows keeps sub-sample
-        // precision for far longer than any session.
-    }
+    void reset() { material.restore(); }
 
 private:
-    /// Where in the buffer a grain starts, and how it is to be played. The
-    /// position is measured forward from the write head: with a file loaded the
-    /// head sits at the start of the file, and while recording it is the present
-    /// moment.
-    dsp::GrainSpec grainSpec(float position, float grainLength, float pitch, float spray,
-                             float pitchJitter, float spread, float reverse) const noexcept
-    {
-        dsp::GrainSpec spec;
-        spec.span          = static_cast<double>(length);
-        spec.origin        = static_cast<double>(writeHead) + scanOffset;
-        spec.position      = position;
-        spec.lengthSamples = grainLength;
-        spec.pitch         = pitch;
-        spec.spray         = spray;
-        spec.pitchJitter   = pitchJitter;
-        spec.spread        = spread;
-        spec.reverse       = reverse;
-        return spec;
-    }
-
-    /// Catmull-Rom interpolation. Grains play at arbitrary rates, so linear
-    /// interpolation would put audible high-frequency loss on every
-    /// transposition.
-    float read(double position) const noexcept
-    {
-        if (length <= 0)
-            return 0.0f;
-
-        int i1 = static_cast<int>(position);
-        const float f = static_cast<float>(position - static_cast<double>(i1));
-        if (i1 >= length)
-            i1 = 0;
-
-        // The caller keeps the read position inside the buffer, so wrapping the
-        // three neighbours is a comparison rather than a division.
-        int i0 = i1 - 1; if (i0 < 0)       i0 += length;
-        int i2 = i1 + 1; if (i2 >= length) i2 -= length;
-        int i3 = i2 + 1; if (i3 >= length) i3 -= length;
-
-        const float y0 = buffer[static_cast<std::size_t>(i0)];
-        const float y1 = buffer[static_cast<std::size_t>(i1)];
-        const float y2 = buffer[static_cast<std::size_t>(i2)];
-        const float y3 = buffer[static_cast<std::size_t>(i3)];
-
-        const float a = 0.5f * (-y0 + 3.0f * y1 - 3.0f * y2 + y3);
-        const float b = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
-        const float c = 0.5f * (-y0 + y2);
-
-        return ((a * f + b) * f + c) * f + y1;
-    }
-
-    void allocateBuffer(double seconds)
-    {
-        bufferSeconds = seconds;
-        buffer.assign(static_cast<std::size_t>(seconds * sampleRate) + 4, 0.0f);
-    }
-
     static double parseSeconds(std::string_view value)
     {
         try
@@ -366,20 +88,20 @@ private:
     bool loadFile(std::string_view path, std::string& error)
     {
         SampleFile file;
-        if (! file.load(path, sampleRate, error))
+        if (! file.load(path, material.sampleRate, error))
             return false;
 
         source = file;
         if (! expectation.check(source, error))
             return false;
 
-        fileContent = std::move(file.samples);
-        fileLength  = static_cast<int>(fileContent.size());
+        material.fileContent = std::move(file.samples);
+        material.fileLength  = static_cast<int>(material.fileContent.size());
 
-        if (fileLength + 4 > static_cast<int>(buffer.size()))
-            allocateBuffer(static_cast<double>(fileLength) / sampleRate + 0.1);
+        if (material.fileLength + 4 > static_cast<int>(material.buffer.size()))
+            material.allocate(static_cast<double>(material.fileLength) / material.sampleRate + 0.1);
 
-        reset();
+        material.restore();
         return true;
     }
 
@@ -387,34 +109,165 @@ private:
     /// actually was. `source.samples` is not kept: fileContent holds it.
     SampleExpectation expectation;
     SampleFile        source;
+};
 
-    std::vector<float> buffer;      ///< the circular recording buffer
-    std::vector<float> fileContent; ///< what val:file loaded, for reset()
+/// The input a granulator records from, or null if nothing is wired to it. Nothing wired
+/// points at the engine's shared silence, and recording that would erase material val:file
+/// had loaded. An input that is merely quiet still records, which is what freezing is for.
+inline const float* recordedInput(const ProcessArgs& args) noexcept
+{
+    const float* in = args.numAudioIn > 0 ? args.audioIn[0] : nullptr;
+    return in != nullptr && in == args.silence ? nullptr : in;
+}
 
-    /// A cloud of sixty-four is more than the ear resolves, and the pool is
-    /// shared machinery: see src/dsp/GrainPool.h.
-    dsp::GrainPool<64> grains;
+/// Granular synthesiser and processor.
+///
+/// One circular buffer holds the material: live audio arrives at the audio
+/// input and is written at the write head unless the element is frozen, and
+/// val:file replaces the contents with a sound file. Grains are short windowed
+/// reads from that buffer, each with its own position, playback rate, window
+/// and stereo placement, overlapping into a continuous texture.
+///
+/// This is val:GrainBuffer and val:GrainCloud in one element: the material and the
+/// grains are the same code the pair uses, here run together so that a grain is started
+/// against the buffer as it stands at that very sample.
+///
+/// See Roads, "Microsound" (MIT Press, 2001) for the technique, and
+/// https://pichenettes.github.io/mutable-instruments-documentation/modules/clouds/
+/// for the live-buffer arrangement this follows.
+class Granulator final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        freezeIndex = controlIndex(type, "freeze");
+        core.prepare(type, rate);
+        content.prepare(rate);
+        reset();
+    }
 
-    double sampleRate    = 44100.0;
-    double bufferSeconds = 8.0;
-    double untilNextGrain = 0.0;
-    double scanOffset    = 0.0;
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        return content.setOption(key, value, error);
+    }
 
-    int   writeHead  = 0;
-    int   length     = 0;   ///< how much of the buffer holds material
-    int   fileLength = 0;
-    float lastTrigger  = 0.0f;
-    float lastInterval = 0.0f;
-    int   lastSeed     = 0;
+    void reset() override
+    {
+        content.reset();
+        core.reset();
+    }
 
-    static constexpr std::uint32_t kDefaultSeed = 0x5eed1234u;
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
 
-    int positionIndex = -1, sizeIndex = -1, densityIndex = -1, pitchIndex = -1;
-    int sprayIndex = -1, jitterIndex = -1, pitchJitterIndex = -1, shapeIndex = -1;
-    int spreadIndex = -1, reverseIndex = -1, freezeIndex = -1, triggerIndex = -1;
-    int scanIndex = -1, sizeJitterIndex = -1, curveIndex = -1, rangeIndex = -1;
-    int directionIndex = -1, scaleIndex = -1, seedIndex = -1;
-    int outIndex = -1, leftIndex = -1, rightIndex = -1;
+        auto& material = content.material;
+        const bool frozen = controlAt(args, freezeIndex, 0.0f) > 0.5f;
+        const float* in = recordedInput(args);
+        const bool recording = ! frozen && in != nullptr;
+        material.recording = recording;
+
+        core.run(args, material, recording, [&](int i) noexcept
+                 {
+                     if (recording)
+                         material.write(in[i]);
+                 });
+    }
+
+private:
+    GrainSource content;
+    GrainCloudCore core;
+    int freezeIndex = -1;
+};
+
+/// The material half of a granulator: a buffer that records its audio input, or holds a
+/// sound file, and offers itself on a buffer port to any number of val:GrainCloud elements.
+/// Several clouds on one buffer, each with its own position and pitch, is the reason to
+/// have the two apart.
+class GrainBuffer final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        freezeIndex = controlIndex(type, "freeze");
+        content.prepare(rate);
+        reset();
+    }
+
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        return content.setOption(key, value, error);
+    }
+
+    SharedBuffer* bufferOut(std::string_view port) override
+    {
+        return port == "buffer" ? &content.material : nullptr;
+    }
+
+    void reset() override { content.reset(); }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        auto& material = content.material;
+        const bool frozen = controlAt(args, freezeIndex, 0.0f) > 0.5f;
+        const float* in = recordedInput(args);
+        const bool recording = ! frozen && in != nullptr;
+        material.recording = recording;
+
+        if (recording && ! material.buffer.empty())
+            for (int i = 0; i < args.numSamples; ++i)
+                material.write(in[i]);
+    }
+
+private:
+    GrainSource content;
+    int freezeIndex = -1;
+};
+
+/// The grain half of a granulator: grains cut from the material its buffer port was given,
+/// by a val:GrainBuffer. It runs after the buffer in each block. Unconnected, it is silent.
+class GrainCloud final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        core.prepare(type, rate);
+        reset();
+    }
+
+    bool bufferIn(std::string_view port, SharedBuffer* shared, std::string& error) override
+    {
+        if (port != "buffer")
+        {
+            error = "has no buffer input '" + std::string(port) + "'";
+            return false;
+        }
+
+        material = dynamic_cast<GrainMaterial*>(shared);
+        if (material == nullptr)
+        {
+            error = "the buffer input takes a val:GrainBuffer's buffer";
+            return false;
+        }
+        return true;
+    }
+
+    void reset() override { core.reset(); }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        auto& from = material != nullptr ? *material : nothing;
+        core.run(args, from, from.recording, [](int) noexcept {});
+    }
+
+private:
+    GrainCloudCore core;
+    GrainMaterial* material = nullptr;
+    GrainMaterial  nothing;   ///< what an unconnected cloud reads: no material at all
 };
 
 /// Plays a sound file named by val:file.
@@ -436,6 +289,7 @@ public:
         speedIndex   = controlIndex(type, "speed");
         startIndex   = controlIndex(type, "start");
         loopIndex    = controlIndex(type, "loop");
+        chokeIndex   = controlIndex(type, "choke");
         reset();
     }
 
@@ -470,6 +324,9 @@ public:
         playing     = ! samples.empty();
         lastTrigger = 0.0f;
         triggered   = false;
+        lastChoke   = 0.0f;
+        fading      = false;
+        fadeGain    = 1.0f;
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -489,6 +346,7 @@ public:
         const float startCtl= std::clamp(controlAt(args, startIndex, 0.0f), 0.0f, 1.0f);
         const bool  looping = controlAt(args, loopIndex, 1.0f) > 0.5f;
         const float trigger = controlAt(args, triggerIndex, -1.0f);
+        bool restarted = false;
 
         // -1 leaves the element free-running, which for a looping player means
         // it simply plays. Any other value makes each rising edge a restart.
@@ -506,16 +364,44 @@ public:
                 readPos = static_cast<double>(startCtl) * static_cast<double>(length);
                 playing   = true;
                 triggered = true;
+                restarted = true;
+
+                // A restart overrides a stop that is still fading out.
+                fading   = false;
+                fadeGain = 1.0f;
             }
             lastTrigger = trigger;
         }
 
+        // A rise on choke cuts the sound off, over a couple of milliseconds so the
+        // cut does not click. A sound restarted in the same block plays, as the
+        // trigger is read first.
+        const float choke = controlAt(args, chokeIndex, 0.0f);
+        if (choke > 0.5f && lastChoke <= 0.5f && playing && ! restarted)
+            fading = true;
+        lastChoke = choke;
+
         if (! playing)
             return;
+
+        const float fadeStep = static_cast<float>(1.0 / (0.002 * sampleRate));
 
         for (int i = 0; i < n; ++i)
         {
             out[i] = read(readPos, length);
+            if (fading)
+            {
+                fadeGain -= fadeStep;
+                if (fadeGain <= 0.0f)
+                {
+                    out[i] = 0.0f;
+                    playing  = false;
+                    fading   = false;
+                    fadeGain = 1.0f;
+                    break;
+                }
+                out[i] *= fadeGain;
+            }
             readPos += static_cast<double>(speed);
 
             if (readPos >= static_cast<double>(length) || readPos < 0.0)
@@ -558,8 +444,9 @@ private:
     double readPos    = 0.0;
     bool   playing    = false;
     bool   triggered  = false;   ///< whether a connected trigger has fired yet
-    float  lastTrigger = 0.0f;
-    int triggerIndex = -1, speedIndex = -1, startIndex = -1, loopIndex = -1;
+    float  lastTrigger = 0.0f, lastChoke = 0.0f, fadeGain = 1.0f;
+    bool   fading = false;
+    int triggerIndex = -1, speedIndex = -1, startIndex = -1, loopIndex = -1, chokeIndex = -1;
 };
 
 /// The host timeline as control signals.
@@ -681,6 +568,8 @@ template <typename T> std::unique_ptr<DspElement> make() { return std::make_uniq
 
 void registerGranular(ElementRegistry& registry)
 {
+    registry.add("GrainBuffer", &make<elements::GrainBuffer>);
+    registry.add("GrainCloud",  &make<elements::GrainCloud>);
     registry.add("Granulator",   &make<elements::Granulator>);
     registry.add("SampleLoad",   &make<elements::SampleLoad>);
     registry.add("Transport",    &make<elements::Transport>);

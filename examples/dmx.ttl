@@ -89,8 +89,10 @@
                [ lv2:symbol "fileC" ; val:node :playC ; val:property val:file ] ;
 
     val:element :gateA , :gateB , :gateC , :playA , :playB , :playC ,
-                :sum , :amp , :place ;
-    val:arc :trigA , :trigB , :trigC , :sumA , :sumB , :sumC , :toAmp , :toPan .
+                :chokeA , :chokeB , :chokeC , :sum , :amp , :place ;
+    val:arc :trigA , :trigB , :trigC , :sumA , :sumB , :sumC , :toAmp , :toPan ,
+            :bToChokeA , :cToChokeA , :aToChokeB , :cToChokeB , :aToChokeC , :bToChokeC ,
+            :chokeToA , :chokeToB , :chokeToC .
 
 :gateA a val:NoteGate .
 :gateB a val:NoteGate .
@@ -99,6 +101,24 @@
 :playA a val:SampleLoad ; val:loop 0.0 .
 :playB a val:SampleLoad ; val:loop 0.0 .
 :playC a val:SampleLoad ; val:loop 0.0 .
+
+# The card plays one sound at a time, so a sound starting cuts off the other two. Each
+# sound is choked by the gates of the others, and a note's own gate never reaches its own
+# choke, so a repeated note restarts rather than stopping.
+:chokeA a val:ControlMax .
+:chokeB a val:ControlMax .
+:chokeC a val:ControlMax .
+
+:bToChokeA a val:Arc ; val:from [ val:node :gateB ; val:port "gate" ] ; val:to [ val:node :chokeA ; val:port "a" ] .
+:cToChokeA a val:Arc ; val:from [ val:node :gateC ; val:port "gate" ] ; val:to [ val:node :chokeA ; val:port "b" ] .
+:aToChokeB a val:Arc ; val:from [ val:node :gateA ; val:port "gate" ] ; val:to [ val:node :chokeB ; val:port "a" ] .
+:cToChokeB a val:Arc ; val:from [ val:node :gateC ; val:port "gate" ] ; val:to [ val:node :chokeB ; val:port "b" ] .
+:aToChokeC a val:Arc ; val:from [ val:node :gateA ; val:port "gate" ] ; val:to [ val:node :chokeC ; val:port "a" ] .
+:bToChokeC a val:Arc ; val:from [ val:node :gateB ; val:port "gate" ] ; val:to [ val:node :chokeC ; val:port "b" ] .
+
+:chokeToA a val:Arc ; val:from [ val:node :chokeA ; val:port "out" ] ; val:to [ val:node :playA ; val:port "choke" ] .
+:chokeToB a val:Arc ; val:from [ val:node :chokeB ; val:port "out" ] ; val:to [ val:node :playB ; val:port "choke" ] .
+:chokeToC a val:Arc ; val:from [ val:node :chokeC ; val:port "out" ] ; val:to [ val:node :playC ; val:port "choke" ] .
 
 :sum a val:Mixer .
 :amp a val:Gain .
@@ -132,7 +152,7 @@
     trn:accepts trn:Midi ;
     trn:produces trn:Audio ;
     trn:genre "Hip Hop", "Electro", "Pop" ;
-    trn:caution """Eight voice cards, each monophonic on the real machine. Here the sounds on a card sum rather than cutting each other off, so a closed hi-hat does not stop an open one.""" ;
+    trn:caution """Each voice card is monophonic, as on the real machine: a sound starting cuts off the others on its card, so a closed hi-hat stops an open one. The cut is a 2 ms fade, and the stop is found once per control slice (32 samples).""" ;
     rdfs:label "Oberheim DMX" ;
     val:element :bass , :snare , :hihat , :tom1 , :tom2 , :cymbal , :perc1 , :perc2 ,
                 :mix , :driveL , :driveR , :out ;

@@ -43,8 +43,8 @@
 # so a pitched-up cloud does not run into the oldest audio in the buffer.
 #
 # Differences from the plugin: Density is grains per second here, where Grist
-# counts grains per window; the feedback filter is a lowpass only; and the
-# plugin's latency is not reported.
+# counts grains per window; and the plugin's latency is not reported. The feedback filter
+# has the plugin's three types: lowpass, bandpass and highpass, chosen by a val:AudioSelect.
 
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
@@ -59,8 +59,8 @@
     trn:produces trn:Audio ;
     trn:genre "Experimental", "Ambient", "Electronic" ;
     rdfs:label "Grain Delay" ;
-    val:element :in , :sum , :gran , :sizeClock , :size , :delayClock , :delayTime , :fbDelay , :fbFilter , :fbLimit , :fbGain , :fbBreak , :dwL , :dwR , :out ;
-    val:arc :a_in_sum , :a_sum_gran , :a_gran_dwL , :a_gran_dwR , :a_in_dwL , :a_in_dwR , :a_dwL_out , :a_dwR_out , :a_gran_fb , :a_fb_filter , :a_filter_limit , :a_limit_gain , :a_gain_break , :a_break_sum , :c_sizeClock , :c_size_gran , :c_delayClock , :c_delay_fb .
+    val:element :in , :sum , :gran , :sizeClock , :size , :delayClock , :delayTime , :fbDelay , :fbFilter , :fbPick , :fbLimit , :fbGain , :fbBreak , :dwL , :dwR , :out ;
+    val:arc :a_in_sum , :a_sum_gran , :a_gran_dwL , :a_gran_dwR , :a_in_dwL , :a_in_dwR , :a_dwL_out , :a_dwR_out , :a_gran_fb , :a_fb_filter , :a_filter_pickA , :a_filter_pickB , :a_filter_pickC , :a_filter_limit , :a_limit_gain , :a_gain_break , :a_break_sum , :c_sizeClock , :c_size_gran , :c_delayClock , :c_delay_fb .
 
 :in  a val:Input .
 :sum a val:Mixer .
@@ -69,7 +69,6 @@
 :gran a val:Granulator ;
     val:seconds  2.0 ;
     val:position 0.98 ;        # about 40 ms behind the write head
-    val:size     50.0 ;        # set by :size, below
     val:density  40.0 ;        # grains per second
     val:spray    0.01 ;        # blur
     val:shape    1.0 ;         # a full raised cosine
@@ -93,6 +92,7 @@
 
 :fbDelay  a val:Delay ; val:feedback 0.0 .
 :fbFilter a val:StateVariable ; val:cutoff 6000.0 ; val:resonance 0.7071 .
+:fbPick   a val:AudioSelect .            # lowpass, bandpass or highpass
 :fbLimit  a val:Tanh ; val:gain 1.0 .
 :fbGain   a val:Gain ; val:gain -60.0 .
 :fbBreak  a val:UnitDelay .
@@ -125,7 +125,13 @@
                    val:to   [ val:node :fbDelay ; val:port "in" ] .
 :a_fb_filter a val:Arc ; val:from [ val:node :fbDelay ; val:port "out" ] ;
                      val:to   [ val:node :fbFilter ; val:port "in" ] .
-:a_filter_limit a val:Arc ; val:from [ val:node :fbFilter ; val:port "lp" ] ;
+:a_filter_pickA a val:Arc ; val:from [ val:node :fbFilter ; val:port "lp" ] ;
+                       val:to   [ val:node :fbPick ; val:port "a" ] .
+:a_filter_pickB a val:Arc ; val:from [ val:node :fbFilter ; val:port "bp" ] ;
+                       val:to   [ val:node :fbPick ; val:port "b" ] .
+:a_filter_pickC a val:Arc ; val:from [ val:node :fbFilter ; val:port "hp" ] ;
+                       val:to   [ val:node :fbPick ; val:port "c" ] .
+:a_filter_limit a val:Arc ; val:from [ val:node :fbPick ; val:port "out" ] ;
                         val:to   [ val:node :fbLimit ; val:port "in" ] .
 :a_limit_gain a val:Arc ; val:from [ val:node :fbLimit ; val:port "out" ] ;
                       val:to   [ val:node :fbGain ; val:port "in" ] .
@@ -210,3 +216,7 @@
 :p20 a val:Param ; val:slot 20 ; val:target :fbFilter ; val:property val:cutoff ;
     lv2:name "Tone" ; lv2:symbol "tone" ; val:section "Feedback" ; units:unit units:hz .
 
+
+:p21 a val:Param ; val:slot 21 ; val:target :fbPick ; val:property val:select ;
+    lv2:name "Filter" ; lv2:symbol "filterMode" ; val:section "Feedback" ;
+    lv2:minimum 0 ; lv2:maximum 2 .

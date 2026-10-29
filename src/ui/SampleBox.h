@@ -1,6 +1,7 @@
 // src/ui/SampleBox.h
 //
-// The file slot for one val:SampleLoad or val:NamModel node: the name of the
+// The file slot for one val:SampleLoad, val:TimeStretch or val:NamModel node (see
+// hasFileSlot in valis/FileOption.h): the name of the
 // file it is using, and a button to choose another. Owned by ControlsView, which
 // rebuilds it per circuit. Message thread only.
 

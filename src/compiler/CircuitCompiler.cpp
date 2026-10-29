@@ -1,6 +1,7 @@
 // src/compiler/CircuitCompiler.cpp
 
 #include "valis/CircuitCompiler.h"
+#include "valis/Suggest.h"
 
 #include "valis/Ontology.h"
 #include "valis/Vocabulary.h"
@@ -87,8 +88,9 @@ bool CircuitCompiler::compile(const CircuitModel& model,
     std::vector<std::vector<int>> orderAdj(elements.size());
     std::set<std::string> seenArcs;
     std::map<std::string, int> audioFanIn;   // "node\0port" -> count
+    std::map<std::string, int> bufferFanIn;
 
-    std::vector<CompiledCircuit::Link> audioLinks, controlLinkArcs;
+    std::vector<CompiledCircuit::Link> audioLinks, controlLinkArcs, bufferLinks;
 
     for (const auto& arc : model.arcs())
     {
@@ -118,14 +120,12 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
         if (fromPort == nullptr)
         {
-            diagnostics.push_back({vocab::shortName(fromElement->typeIri) + " has no port '" +
-                                   arc.fromPort + "'", arc.id});
+            diagnostics.push_back({fromElement->type->missingPortMessage(arc.fromPort, false), arc.id});
             continue;
         }
         if (toPort == nullptr)
         {
-            diagnostics.push_back({vocab::shortName(toElement->typeIri) + " has no port '" +
-                                   arc.toPort + "'", arc.id});
+            diagnostics.push_back({toElement->type->missingPortMessage(arc.toPort, true), arc.id});
             continue;
         }
 
@@ -140,6 +140,44 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         {
             diagnostics.push_back({"arc ends at '" + arc.toPort +
                                    "', which is an output port", arc.id});
+            continue;
+        }
+
+        // A buffer port joins only another buffer port: what it carries is not a signal.
+        if (fromPort->buffer || toPort->buffer)
+        {
+            if (! (fromPort->buffer && toPort->buffer))
+            {
+                diagnostics.push_back({std::string("arc joins a ") + fromPort->rateName() +
+                                       " output to a " + toPort->rateName() + " input", arc.id});
+                continue;
+            }
+
+            const std::string bufferKey = arc.fromNode + '\0' + arc.fromPort + '\0' +
+                                          arc.toNode + '\0' + arc.toPort;
+            if (! seenArcs.insert(bufferKey).second)
+            {
+                diagnostics.push_back({"duplicate arc: this connection already exists", arc.id});
+                continue;
+            }
+
+            const int from = indexOf[arc.fromNode];
+            const int to   = indexOf[arc.toNode];
+            if (++bufferFanIn[arc.toNode + '\0' + arc.toPort] > 1)
+            {
+                diagnostics.push_back({"a buffer input takes one source, and '" + arc.toPort +
+                                       "' has two", arc.toNode});
+                continue;
+            }
+
+            bufferLinks.push_back({from, to, arc.fromPort, arc.toPort, arc.depth});
+
+            // The owner of the material runs first, so what the reader sees is this
+            // block's. A loop made of buffer links alone is a real cycle; a loop that
+            // also goes through a signal is broken by a val:UnitDelay in that signal
+            // as usual.
+            cycleAdj[static_cast<std::size_t>(from)].push_back(to);
+            orderAdj[static_cast<std::size_t>(from)].push_back(to);
             continue;
         }
 
@@ -302,7 +340,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
         node.controlValues.reserve(static_cast<std::size_t>(element.type->countPorts(true, true)));
         for (const auto& port : element.type->ports)
-            if (! port.event && port.input && port.control)
+            if (port.carriesSignal() && port.input && port.control)
                 node.controlValues.push_back(element.valueOf(port.symbol));
 
         // Sorted, so the compiled result is reproducible.
@@ -321,6 +359,8 @@ bool CircuitCompiler::compile(const CircuitModel& model,
 
     for (const auto& link : audioLinks)
         out.audioLinks.push_back(remap(link));
+    for (const auto& link : bufferLinks)
+        out.bufferLinks.push_back(remap(link));
 
     out.outputNode = outputs.empty() ? -1 : positionOf[static_cast<std::size_t>(outputs.front())];
     for (std::size_t i = 0; i < elements.size(); ++i)
@@ -346,8 +386,9 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         {
             // An event port carries no signal, so it gets neither a buffer nor
             // a control slot: the engine hands every element one shared event
-            // sink instead.
-            if (port.event)
+            // sink instead. A buffer port hands material over by pointer, which
+            // the engine connects once the elements exist.
+            if (! port.carriesSignal())
                 continue;
 
             if (! port.input && ! port.control)
@@ -368,7 +409,7 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         int index = 0;
         for (const auto& port : type.ports)
         {
-            if (! port.event && port.input == input && port.control == control)
+            if (port.carriesSignal() && port.input == input && port.control == control)
             {
                 if (port.symbol == symbol)
                     return index;

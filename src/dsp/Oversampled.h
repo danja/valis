@@ -110,6 +110,13 @@ public:
         return inner->setOption(key, value, error);
     }
 
+    SharedBuffer* bufferOut(std::string_view port) override { return inner->bufferOut(port); }
+
+    bool bufferIn(std::string_view port, SharedBuffer* buffer, std::string& error) override
+    {
+        return inner->bufferIn(port, buffer, error);
+    }
+
     void reset() override
     {
         inner->reset();

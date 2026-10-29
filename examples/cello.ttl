@@ -8,8 +8,10 @@
 # banks, one for the low air and plate resonances and one for the wood above
 # them, mixed back against the string so the bow is still audible through it.
 #
-# The verified range is C2 to D4. Above that the model's odd harmonics fall
-# away; see TODO.md.
+# The string is in tune to within a cent from C2 to E5 and holds its fundamental over
+# that range. Only the string was measured; the body banks below are tuned for a
+# cello and colour the higher notes less well. Above about 600 Hz it can still jump an
+# octave at some bow positions; see TODO.md.
 
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
@@ -23,7 +25,7 @@
     trn:accepts trn:Midi ;
     trn:produces trn:Audio ;
     trn:genre "Orchestral", "Ambient", "Experimental" ;
-    trn:caution """Verified from C2 to D4. Above about D4 the odd harmonics fall away and the tone reads as an octave ambiguity rather than a note.""" ;
+    trn:caution """The string is measured in tune from C2 to E5. Above about 600 Hz it can settle an octave up at some bow positions, and the body resonances are those of a cello.""" ;
     rdfs:label "Cello" ;
     val:element :pitch , :string , :body , :wood , :mix , :level , :warmth , :out ;
     val:arc :a1 , :a2 , :a3 , :a4 , :a5 , :a6 , :a7 , :a8 .

@@ -1,0 +1,94 @@
+# examples/grain-clouds.ttl
+#
+# One buffer, three clouds. A val:GrainBuffer holds a sound file (the bell, here; send audio
+# to its input and set freeze to Record to granulate live input instead), and three
+# val:GrainCloud elements cut grains from it at once: a slow drone an octave down, a bright
+# shimmer an octave up, and a middle cloud at the recorded pitch that scatters its grains.
+# They share the buffer by reference, so nothing is copied and three clouds cost no more
+# memory than one.
+#
+# A buffer arc is how the buffer reaches a cloud. It also makes the buffer run first in each
+# block, so every cloud reads this block's material.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:grainclouds#> .
+
+:clouds a val:Circuit , trn:PluginProfile ;
+    trn:role trn:Instrument ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Ambient", "Sound design" ;
+    rdfs:label "Grain clouds" ;
+    val:element :in , :buffer , :drone , :shimmer , :scatter ,
+                :droneLevel , :shimmerLevel , :scatterLevel , :mix , :out ;
+    val:arc :aInBuf , :aBufDrone , :aBufShimmer , :aBufScatter ,
+            :aDroneGain , :aDroneMix , :aShimmerGain , :aShimmerMix , :aScatterGain , :aScatterMix ,
+            :aMixLeft , :aMixRight .
+
+:in     a val:Input .
+
+# Holding the file: freeze 1 keeps it and records nothing over it.
+:buffer a val:GrainBuffer ; val:file "samples/bell.wav" ; val:freeze 1.0 .
+
+:drone   a val:GrainCloud ; val:pitch -12.0 ; val:size 400.0 ; val:density 6.0 ;
+                            val:position 0.1 ; val:spray 0.1 ; val:shape 1.0 ; val:seed 11 .
+:shimmer a val:GrainCloud ; val:pitch 12.0 ; val:size 70.0 ; val:density 35.0 ;
+                            val:position 0.3 ; val:spray 0.4 ; val:pitchJitter 0.15 ; val:seed 23 .
+:scatter a val:GrainCloud ; val:pitch 0.0 ; val:size 120.0 ; val:density 14.0 ;
+                            val:position 0.2 ; val:spray 0.8 ; val:reverse 0.3 ; val:spread 1.0 ; val:seed 37 .
+
+:droneLevel   a val:Gain ; val:gain -6.0 .
+:shimmerLevel a val:Gain ; val:gain -12.0 .
+:scatterLevel a val:Gain ; val:gain -9.0 .
+:mix a val:Mixer .
+:out  a val:Output .
+
+# ── Buffer arcs ──────────────────────────────────────────────────────────────
+
+:aBufDrone   a val:Arc ; val:from [ val:node :buffer ; val:port "buffer" ] ;
+                         val:to   [ val:node :drone   ; val:port "buffer" ] .
+:aBufShimmer a val:Arc ; val:from [ val:node :buffer ; val:port "buffer" ] ;
+                         val:to   [ val:node :shimmer ; val:port "buffer" ] .
+:aBufScatter a val:Arc ; val:from [ val:node :buffer ; val:port "buffer" ] ;
+                         val:to   [ val:node :scatter ; val:port "buffer" ] .
+
+:aInBuf a val:Arc ; val:from [ val:node :in ; val:port "out" ] ;
+                    val:to   [ val:node :buffer ; val:port "in" ] .
+
+# ── Audio: each cloud through its level into the mix, which feeds both channels ─
+
+:aDroneGain a val:Arc ; val:from [ val:node :drone ; val:port "left" ] ;
+                     val:to   [ val:node :droneLevel ; val:port "in" ] .
+:aDroneMix a val:Arc ; val:from [ val:node :droneLevel ; val:port "out" ] ;
+                     val:to   [ val:node :mix ; val:port "in" ] .
+:aShimmerGain a val:Arc ; val:from [ val:node :shimmer ; val:port "left" ] ;
+                       val:to   [ val:node :shimmerLevel ; val:port "in" ] .
+:aShimmerMix a val:Arc ; val:from [ val:node :shimmerLevel ; val:port "out" ] ;
+                       val:to   [ val:node :mix ; val:port "in" ] .
+:aScatterGain a val:Arc ; val:from [ val:node :scatter ; val:port "left" ] ;
+                       val:to   [ val:node :scatterLevel ; val:port "in" ] .
+:aScatterMix a val:Arc ; val:from [ val:node :scatterLevel ; val:port "out" ] ;
+                       val:to   [ val:node :mix ; val:port "in" ] .
+:aMixLeft a val:Arc ; val:from [ val:node :mix ; val:port "out" ] ;
+                      val:to   [ val:node :out ; val:port "left" ] .
+:aMixRight a val:Arc ; val:from [ val:node :mix ; val:port "out" ] ;
+                      val:to   [ val:node :out ; val:port "right" ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :drone ; val:property val:position ;
+    lv2:name "Drone position" ; lv2:symbol "dronePosition" ; val:section "Drone" .
+:p1 a val:Param ; val:slot 1 ; val:target :drone ; val:property val:pitch ;
+    lv2:name "Drone pitch" ; lv2:symbol "dronePitch" ; val:section "Drone" ; units:unit units:semitone12TET .
+:p2 a val:Param ; val:slot 2 ; val:target :shimmer ; val:property val:position ;
+    lv2:name "Shimmer position" ; lv2:symbol "shimmerPosition" ; val:section "Shimmer" .
+:p3 a val:Param ; val:slot 3 ; val:target :shimmer ; val:property val:pitch ;
+    lv2:name "Shimmer pitch" ; lv2:symbol "shimmerPitch" ; val:section "Shimmer" ; units:unit units:semitone12TET .
+:p4 a val:Param ; val:slot 4 ; val:target :scatter ; val:property val:spray ;
+    lv2:name "Scatter spray" ; lv2:symbol "scatterSpray" ; val:section "Scatter" .
+:p5 a val:Param ; val:slot 5 ; val:target :buffer ; val:property val:freeze ;
+    lv2:name "Freeze" ; lv2:symbol "freeze" ; val:section "Buffer" .

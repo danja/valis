@@ -1,3 +1,12 @@
+# examples/vocal-enhancer.ttl
+#
+# An effects chain for a voice: a ladder filter to take the edge off, a tanh saturator for warmth
+# and a compressor to even out the level. Cutoff, resonance, drive, threshold and ratio are
+# parameters. examples/vocal-enhancer-rig.ttl is a test rig around this chain, with a signal
+# generator, oscilloscopes and a spectrum analyser.
+#
+# Signal path: Input -> Ladder -> Tanh -> Compressor -> Output
+
 @prefix val: <http://purl.org/stuff/valis/> .
 @prefix lv2: <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .

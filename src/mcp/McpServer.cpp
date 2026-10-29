@@ -2,6 +2,7 @@
 
 #include "mcp/McpServer.h"
 
+#include "valis/AgentResources.h"
 #include "valis/Ontology.h"
 #include "valis/Vocabulary.h"
 
@@ -207,6 +208,17 @@ juce::var resourceManifest()
     resources.add(textResource(kParamsResourceUri, "Parameter bindings",
                                "The circuit's parameter bindings, with ranges, units, and current values.",
                                "application/json"));
+
+    // The guide and the examples: files, not state, so they need no thread of their own.
+    for (const auto& item : listAgentResources(VALIS_ROOT_DIR, VALIS_EXAMPLES_DIR))
+    {
+        auto* resource = new juce::DynamicObject();
+        resource->setProperty("uri", juce::String(item.uri));
+        resource->setProperty("name", juce::String(item.name));
+        resource->setProperty("description", juce::String(item.description));
+        resource->setProperty("mimeType", juce::String(item.mimeType));
+        resources.add(juce::var(resource));
+    }
     return resources;
 }
 
@@ -238,6 +250,30 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
                        const std::shared_ptr<MessageThreadGate>& gate,
                        const juce::String& uri, juce::String& error)
 {
+    // The guide and the examples are plain files and are answered here.
+    if (uri.startsWith("valis://guide") || uri.startsWith("valis://examples"))
+    {
+        const auto text = readAgentResource(VALIS_ROOT_DIR, VALIS_EXAMPLES_DIR, uri.toStdString());
+        if (! text)
+        {
+            error = "no such resource: " + uri;
+            return {};
+        }
+
+        const bool turtle = uri.startsWith("valis://examples/");
+        auto* contents = new juce::DynamicObject();
+        contents->setProperty("uri", uri);
+        contents->setProperty("mimeType", turtle ? "text/turtle" : (uri == "valis://guide" ? "text/markdown" : "text/plain"));
+        contents->setProperty("text", juce::String(*text));
+
+        juce::Array<juce::var> items;
+        items.add(juce::var(contents));
+
+        auto* response = new juce::DynamicObject();
+        response->setProperty("contents", items);
+        return juce::var(response);
+    }
+
     return onMessageThread(gate, [makeDispatcher, uri](juce::String& taskError) -> juce::var
     {
         auto ops = makeDispatcher();
@@ -303,7 +339,7 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
                     p->setProperty("symbol", juce::String(portDesc.symbol));
                     p->setProperty("name", juce::String(portDesc.name));
                     p->setProperty("direction", portDesc.input ? "in" : "out");
-                    p->setProperty("rate", portDesc.control ? "control" : "audio");
+                    p->setProperty("rate", portDesc.rateName());
                     if (portDesc.control)
                     {
                         p->setProperty("default", portDesc.defaultValue);
@@ -388,6 +424,27 @@ const ToolSpec kTools[] = {
     {"list_element_types", "Every element class the ontology declares, with its ports, ranges and units.",
      R"({"type":"object","properties":{}})"},
 
+    {"check_stability", "Run the circuit on a fresh engine with random settings of its own parameters, every one of them jumping partway through, and report any run that goes non-finite, blows up (peak above +40 dBFS), clips or falls silent. The first run uses the declared settings and the rest are repeatable. Settings are returned for any run that is not fine. What is playing is not touched. Use it before saying a circuit is finished; bind the controls a player would reach with val:Param first, since only bound parameters are varied.",
+     R"({"type":"object","properties":{"trials":{"type":"integer","description":"1 to 32, default 8"},"seconds":{"type":"number","description":"0.25 to 10, default 1.5"},"note":{"type":"integer","description":"MIDI note to hold, 0-127; -1 for none; default 60"}}})"},
+
+    {"history", "The versions the circuit has had, oldest first: a number, what made each, and which is current. Every change made through these tools adds one; a change made in the editor is kept as a version the next time one of these is used. Up to 100 are kept.",
+     R"({"type":"object","properties":{}})"},
+
+    {"undo", "Take back the last change. The circuit goes back to the version before this one, and redo can bring the change back. If nothing was recorded before this (a circuit just loaded) there is nothing to undo.",
+     R"({"type":"object","properties":{}})"},
+
+    {"redo", "Bring back a change that undo took back. A new change after an undo ends the redo.",
+     R"({"type":"object","properties":{}})"},
+
+    {"diff", "What changed between two versions, in plain sentences: elements added and removed, values and options set, arcs made and broken, parameters bound. With no arguments, the version before the current one against the current one, which is what the last change did. from and to are version numbers from history.",
+     R"({"type":"object","properties":{"from":{"type":"integer"},"to":{"type":"integer"}}})"},
+
+    {"apply_edits", "Several edits as one: add_node, remove_node, connect and disconnect, in order. All of them take effect, or none do. They are applied to a private copy first, so a later edit can use a node an earlier one added, and the circuit is installed once as a whole, so what is playing never passes through a half-built state. The first edit that fails stops the batch and is named by its position. Ids without a colon are in the circuit's own namespace, so \"osc\" works for urn:valis:new#osc. Use it to build or restructure a circuit in one call instead of many.",
+     R"({"type":"object","properties":{"edits":{"type":"array","maxItems":500,"items":{"type":"object","properties":{"op":{"type":"string","enum":["add_node","remove_node","connect","disconnect"]},"id":{"type":"string","description":"add_node, remove_node"},"class":{"type":"string","description":"add_node, e.g. val:Ladder"},"from_node":{"type":"string"},"from_port":{"type":"string"},"to_node":{"type":"string"},"to_port":{"type":"string"},"depth":{"type":"number","description":"connect, control arcs"}},"required":["op"]}}},"required":["edits"]})"},
+
+    {"describe_element", "Everything about one element class in one call: what it is for and how to use it, every port with its range, unit, choices and description, and the options it takes besides its ports (a file, a pattern, a buffer length) which no port list shows. Use it before using an element you do not know. The name may be val:Ladder, Ladder, or any capitalisation; an unknown name returns the nearest real ones.",
+     R"({"type":"object","properties":{"class":{"type":"string","description":"e.g. val:StepSequencer"}},"required":["class"]})"},
+
     {"get_graph", "The circuit as JSON: elements, their properties, and the arcs between them.",
      R"({"type":"object","properties":{}})"},
 
@@ -418,13 +475,13 @@ const ToolSpec kTools[] = {
     {"randomize", "Give every parameter a new random value within its range, from a seed: the same seed on the same circuit gives the same patch. amount (0 to 1, default 1) is how far each moves toward its random value. keep lists slots to leave alone.",
      R"({"type":"object","properties":{"seed":{"type":"integer"},"amount":{"type":"number"},"keep":{"type":"array","items":{"type":"integer"}}},"required":["seed"]})"},
 
-    {"get_sample", "The file a val:SampleLoad (sound) or val:NamModel (.nam model) node is using.",
+    {"get_sample", "The file a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node is using.",
      R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
 
-    {"set_sample", "Load a different file into a val:SampleLoad (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load.",
+    {"set_sample", "Load a different file into a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load.",
      R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/"}},"required":["node","path"]})"},
 
-    {"get_diagnostics", "The circuit's current state: whether it loaded, its size, and its latency.",
+    {"get_diagnostics", "The circuit's current state: whether it loaded, its size, its latency, and any problems an element recovered from (a missing sound file, say) as `problems`.",
      R"({"type":"object","properties":{}})"},
 
     {"load_file", "Load a Turtle circuit from a file path on the server machine.",
@@ -448,7 +505,13 @@ const ToolSpec kTools[] = {
     {"read_outputs", "The live value of every control output in the circuit, or of one node's. This is what the Controls view shows for val:Oscilloscope and val:FreqAnalyzer, and it is how you measure what a circuit is doing.",
      R"({"type":"object","properties":{"node":{"type":"string","description":"optional; omit for every node that has control outputs"}}})"},
 
-    {"render", "Render the current circuit offline to a wav file and report its peak and RMS. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
+    {"lint", "Static checks on the loaded circuit, for things that compile and still do not do what was meant: a fixed value on a port a control arc overwrites, a knob that moves nothing, an element with no path to the output, an effect with nothing connected to process, nothing wired to the output. Each finding has a severity, a code, the node and port, and what to do. Run it after building, before render.",
+     R"({"type":"object","properties":{}})"},
+
+    {"analyze", "Measure a wav file in place of listening: peak, RMS, clipping, DC, the pitch it sits on (note name and cents), the level of each octave in dBFS, brightness, where notes begin, how the level moves each quarter second, and plain notes on anything wrong. Use it on a file render wrote, or on a recording to compare against.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"a wav, aiff, flac, ogg or mp3 file; the first sixty seconds are read"}},"required":["path"]})"},
+
+    {"render", "Render the current circuit offline to a wav file and report its peak and RMS, and the same analysis analyze gives. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 60, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"}},"required":["path"]})"},
 };
 
@@ -576,6 +639,71 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
         if (name == "read_outputs")
             return resultOf(ops.readOutputs(stringArgument(arguments, "node")));
 
+        if (name == "check_stability")
+        {
+            const int trials = arguments.hasProperty("trials") ? static_cast<int>(arguments["trials"]) : 8;
+            const double seconds = arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 1.5;
+            const int note = arguments.hasProperty("note") ? static_cast<int>(arguments["note"]) : 60;
+            return resultOf(ops.checkStability(trials, seconds, note));
+        }
+
+        if (name == "history")
+            return resultOf(ops.history());
+
+        if (name == "undo")
+            return resultOf(ops.undo());
+
+        if (name == "redo")
+            return resultOf(ops.redo());
+
+        if (name == "diff")
+        {
+            std::optional<int> from, to;
+            if (arguments.hasProperty("from")) from = static_cast<int>(arguments["from"]);
+            if (arguments.hasProperty("to"))   to   = static_cast<int>(arguments["to"]);
+            return resultOf(ops.diff(from, to));
+        }
+
+        if (name == "apply_edits")
+        {
+            std::vector<GraphEdit> edits;
+            if (const auto* list = arguments["edits"].getArray())
+            {
+                for (const auto& item : *list)
+                {
+                    GraphEdit edit;
+                    const auto op = item["op"].toString();
+                    if (op == "add_node")         edit.kind = GraphEdit::Kind::addNode;
+                    else if (op == "remove_node") edit.kind = GraphEdit::Kind::removeNode;
+                    else if (op == "connect")     edit.kind = GraphEdit::Kind::connect;
+                    else if (op == "disconnect")  edit.kind = GraphEdit::Kind::disconnect;
+                    else
+                        return textContent("edit " + juce::String(static_cast<int>(edits.size()) + 1)
+                                           + " has op '" + op + "'; use add_node, remove_node, connect or disconnect. Nothing was changed.", true);
+
+                    edit.id        = stringArgument(item, "id");
+                    edit.classIri  = stringArgument(item, "class");
+                    edit.fromNode  = stringArgument(item, "from_node");
+                    edit.fromPort  = stringArgument(item, "from_port");
+                    edit.toNode    = stringArgument(item, "to_node");
+                    edit.toPort    = stringArgument(item, "to_port");
+                    if (item.hasProperty("depth"))
+                        edit.depth = static_cast<double>(item["depth"]);
+                    edits.push_back(std::move(edit));
+                }
+            }
+            return resultOf(ops.applyEdits(edits));
+        }
+
+        if (name == "describe_element")
+            return resultOf(ops.describeElement(stringArgument(arguments, "class")));
+
+        if (name == "lint")
+            return resultOf(ops.lint());
+
+        if (name == "analyze")
+            return resultOf(ops.analyze(stringArgument(arguments, "path")));
+
         if (name == "render")
         {
             const double seconds = arguments.hasProperty("seconds")
@@ -616,7 +744,7 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
                     p->setProperty("symbol", juce::String(portDesc.symbol));
                     p->setProperty("name", juce::String(portDesc.name));
                     p->setProperty("direction", portDesc.input ? "in" : "out");
-                    p->setProperty("rate", portDesc.control ? "control" : "audio");
+                    p->setProperty("rate", portDesc.rateName());
                     if (portDesc.control)
                     {
                         p->setProperty("default", portDesc.defaultValue);

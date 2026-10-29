@@ -119,6 +119,39 @@ void testStateVariableHasNamedOutputs()
     assert(svf->portsMatching(false, false).size() == 3);
 }
 
+/// Every element says what it is for and how to use it, in the ontology's own words, because
+/// describe_element returns exactly that and an agent has nothing else to learn it from. A class
+/// with a line or none is a gap; the minimum is a few sentences.
+void testEveryElementIsDescribed()
+{
+    const auto ontology = loadShipped();
+    int checked = 0;
+    for (const auto* type : ontology.types())
+    {
+        const auto name = vocab::shortName(type->classIri);
+        if (type->comment.size() < 200)
+            std::printf("  val:%s has %zu characters of description; it needs at least 200\n", name.c_str(), type->comment.size());
+        assert(type->comment.size() >= 200);
+
+        // Words, not a pasted formula: at least one full sentence.
+        assert(type->comment.find(". ") != std::string::npos || type->comment.find(".\n") != std::string::npos);
+        ++checked;
+    }
+    std::printf("  %d elements described\n", checked);
+
+    // Every option an element lists is itself declared, with words.
+    for (const auto* type : ontology.types())
+        for (const auto& option : type->options)
+        {
+            const auto* described = ontology.findOption(option);
+            if (described == nullptr || described->comment.size() < 40)
+                std::printf("  val:%s lists the option val:%s, which is not described\n",
+                            vocab::shortName(type->classIri).c_str(), option.c_str());
+            assert(described != nullptr && described->comment.size() >= 40);
+        }
+    assert(ontology.findOption("oversampling") != nullptr);
+}
+
 /// The fine-grained device models carry real physical parameters.
 void testDiodeIsADiode()
 {
@@ -302,6 +335,7 @@ int main()
     testImplementationKeysAreUnique();
     testLadder();
     testStateVariableHasNamedOutputs();
+    testEveryElementIsDescribed();
     testDiodeIsADiode();
     testAntiAliasingIsDeclared();
     testEnumControlsExposeScalePoints();

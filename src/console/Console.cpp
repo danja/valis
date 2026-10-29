@@ -4,6 +4,8 @@
 
 #include "valis/Vocabulary.h"
 
+#include <juce_core/juce_core.h>
+
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -73,6 +75,7 @@ constexpr const char* kHelp =
     "  stats             elements, arcs, params and latency of the loaded circuit\n"
     "  turtle            the circuit's current Turtle source\n"
     "  types [filter]    element classes, with ports, ranges and units\n"
+    "  describe <class>  one element in full: what it is for, its ports and its options\n"
     "  params            parameter bindings with live values\n"
     "  get <slot>        one parameter value, in its own units\n"
     "  set <slot> <val>  one parameter value, in its own units\n"
@@ -134,7 +137,7 @@ ConsoleResult ConsoleSession::execute(const std::string& rawLine)
             out += name + (type.linear ? " (linear)" : " (nonlinear)");
             for (const auto& port : type.ports)
             {
-                out += "\n  " + port.symbol + ": " + (port.control ? "control" : "audio") +
+                out += "\n  " + port.symbol + ": " + port.rateName() +
                        (port.input ? " in" : " out");
                 if (port.control && port.input)
                 {
@@ -149,6 +152,58 @@ ConsoleResult ConsoleSession::execute(const std::string& rawLine)
         }
         if (out.empty())
             return {"no element type matches '" + args + "'"};
+        return {out};
+    }
+
+    if (command == "describe")
+    {
+        if (args.empty())
+            return {"describe which element? For example: describe ladder"};
+
+        const auto result = ops.describeElement(args);
+        if (! result.ok)
+            return {result.diagnostics.empty() ? std::string("no such element") : result.diagnostics.front().message};
+
+        const auto parsed = juce::JSON::parse(juce::String(result.value));
+        const auto text = [&](const juce::var& object, const char* key)
+        {
+            return object[juce::Identifier(key)].toString().toStdString();
+        };
+
+        std::string out = "val:" + text(parsed, "class") + " (" + text(parsed, "label") + ", "
+                        + (static_cast<bool>(parsed["linear"]) ? "linear" : "nonlinear") + ")\n\n"
+                        + text(parsed, "description") + "\n\nports:";
+
+        if (const auto* ports = parsed["ports"].getArray())
+            for (const auto& port : *ports)
+            {
+                out += "\n  " + text(port, "symbol") + ": " + text(port, "rate") + " " + text(port, "direction");
+                if (port.hasProperty("default"))
+                {
+                    std::ostringstream range;
+                    range << " default=" << static_cast<double>(port["default"])
+                          << " range=[" << static_cast<double>(port["minimum"]) << ","
+                          << static_cast<double>(port["maximum"]) << "]";
+                    out += range.str();
+                    if (port.hasProperty("unit"))
+                        out += " " + text(port, "unit");
+                }
+                if (const auto* choices = port["choices"].getArray())
+                {
+                    out += " {";
+                    for (std::size_t i = 0; i < static_cast<std::size_t>(choices->size()); ++i)
+                        out += (i ? ", " : "") + text((*choices)[static_cast<int>(i)], "value") + "=" + text((*choices)[static_cast<int>(i)], "label");
+                    out += "}";
+                }
+                if (const auto note = text(port, "description"); ! note.empty())
+                    out += "\n      " + note;
+            }
+
+        out += "\n\noptions:";
+        if (const auto* options = parsed["options"].getArray())
+            for (const auto& option : *options)
+                out += "\n  val:" + text(option, "name") + " (" + text(option, "type") + "): " + text(option, "description");
+
         return {out};
     }
 

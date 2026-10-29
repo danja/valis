@@ -8,6 +8,8 @@
 
 #include "valis/ElementTestFixture.h"
 
+#include <juce_cryptography/juce_cryptography.h>
+
 #include <atomic>
 #include <cassert>
 #include <cmath>
@@ -164,6 +166,41 @@ void testWrongRateIsAProblem()
     assert(right.element->status().empty());
 }
 
+/// A declared hash that matches lets the model run; one that does not leaves the
+/// element passing the input through with the reason given, and it does not matter
+/// whether the hash or the file is named first.
+void testDeclaredHashIsChecked()
+{
+    const std::string path = VALIS_NAM_MODELS_DIR "/wavenet.nam";
+    juce::FileInputStream stream{juce::File(path)};
+    const std::string actual = juce::SHA256(stream).toHexString().toStdString();
+    const std::string wrong(64, 'a');
+
+    std::string error;
+    for (const bool hashFirst : { true, false })
+    {
+        ElementTestFixture good("NamModel", kRate);
+        if (hashFirst) assert(good.element->setOption("sha256", actual, error));
+        assert(good.element->setOption("model", path, error));
+        if (! hashFirst) assert(good.element->setOption("sha256", actual, error));
+        assert(good.element->status().empty());
+
+        ElementTestFixture bad("NamModel", kRate);
+        if (hashFirst) assert(bad.element->setOption("sha256", wrong, error));
+        assert(bad.element->setOption("model", path, error));
+        if (! hashFirst) assert(bad.element->setOption("sha256", wrong, error));
+        assert(bad.element->status().find("not the file declared") != std::string::npos);
+
+        // And it passes the input through rather than running the unverified model.
+        std::vector<float> in(256, 0.25f);
+        assert(bad.run(in) == in);
+    }
+
+    ElementTestFixture malformed("NamModel", kRate);
+    assert(! malformed.element->setOption("sha256", "not a hash", error));
+    assert(error.find("64 hexadecimal") != std::string::npos);
+}
+
 void testBypassIsExact()
 {
     ElementTestFixture rig("NamModel", kRate);
@@ -188,6 +225,7 @@ int main()
 #ifdef VALIS_WITH_NAM
     testModelsRunWithoutAllocating();
     testWrongRateIsAProblem();
+    testDeclaredHashIsChecked();
     testBypassIsExact();
 #endif
     std::puts("NamModelTest passed");

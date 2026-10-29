@@ -1,3 +1,8 @@
+# examples/temp.ttl
+#
+# A scratch variant of subsynth.ttl: the same layout with a square-wave oscillator and a second
+# oscillator element. It carries the same title as subsynth.ttl. Start from subsynth.ttl instead.
+
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .

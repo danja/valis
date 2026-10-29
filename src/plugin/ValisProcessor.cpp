@@ -215,6 +215,8 @@ OpDispatcher ValisProcessor::ops()
     OpContext ctx;
     ctx.ontology = &vocabulary;
     ctx.engine   = &engine;
+    ctx.registry = &registry;     // render builds its own engine from it
+    ctx.history  = &history;
     ctx.readTurtle = [this] { return getTurtle().toStdString(); };
     ctx.writeTurtle = [this](const std::string& turtle, std::vector<Diagnostic>& out)
     {
@@ -413,7 +415,7 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
 
         if (compiler.compile(candidate, vocabulary, compiled, out))
         {
-            // Whatever the session has chosen for a val:SampleLoad or val:NamModel
+            // Whatever the session has chosen for a node with a file slot
             // replaces the file the document names. This happens on the compiled circuit, so
             // the file is read here and handed to the engine already loaded.
             for (auto& node : compiled.nodes)

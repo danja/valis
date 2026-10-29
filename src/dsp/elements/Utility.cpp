@@ -7,6 +7,10 @@
 
 #include "dsp/Random.h"
 
+#include <cctype>
+#include <string>
+#include <vector>
+
 namespace valis::elements {
 
 class Gain final : public MonoElement
@@ -589,6 +593,249 @@ private:
     int  sounding = -1;   ///< the note the host currently believes is held
 };
 
+/// Passes one of three audio inputs, chosen by a control, with a short crossfade when the
+/// choice changes so switching does not click. The inputs are summed into one buffer each
+/// by the engine, so an input with nothing connected is silence.
+class AudioSelect final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate  = rate;
+        selectIndex = controlIndex(type, "select");
+        for (int i = 0; i < 3; ++i)
+            inIndex[i] = audioInIndex(type, std::string(1, static_cast<char>('a' + i)));
+        reset();
+    }
+
+    void reset() override
+    {
+        for (float& w : weight) w = 0.0f;
+        primed = false;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const int chosen = std::clamp(static_cast<int>(controlAt(args, selectIndex, 0.0f) + 0.5f), 0, 2);
+        if (! primed)
+        {
+            weight[chosen] = 1.0f;
+            primed = true;
+        }
+
+        // Five milliseconds from one input to another.
+        const float step = static_cast<float>(1.0 / (0.005 * sampleRate));
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            float sum = 0.0f;
+            for (int k = 0; k < 3; ++k)
+            {
+                const float goal = k == chosen ? 1.0f : 0.0f;
+                weight[k] += std::clamp(goal - weight[k], -step, step);
+                if (weight[k] > 0.0f && inIndex[k] >= 0 && inIndex[k] < args.numAudioIn)
+                    sum += weight[k] * args.audioIn[inIndex[k]][i];
+            }
+            out[i] = sum;
+        }
+    }
+
+private:
+    double sampleRate = 44100.0;
+    float weight[3] = {};
+    bool primed = false;
+    int selectIndex = -1;
+    int inIndex[3] = {-1, -1, -1};
+};
+
+/// A step sequencer locked to the host's musical position. The pattern is a list of steps,
+/// each a note or a rest, and one step lasts `division` quarter notes. Which step is playing
+/// follows from the position, never from counting blocks, so it stays in step through a
+/// relocate and with any buffer size. When the host is stopped it runs on its own at the
+/// host's last tempo, as val:Transport does.
+class StepSequencer final : public DspElement
+{
+    static constexpr std::size_t kMaxSteps = 64;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate     = rate;
+        divisionIndex  = controlIndex(type, "division");
+        lengthIndex    = controlIndex(type, "gatelength");
+        transposeIndex = controlIndex(type, "transpose");
+        reset();
+    }
+
+    void reset() override { freePosition = 0.0; }
+
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "pattern")
+            return true;
+
+        std::vector<int> parsed;
+        const std::string text(value);
+        std::size_t at = 0;
+        while (at < text.size())
+        {
+            while (at < text.size() && std::isspace(static_cast<unsigned char>(text[at]))) ++at;
+            const std::size_t start = at;
+            while (at < text.size() && ! std::isspace(static_cast<unsigned char>(text[at]))) ++at;
+            if (start == at)
+                break;
+
+            const int note = parseStep(text.substr(start, at - start));
+            if (note < -1)
+            {
+                error = "cannot read the step '" + text.substr(start, at - start)
+                      + "': expected a note such as C3 or F#2, a number from 0 to 127, or . for a rest";
+                return false;
+            }
+            if (parsed.size() >= kMaxSteps)
+            {
+                error = "a pattern has at most " + std::to_string(kMaxSteps) + " steps";
+                return false;
+            }
+            parsed.push_back(note);
+        }
+
+        if (parsed.empty())
+        {
+            error = "a pattern needs at least one step";
+            return false;
+        }
+
+        steps = std::move(parsed);
+        return true;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 4)
+            return;
+
+        const double division = std::clamp(static_cast<double>(controlAt(args, divisionIndex, 0.25f)), 1.0 / 64.0, 16.0);
+        const double length   = std::clamp(static_cast<double>(controlAt(args, lengthIndex, 0.5f)), 0.01, 1.0);
+        const int    transpose = static_cast<int>(std::lround(controlAt(args, transposeIndex, 0.0f)));
+
+        double position;
+        if (args.transport.playing)
+        {
+            position = args.transport.ppqPosition;
+            freePosition = position;
+        }
+        else
+        {
+            position = freePosition;
+            freePosition += std::clamp(args.transport.tempoBpm, 1.0, 999.0) / 60.0
+                          * static_cast<double>(args.numSamples) / sampleRate;
+        }
+
+        float gate = 0.0f, note = 0.0f, pitch = 0.0f, stepNumber = 0.0f;
+        if (! steps.empty())
+        {
+            const double inSteps = position / division;
+            const double whole   = std::floor(inSteps);
+            const auto   n       = static_cast<std::int64_t>(steps.size());
+            auto index = static_cast<std::int64_t>(whole) % n;
+            if (index < 0) index += n;
+
+            stepNumber = static_cast<float>(index);
+            const int value = steps[static_cast<std::size_t>(index)];
+            if (value >= 0)
+            {
+                const int sounding = std::clamp(value + transpose, 0, 127);
+                note  = static_cast<float>(sounding);
+                pitch = 440.0f * std::exp2((static_cast<float>(sounding) - 69.0f) * (1.0f / 12.0f));
+                gate  = inSteps - whole < length ? 1.0f : 0.0f;
+            }
+        }
+
+        args.controlOut[0] = gate;
+        args.controlOut[1] = note;
+        args.controlOut[2] = pitch;
+        args.controlOut[3] = stepNumber;
+    }
+
+private:
+    /// -1 for a rest, 0 to 127 for a note, -2 for something unreadable.
+    static int parseStep(const std::string& token)
+    {
+        if (token == "." || token == "-")
+            return -1;
+
+        if (std::isdigit(static_cast<unsigned char>(token[0])))
+        {
+            for (const char c : token)
+                if (! std::isdigit(static_cast<unsigned char>(c)))
+                    return -2;
+            const long number = std::strtol(token.c_str(), nullptr, 10);
+            return number <= 127 ? static_cast<int>(number) : -2;
+        }
+
+        static const int kSemitones[7] = { 9, 11, 0, 2, 4, 5, 7 };   // A to G
+        const char letter = static_cast<char>(std::toupper(static_cast<unsigned char>(token[0])));
+        if (letter < 'A' || letter > 'G')
+            return -2;
+
+        std::size_t at = 1;
+        int semitone = kSemitones[letter - 'A'];
+        if (at < token.size() && (token[at] == '#' || token[at] == 'b'))
+        {
+            semitone += token[at] == '#' ? 1 : -1;
+            ++at;
+        }
+
+        const bool negative = at < token.size() && token[at] == '-';
+        if (negative) ++at;
+        if (at >= token.size())
+            return -2;
+        for (std::size_t i = at; i < token.size(); ++i)
+            if (! std::isdigit(static_cast<unsigned char>(token[i])))
+                return -2;
+
+        const int octave = (negative ? -1 : 1) * static_cast<int>(std::strtol(token.c_str() + at, nullptr, 10));
+        const int note = (octave + 1) * 12 + semitone;   // C4 is 60
+        return note >= 0 && note <= 127 ? note : -2;
+    }
+
+    std::vector<int> steps;
+    double sampleRate = 44100.0, freePosition = 0.0;
+    int divisionIndex = -1, lengthIndex = -1, transposeIndex = -1;
+};
+
+/// The largest of up to three control signals. As a logical OR it lets any of several
+/// gates reach a port that takes one arc; an input left unconnected reads as its default,
+/// which is low enough never to win.
+class ControlMax final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        aIndex = controlIndex(type, "a");
+        bIndex = controlIndex(type, "b");
+        cIndex = controlIndex(type, "c");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        args.controlOut[0] = std::max({controlAt(args, aIndex, -1.0e6f),
+                                       controlAt(args, bIndex, -1.0e6f),
+                                       controlAt(args, cIndex, -1.0e6f)});
+    }
+
+private:
+    int aIndex = -1, bIndex = -1, cIndex = -1;
+};
+
 /// Snaps a pitch in semitones to a scale. See src/dsp/Scale.h.
 class Quantise final : public DspElement
 {
@@ -739,6 +986,9 @@ void registerUtility(ElementRegistry& registry)
     registry.add("NoteOut",         &make<elements::NoteOut>);
     registry.add("Quantise",        &make<elements::Quantise>);
     registry.add("Vary",            &make<elements::Vary>);
+    registry.add("ControlMax",      &make<elements::ControlMax>);
+    registry.add("StepSequencer",   &make<elements::StepSequencer>);
+    registry.add("AudioSelect",     &make<elements::AudioSelect>);
 }
 
 // The one place that knows the whole set. makeDefaultRegistry's keys and the
@@ -753,6 +1003,7 @@ void registerSpectralElements(ElementRegistry&);
 void registerNam(ElementRegistry&);
 void registerReverb(ElementRegistry&);
 void registerWavetable(ElementRegistry&);
+void registerTimeStretch(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -767,6 +1018,7 @@ ElementRegistry makeDefaultRegistry()
     registerNam(registry);
     registerReverb(registry);
     registerWavetable(registry);
+    registerTimeStretch(registry);
     registerUtility(registry);
     return registry;
 }

@@ -34,10 +34,18 @@ struct PortDesc
     /// so a view can draw it.
     bool event = false;
 
+    /// val:BufferPort - a port that hands a block of material, such as the audio a
+    /// granulator's grains are cut from, to another element. Like an event port it has
+    /// no audio buffer and no control slot. An arc from a buffer output to a buffer input
+    /// makes the receiver read what the sender owns and makes the sender run first;
+    /// nothing is copied. See DspElement::bufferOut.
+    bool buffer = false;
+
     double defaultValue = 0.0;
     double minimum      = 0.0;
     double maximum      = 1.0;
     std::string unitSymbol;  ///< units:symbol, e.g. "Hz", "dB"
+    std::string comment;     ///< rdfs:comment: what the port is for, in the ontology's words
 
     bool logarithmic = false;  ///< lv2:portProperty lv2:logarithmic
     bool enumeration = false;  ///< lv2:portProperty lv2:enumeration
@@ -53,7 +61,26 @@ struct PortDesc
     /// Named integer values, sorted by value. Present when enumeration is true.
     std::vector<std::pair<double, std::string>> scalePoints;
 
-    bool isAudio() const { return ! control && ! event; }
+    /// Whether the port has an audio buffer or a control slot of its own.
+    bool carriesSignal() const { return ! event && ! buffer; }
+
+    bool isAudio() const { return ! control && carriesSignal(); }
+
+    /// "audio", "control", "event" or "buffer", for the tools that list ports.
+    const char* rateName() const
+    {
+        return event ? "event" : buffer ? "buffer" : control ? "control" : "audio";
+    }
+};
+
+/// A val: property that is not a port, set on an element instance in the Turtle and passed to
+/// DspElement::setOption: a file name, a pattern, a buffer length. Declared once, with the
+/// words that say what it is, and listed by each element class that accepts it.
+struct OptionDesc
+{
+    std::string name;      ///< the local name, such as "file"
+    std::string comment;   ///< rdfs:comment
+    std::string range;     ///< the local name of rdfs:range, such as "string" or "double"
 };
 
 /// An instantiable element class.
@@ -62,6 +89,11 @@ struct ElementType
     std::string classIri;
     std::string implementation;   ///< val:implementation - an ElementRegistry key
     std::string label;
+    std::string comment;          ///< rdfs:comment: what the element is and how to use it
+
+    /// The options this class accepts besides its ports (val:hasOption), by local name.
+    /// Every element also accepts val:oversampling, which is not listed here.
+    std::vector<std::string> options;
     std::string antialiasing;     ///< val:antialiasing IRI, empty if not declared
     bool linear = true;
     std::vector<PortDesc> ports;
@@ -77,6 +109,11 @@ struct ElementType
     /// Control inputs are settable properties: val:cutoff and the port symbol
     /// "cutoff" are the same thing.
     const PortDesc* findProperty(std::string_view localName) const;
+
+    /// The error for an arc that names a port this type does not have: which port, the nearest
+    /// real ones of the right direction, and the full list of them. `input` is whether the arc
+    /// ends here (an input is wanted) or starts here (an output).
+    std::string missingPortMessage(std::string_view wanted, bool input) const;
 };
 
 class Ontology
@@ -105,6 +142,9 @@ public:
     std::optional<PortDesc> readPort(const rdf::TurtleStore& store,
                                      const rdf::Node& port) const;
 
+    /// What a val:hasOption names, or null if the ontology does not declare it.
+    const OptionDesc* findOption(std::string_view name) const;
+
     /// Every implementable class, ordered by IRI so output is deterministic.
     std::vector<const ElementType*> types() const;
 
@@ -117,6 +157,7 @@ private:
     bool loadFromStore(const rdf::TurtleStore&, std::vector<std::string>& errors);
 
     std::unordered_map<std::string, ElementType> typesByIri;
+    std::unordered_map<std::string, OptionDesc> optionsByName;   ///< local name -> description
     std::unordered_map<std::string, std::string> aliases;    ///< alias IRI -> canonical
     std::unordered_map<std::string, std::string> unitSymbols; ///< unit IRI -> symbol
 };

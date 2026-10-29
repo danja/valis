@@ -20,11 +20,11 @@ namespace {
 constexpr double kRate = 48000.0;
 constexpr double kSearch = 1.5;
 
-/// The cello's four open strings and stopped notes above them, up to the top of
-/// the range this model is verified over. Above about D4 its odd harmonics fall
-/// away until the tone is an octave ambiguity rather than a note; see the note
-/// in TODO.md.
-const double kRange[] = {65.41, 82.41, 98.00, 130.81, 164.81, 220.00, 293.66};
+/// The cello's four open strings and stopped notes above them, and on up through
+/// the top of its range and the viola's: C5 and E5. Above about 450 Hz the string
+/// used to settle an octave up, because the loop filters were a fixed fraction of
+/// a second and not of a period; they now scale with the note above 250 Hz.
+const double kRange[] = {65.41, 82.41, 98.00, 130.81, 164.81, 220.00, 293.66, 392.00, 523.25, 659.26};
 
 /// Bows one note and returns the settled tail.
 std::vector<float> bow(double frequency, float pressure = 0.5f, float position = 0.12f,

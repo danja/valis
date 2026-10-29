@@ -130,6 +130,12 @@ to confirm a running instance before using MCP tools that require a host.
 - `DspElement::setOption` returns false when it recognises a key and cannot apply it, writing
   the reason into `error`; the engine turns that into a located load failure. An unknown key
   is not a failure.
+- Material one element owns and another reads (a grain buffer) travels on a `val:BufferPort`, not
+  on an audio or control port. An arc from a buffer output to a buffer input is recorded in
+  `CompiledCircuit::bufferLinks`, orders the owner before the reader, and is connected by the
+  engine at load through `DspElement::bufferOut` / `bufferIn`, on the message thread. Nothing is
+  copied. The two elements agree on a type derived from `SharedBuffer`; an input takes one source
+  and an output any number of readers. Use it for any new element that shares a buffer.
 - Never call a function with observable side effects inside `assert()`. In Release builds `NDEBUG` expands `assert(expr)` to `((void)0)`, silently skipping the call. Pattern: `const bool ok = store.parse(...); assert(ok);`
 
 ## RDF

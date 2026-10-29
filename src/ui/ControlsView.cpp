@@ -6,6 +6,7 @@
 #include "ui/ScopeBox.h"
 #include "ui/SpectrumBox.h"
 #include "plugin/ValisProcessor.h"
+#include "valis/FileOption.h"
 #include "valis/Ontology.h"
 #include "valis/ValueFormat.h"
 #include "valis/Vocabulary.h"
@@ -265,8 +266,7 @@ void ControlsView::rebuild()
             addAndMakeVisible(*box);
             spectrums.push_back(std::move(box));
         }
-        else if (elem.type->implementation == "SampleLoad"
-                 || elem.type->implementation == "NamModel")
+        else if (hasFileSlot(elem.type->implementation))
         {
             auto box = std::make_unique<SampleBox>(
                 processor, elem.id, label,

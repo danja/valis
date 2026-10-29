@@ -119,6 +119,28 @@ bool ValisEngine::load(const CompiledCircuit& circuit,
         graph->controlValues.push_back(std::move(values));
     }
 
+    // Buffer arcs: each receiver is given what its sender owns. Every element exists, is
+    // prepared and has its options by now, so what the owner offers is final.
+    for (const auto& link : circuit.bufferLinks)
+    {
+        const auto& source = circuit.nodes[static_cast<std::size_t>(link.from)];
+        const auto& dest   = circuit.nodes[static_cast<std::size_t>(link.to)];
+
+        SharedBuffer* shared = graph->elements[static_cast<std::size_t>(link.from)]->bufferOut(link.fromPort);
+        if (shared == nullptr)
+        {
+            error = source.id + ": has no buffer output '" + link.fromPort + "'";
+            return false;
+        }
+
+        std::string reason;
+        if (! graph->elements[static_cast<std::size_t>(link.to)]->bufferIn(link.toPort, shared, reason))
+        {
+            error = dest.id + ": " + reason;
+            return false;
+        }
+    }
+
     // Carry forward any control overrides the host has already set.
     for (const auto& [nodeId, portSymbol, value] : pendingControls)
     {

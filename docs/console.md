@@ -16,6 +16,7 @@ pass through. Type `help` in the tab for the list:
 | `stats` | `getDiagnostics` | element, arc and param counts plus latency |
 | `turtle` | `getTurtle` | the circuit's current Turtle source |
 | `types [filter]` | `listElementTypes` | element classes with ports, ranges and units |
+| `describe <class>` | `describeElement` | one element in full: what it is for, its ports and their ranges and choices, and the options it takes |
 | `params` | `listParams` | bindings with live values |
 | `get <slot>` | `getParam` | one parameter in its own units |
 | `set <slot> <val>` | `setParam` | one parameter in its own units |

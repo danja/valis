@@ -115,6 +115,73 @@ void testMixBlendsWithoutAComb()
     assert(std::abs(level - 1.0) < 0.01);
 }
 
+/// The share of a shifted chord's power that is not in its three partials: the sidebands
+/// that heads jumping out of step with each other put around every tone.
+double chordSpill(bool align, float semitones)
+{
+    ElementTestFixture rig("PitchShift", kRate);
+    rig.set("pitch", semitones);
+    rig.set("align", align ? 1.0f : 0.0f);
+
+    const double ratio = std::pow(2.0, semitones / 12.0);
+    std::vector<float> chord(static_cast<std::size_t>(kRate));
+    for (const double hz : { 220.0, 277.18, 329.63 })
+    {
+        const auto tone = ElementTestFixture::generateSine(hz, kRate, static_cast<int>(kRate), 0.15f);
+        for (std::size_t i = 0; i < chord.size(); ++i)
+            chord[i] += tone[i];
+    }
+
+    const auto out = rig.run(chord);
+    const auto bins = ElementTestFixture::computeSpectrum(std::vector<float>(out.end() - kSize, out.end()), 14);
+
+    double inside = 0.0, outside = 0.0;
+    for (std::size_t b = 1; b < bins.size(); ++b)
+    {
+        const double hz = static_cast<double>(b) * kRate / kSize;
+        const double power = static_cast<double>(bins[b]) * bins[b];
+        bool near = false;
+        for (const double f : { 220.0, 277.18, 329.63 })
+            near = near || std::abs(hz - f * ratio) < 12.0;
+        (near ? inside : outside) += power;
+    }
+    return outside / (inside + outside);
+}
+
+void testAlignSteadiesAChord()
+{
+    for (const float semitones : { 3.0f, -5.0f })
+    {
+        const double plain = chordSpill(false, semitones);
+        const double aligned = chordSpill(true, semitones);
+        std::printf("  chord shifted %+.0f: %.1f%% of the power is off its partials plain, %.1f%% aligned\n",
+                    semitones, 100.0 * plain, 100.0 * aligned);
+        assert(aligned < plain);
+    }
+}
+
+void testAlignKeepsASinglePitch()
+{
+    // Alignment must not cost the single voice its pitch.
+    ElementTestFixture rig("PitchShift", kRate);
+    rig.set("pitch", 5.0f);
+    rig.set("align", 1.0f);
+    const auto out = rig.run(ElementTestFixture::generateSine(1000.0, kRate, 48000, 0.5f));
+    const auto p = strongest(std::vector<float>(out.end() - kSize, out.end()));
+    const double cents = 1200.0 * std::log2(p.hz / (1000.0 * std::pow(2.0, 5.0 / 12.0)));
+    std::printf("  aligned +5: %.1f cents out\n", cents);
+    assert(std::abs(cents) < 15.0);
+
+    // And a zero shift is still an exact delay with it on.
+    ElementTestFixture zero("PitchShift", kRate);
+    zero.set("align", 1.0f);
+    const auto in = ElementTestFixture::generateSine(777.0, kRate, 8192, 0.5f);
+    const auto delayed = zero.run(in);
+    const auto latency = static_cast<std::size_t>(zero.element->latencyInSamples());
+    for (std::size_t i = latency + 4; i < in.size(); ++i)
+        assert(std::abs(delayed[i] - in[i - latency]) < 1.0e-5f);
+}
+
 }  // namespace
 
 int main()
@@ -123,6 +190,8 @@ int main()
     testItLandsOnThePitchAsked();
     testTheToneStandsAboveTheArtefacts();
     testMixBlendsWithoutAComb();
+    testAlignSteadiesAChord();
+    testAlignKeepsASinglePitch();
 
     std::printf("PitchShiftTest PASSED\n");
     return 0;

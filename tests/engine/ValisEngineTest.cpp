@@ -754,6 +754,47 @@ void testDmxNotesSelectTheirOwnDrum()
     assert(hit(100) < 1.0e-6);
 }
 
+/// A voice card plays one sound at a time: starting the closed hat while the open
+/// hat rings cuts the open hat off, as on the real machine.
+void testDmxClosedHatChokesOpenHat()
+{
+    CompiledCircuit circuit;
+    assert(compileFile(VALIS_EXAMPLES_DIR "/dmx.ttl", circuit));
+    const auto registry = makeDefaultRegistry();
+
+    // Energy after the second note, with and without it.
+    const auto tail = [&](bool closedHatToo)
+    {
+        ValisEngine engine;
+        engine.prepare(48000.0, 512);
+        std::string error;
+        const bool loaded = engine.load(circuit, registry, error);
+        assert(loaded);
+
+        const std::vector<float> silence(512, 0.0f);
+        std::vector<float> block(512, 0.0f);
+
+        engine.queueNoteOn(46, 1.0f, 0);   // open hat
+        double energy = 0.0;
+        for (int i = 0; i < 100; ++i)
+        {
+            if (i == 4 && closedHatToo)
+                engine.queueNoteOn(42, 1.0f, 0);   // closed hat
+
+            engine.process(silence.data(), block.data(), 512);
+            if (i >= 8 && i < 40)
+                for (const float s : block)
+                    energy += static_cast<double>(s) * s;
+        }
+        return energy;
+    };
+
+    const double open = tail(false), choked = tail(true);
+    std::printf("  dmx: open hat tail energy %.4f alone, %.4f after a closed hat\n", open, choked);
+    assert(open > 1.0e-6);
+    assert(choked < 0.25 * open);
+}
+
 /// An element may produce events rather than audio. val:NoteOut turns a control
 /// gate into note events the engine collects and the host sends on.
 ///
@@ -1889,6 +1930,7 @@ int main()
     testMoreNotesThanVoicesSteals();
     testPolysynthExampleRuns();
     testDmxNotesSelectTheirOwnDrum();
+    testDmxClosedHatChokesOpenHat();
     testChimeraIsStableAndItsRegimesDiffer();
     testCircuitProducesNoteEvents();
     testEventPortTakesNoBufferOrSlot();

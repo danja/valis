@@ -504,14 +504,17 @@ public:
         const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
         buffer.assign(static_cast<std::size_t>(len), 0.0f);
         writePos = 0;
-        for (int v = 0; v < kVoices; ++v)
-            phase[v] = static_cast<float>(v) / static_cast<float>(kVoices);
+        reset();
     }
 
     void reset() override
     {
         std::fill(buffer.begin(), buffer.end(), 0.0f);
         writePos = 0;
+
+        // Evenly spaced round the cycle, and back there when the transport relocates.
+        for (int v = 0; v < kVoices; ++v)
+            phase[v] = static_cast<double>(v) / static_cast<double>(kVoices);
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -525,16 +528,8 @@ public:
 
         const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
         const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
-        const float phaseInc      = rate / static_cast<float>(sampleRate);
+        const double phaseInc     = static_cast<double>(rate) / sampleRate;
         const int   bufLen        = static_cast<int>(buffer.size());
-
-        // Compute per-voice delay offsets from block-rate LFO values.
-        float delayOffset[kVoices];
-        for (int v = 0; v < kVoices; ++v)
-        {
-            const float lfo = std::sin(phase[v] * 6.28318530718f);
-            delayOffset[v]  = centerSamples + lfo * depthSamples;
-        }
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
@@ -543,16 +538,23 @@ public:
         {
             buffer[static_cast<std::size_t>(writePos)] = in[i];
 
+            // The delay follows the LFO sample by sample. Held for a whole block it would step
+            // at every block boundary, which a fast rate or a long block makes audible, and the
+            // sound would depend on how the host cut the stream.
             float wet = 0.0f;
             for (int v = 0; v < kVoices; ++v)
             {
-                const float d     = delayOffset[v];
+                const float lfo   = std::sin(static_cast<float>(phase[v] * 6.28318530718));
+                const float d     = centerSamples + lfo * depthSamples;
                 const int   iD    = static_cast<int>(d);
                 const float frac  = d - static_cast<float>(iD);
                 const int   r0    = ((writePos - iD)     % bufLen + bufLen) % bufLen;
                 const int   r1    = ((writePos - iD - 1) % bufLen + bufLen) % bufLen;
                 wet += buffer[static_cast<std::size_t>(r0)] * (1.0f - frac)
                      + buffer[static_cast<std::size_t>(r1)] * frac;
+
+                phase[v] += phaseInc;
+                if (phase[v] >= 1.0) phase[v] -= 1.0;
             }
             wet /= static_cast<float>(kVoices);
             out[i] = in[i] * (1.0f - mix) + wet * mix;
@@ -560,19 +562,12 @@ public:
             if (++writePos >= bufLen)
                 writePos = 0;
         }
-
-        // Advance LFO phases at block rate.
-        for (int v = 0; v < kVoices; ++v)
-        {
-            phase[v] += phaseInc * static_cast<float>(args.numSamples);
-            while (phase[v] >= 1.0f) phase[v] -= 1.0f;
-        }
     }
 
 private:
     std::vector<float> buffer;
-    int   writePos      = 0;
-    float phase[kVoices]{};
+    int    writePos     = 0;
+    double phase[kVoices]{};
     double sampleRate   = 44100.0;
     int rateIndex = -1, depthIndex = -1, mixIndex = -1;
 };
@@ -599,15 +594,14 @@ public:
 
         const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
         buffer.assign(static_cast<std::size_t>(len), 0.0f);
-        writePos      = 0;
-        phase         = 0.0f;
-        feedbackState = 0.0f;
+        reset();
     }
 
     void reset() override
     {
         std::fill(buffer.begin(), buffer.end(), 0.0f);
         writePos      = 0;
+        phase         = 0.0;
         feedbackState = 0.0f;
     }
 
@@ -623,13 +617,8 @@ public:
 
         const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
         const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
-        const float phaseInc      = rate / static_cast<float>(sampleRate);
+        const double phaseInc     = static_cast<double>(rate) / sampleRate;
         const int   bufLen        = static_cast<int>(buffer.size());
-
-        const float lfo = std::sin(phase * 6.28318530718f);
-        const float d   = centerSamples + lfo * depthSamples;
-        const int   iD  = static_cast<int>(d);
-        const float frac = d - static_cast<float>(iD);
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
@@ -638,6 +627,15 @@ public:
         for (int i = 0; i < args.numSamples; ++i)
         {
             buffer[static_cast<std::size_t>(writePos)] = in[i] + fb * fbSample;
+
+            // The delay follows the LFO sample by sample, so it neither steps at a block
+            // boundary nor depends on where the host put one.
+            const float lfo  = std::sin(static_cast<float>(phase * 6.28318530718));
+            const float d    = centerSamples + lfo * depthSamples;
+            const int   iD   = static_cast<int>(d);
+            const float frac = d - static_cast<float>(iD);
+            phase += phaseInc;
+            if (phase >= 1.0) phase -= 1.0;
 
             const int r0 = ((writePos - iD)     % bufLen + bufLen) % bufLen;
             const int r1 = ((writePos - iD - 1) % bufLen + bufLen) % bufLen;
@@ -649,22 +647,19 @@ public:
             if (++writePos >= bufLen) writePos = 0;
         }
         feedbackState = fbSample;
-
-        phase += phaseInc * static_cast<float>(args.numSamples);
-        while (phase >= 1.0f) phase -= 1.0f;
     }
 
 private:
     std::vector<float> buffer;
     int    writePos       = 0;
-    float  phase          = 0.0f;
+    double phase          = 0.0;
     float  feedbackState  = 0.0f;
     double sampleRate     = 44100.0;
     int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
 };
 
 
-/// Four-stage first-order all-pass chain with a block-rate sine LFO sweeping
+/// Four-stage first-order all-pass chain with a sine LFO sweeping
 /// the pole frequency. Feedback from the chain output back to the input
 /// deepens the notches. The all-pass transfer function per stage is
 ///   H(z) = (g + z⁻¹) / (1 + g·z⁻¹)
@@ -683,17 +678,16 @@ public:
         fbIndex    = controlIndex(type, "feedback");
         mixIndex   = controlIndex(type, "mix");
 
-        std::fill(xm1, xm1 + kStages, 0.0f);
-        std::fill(ym1, ym1 + kStages, 0.0f);
-        phase   = 0.0f;
-        fbState = 0.0f;
+        reset();
     }
 
     void reset() override
     {
         std::fill(xm1, xm1 + kStages, 0.0f);
         std::fill(ym1, ym1 + kStages, 0.0f);
+        phase   = 0.0;
         fbState = 0.0f;
+        untilUpdate = 0;
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -706,20 +700,29 @@ public:
         const float fb    = std::clamp(controlAt(args, fbIndex,    0.5f), 0.0f, 0.9f);
         const float mix   = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
 
-        const float lfo = std::sin(phase * 6.28318530718f);
-        phase += rate / static_cast<float>(sampleRate) * static_cast<float>(args.numSamples);
-        while (phase >= 1.0f) phase -= 1.0f;
-
-        const float fcMin = 100.0f;
-        const float fc    = fcMin + depth * 1900.0f * (0.5f + 0.5f * lfo);
-        const float w     = std::tan(3.14159265358979f * fc / static_cast<float>(sampleRate));
-        const float g     = (w - 1.0f) / (w + 1.0f);
+        const double phaseInc = static_cast<double>(rate) / sampleRate;
+        constexpr float fcMin = 100.0f;
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
 
         for (int i = 0; i < args.numSamples; ++i)
         {
+            // The sweep follows the stream. The tangent is the costly part, so the pole is
+            // recomputed every kUpdate samples, counted across blocks and not within them,
+            // which keeps the sound the same however the host cuts the stream.
+            if (untilUpdate <= 0)
+            {
+                const float lfo = std::sin(static_cast<float>(phase * 6.28318530718));
+                const float fc  = fcMin + depth * 1900.0f * (0.5f + 0.5f * lfo);
+                const float w   = std::tan(3.14159265358979f * fc / static_cast<float>(sampleRate));
+                g = (w - 1.0f) / (w + 1.0f);
+                untilUpdate = kUpdate;
+            }
+            --untilUpdate;
+            phase += phaseInc;
+            if (phase >= 1.0) phase -= 1.0;
+
             float x = in[i] + fb * fbState;
             for (int s = 0; s < kStages; ++s)
             {
@@ -734,9 +737,13 @@ public:
     }
 
 private:
+    static constexpr int kUpdate = 8;
+
     float  xm1[kStages]{};
     float  ym1[kStages]{};
-    float  phase      = 0.0f;
+    double phase      = 0.0;
+    float  g          = 0.0f;
+    int    untilUpdate = 0;
     float  fbState    = 0.0f;
     double sampleRate = 44100.0;
     int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
@@ -992,6 +999,7 @@ public:
         sampleRate = rate;
         pitchIndex = controlIndex(type, "pitch");
         mixIndex   = controlIndex(type, "mix");
+        alignIndex = controlIndex(type, "align");
 
         grain = std::max(64, static_cast<int>(kGrainMs * 0.001 * rate));
         line.assign(static_cast<std::size_t>(grain) * 2 + 8, 0.0f);
@@ -1002,6 +1010,7 @@ public:
     {
         std::fill(line.begin(), line.end(), 0.0f);
         writePos = 0;
+        offset[0] = offset[1] = 0;
         // Head one starts at half a grain with the window fully open; head two at
         // zero with it closed. At a shift of zero this is a plain half-grain delay.
         phase = 0.5;
@@ -1019,6 +1028,7 @@ public:
         // Per sample, the delay as a fraction of a grain moves by (1 - ratio) / grain.
         const double step = (1.0 - ratio) / static_cast<double>(grain);
         const int    size = static_cast<int>(line.size());
+        const bool   align = controlAt(args, alignIndex, 0.0f) > 0.5f;
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
@@ -1030,17 +1040,30 @@ public:
             const double p1 = phase;
             const double p2 = phase < 0.5 ? phase + 0.5 : phase - 0.5;
 
-            const float shifted = read(p1, size) * window(p1) + read(p2, size) * window(p2);
-            const float dry     = read(0.5, size);
+            const float shifted = read(p1, size, offset[0]) * window(p1) + read(p2, size, offset[1]) * window(p2);
+            const float dry     = read(0.5, size, 0);
 
             out[i] = dry * (1.0f - mix) + shifted * mix;
 
+            const double before = phase;
             phase += step;
+            const bool wrapped = phase >= 1.0 || phase < 0.0;
             if (phase >= 1.0) phase -= 1.0;
             if (phase < 0.0)  phase += 1.0;
 
             if (++writePos >= size)
                 writePos = 0;
+
+            // A head that has just jumped is silent under its window, which makes this the
+            // moment to choose where it lands. Head one wraps with the phase; head two when
+            // the phase crosses a half.
+            if (align && step != 0.0)
+            {
+                if (wrapped)
+                    offset[0] = bestOffset(phase, offset[1], size, 0);
+                else if ((before - 0.5) * (phase - 0.5) < 0.0)
+                    offset[1] = bestOffset(phase < 0.5 ? phase + 0.5 : phase - 0.5, offset[0], size, 1);
+            }
         }
     }
 
@@ -1054,10 +1077,55 @@ private:
         return s * s;
     }
 
-    /// The line `p` of a grain ago, linearly interpolated.
-    float read(double p, int size) const noexcept
+    /// Where the head that has just jumped should land so that it joins the other in phase.
+    /// The last stretch the other head played is compared with the stretch behind each
+    /// candidate landing, and the candidate that matches best wins. Searching a quarter
+    /// of a grain either side keeps the head's delay near what its phase says.
+    int bestOffset(double newPhase, int otherOffset, int size, int self) const noexcept
     {
-        const double delay = p * grain;
+        const int window = grain / 4;                 // how much to compare
+        const int reach  = grain / 5;                 // how far to search
+        const double otherPhase = newPhase < 0.5 ? newPhase + 0.5 : newPhase - 0.5;
+        const int base  = static_cast<int>(newPhase * grain);
+        const int other = static_cast<int>(otherPhase * grain) + otherOffset;
+        (void) self;
+
+        const auto at = [&](int delay)
+        {
+            int index = writePos - 1 - std::clamp(delay, 0, size - 2);
+            if (index < 0) index += size;
+            return line[static_cast<std::size_t>(index)];
+        };
+
+        double bestScore = -1.0e30;
+        int best = 0;
+        for (int candidate = -reach; candidate <= reach; candidate += 2)
+        {
+            const int start = base + candidate;
+            if (start < 0 || start + window >= size - 2)
+                continue;
+
+            double cross = 0.0, energy = 1.0e-9;
+            for (int k = 0; k < window; k += 2)
+            {
+                const double a = at(start + k);
+                cross  += a * at(other + k);
+                energy += a * a;
+            }
+            const double score = cross / std::sqrt(energy);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    /// The line `p` of a grain ago, plus `extra` samples, linearly interpolated.
+    float read(double p, int size, int extra) const noexcept
+    {
+        const double delay = std::clamp(p * grain + extra, 0.0, static_cast<double>(size - 3));
         const int    whole = static_cast<int>(delay);
         const float  frac  = static_cast<float>(delay - whole);
 
@@ -1074,7 +1142,8 @@ private:
     int writePos = 0;
     double phase = 0.5;
     std::vector<float> line;
-    int pitchIndex = -1, mixIndex = -1;
+    int offset[2] = {0, 0};   ///< where each head's last jump was placed, in samples
+    int pitchIndex = -1, mixIndex = -1, alignIndex = -1;
 };
 
 /// Frequency shifter: every partial moves by the same number of hertz, so a harmonic
@@ -1340,6 +1409,200 @@ private:
         hfIndex = -1, hissIndex = -1, seedIndex = -1;
 };
 
+/// Bucket-brigade delay, after the Matsushita MN3005 in the Boss DD-3.
+///
+/// A bucket-brigade device passes each sample along a chain of 4096 stages, one step per
+/// clock edge, so its delay is the number of stages over twice the clock rate. Three
+/// things follow from that, and they are the whole character of the sound:
+///
+///   Bandwidth moves with delay. The clock is also the sampling rate, so the filters
+///   around the chain that keep the clock out must sit below half of it. A long delay
+///   needs a slow clock, so it is dark; a short one is bright. Here both filters follow
+///   the delay. `bandwidth` is the corner as a fraction of the clock rate.
+///
+///   Repeats darken. Feedback takes the output back through the same filters, so every
+///   trip round the loop removes more top end, which is why a BBD echo sits back in a mix.
+///
+///   Companding. The chain is noisy, so the signal is compressed 2:1 in decibels on the
+///   way in and expanded on the way out, which turns the noise down whenever the signal is
+///   quiet and gives the pedal its slight pump. The pair is exact for a signal passed
+///   through, and is applied around the chain only.
+///
+/// Changing the time moves the clock, which bends the pitch of what is in the chain, as on
+/// the pedal. What is not modelled: the range switch and hold mode, the clock's own
+/// leakage into the audio, and the stage-to-stage losses of a real chain.
+class BucketBrigade final : public DspElement
+{
+    static constexpr double kStages = 4096.0;
+    static constexpr double kPi = 3.14159265358979323846;
+    static constexpr double kMaxMs = 800.0;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        timeIndex     = controlIndex(type, "time");
+        feedbackIndex = controlIndex(type, "feedback");
+        bandwidthIndex = controlIndex(type, "bandwidth");
+        noiseIndex    = controlIndex(type, "noise");
+        companderIndex = controlIndex(type, "compander");
+        seedIndex     = controlIndex(type, "seed");
+
+        line.assign(static_cast<std::size_t>(kMaxMs * 0.001 * rate) + 8, 0.0f);
+        reset();
+    }
+
+    void reset() override
+    {
+        std::fill(line.begin(), line.end(), 0.0f);
+        writePos = 0;
+        delay = -1.0;
+        for (auto& f : pre) f = Section{};
+        post = Section{};
+        lastCorner = 0.0;   // the sections are back to identity, so the next block sets them again
+        compressEnv = expandEnv = 0.0;
+        reseeded = false;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const auto seed = static_cast<std::uint32_t>(std::max(controlAt(args, seedIndex, 1.0f), 0.0f));
+        if (! reseeded || seed != lastSeed)
+        {
+            random.seed(seed * 2654435761u + 0x9E3779B9u);
+            lastSeed = seed;
+            reseeded = true;
+        }
+
+        const double timeMs   = std::clamp(static_cast<double>(controlAt(args, timeIndex, 300.0f)), 5.0, kMaxMs);
+        const double feedback = std::clamp(static_cast<double>(controlAt(args, feedbackIndex, 0.3f)), 0.0, 1.1);
+        const double ratio    = std::clamp(static_cast<double>(controlAt(args, bandwidthIndex, 0.35f)), 0.05, 1.0);
+        const double noise    = std::pow(10.0, std::clamp(static_cast<double>(controlAt(args, noiseIndex, -75.0f)), -120.0, -30.0) / 20.0);
+        const bool   compand  = controlAt(args, companderIndex, 1.0f) > 0.5f;
+
+        const double target = timeMs * 0.001 * sampleRate;
+        if (delay < 0.0)
+            delay = target;
+
+        // Clock rate from the delay, and the corner of the filters from the clock.
+        const double clock  = kStages / (2.0 * timeMs * 0.001);
+        const double corner = std::clamp(ratio * clock, 200.0, 0.45 * sampleRate);
+        setFilters(corner);
+
+        const double slew = 1.0 / (0.03 * sampleRate);   // the clock settles in about 30 ms
+        const double detector = 1.0 / (0.01 * sampleRate);
+        const int    size = static_cast<int>(line.size());
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            delay += (target - delay) * slew;
+
+            // The oldest end of the chain, read between two stages.
+            const double d = std::clamp(delay, 2.0, static_cast<double>(size - 3));
+            const int whole = static_cast<int>(d);
+            const double frac = d - whole;
+            int a = writePos - whole;
+            if (a < 0) a += size;
+            int b = a - 1;
+            if (b < 0) b += size;
+            const double tapped = static_cast<double>(line[static_cast<std::size_t>(a)]) * (1.0 - frac)
+                                + static_cast<double>(line[static_cast<std::size_t>(b)]) * frac;
+
+            // Out of the chain: noise joins the signal here, in the compressed domain.
+            double y = tapped + noise * static_cast<double>(random.bipolar());
+            y = post.run(y);
+
+            double decoded = y;
+            if (compand)
+            {
+                expandEnv += detector * (y * y - expandEnv);
+                decoded = y * std::sqrt(expandEnv + 1.0e-8);
+            }
+            else
+            {
+                expandEnv = 0.0;
+            }
+
+            // Back into the chain: the input plus the repeat, kept bounded by a soft clip.
+            const double fed = static_cast<double>(in[i]) + std::tanh(feedback * decoded);
+            double x = fed;
+            if (compand)
+            {
+                compressEnv += detector * (fed * fed - compressEnv);
+                x = fed / std::sqrt(std::sqrt(compressEnv + 1.0e-8));
+            }
+            else
+            {
+                compressEnv = 0.0;
+            }
+
+            for (auto& f : pre)
+                x = f.run(x);
+            line[static_cast<std::size_t>(writePos)] = static_cast<float>(x);
+
+            out[i] = static_cast<float>(decoded);
+            if (++writePos >= size)
+                writePos = 0;
+        }
+    }
+
+private:
+    /// One biquad low-pass section, transposed direct form II.
+    struct Section
+    {
+        double b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0, z1 = 0.0, z2 = 0.0;
+
+        double run(double x) noexcept
+        {
+            const double y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            return y;
+        }
+
+        void lowpass(double hz, double q, double rate) noexcept
+        {
+            const double w0 = 2.0 * kPi * hz / rate;
+            const double alpha = std::sin(w0) / (2.0 * q);
+            const double c = std::cos(w0);
+            const double a0 = 1.0 + alpha;
+            b0 = (1.0 - c) * 0.5 / a0;
+            b1 = (1.0 - c) / a0;
+            b2 = b0;
+            a1 = -2.0 * c / a0;
+            a2 = (1.0 - alpha) / a0;
+        }
+    };
+
+    /// Fourth-order Butterworth before the chain, second order after it.
+    void setFilters(double corner) noexcept
+    {
+        if (corner == lastCorner)
+            return;
+        lastCorner = corner;
+        pre[0].lowpass(corner, 0.5412, sampleRate);
+        pre[1].lowpass(corner, 1.3066, sampleRate);
+        post.lowpass(corner, 0.7071, sampleRate);
+    }
+
+    double sampleRate = 48000.0, delay = -1.0, lastCorner = 0.0;
+    double compressEnv = 0.0, expandEnv = 0.0;
+    std::vector<float> line;
+    int writePos = 0;
+    Section pre[2], post;
+    dsp::Random random;
+    std::uint32_t lastSeed = 0;
+    bool reseeded = false;
+    int timeIndex = -1, feedbackIndex = -1, bandwidthIndex = -1, noiseIndex = -1,
+        companderIndex = -1, seedIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -1365,5 +1628,6 @@ void registerFilters(ElementRegistry& registry)
     registry.add("PitchShift",    &make<elements::PitchShift>);
     registry.add("FreqShifter",   &make<elements::FreqShifter>);
     registry.add("Tape",          &make<elements::Tape>);
+    registry.add("BucketBrigade", &make<elements::BucketBrigade>);
 }
 }  // namespace valis

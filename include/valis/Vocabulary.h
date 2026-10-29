@@ -40,6 +40,7 @@ inline constexpr std::string_view MIDI = "http://lv2plug.in/ns/ext/midi#";
 namespace rdf {
   inline const std::string type  = std::string(RDF) + "type";
   inline const std::string value = std::string(RDF) + "value";
+  inline const std::string Property = std::string(RDF) + "Property";
   inline const std::string first = std::string(RDF) + "first";
   inline const std::string rest  = std::string(RDF) + "rest";
   inline const std::string nil   = std::string(RDF) + "nil";
@@ -127,6 +128,8 @@ namespace val {
   inline const std::string Arc        = std::string(VAL) + "Arc";
   inline const std::string Param      = std::string(VAL) + "Param";
   inline const std::string Subcircuit = std::string(VAL) + "Subcircuit";
+  inline const std::string BufferPort = std::string(VAL) + "BufferPort";
+  inline const std::string hasOption  = std::string(VAL) + "hasOption";
 
   // Structure
   inline const std::string element        = std::string(VAL) + "element";

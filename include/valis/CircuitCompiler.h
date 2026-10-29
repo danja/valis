@@ -80,6 +80,10 @@ struct CompiledCircuit
     struct Link { int from, to; std::string fromPort, toPort; double depth; };
     std::vector<Link> audioLinks;
 
+    /// Buffer arcs: the receiver reads material the sender owns. The engine connects
+    /// them once every element exists; nothing is copied and no buffer is assigned.
+    std::vector<Link> bufferLinks;
+
     /// A control arc, resolved to a source slot and a destination control
     /// input index on the destination node.
     struct ControlLink

@@ -100,6 +100,26 @@ val:Mixer the expansion adds, so everything downstream sees one signal. A contro
 output cannot be exposed, because there is one value per voice and no honest way
 to choose between them.""" .
 
+val:hasOption a rdf:Property ; rdfs:domain val:Element ; rdfs:range rdf:Property ;
+    rdfs:comment """Names a val: property, other than a port, that an element class accepts on
+an instance: a file, a pattern, a buffer length. The property is declared once with
+what it means; each class lists the ones it takes. Every element also accepts
+val:oversampling. An option the element recognises but cannot apply fails the load with
+a message naming the element and the option; one it does not recognise is ignored.""" .
+
+val:fftSize a rdf:Property ; rdfs:range xsd:integer ;
+    rdfs:label "fftSize" ;
+    rdfs:comment """The window of a spectral element, in samples: a power of two from 64 to 8192
+(default 1024). A larger window separates frequencies more finely and costs more latency, which
+the element reports to the host.""" .
+
+val:model a rdf:Property ; rdfs:range xsd:string ;
+    rdfs:label "model" ;
+    rdfs:comment """Path to a Neural Amp Modeler capture, a .nam file, read on the message thread.
+Paths resolve as val:file does. A file that is missing, unreadable or trained at another sample
+rate does not fail the load: the element passes its input through and reports why in
+get_diagnostics.""" .
+
 val:oversampling a rdf:Property ; rdfs:domain val:Element ; rdfs:range xsd:integer ;
     rdfs:comment """Runs this element at a multiple of the sample rate: 1, 2, 4, 8
 or 16. The engine wraps the element, so any element can be oversampled and one
@@ -283,6 +303,17 @@ Declared but not implemented: this is the seam for future component-level
 
 val:Oscillator a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Oscillator" ;
+    rdfs:comment """A band-limited oscillator that makes a sine, saw, square or triangle wave at val:frequency, chosen by
+val:shape (0 sine, 1 saw, 2 square, 3 triangle). It is the usual start of a synthesiser voice.
+
+The saw and square are corrected near their jumps so that they do not alias, which is the harsh
+inharmonic whine a naive digital saw makes at high pitch (https://en.wikipedia.org/wiki/Aliasing).
+The output swings between -1 and 1, so pass it through a val:VCA or a val:Gain before the output.
+
+Drive val:frequency from a control arc: val:MidiPitch for a keyboard, a val:StepSequencer's pitch
+for a pattern, a val:LFO for vibrato. A control arc replaces the frequency, so a resting pitch
+belongs in the source and not on this element. The shape is a choice and not a blend; to move
+smoothly between timbres use val:Wavetable.""" ;
     val:implementation "Oscillator" ;
     val:linear false ;
     lv2:port
@@ -346,6 +377,14 @@ A change of val:position is smoothed across the block. A change of val:set is im
 
 val:Noise a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Noise" ;
+    rdfs:comment """A source of random samples between -1 and 1. val:colour blends from white noise (0), which has the
+same energy at every frequency and sounds like hiss, to pink noise (1), which has the same energy in
+every octave and sounds like rain or a waterfall (https://en.wikipedia.org/wiki/Pink_noise).
+
+Use it as the raw material of percussion (hats, snares, claps) by shaping it with a val:Envelope
+into a val:VCA and a filter; as the breath of a wind instrument; or to excite a resonator such as a
+val:ModalBank or val:CombFilter. The sequence is the same every time after a reset, so a render
+repeats exactly.""" ;
     val:implementation "Noise" ;
     val:linear false ;
     lv2:port
@@ -564,7 +603,13 @@ envelope: connect val:RateLevelEnvelope outputs to them. The note is shared, wit
 a val:ratio and val:detune for each operator.
 
 A DX7 algorithm is a choice of matrix entries and carriers. Algorithm 5, for
-example, is m12, m34 and m56 set to 1 with carriers 1, 3 and 5. See
+example, is m12, m34 and m56 set to 1 with carriers 1, 3 and 5. Setting
+val:algorithm to a number from 1 to 32 does that for any of the DX7's own algorithms:
+it takes over the matrix and the carriers, and val:feedback is the single feedback
+control the machine has, applied to whichever operator the algorithm gives it to. In
+algorithms 4 and 6 the feedback runs through a loop of operators (4 back to 6, and 5
+back to 6) rather than from an operator to itself. With val:algorithm at 0 the matrix
+and carrier ports apply instead. See
 https://en.wikipedia.org/wiki/Frequency_modulation_synthesis""" ;
     val:implementation "FMMatrix" ;
     val:linear false ;
@@ -578,6 +623,15 @@ https://en.wikipedia.org/wiki/Frequency_modulation_synthesis""" ;
         lv2:name "Depth" ; lv2:default 12.566371 ;
         lv2:minimum 0.0 ; lv2:maximum 50.0 ;
         rdfs:comment "Radians of phase shift at a modulation amount of 1." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "algorithm" ;
+        lv2:name "Algorithm" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 32.0 ;
+        lv2:portProperty lv2:integer ;
+        rdfs:comment "0 uses the matrix and carriers below. 1 to 32 is a DX7 algorithm, which sets every modulation entry and every carrier itself; the ratios, levels and amps still apply." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ;
+        rdfs:comment "The DX7's feedback control, 0 to 7, for the operator an algorithm gives it to. Used only with an algorithm; the matrix has its own on the diagonal." ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratio1" ;
         lv2:name "Ratio 1" ; lv2:default 1.0 ;
         lv2:minimum 0.0 ; lv2:maximum 32.0 ] ,
@@ -844,6 +898,14 @@ See Fabre and Hirschberg, and Julius Smith, Physical Audio Signal Processing,
 
 val:OnePole a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "OnePole" ;
+    rdfs:comment """A first-order filter with a gentle 6 dB per octave slope. val:mode picks lowpass (0), which
+darkens; highpass (1), which removes low frequencies; or allpass (2), which changes only the phase.
+val:cutoff is the corner frequency, from 20 Hz to 20 kHz.
+
+It is the right tool for a light touch: softening a click, a tone control, taking rumble and DC
+out of a signal (a highpass at 20 to 40 Hz), or smoothing a jumpy signal. For a steeper or resonant
+filter use val:Ladder, val:StateVariable or val:Biquad. A control arc into val:cutoff replaces it
+every block, so put the resting corner in the source.""" ;
     val:implementation "OnePole" ;
     val:linear true ;
     lv2:port
@@ -890,7 +952,18 @@ amplitude. At 1 the saturator is off and the filter is exactly linear.""" ;
 
 val:Ladder a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Ladder" ;
-    rdfs:comment "Moog-style ladder. Has memory and is nonlinear." ;
+    rdfs:comment """A four-pole lowpass filter (24 dB per octave) in the style of the Moog ladder, with a saturating
+stage at its input inside the feedback loop (https://en.wikipedia.org/wiki/Moog_filter). It has
+memory and is nonlinear.
+
+val:cutoff is the corner frequency. val:resonance, from 0 to 1, feeds the output back to the input:
+low settings add a peak at the corner, and near the top of the range the filter rings and whistles
+on its own. val:drive, from 1 to 20, pushes the input harder into the saturation for warmth and grit
+at the cost of level.
+
+The classic subtractive voice is val:Oscillator into this into a val:VCA, with a val:Envelope
+through a val:Scale sweeping val:cutoff. A control arc into val:cutoff replaces the value every
+block, so put the resting cutoff in the Scale's min.""" ;
     val:implementation "Ladder" ;
     val:linear false ;
     lv2:port
@@ -1001,7 +1074,13 @@ make it more obvious.
 The dry signal is delayed by half a grain to match the average delay of the shifted one, so
 val:mix gives a blend that does not comb. That 15 ms is declared as latency. Returning val:pitch
 to 0 after a shift leaves the heads where they are, which can colour the sound slightly
-until the shift is moved again.""" ;
+until the shift is moved again.
+
+val:align picks the place each head lands when it jumps back by comparing the stretch it
+is about to play with the one the other head has just played, within a fifth of a grain
+either side, and taking the best match. The crossfade then joins waveforms that agree, which
+is what takes the tremolo off a held chord. It costs some processing per jump, and it is off
+by default because the search can pick the wrong point on a very noisy or unpitched sound.""" ;
     val:implementation "PitchShift" ;
     val:linear true ;
     lv2:port
@@ -1012,7 +1091,14 @@ until the shift is moved again.""" ;
         lv2:minimum -24.0 ; lv2:maximum 24.0 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
         lv2:name "Mix" ; lv2:default 1.0 ;
-        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "align" ;
+        lv2:name "Align" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Off" ; rdf:value 0 ] ,
+                       [ rdfs:label "On"  ; rdf:value 1 ] ;
+        rdfs:comment "Chooses where each head lands by correlation with the other, so the crossfade joins in phase." ] .
 
 val:FreqShifter a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "FreqShifter" ;
@@ -1086,12 +1172,68 @@ See https://en.wikipedia.org/wiki/Wow_and_flutter_measurement""" ;
         lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
         lv2:portProperty lv2:integer ] .
 
+val:BucketBrigade a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "BucketBrigade" ;
+    rdfs:comment """An analogue bucket-brigade delay, after the Matsushita MN3005 in the Boss
+DD-3. The chip passes each sample along 4096 stages, one step per clock edge, so the delay is
+4096 over twice the clock rate, and because the clock is also the sampling rate the filters
+around the chain have to follow it. The output is the delayed signal alone; mix it with the
+dry signal in the circuit.
+
+Three things follow, and they are modelled. A long delay is dark and a short one bright,
+because the filters sit at val:bandwidth times the clock rate: at 0.35, 800 ms gives a corner
+near 900 Hz and 50 ms one near 14 kHz. Repeats darken, because val:feedback takes the output
+back through the same filters. And the chain is noisy, so the signal is compressed 2:1 in
+decibels going in and expanded coming out (val:compander), which hides the noise when the
+signal is quiet and adds a slight pump. val:noise is the level of the noise in the chain.
+
+Changing val:time moves the clock and bends the pitch of what is in the chain, as the pedal
+does. val:feedback up to 1.1 can self-oscillate; a soft clip in the loop keeps it bounded.
+Not modelled: the pedal's range switch and hold mode, the clock's leakage into the audio, and
+the losses between stages of a real chain. The seed chooses the noise.
+
+See https://en.wikipedia.org/wiki/Bucket-brigade_device""" ;
+    val:implementation "BucketBrigade" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "time" ;
+        lv2:name "Time" ; lv2:default 300.0 ;
+        lv2:minimum 5.0 ; lv2:maximum 800.0 ;
+        lv2:portProperty lv2:logarithmic ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.3 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.1 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bandwidth" ;
+        lv2:name "Bandwidth" ; lv2:default 0.35 ;
+        lv2:minimum 0.05 ; lv2:maximum 1.0 ;
+        rdfs:comment "The filters' corner as a fraction of the BBD clock rate." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "noise" ;
+        lv2:name "Noise" ; lv2:default -75.0 ;
+        lv2:minimum -120.0 ; lv2:maximum -30.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "compander" ;
+        lv2:name "Compander" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Off" ; rdf:value 0 ] ,
+                       [ rdfs:label "On"  ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "seed" ;
+        lv2:name "Seed" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
+        lv2:portProperty lv2:integer ] .
+
 val:Chorus a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Chorus" ;
-    rdfs:comment """Three-voice chorus. Bucket-brigade-style delay lines modulated
-by sine LFOs with evenly distributed phases (0°, 120°, 240°) produce the
-characteristic shimmer. A single circular buffer is pre-allocated in prepare();
-process() never allocates.""" ;
+    rdfs:comment """A three-voice chorus. Three short delays of about 7 milliseconds are each swept by a sine LFO,
+spaced evenly round the cycle, and mixed back with the dry signal. The pitch of each wobbles
+slightly as its delay moves, and the three together thicken the sound as if several players were
+playing at once (https://en.wikipedia.org/wiki/Chorus_effect).
+
+val:rate is the LFO speed (0.01 to 10 Hz), val:depth is how far the delay swings (up to 3.5 ms)
+and val:mix is the wet-to-dry balance. Slow and shallow is subtle thickening; faster and deeper
+is warble. Use it on pads, guitars and electric pianos. For a swirling, resonant sweep use
+val:Flanger or val:Phaser.""" ;
     val:implementation "Chorus" ;
     val:linear false ;
     lv2:port
@@ -1112,9 +1254,15 @@ process() never allocates.""" ;
 
 val:Flanger a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Flanger" ;
-    rdfs:comment """Single-voice LFO-modulated short delay with feedback. Comb-filtering
-from the feedback creates the characteristic jet-flanging sweep. Centre delay is 5 ms;
-depth sweeps up to ±4 ms. Negative feedback values invert the comb pattern.""" ;
+    rdfs:comment """A single short delay of about 5 milliseconds, swept by a sine LFO, with feedback. Mixed with the
+dry signal it makes a comb filter whose notches move as the delay changes, the jet-plane sweep
+(https://en.wikipedia.org/wiki/Flanging).
+
+val:rate is the sweep speed (0.01 to 10 Hz), val:depth the swing of the delay (up to 4 ms) and
+val:mix the balance with the dry signal. val:feedback, from -0.95 to 0.95, sends the delayed signal
+back in: more feedback makes the notches deeper and the sound more metallic, and a negative value
+gives a hollower tone. It works best on bright, harmonically rich material such as drums and
+guitar. For a gentler thickening use val:Chorus.""" ;
     val:implementation "Flanger" ;
     val:linear false ;
     lv2:port
@@ -1135,9 +1283,15 @@ depth sweeps up to ±4 ms. Negative feedback values invert the comb pattern.""" 
 
 val:Phaser a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Phaser" ;
-    rdfs:comment """Four-stage first-order all-pass chain with LFO modulation and feedback.
-The pole frequency is swept by a sine LFO between 100 Hz and 100 + depth·1900 Hz,
-creating two notches in the frequency response. Feedback deepens the notches.""" ;
+    rdfs:comment """A chain of four first-order allpass filters whose corner frequency is swept by a sine LFO, with
+feedback from the end of the chain to its start. The allpass stages change the phase of the signal
+and not its level; mixed with the dry signal, the phase differences cancel at some frequencies and
+make notches that move with the sweep (https://en.wikipedia.org/wiki/Phaser_(effect)).
+
+val:rate is the sweep speed (0.01 to 10 Hz), val:depth sets how wide the sweep is (the corner moves
+from 100 Hz to 100 plus depth times 1900 Hz), val:feedback (0 to 0.9) deepens the notches, and
+val:mix is the balance with the dry signal. It is softer and more vocal than val:Flanger, whose
+notches are evenly spaced. Use it on keys, guitar and pads.""" ;
     val:implementation "Phaser" ;
     val:linear false ;
     lv2:port
@@ -1269,8 +1423,16 @@ Connect val:MidiPitch to frequency for pitch-tracked resonance.""" ;
 
 val:Tanh a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "Tanh" ;
-    rdfs:comment "Symmetric saturation, y = tanh(gain * x)." ;
+    rdfs:comment """Symmetric soft saturation: the output is the hyperbolic tangent of val:gain times the input
+(https://en.wikipedia.org/wiki/Hyperbolic_functions). Small signals pass with a gain of val:gain;
+large ones are squeezed smoothly towards plus and minus 1 and never exceed it.
+
+It adds odd harmonics, strongly at high gain, and sounds warm and tube-like rather than harsh. Put
+it after a val:Gain or a filter to make overdrive, or use it to round off peaks. val:antialiasing
+reduces the aliasing that the harmonics cause, and val:oversampling reduces it further. For a
+softer knee see val:SinArcTan and val:SoftSine; for a hard edge see val:HardClip.""" ;
     val:implementation "Tanh" ;
+    val:hasOption val:antialiasing ;
     val:linear false ;
     val:antialiasing val:ADAA2 ;
     lv2:port
@@ -1282,6 +1444,14 @@ val:Tanh a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:HardClip a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "HardClip" ;
+    rdfs:comment """Cuts the signal flat at plus and minus val:threshold (0.01 to 2, default 1). Anything beyond the
+threshold is removed, so the result is a flat top: the harshest distortion here, rich in strong odd
+harmonics.
+
+Use it as a safety stage before the output, or for deliberately raw fuzz. Hard edges alias badly
+(https://en.wikipedia.org/wiki/Aliasing), so run it at a higher rate with val:oversampling for a
+clean result. For a rounder sound use val:Tanh, val:SinArcTan or val:SoftSine, and for the response
+of real diodes use val:Diode or val:DiodePair.""" ;
     val:implementation "HardClip" ;
     val:linear false ;
     lv2:port
@@ -1293,7 +1463,15 @@ val:HardClip a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:Fold a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "Fold" ;
-    rdfs:comment "Wavefolder." ;
+    rdfs:comment """A wavefolder. The input is multiplied by val:gain, and any part of it that goes beyond the limits is
+reflected back instead of clipped, so the wave folds over itself like a sheet of paper. The output
+stays between -1 and 1 however hard it is driven.
+
+The more gain, the more folds and the brighter and more complex the sound; a plain sine becomes a
+rich, shifting timbre as the gain rises, which is the basis of West-coast synthesis
+(https://en.wikipedia.org/wiki/Wavefolder). Sweep val:gain with an envelope or an LFO for
+movement. Folding creates harmonics far above the input, so use val:oversampling to keep aliasing
+down at high gain.""" ;
     val:implementation "Fold" ;
     val:linear false ;
     lv2:port
@@ -1305,9 +1483,17 @@ val:Fold a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:Diode a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "Diode" ;
-    rdfs:comment """A single junction diode, Shockley equation:
-i = Is * (exp(v / (n * Vt)) - 1). Defaults are a 1N4148 signal diode at room
-temperature. Conducts in one direction only, so it clips asymmetrically.""" ;
+    rdfs:comment """A single junction diode clipping a signal, from the Shockley equation
+(https://en.wikipedia.org/wiki/Shockley_diode_equation): i = Is * (exp(v / (n * Vt)) - 1).
+val:saturationCurrent (Is), val:emissionCoefficient (n) and val:thermalVoltage (Vt) are the
+diode's own parameters, and the defaults are a 1N4148 signal diode at room temperature.
+
+A diode conducts in one direction only. The positive half of the signal is squeezed
+logarithmically, against a resistor of 1 kilohm that is fixed here, and the negative half passes
+unchanged, because a reverse-biased diode is open. That asymmetry adds even harmonics as well as odd
+ones, which makes a fuller sound than a symmetric clipper. Treat the input as volts: the output is
+small, so follow it with a val:Gain. For two diodes in opposite directions, which clip both halves
+alike and expose the resistor, use val:DiodePair; for diodes that do not match, val:AsymClip.""" ;
     val:implementation "Diode" ;
     val:linear false ;
     lv2:port
@@ -1327,8 +1513,16 @@ temperature. Conducts in one direction only, so it clips asymmetrically.""" ;
 
 val:DiodePair a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "DiodePair" ;
-    rdfs:comment """Two diodes in antiparallel, the classic soft clipper. Uses
-the same Shockley parameters as val:Diode but clips symmetrically.""" ;
+    rdfs:comment """Two diodes in antiparallel across a signal, the classic soft clipper of overdrive and distortion
+pedals (https://en.wikipedia.org/wiki/Clipper_(electronics)). Their current rises exponentially
+with voltage, so the output rises with the input at first and then flattens, symmetrically. The
+Shockley equation gives the shape: val:saturationCurrent and val:emissionCoefficient are the diode's
+parameters, with defaults close to a silicon 1N4148, and val:seriesResistance is the resistor the
+diodes shunt against (1 ohm to 1 megohm, default 1 kilohm).
+
+Treat the input as volts. The output stays below about half a volt, so the signal comes out much
+quieter than it went in; follow it with a val:Gain. A larger resistance clips earlier. Because it is
+symmetric it adds odd harmonics; for even harmonics as well use val:Diode or val:AsymClip.""" ;
     val:implementation "DiodePair" ;
     val:linear false ;
     lv2:port
@@ -1347,8 +1541,16 @@ the same Shockley parameters as val:Diode but clips symmetrically.""" ;
 
 val:Triode a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "Triode" ;
-    rdfs:comment """A triode valve stage, Koren-style. Asymmetric, with grid
-conduction on positive excursions. Defaults approximate a 12AX7.""" ;
+    rdfs:comment """A waveshaper in the manner of a triode valve stage, as in the preamp of a guitar amplifier
+(https://en.wikipedia.org/wiki/Triode). The input is offset by val:bias, in volts and negative
+as in a real stage; positive excursions are compressed softly as the grid starts to conduct, and
+negative ones are cut off more abruptly. The two halves are shaped differently, so it adds both even
+and odd harmonics and sounds richer than a symmetric clipper. val:mu, the amplification factor
+(1 to 250, about 100 for a 12AX7), scales how much the stage changes the signal.
+
+It is a model of the behaviour and not a circuit solution. Chain two or three with val:OnePole
+highpass filters between them to build up the cascading gain stages of an amplifier; the output has a
+DC offset, so couple stages with a highpass at 20 Hz or so before the next one.""" ;
     val:implementation "Triode" ;
     val:linear false ;
     lv2:port
@@ -1365,7 +1567,15 @@ conduction on positive excursions. Defaults approximate a 12AX7.""" ;
 
 val:AsymClip a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "AsymClip" ;
-    rdfs:comment "Asymmetric soft clipper: independent positive and negative thresholds model mismatched diodes (e.g. Klon Centaur: 2× germanium vs 1× Schottky)." ;
+    rdfs:comment """An asymmetric soft clipper with separate thresholds for the positive and negative halves, which
+models diodes that are not matched, such as the pair in a Klon Centaur (a germanium pair on one half
+and a single Schottky on the other). val:drive multiplies the input first; val:posVf and val:negVf
+(0.01 to 2, default 0.3 and 0.6) are the voltages at which each half starts to round off.
+
+Clipping the two halves differently adds even harmonics as well as odd ones, which sounds fuller
+and less harsh than a symmetric clipper. Lower thresholds clip earlier and harder. Keep the two
+different for the effect; set them equal and it becomes a symmetric clipper. Use after a val:Gain
+that sets how hard the signal arrives.""" ;
     val:implementation "AsymClip" ;
     val:linear false ;
     lv2:port
@@ -1389,6 +1599,13 @@ val:AsymClip a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:Gain a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Gain" ;
+    rdfs:comment """Multiplies the audio by a fixed amount, set in decibels. 0 dB leaves it unchanged, -6 dB roughly
+halves the amplitude and +6 dB roughly doubles it. The range is -60 to +24 dB.
+
+Use it to match levels between stages, to set how hard a signal hits a nonlinear element such as
+val:Tanh or val:Ladder, and to make up the level that a clipper or the val:DiodePair takes away. A
+sum from a val:Mixer often needs a negative gain to stay under full scale. A control arc into
+val:gain replaces the value every block.""" ;
     val:implementation "Gain" ;
     val:linear true ;
     lv2:port
@@ -1400,7 +1617,14 @@ val:Gain a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:VCA a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "VCA" ;
-    rdfs:comment "Voltage-controlled amplifier. Multiplies audio linearly by a 0–1 CV signal. Connect val:Envelope to the cv port for proper amplitude shaping." ;
+    rdfs:comment """A voltage-controlled amplifier: it multiplies the audio by val:cv, a control value held between 0
+(silence) and 1 (full level). It is how a note gets its shape: a val:Envelope into val:cv makes the
+sound start, hold and die away.
+
+The usual wiring is val:Oscillator into this into val:Output, with the envelope on a control arc to
+val:cv. Because val:cv is read once per control block of 32 samples, very fast changes step rather
+than glide. Several VCAs in series multiply, so velocity and an envelope can each have their own.
+A control arc replaces val:cv every block. Use val:Gain for a fixed level in decibels.""" ;
     val:implementation "VCA" ;
     val:linear true ;
     lv2:port
@@ -1412,7 +1636,14 @@ val:VCA a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Mixer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Mixer" ;
-    rdfs:comment "Sums its inputs across mono (in/out) and stereo (left/right) channels. Several arcs may target the same input port." ;
+    rdfs:comment """Adds together every signal that arrives at it. It is the only element where more than one arc may
+reach the same input; anywhere else a second arc is an error. Mono signals go to val:in and come
+out at val:out; stereo signals go to val:left and val:right and come out at the matching outputs.
+
+Nothing is scaled, so several full-level signals add up past full scale and clip. Follow a mixer of
+several voices with a val:Gain of a few decibels below zero, or a val:Limiter. Use it to combine
+voices, to add a dry signal to an effect's output, or to merge an envelope-shaped noise burst with
+a tone.""" ;
     val:implementation "Mixer" ;
     val:linear true ;
     lv2:port
@@ -1439,6 +1670,7 @@ and repeating at the scale's last interval. The output is in semitones, so a sca
 other than twelve notes gives fractions. Without a val:tuning, Custom passes the value
 through unchanged.""" ;
     val:implementation "Quantise" ;
+    val:hasOption val:tuning ;
     val:linear false ;
     lv2:port
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "in" ;
@@ -1474,7 +1706,14 @@ published in the Scala archive, <https://www.huygens-fokker.org/docs/scales.zip>
 
 val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Scale" ;
-    rdfs:comment "Remaps a 0–1 control signal to [min, max]. Bridges Envelope to targets expecting physical units such as Hz or ms." ;
+    rdfs:comment """Maps a control signal onto a range: the output is min + in * (max - min). Fed an envelope or a
+signal running from 0 to 1, it turns it into a value in the units the target wants, such as a
+cutoff in hertz between val:min and val:max. A value outside 0 to 1 continues along the same line.
+
+It is also where a resting value belongs. A control arc replaces the target port every block, so
+a filter's base cutoff cannot be set on the filter; it is val:min here, and the envelope lifts it
+toward val:max. Setting val:min above val:max inverts the signal, which is how to make an envelope
+that closes a gate or ducks a level.""" ;
     val:implementation "Scale" ;
     val:linear true ;
     lv2:port
@@ -1491,7 +1730,13 @@ val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:ControlMultiply a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "ControlMultiply" ;
-    rdfs:comment "Multiplies two control signals. Use it to apply velocity or modulation depth to another control path." ;
+    rdfs:comment """Multiplies two control signals: the output is val:a times val:b. Use it to apply one control to
+another, such as velocity to an envelope's level, a modulation depth to an LFO, or a note's
+frequency to a pitch ratio (val:MidiPitch times a pitch envelope's ratio gives a note that bends).
+
+Control signals update once per block of 32 samples, so this multiplies control values and not
+audio. To multiply audio by a control, use val:VCA; for audio times audio there is no element
+yet. Both inputs usually come from control arcs; an input with no arc keeps its own value.""" ;
     val:implementation "ControlMultiply" ;
     val:linear true ;
     lv2:port
@@ -1500,6 +1745,90 @@ val:ControlMultiply a rdfs:Class ; rdfs:subClassOf val:Element ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "b" ;
         lv2:name "B" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
+
+val:AudioSelect a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "AudioSelect" ;
+    rdfs:comment """Passes one of three audio inputs, a, b or c, chosen by val:select. A change of
+choice is a five millisecond crossfade, so switching does not click. Use it to pick between the
+outputs of one element, such as the lowpass, bandpass and highpass of a val:StateVariable, with
+a single control.""" ;
+    val:implementation "AudioSelect" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "a" ; lv2:name "A" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "b" ; lv2:name "B" ] ,
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "c" ; lv2:name "C" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "select" ;
+        lv2:name "Select" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 2.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "A" ; rdf:value 0 ] ,
+                       [ rdfs:label "B" ; rdf:value 1 ] ,
+                       [ rdfs:label "C" ; rdf:value 2 ] ] .
+
+val:pattern a rdf:Property ;
+    rdfs:label "pattern" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The steps of a val:StepSequencer, separated by spaces: a note name such as C3,
+F#2 or Bb4 (C4 is middle C, MIDI note 60), a number from 0 to 127, or . for a rest. At most 64.""" .
+
+val:StepSequencer a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "StepSequencer" ;
+    rdfs:comment """Plays a pattern of notes and rests in time with the host. val:pattern lists the
+steps; each lasts val:division quarter notes, so the default 0.25 is a sixteenth and a pattern
+of sixteen steps is one bar of four-four. While the host plays, the step follows its musical
+position, so the sequence stays in time through a relocate and whatever the buffer size. When
+the host is stopped it runs on its own at the last tempo, as val:Transport does.
+
+val:gate is high for the first val:gatelength of each step that holds a note, and low on rests.
+val:note is the step's MIDI note, val:pitch the same in hertz, for an oscillator, and val:step
+the step number, from 0. val:transpose moves the whole pattern in semitones. Connect val:gate to
+a val:Envelope's gate and val:pitch to an oscillator's frequency. The sequencer sounds nothing
+itself: it is the sequencer in a circuit and not the voice.""" ;
+    val:implementation "StepSequencer" ;
+    val:hasOption val:pattern ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "gate" ; lv2:name "Gate" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "note" ; lv2:name "Note" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 127.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "pitch" ; lv2:name "Pitch" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "step" ; lv2:name "Step" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 63.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "division" ;
+        lv2:name "Division" ; lv2:default 0.25 ;
+        lv2:minimum 0.015625 ; lv2:maximum 16.0 ;
+        rdfs:comment "Length of a step in quarter notes." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gatelength" ;
+        lv2:name "Gate length" ; lv2:default 0.5 ;
+        lv2:minimum 0.01 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "transpose" ;
+        lv2:name "Transpose" ; lv2:default 0.0 ;
+        lv2:minimum -48.0 ; lv2:maximum 48.0 ; lv2:portProperty lv2:integer ; units:unit units:semitone12TET ] .
+
+val:ControlMax a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "ControlMax" ;
+    rdfs:comment """The largest of up to three control signals. Used on gates it is an OR: the
+output is high when any input is, which lets several gates reach a port that takes one arc,
+such as a val:SampleLoad's val:choke. An input with nothing connected never wins.""" ;
+    val:implementation "ControlMax" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "a" ;
+        lv2:name "A" ; lv2:default -1.0e6 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "b" ;
+        lv2:name "B" ; lv2:default -1.0e6 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "c" ;
+        lv2:name "C" ; lv2:default -1.0e6 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
         lv2:name "Out" ; lv2:default 0.0 ;
@@ -1539,7 +1868,13 @@ val:ControlMultiply to gate a control path off.""" ;
 
 val:Pan a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Pan" ;
-    rdfs:comment "Equal-power stereo panner. Maps mono audio in to left, right, and combined out." ;
+    rdfs:comment """An equal-power stereo panner. It takes a mono signal and places it between the left and right
+channels with val:pan, from -1 (all left) through 0 (centre) to 1 (all right). Equal power means
+the loudness stays the same as the sound moves, rather than dipping in the middle.
+
+The outputs are val:left and val:right, which go to the matching inputs of val:Output (or of a
+val:Mixer), and val:out, the combined signal. Use one per voice to spread a drum kit or a chord
+across the stereo field, and drive val:pan from a val:LFO or a val:Drift for movement.""" ;
     val:implementation "Pan" ;
     val:linear true ;
     lv2:port
@@ -1552,7 +1887,14 @@ val:Pan a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Choke a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Choke" ;
-    rdfs:comment "Control gate choke. Passes input gate, but drops to 0 when a choke trigger is received." ;
+    rdfs:comment """A gate that can be cut off by another. It passes val:gate through to val:out until val:choke goes
+high; then the output drops to zero and stays there until the next rising edge of val:gate, so the
+next note plays normally.
+
+This is the hi-hat rule: playing the closed hat chokes the open hat. Feed the open hat's note gate
+to val:gate and the closed hat's gate to val:choke. It acts on a control signal, so it stops
+the trigger of a sound and not a sample that is already playing; to cut a sample off mid-play use
+the choke port of val:SampleLoad, with val:ControlMax to combine several gates.""" ;
     val:implementation "Choke" ;
     val:linear false ;
     lv2:port
@@ -1565,7 +1907,14 @@ val:Choke a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:SignalGenerator a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "SignalGenerator" ;
-    rdfs:comment "Test signal generator for circuit development and testing." ;
+    rdfs:comment """A test signal source for trying a circuit without a keyboard or a recording: a sine (shape 0),
+square (1), saw (2), triangle (3), white noise (4) or an impulse train at the frequency (5), at
+val:frequency (1 Hz to 20 kHz) and val:amplitude (0 to 1).
+
+The waves are plain geometric shapes without the correction that val:Oscillator applies, so at high
+frequencies they alias; use it to exercise effects and to measure, and use val:Oscillator for
+anything meant to be played. An impulse train is the quickest way to see an effect's decay or an
+echo. The noise sequence is the same every time, so a render repeats exactly.""" ;
     val:implementation "SignalGenerator" ;
     val:linear false ;
     lv2:port
@@ -1582,7 +1931,14 @@ val:SignalGenerator a rdfs:Class ; rdfs:subClassOf val:Source ;
 
 val:Oscilloscope a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Oscilloscope" ;
-    rdfs:comment "Waveform and level monitor element. Passes audio through and outputs peak, RMS and frequency controls." ;
+    rdfs:comment """A monitor: it passes audio straight through and measures it. Its control outputs val:peak, val:rms
+and val:frequency (an estimate of the pitch) are what the Controls view draws as a waveform and a
+level, and what the read_outputs tool returns.
+
+Put one in the signal path to watch a signal at that point, or branch the audio to it and leave
+its output unconnected. It changes nothing in the sound and costs little. An element that has no
+path to the output is normally reported as unheard by lint; a monitor is the exception, because
+looking at a signal is its purpose.""" ;
     val:implementation "Oscilloscope" ;
     val:linear true ;
     lv2:port
@@ -1642,6 +1998,7 @@ window separates frequencies more finely and costs more latency.
 
 See https://en.wikipedia.org/wiki/Short-time_Fourier_transform""" ;
     val:implementation "SpectralGate" ;
+    val:hasOption val:fftSize ;
     val:linear false ;
     lv2:port
       [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
@@ -1665,6 +2022,7 @@ for val:SpectralGate; a larger window costs more latency, which is declared.
 
 See https://en.wikipedia.org/wiki/Short-time_Fourier_transform""" ;
     val:implementation "SpectralDelay" ;
+    val:hasOption val:fftSize ;
     val:linear true ;
     lv2:port
       [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
@@ -1745,7 +2103,14 @@ See https://en.wikipedia.org/wiki/Linear_predictive_coding""" ;
 
 val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "FreqAnalyzer" ;
-    rdfs:comment "Spectrum analysis meter element. Measures low, mid, high band energies and spectral centroid." ;
+    rdfs:comment """A monitor: it passes audio straight through and measures where its energy is. Its control outputs
+val:low, val:mid and val:high are the share of energy in three bands (each 0 to 1), and
+val:centroid is the spectrum's centre of mass in hertz, higher meaning brighter. The Controls view
+draws them as a spectrum, and the read_outputs tool returns them.
+
+Put one in the signal path, or branch the audio to it. It changes nothing in the sound. For a
+fuller measurement of a whole render, with the pitch and the level of each octave, use the
+analyze tool.""" ;
     val:implementation "FreqAnalyzer" ;
     val:linear true ;
     lv2:port
@@ -1762,7 +2127,15 @@ val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Delay a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Delay" ;
-    rdfs:comment "Single-tap delay line with feedback. Maximum delay 5 seconds." ;
+    rdfs:comment """A single-tap delay line with feedback, up to 5 seconds. val:time is the delay in milliseconds and
+val:feedback, from 0 to 0.99, sends that fraction of the delayed signal back in, so each repeat is
+quieter than the last. The output is the delayed signal alone, with none of the dry input, so mix
+the two with a val:Mixer or a val:DryWet.
+
+The delay is a whole number of samples and the repeats are not filtered, so they are clean and
+exact. Changing val:time while sound is passing makes a click, because the read point jumps. For
+repeats that darken with each pass and for smooth time changes, use val:BucketBrigade; for a
+reverb, val:Reverb.""" ;
     val:implementation "Delay" ;
     val:linear false ;
     lv2:port
@@ -1819,8 +2192,13 @@ captures of guitar amplifiers and pedals: https://www.neuralampmodeler.com/.
 The model is read on the message thread when the circuit is installed. A model
 trained at a rate other than the engine's is refused. Input and output are in
 decibels either side of the network; the network itself is level sensitive, so
-the input control is part of the tone. Bypass passes the input through.""" ;
+the input control is part of the tone. Bypass passes the input through.
+
+A circuit that declares val:sha256 has the model file checked against it, so a capture
+that was replaced since the circuit was written is not run in its place. A mismatch, like
+a missing or unreadable file, leaves the element passing its input through and says why.""" ;
     val:implementation "NamModel" ;
+    val:hasOption val:model , val:sha256 ;
     val:linear false ;
     lv2:port
       [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
@@ -1859,11 +2237,35 @@ Velocity changes the level: val:velsens is how many 6 dB steps a key struck as
 softly as possible loses, so 0 ignores velocity and 7 is a great deal of it.
 Connect val:MidiVelocity to velocity.
 
+Keyboard scaling follows the note. val:ratescale, 0 to 7, speeds every segment up as the
+key goes higher, by up to about 27 steps of rate at the top of the keyboard, so high notes
+are shorter than low ones as on an acoustic instrument. val:leftdepth and val:rightdepth add
+or remove steps of level for keys below and above val:breakpoint, in a straight line up to
+three octaves out; a negative depth makes the keys on that side quieter. These are smooth
+approximations of the machine's stepped curves.
+
+Used for pitch, the same contour comes out of val:ratio as a frequency ratio. A level of 50 is
+no change, 99 is val:pitchrange octaves up and 0 as many down, so a pitch envelope sets l4
+to 50 to rest on the note. Multiply it into the note's frequency with val:ControlMultiply. At
+the default range of 0 the ratio is 1.
+
 See https://en.wikipedia.org/wiki/Yamaha_DX7""" ;
     val:implementation "RateLevelEnvelope" ;
     val:linear false ;
     lv2:port
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "ratio" ; lv2:name "Pitch ratio" ;
+        lv2:default 1.0 ; lv2:minimum 0.0625 ; lv2:maximum 16.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "ratescale" ; lv2:name "Rate scaling" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 7.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "breakpoint" ; lv2:name "Level breakpoint" ;
+        lv2:default 60.0 ; lv2:minimum 0.0 ; lv2:maximum 127.0 ; lv2:portProperty lv2:integer ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "leftdepth" ; lv2:name "Left depth" ;
+        lv2:default 0.0 ; lv2:minimum -99.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "rightdepth" ; lv2:name "Right depth" ;
+        lv2:default 0.0 ; lv2:minimum -99.0 ; lv2:maximum 99.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pitchrange" ; lv2:name "Pitch range" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 4.0 ; units:unit units:oct ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r1" ; lv2:name "Rate 1" ;
         lv2:default 99.0 ; lv2:minimum 0.0 ; lv2:maximum 99.0 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "r2" ; lv2:name "Rate 2" ;
@@ -1893,8 +2295,16 @@ See https://en.wikipedia.org/wiki/Yamaha_DX7""" ;
 
 val:Envelope a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Envelope" ;
-    rdfs:comment """ADSR contour, gated by note events. Its output is a control
-port: an envelope modulates, it does not carry audio.""" ;
+    rdfs:comment """An ADSR contour: attack, decay, sustain, release. When the gate rises the output climbs from
+where it is to 1 over val:attack milliseconds, falls to val:sustain (0 to 1) over val:decay, and
+holds there while the note is held; when the gate falls it goes to 0 over val:release. The
+output is a control signal from 0 to 1, not audio (https://en.wikipedia.org/wiki/Envelope_(music)).
+
+By default it follows the host's MIDI gate, so any note starts it. To drive it from something
+else (a val:NoteGate for one note, a val:StepSequencer's gate, a val:GrainCloud's onset) connect
+that to val:gate. Typical wiring: into a val:VCA's val:cv to shape loudness, or through a
+val:Scale into a filter's cutoff to shape brightness. Percussive sounds use a short attack and decay
+with sustain 0.""" ;
     val:implementation "Envelope" ;
     val:linear false ;
     lv2:port
@@ -1938,7 +2348,14 @@ examples/subcircuit.ttl.""" ;
 
 val:Output a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Output" ;
-    rdfs:comment "The plugin's audio output. Supports mono (in) and stereo (left/right) inputs. A circuit needs exactly one." ;
+    rdfs:comment """The circuit's audio output, which is the sound the plugin sends to the host. Every circuit has
+exactly one; without it a circuit will not load. The audio arriving at val:in goes to both
+channels; val:left and val:right feed the two channels separately for a stereo circuit.
+
+It has no controls and no outputs of its own. Elements are mono, so a stereo circuit is two chains
+that end at val:left and val:right. A circuit whose output has nothing connected is silent, and
+lint reports it. Level is not limited here: put a val:Limiter before it if the signal can exceed
+full scale.""" ;
     val:implementation "Output" ;
     val:linear true ;
     lv2:port
@@ -1955,8 +2372,14 @@ val:Output a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:SinArcTan a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "SinArcTan" ;
-    rdfs:comment "y = x / sqrt(x^2 + 1). Soft, symmetric, never quite reaches +/-1." ;
+    rdfs:comment """Symmetric soft saturation with the curve x / sqrt(x squared + 1), applied to the input times
+val:gain. It approaches plus and minus 1 more slowly than val:Tanh, so it stays softer for longer.
+
+Use it where val:Tanh sounds too hard: gentle warmth, rounding peaks, or the first stage of several.
+It has the same ports as val:Tanh and can replace it directly. val:antialiasing and
+val:oversampling reduce the aliasing the saturation causes.""" ;
     val:implementation "SinArcTan" ;
+    val:hasOption val:antialiasing ;
     val:linear false ;
     val:antialiasing val:ADAA1 ;
     lv2:port
@@ -1968,8 +2391,14 @@ val:SinArcTan a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:SoftSine a rdfs:Class ; rdfs:subClassOf val:Transfer ;
     rdfs:label "SoftSine" ;
-    rdfs:comment "y = x / (|x| + 1). Softer knee than SinArcTan." ;
+    rdfs:comment """Symmetric soft saturation with the curve x / (|x| + 1), applied to the input times val:gain. The knee
+is softer than val:SinArcTan and val:Tanh, and the output only approaches plus and minus 1 slowly.
+
+It is the gentlest saturator here and the cheapest to compute. Use it for light warmth, or where
+you want the level to keep rising with the input instead of flattening quickly. It has the same
+ports as val:Tanh. val:antialiasing and val:oversampling reduce the aliasing the saturation causes.""" ;
     val:implementation "SoftSine" ;
+    val:hasOption val:antialiasing ;
     val:linear false ;
     val:antialiasing val:ADAA1 ;
     lv2:port
@@ -1990,7 +2419,15 @@ val:SoftSine a rdfs:Class ; rdfs:subClassOf val:Transfer ;
 
 val:EnvelopeFollower a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "EnvelopeFollower" ;
-    rdfs:comment "Peak or RMS detection with independent attack and release." ;
+    rdfs:comment """Turns the loudness of an audio signal into a control signal that follows it. It rectifies the
+input and smooths it with val:attack (how fast it rises, in ms) and val:release (how slowly it
+falls), in peak mode (val:mode 0) which tracks the highest samples, or RMS mode (1), which tracks
+average power and reads more like perceived loudness. The output is roughly 0 to 1 for a signal up
+to full scale.
+
+Uses: an auto-wah (follower into a filter cutoff through a val:Scale), ducking and sidechains
+(one signal's follower turning down another's val:VCA), and driving a val:Expander as a gate. A
+short attack and a release of 100 ms or more is a smooth follower; a slow attack ignores clicks.""" ;
     val:implementation "EnvelopeFollower" ;
     val:linear false ;
     lv2:port
@@ -2012,9 +2449,16 @@ val:EnvelopeFollower a rdfs:Class ; rdfs:subClassOf val:Element ;
 
 val:Expander a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Expander" ;
-    rdfs:comment """Hard-knee downward expander, used as a gate. Its amount port
-takes a control arc from an EnvelopeFollower, so the sidechain source is
-explicit.""" ;
+    rdfs:comment """A downward expander, used as a noise gate: it turns down a signal while it is quiet. It reads its
+detector level from val:amount, a linear level that comes from an val:EnvelopeFollower on a control
+arc, and compares it with val:threshold in decibels (default -60). Below the threshold, each decibel
+the level is under it is pushed down by val:ratio minus 1 more decibels; at a ratio of 20 it is
+effectively a gate. Above the threshold the signal passes unchanged.
+
+The sidechain is explicit so that it can come from anywhere: follow the signal itself to gate it,
+or follow another signal to gate this one by it. examples/noise-gate.ttl shows it. The gain changes
+once per control block, so the follower's attack and release set how smooth the opening and
+closing are.""" ;
     val:implementation "Expander" ;
     val:linear false ;
     lv2:port
@@ -2115,6 +2559,7 @@ The Curve shape plays a drawn waveform. val:curve is a list of numbers from -1 t
 by spaces or commas, up to 256, spaced evenly over one cycle and joined by straight lines,
 with the last point joining back to the first.""" ;
     val:implementation "LFO" ;
+    val:hasOption val:curve ;
     val:linear false ;
     lv2:port
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
@@ -2230,6 +2675,7 @@ sounds the scale's first degree, at the pitch twelve-tone tuning gives that key,
 key above or below it is one scale degree further. The scale repeats at its last interval,
 usually the octave.""" ;
     val:implementation "MidiPitch" ;
+    val:hasOption val:tuning ;
     val:linear false ;
     lv2:port
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "reference" ;
@@ -2245,7 +2691,13 @@ usually the octave.""" ;
 
 val:MidiVelocity a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "MidiVelocity" ;
-    rdfs:comment "Outputs the velocity of the most recent MIDI note-on as a control signal (0–1 normalised). Holds the last value between notes." ;
+    rdfs:comment """The velocity of the most recent note-on, as a control value from 0 (softest) to 1 (hardest). It
+holds that value between notes.
+
+Use it to make playing harder sound louder or brighter: through a val:VCA's val:cv for loudness, or
+through a val:Scale into a filter's cutoff for brightness. For a drum voice that must keep its
+velocity until the sound has died away, use val:NoteGate instead, because velocity there is only
+present while the note is held.""" ;
     val:implementation "MidiVelocity" ;
     val:linear false ;
     lv2:port
@@ -2356,6 +2808,7 @@ nothing to the input keeps that material without having to say so.
 See Roads, Microsound (MIT Press, 2001)
 <https://mitpress.mit.edu/9780262681544/microsound/> for the technique.""" ;
     val:implementation "Granulator" ;
+    val:hasOption val:file , val:seconds , val:sha256 , val:channels , val:sampleRate , val:frames ;
     val:linear false ;
     lv2:port
       [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;    lv2:name "In" ] ,
@@ -2465,6 +2918,219 @@ See Roads, Microsound (MIT Press, 2001)
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "1 for a control slice in which a grain started and 0 otherwise. Connect it to a val:Envelope's gate, and that envelope to a val:VCA, to have each grain strike something such as a val:ModalBank." ] .
 
+val:BufferPort a rdfs:Class ;
+    rdfs:label "BufferPort" ;
+    rdfs:comment """A port that hands a block of material to another element instead of carrying a
+signal: the audio a granulator's grains are cut from, say. It is declared with lv2:InputPort or
+lv2:OutputPort and val:BufferPort, as an event port is with atom:AtomPort, and like one it has no
+audio buffer and no control slot.
+
+An arc from a buffer output to a buffer input gives the receiver the material the sender owns, by
+reference, and makes the sender run first in every block. Nothing is copied. An output can feed any
+number of inputs; an input takes one source. A buffer output can only reach a buffer input, and
+the two elements must agree on what is shared, which is checked when the circuit loads.""" .
+
+val:GrainBuffer a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "GrainBuffer" ;
+    rdfs:comment """The material half of val:Granulator: a circular buffer that records its audio input
+at a write head, or holds a sound file named by val:file, and offers itself on a buffer output to any
+number of val:GrainCloud elements. val:seconds sets its length (default 8, at most 60).
+
+val:freeze decides what the buffer does with the audio input: Record writes it, Freeze holds what is
+there. An input with no arc reaching it records nothing, so material loaded by val:file is never
+erased by a connection that does not exist. The element has no audio output; the grains are heard
+through the clouds.""" ;
+    val:implementation "GrainBuffer" ;
+    val:hasOption val:file , val:seconds , val:sha256 , val:channels , val:sampleRate , val:frames ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;    lv2:name "In" ] ,
+      [ a lv2:OutputPort, val:BufferPort ; lv2:symbol "buffer" ; lv2:name "Buffer" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "freeze" ;
+        lv2:name "Freeze" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Record" ; rdf:value 0 ] ,
+                       [ rdfs:label "Freeze" ; rdf:value 1 ] ;
+        rdfs:comment "Record writes whatever reaches the audio input into the buffer; Freeze holds what is already there. An input with no arc records nothing, so material loaded by val:file is never erased by a connection that does not exist." ]  .
+
+val:GrainCloud a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "GrainCloud" ;
+    rdfs:comment """The grain half of val:Granulator. It cuts short windowed grains, up to 64 at once, from
+the material its buffer input is given and mixes them into a mono and a stereo output. Everything
+else about the grains is as described for val:Granulator: position, size, density, pitch, spray, the
+window, the pitch draws from a scale, the trigger and the seed.
+
+What it reads comes from a val:GrainBuffer by a buffer arc, and the buffer runs before the cloud in
+every block. Several clouds can read one buffer, each with its own position, size and pitch, which
+is what splitting the two is for: one recording granulated at once as a drone an octave down, a
+shimmer an octave up and a stutter in time with the host. Nothing is copied; the clouds read the
+buffer where it is.
+
+A cloud reads the buffer as it stands at the end of the block it is running in, where val:Granulator
+reads it as it stands at that very sample. The difference is at most one block of audio at the
+write head, and none at all when the material is a file.""" ;
+    val:implementation "GrainCloud" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, val:BufferPort ; lv2:symbol "buffer" ; lv2:name "Buffer" ;
+        rdfs:comment "The material to cut grains from: connect a val:GrainBuffer's buffer. Unconnected, the cloud is silent." ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;   lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ;  lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "position" ;
+        lv2:name "Position" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Read point as a fraction of the buffer, measured forward from the write head." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "size" ;
+        lv2:name "Size" ; lv2:default 120.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 2000.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Grain length. Below 50 ms the grain rate itself becomes the pitch; above it, grains blur into a pad." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "density" ;
+        lv2:name "Density" ; lv2:default 20.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 200.0 ; units:unit units:hz ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Grain onsets per second when trigger is -1. Independent of size, so it sets how far grains overlap." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "pitch" ;
+        lv2:name "Pitch" ; lv2:default 0.0 ;
+        lv2:minimum -48.0 ; lv2:maximum 48.0 ;
+        rdfs:comment "Grain transposition in semitones. Connect val:MidiInterval here to play the buffer from a keyboard." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "spray" ;
+        lv2:name "Spray" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random spread of each grain's start point, as a fraction of the buffer." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "jitter" ;
+        lv2:name "Jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random spread of the interval between onsets. Breaks up the periodicity a fixed density produces." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "pitchJitter" ;
+        lv2:name "Pitch Jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ;
+        rdfs:comment "Random detune per grain, in semitones. A little gives chorus; an octave gives shimmer." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Grain window. 0 is nearly rectangular and keeps transients; 1 is a full rise and fall with no audible edge." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "spread" ;
+        lv2:name "Spread" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random stereo placement per grain. 0 is centred, 1 is the full width." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "reverse" ;
+        lv2:name "Reverse" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Probability that a grain plays backwards." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "scan" ;
+        lv2:name "Scan" ; lv2:default 0.0 ;
+        lv2:minimum -4.0 ; lv2:maximum 4.0 ;
+        rdfs:comment "Drift of the read point through the buffer, in buffer lengths per second. 0 holds still." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Override: -1 = free-run at the density rate; otherwise each rising edge fires one grain." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "sizeJitter" ;
+        lv2:name "Size jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random shortening of each grain. 0 keeps every grain the full size; 1 lets one be a quarter of it. The cloud loses the evenness a fixed size gives it." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "curve" ;
+        lv2:name "Curve" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Blends the grain window toward a percussive one: a fast rise to a peak early in the grain and an exponential fall, so grains sound struck or plucked. Both windows have the same average height, so loudness stays close, though the percussive one is peakier and measures somewhat louder." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "range" ;
+        lv2:name "Range" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ;
+        rdfs:comment "Each grain draws a pitch offset within this many semitones of pitch, in the direction chosen and on the scale chosen. 0 draws nothing. Unlike pitchJitter, which detunes continuously, the draw lands on notes, so a cloud can play a chord rather than blur." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "direction" ;
+        lv2:name "Direction" ; lv2:default 2.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 2.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Up"   ; rdf:value 0 ] ,
+                       [ rdfs:label "Down" ; rdf:value 1 ] ,
+                       [ rdfs:label "Both" ; rdf:value 2 ] ;
+        rdfs:comment "Which way the range reaches from pitch." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "scale" ;
+        lv2:name "Scale" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 6.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Free"         ; rdf:value 0 ] ,
+                       [ rdfs:label "Semitones"    ; rdf:value 1 ] ,
+                       [ rdfs:label "Octaves"      ; rdf:value 2 ] ,
+                       [ rdfs:label "Fifths"       ; rdf:value 3 ] ,
+                       [ rdfs:label "Major"        ; rdf:value 4 ] ,
+                       [ rdfs:label "Minor"        ; rdf:value 5 ] ,
+                       [ rdfs:label "Pentatonic"   ; rdf:value 6 ]  ;
+        rdfs:comment "The notes a grain's pitch may land on, counted from the pitch itself, so the transposed material stays in tune with itself. Free draws any value in the range. Staying on the pitch is always among the choices." ]  ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "seed" ;
+        lv2:name "Seed" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
+        lv2:portProperty lv2:integer ;
+        rdfs:comment "Seeds the random draws, so one seed gives one cloud, every time. 0 is the default sequence." ]  ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "grains" ;
+        lv2:name "Grains" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 64.0 ;
+        rdfs:comment "How many grains are sounding." ]  ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "onset" ;
+        lv2:name "Onset" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "1 for a control slice in which a grain started and 0 otherwise. Connect it to a val:Envelope's gate, and that envelope to a val:VCA, to have each grain strike something such as a val:ModalBank." ] .
+
+val:TimeStretch a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "TimeStretch" ;
+    rdfs:comment """Plays the sound file named by val:file at a different speed without changing its
+pitch, or at a different pitch without changing its speed, with the formants kept where they were
+if wanted. val:speed is how fast the file is read, 1 being as recorded and 0 holding one moment
+of it indefinitely. val:pitch moves the pitch in semitones whatever the speed.
+
+It is a phase vocoder with phase locking round the peaks of the spectrum, on 2048-point
+windows: a window is 43 ms at 48 kHz, so very short sounds are smeared and very sharp attacks
+lose some of their edge. The result has a slight sheen, as every phase vocoder does. val:formant
+keeps the spectral envelope, the shape of the vocal tract in a voice, where it was when the pitch
+moves, so a voice shifted up does not turn into a chipmunk; it is estimated from the smoothed
+cepstrum and costs two more transforms per frame. It has no effect while val:pitch is 0, and it
+is off by default because it suits voices and not everything: a pure tone is all envelope, so
+holding its formant where it was takes the shifted tone away. Use it on sounds that have a
+vocal tract.
+
+The file is summed to mono and resampled to the engine's rate, as for val:SampleLoad. val:loop,
+val:start and val:trigger work as they do there. A frame moves through the file by at most half
+its length, so at a high val:speed combined with a downward val:pitch the speed is limited.
+
+The output is delayed by about three windows' worth of the file, because the first samples of
+an overlap-add are only partly covered; the delay is not reported as latency since a player has
+no input to be late against.""" ;
+    val:implementation "TimeStretch" ;
+    val:hasOption val:file , val:sha256 , val:channels , val:sampleRate , val:frames ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "speed" ;
+        lv2:name "Speed" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 4.0 ;
+        rdfs:comment "How fast the file is read. 1 is as recorded, 0.5 half speed, 0 freezes." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "pitch" ;
+        lv2:name "Pitch" ; lv2:default 0.0 ;
+        lv2:minimum -24.0 ; lv2:maximum 24.0 ; units:unit units:semitone12TET ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "formant" ;
+        lv2:name "Keep formants" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Shift" ; rdf:value 0 ] ,
+                       [ rdfs:label "Keep"  ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "loop" ;
+        lv2:name "Loop" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "One shot" ; rdf:value 0 ] ,
+                       [ rdfs:label "Loop"     ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "start" ;
+        lv2:name "Start" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Where playback begins, as a fraction of the file." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default -1.0 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "-1 plays free-running; otherwise each rise restarts from start." ] .
+
 val:SampleLoad a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "SampleLoad" ;
     rdfs:comment """Plays the sound file named by val:file, summed to mono and
@@ -2477,6 +3143,7 @@ on its own as a one-shot player. Where val:Granulator's own val:file loads
 material directly into its buffer, a SampleLoad plays the file as audio, which
 is what lets the sample be swapped while the circuit runs.""" ;
     val:implementation "SampleLoad" ;
+    val:hasOption val:file , val:sha256 , val:channels , val:sampleRate , val:frames ;
     val:linear false ;
     lv2:port
       [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
@@ -2497,7 +3164,11 @@ is what lets the sample be swapped while the circuit runs.""" ;
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "trigger" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
-        rdfs:comment "Override: -1 = play free-running; otherwise each rising edge restarts from start." ] .
+        rdfs:comment "Override: -1 = play free-running; otherwise each rising edge restarts from start." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "choke" ;
+        lv2:name "Choke" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "A rise through 0.5 stops the sound, fading out over 2 ms. A trigger in the same block wins." ] .
 
 val:Transport a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Transport" ;
@@ -2561,7 +3232,12 @@ speed multiplier.""" ;
 
 val:DryWet a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "DryWet" ;
-    rdfs:comment "Crossfades a processed signal against the untouched one." ;
+    rdfs:comment """Crossfades between an unprocessed signal and a processed one. val:dry takes the original, val:wet
+takes the effect's output, and val:mix sets the balance: 0 is all dry, 1 is all wet.
+
+Use it to put a blend control on an effect that has none of its own, such as a distortion or a
+filter. Feed the same source to val:dry and to the effect, and the effect's output to val:wet. Delaying effects shift the wet signal in time; an effect that
+reports latency makes the blend comb unless the dry path is delayed by the same amount.""" ;
     val:implementation "DryWet" ;
     val:linear true ;
     lv2:port

@@ -145,6 +145,17 @@ void testStatsParamsAndValidate()
 
     assert(contains(console.execute("types ladder").text, "cutoff"));
     assert(contains(console.execute("types nosuchelement").text, "no element type"));
+
+    // describe reads as prose: what it is, then ports with their numbers, then options.
+    const auto described = console.execute("describe ladder").text;
+    assert(contains(described, "val:Ladder"));
+    assert(contains(described, "four-pole lowpass"));
+    assert(contains(described, "cutoff: control in default=1000"));
+    assert(contains(described, "options:"));
+    assert(contains(described, "val:oversampling"));
+    assert(contains(console.execute("describe laddr").text, "Did you mean val:Ladder"));
+    assert(contains(console.execute("describe").text, "describe which element"));
+    assert(contains(console.execute("describe stepsequencer").text, "val:pattern (string)"));
 }
 
 void testExtractTurtleBlocks()

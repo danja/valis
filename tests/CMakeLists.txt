@@ -10,6 +10,7 @@ set(VALIS_TESTS
   model/SubcircuitTest.cpp
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
+  dsp/ElementConformanceTest.cpp
   dsp/ElementBehaviourTest.cpp
   dsp/GranulatorTest.cpp
   dsp/GristFeaturesTest.cpp
@@ -31,7 +32,11 @@ set(VALIS_TESTS
   dsp/TuningTest.cpp
   dsp/VaryTest.cpp
   dsp/TapeTest.cpp
+  dsp/BucketBrigadeTest.cpp
+  dsp/SampleLoadChokeTest.cpp
   dsp/LfoTest.cpp
+  dsp/TimeStretchTest.cpp
+  dsp/StepSequencerTest.cpp
   dsp/WavetableTest.cpp
   dsp/StateVariableDriveTest.cpp
   dsp/CompressorTest.cpp
@@ -41,7 +46,17 @@ set(VALIS_TESTS
   engine/GristExampleTest.cpp
   engine/DemoEffectsTest.cpp
   engine/MetalBashTest.cpp
+  engine/SequencedSketchTest.cpp
+  engine/FileSlotTest.cpp
+  engine/GrainSplitTest.cpp
+  ops/AnalysisTest.cpp
+  ops/ContextWiringTest.cpp
+  ops/CircuitHistoryTest.cpp
+  ops/CircuitDiffTest.cpp
+  ops/AgentResourcesTest.cpp
+  ops/LintTest.cpp
   ops/OpDispatcherTest.cpp
+  docs/GuideTest.cpp
   console/ConsoleTest.cpp)
 
 # The tokeniser lives in the plugin's UI layer, so its test needs the GUI
@@ -116,3 +131,8 @@ if(VALIS_WITH_NAM)
   target_compile_definitions(dsp_NamModelTest PRIVATE
     VALIS_NAM_MODELS_DIR="${VALIS_NAM_DIR}/example_models")
 endif()
+
+# Which elements have a file slot is a header-only rule, same as the themes.
+add_executable(ui_FileOptionTest ui/FileOptionTest.cpp)
+target_link_libraries(ui_FileOptionTest PRIVATE valis_core)
+add_test(NAME ui_FileOptionTest COMMAND ui_FileOptionTest)

@@ -610,7 +610,7 @@ std::string ConsoleSession::buildSystemPrompt(const std::vector<ElementTypeInfo>
         {
             prompt += first ? " " : ", ";
             first = false;
-            prompt += port.symbol + " " + (port.control ? "control" : "audio") +
+            prompt += port.symbol + " " + port.rateName() +
                       (port.input ? "-in" : "-out");
             if (port.control && port.input)
             {

@@ -6,8 +6,12 @@
 
 #include "Common.h"
 
+#include <juce_core/juce_core.h>
+
 #ifdef VALIS_WITH_NAM
  #include "dsp/ResolveFile.h"
+
+ #include <juce_cryptography/juce_cryptography.h>
 
  #include "NAM/dsp.h"
  #include "NAM/get_dsp.h"
@@ -34,15 +38,40 @@ public:
 
     bool setOption(std::string_view key, std::string_view value, std::string& error) override
     {
+        if (key == "sha256")
+        {
+            // 64 hex characters, or it is not a SHA-256 and never will match. This is
+            // the one thing that fails the load: it is a typo in the circuit, not a
+            // file that is missing on this machine.
+            const juce::String text{std::string(value)};
+            if (text.length() != 64 || ! text.containsOnly("0123456789abcdefABCDEF"))
+            {
+                error = "val:sha256 must be 64 hexadecimal characters, not '" + std::string(value) + "'";
+                return false;
+            }
+
+            // Order independent: RDF has no statement order, so the model may already be loaded.
+            expectedHash = text.toLowerCase().toStdString();
+            if (! modelPath.empty())
+                loadModel(modelPath);
+            return true;
+        }
+
         if (key != "model")
             return true;
 
+        modelPath = std::string(value);
+        loadModel(modelPath);
+        return true;
+    }
+
+    void loadModel(std::string_view value)
+    {
         // Nothing here fails the load. A circuit shared to another machine
         // names a file that is not there, and a model can be corrupt or trained
         // at another rate; refusing the circuit for any of these would leave no
         // place to choose a different file. The element passes its input
         // through and says what is wrong through status().
-        (void) error;
         model.reset();
         problem.clear();
 
@@ -51,17 +80,29 @@ public:
         if (! file.existsAsFile())
         {
             problem = "Not found: " + file.getFileName().toStdString();
-            return true;
+            return;
         }
 
-        // TODO: honour a declared val:sha256, as val:SampleLoad does.
+        if (! expectedHash.empty())
+        {
+            juce::FileInputStream stream(file);
+            const auto actual = stream.openedOk() ? juce::SHA256(stream).toHexString().toStdString()
+                                                  : std::string();
+            if (actual != expectedHash)
+            {
+                problem = file.getFileName().toStdString() + " is not the file declared: val:sha256 is "
+                        + expectedHash.substr(0, 12) + "..., the file's is " + actual.substr(0, 12) + "...";
+                return;
+            }
+        }
+
         try
         {
             auto loaded = nam::get_dsp(std::filesystem::path(file.getFullPathName().toStdString()));
             if (loaded == nullptr)
             {
                 problem = "Unreadable model: " + file.getFileName().toStdString();
-                return true;
+                return;
             }
 
             // TODO: resample around a model trained at a rate other than the
@@ -73,7 +114,7 @@ public:
                 problem = "Trained at " + std::to_string(static_cast<int>(trained))
                         + " Hz; the engine runs at " + std::to_string(static_cast<int>(sampleRate))
                         + " Hz";
-                return true;
+                return;
             }
 
             loaded->Reset(sampleRate, capacity);
@@ -85,11 +126,11 @@ public:
             // the file box; the name is enough to find the file.
             problem = "Not a valid NAM model: " + file.getFileName().toStdString();
         }
-        return true;
+        return;
 #else
         (void) value;
         problem = "This build has no Neural Amp Modeler support";
-        return true;
+        return;
 #endif
     }
 
@@ -163,6 +204,8 @@ private:
     double sampleRate = 48000.0;
     int capacity = 1;
     std::string problem;
+    std::string modelPath;      ///< what val:model named, kept so a late val:sha256 can recheck it
+    std::string expectedHash;   ///< the declared val:sha256, lowercase, or empty
     int inGainIdx = -1, outGainIdx = -1, bypassIdx = -1;
     float lastIn = 1.0f, lastOut = 1.0f;
     std::vector<float> inBuffer, outBuffer;

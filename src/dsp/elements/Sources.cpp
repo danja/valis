@@ -136,7 +136,11 @@ public:
         reset();
     }
 
-    void reset() override { for (auto& s : pink) s = 0.0f; }
+    void reset() override
+    {
+        for (auto& s : pink) s = 0.0f;
+        random = dsp::Random{};   // the sequence starts again, as a render after a relocate expects
+    }
 
     void process(const ProcessArgs& args) noexcept override
     {
@@ -801,9 +805,18 @@ public:
         const float position = std::clamp(controlAt(args, positionIdx, 0.12f), 0.02f, 0.5f);
         const float damping  = std::clamp(controlAt(args, dampingIdx, 0.3f), 0.0f, 1.0f);
 
-        loss.setPole(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f));
-        finger.setPole(kFingerSoftness);
-        width.setPole(kBowWidth);
+        // The loop filters are fixed in time, not in proportion to the period, so on a short
+        // loop (a high note) they swallow a larger share of every cycle: the friction is
+        // smoothed over, and the force needed to hold the fundamental climbs with pitch until
+        // the string settles an octave up. Above the range they were calibrated over their
+        // corners move up with the note, keeping each the same fraction of the period.
+        const auto scaled = [frequency](float pole)
+        {
+            return 1.0f - (1.0f - pole) * std::max(1.0f, frequency / kScaleAbove);
+        };
+        loss.setPole(std::clamp(scaled(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f)), 0.0f, 0.9f));
+        finger.setPole(std::clamp(scaled(kFingerSoftness), 0.0f, 0.9f));
+        width.setPole(std::clamp(scaled(kBowWidth), 0.0f, 0.9f));
 
         // The wave passes each segment once per period, so the two of them come
         // to one period between them. The loss filter's own delay is known in
@@ -812,7 +825,11 @@ public:
         // measurement, as the flute and the clarinet are.
         // See tests/dsp/CelloTest.cpp.
         const float omega    = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
-        const float residual = std::exp2((kResidualSlope * frequency + kResidualOffset) / 1200.0f);
+        // Above kScaleAbove the filters move with the note, and what is left over
+        // after their delays come out is a further small curve in the same measurement.
+        const float above    = std::max(0.0f, (frequency - kScaleAbove) * (1.0f / 400.0f));
+        const float residual = std::exp2((kResidualSlope * frequency + kResidualOffset
+                                          + kHighLinear * above + kHighQuadratic * above * above) / 1200.0f);
         // Every filter in the loop lengthens it, and each of their delays is
         // known in closed form, so all of them come out rather than being
         // absorbed into the calibration.
@@ -900,6 +917,7 @@ private:
     /// duller room would.
     static constexpr float kPoleBase  = 0.05f;
     static constexpr float kPoleRange = 0.55f;
+    static constexpr float kScaleAbove = 250.0f;   ///< Hz; the loop filters keep their pole below this
 
     /// Bow force, mapped to the friction curve's slope. A light bow slips early.
     static constexpr float kSlopeLight = 5.0f;
@@ -938,6 +956,11 @@ private:
     /// tests/dsp/CelloTest.cpp measures it at eight pitches.
     static constexpr float kResidualSlope  = 0.0554f;
     static constexpr float kResidualOffset = -0.12f;
+
+    /// Cents, against (frequency - kScaleAbove) / 400 Hz, fitted to the tuning table in
+    /// tests/dsp/CelloTest.cpp from 293 to 659 Hz.
+    static constexpr float kHighLinear    = -25.0f;
+    static constexpr float kHighQuadratic = 12.7f;
 
     waveguide::Delay toBridge, toNut;
     waveguide::Loss loss;

@@ -203,6 +203,91 @@ void testMatrixMatchesSeparateOperators()
     assert(largestDifference(selfFedMatrix.run(kSilence), selfFed.run(kSilence)) < 1.0e-4f);
 }
 
+/// An algorithm number sets the matrix and carriers the DX7 chart gives it.
+void testAlgorithms()
+{
+    // Algorithm 5 is three pairs: 2 into 1, 4 into 3, 6 into 5, all three pairs heard.
+    const auto configure = [](ElementTestFixture& rig)
+    {
+        rig.set("frequency", static_cast<float>(kHz));
+        rig.set("depth", 2.0f);
+        for (const char* ratio : { "ratio2", "ratio4", "ratio6" })
+            rig.set(ratio, 2.0f);
+    };
+
+    ElementTestFixture byNumber("FMMatrix");
+    configure(byNumber);
+    byNumber.set("algorithm", 5.0f);
+
+    ElementTestFixture byHand("FMMatrix");
+    configure(byHand);
+    byHand.set("m12", 1.0f);
+    byHand.set("m34", 1.0f);
+    byHand.set("m56", 1.0f);
+    for (const char* carrier : { "carrier1", "carrier3", "carrier5" })
+        byHand.set(carrier, 1.0f);
+    assert(largestDifference(byNumber.run(kSilence), byHand.run(kSilence)) < 1.0e-4f);
+
+    // The DX7's feedback control reaches the operator the algorithm gives it to: 6 in
+    // algorithm 5, and the sound changes with it.
+    ElementTestFixture fed("FMMatrix");
+    configure(fed);
+    fed.set("algorithm", 5.0f);
+    fed.set("feedback", 7.0f);
+    ElementTestFixture fedByHand("FMMatrix");
+    configure(fedByHand);
+    for (const char* name : { "m12", "m34", "m56" })
+        fedByHand.set(name, 1.0f);
+    for (const char* carrier : { "carrier1", "carrier3", "carrier5" })
+        fedByHand.set(carrier, 1.0f);
+    fedByHand.set("m66", 7.0f);
+    assert(largestDifference(fed.run(kSilence), fedByHand.run(kSilence)) < 1.0e-4f);
+
+    // With no modulation every carrier is the same sine, so the peak counts them.
+    // The DX7 chart gives these numbers of carriers.
+    const int carriers[32] = { 2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1,
+                               1, 1, 3, 3, 4, 4, 4, 5, 5, 3, 3, 3, 4, 4, 5, 6 };
+    for (int algorithm = 1; algorithm <= 32; ++algorithm)
+    {
+        ElementTestFixture rig("FMMatrix");
+        rig.set("frequency", static_cast<float>(kHz));
+        rig.set("depth", 0.0f);
+        rig.set("algorithm", static_cast<float>(algorithm));
+        const float peak = largestDifference(rig.run(kSilence), kSilence);
+
+        ElementTestFixture one("FMMatrix");
+        one.set("frequency", static_cast<float>(kHz));
+        one.set("carrier1", 1.0f);
+        const float single = largestDifference(one.run(kSilence), kSilence);
+
+        const int counted = static_cast<int>(std::lround(peak / single));
+        if (counted != carriers[algorithm - 1]) std::printf("  algorithm %d: counted %d carriers, chart says %d\n", algorithm, counted, carriers[algorithm - 1]);
+        assert(counted == carriers[algorithm - 1]);
+    }
+
+    // Every algorithm, with feedback at its strongest and modulation at its default, is
+    // finite: the loops through several operators (4 and 6) included.
+    for (int algorithm = 1; algorithm <= 32; ++algorithm)
+    {
+        ElementTestFixture rig("FMMatrix");
+        rig.set("frequency", static_cast<float>(kHz));
+        rig.set("algorithm", static_cast<float>(algorithm));
+        rig.set("feedback", 7.0f);
+        for (const float v : rig.run(kSilence))
+            assert(std::isfinite(v) && std::abs(v) <= 8.0f);
+    }
+
+    // A loop through three operators is not the same sound as the same algorithm without it.
+    ElementTestFixture looped("FMMatrix"), open("FMMatrix");
+    for (auto* rig : { &looped, &open })
+    {
+        rig->set("frequency", static_cast<float>(kHz));
+        rig->set("algorithm", 4.0f);
+    }
+    looped.set("feedback", 7.0f);
+    assert(largestDifference(looped.run(kSilence), open.run(kSilence)) > 0.05f);
+}
+
 /// Operators 1 and 2 modulate each other, which no arrangement of separate
 /// elements can do within a block.
 void testMatrixLoopSpansOperators()
@@ -330,6 +415,89 @@ void testEnvelopeStagesRun()
     assert(std::abs(rig.lastControlOut[0] - std::pow(2.0f, -29.0f / 8.0f)) < 0.002f);
 }
 
+/// Slices until the level first falls below a fraction of where it started: a measure of
+/// how fast the second segment runs.
+int slicesToFall(int note, float rateScale)
+{
+    ElementTestFixture rig("RateLevelEnvelope");
+    rig.set("l1", 99.0f);
+    rig.set("l2", 0.0f);
+    rig.set("r1", 99.0f);
+    rig.set("r2", 40.0f);
+    rig.set("ratescale", rateScale);
+    rig.setNote(note, 1.0f, true);
+
+    for (int slice = 0; slice < 100000; ++slice)
+    {
+        rig.run(std::vector<float>(32, 0.0f));
+        if (slice > 5 && rig.lastControlOut[0] < 0.05f)
+            return slice;
+    }
+    return 100000;
+}
+
+void testKeyboardRateScaling()
+{
+    // Without it the note does not matter. With it, a high key's decay is shorter than a low one's.
+    assert(slicesToFall(36, 0.0f) == slicesToFall(96, 0.0f));
+    const int low = slicesToFall(36, 7.0f), high = slicesToFall(96, 7.0f);
+    std::printf("  rate scaling 7: decay takes %d slices from note 36, %d from note 96\n", low, high);
+    assert(high * 3 < low);
+}
+
+void testKeyboardLevelScaling()
+{
+    const auto level = [](int note, float left, float right)
+    {
+        ElementTestFixture rig("RateLevelEnvelope");
+        rig.set("breakpoint", 60.0f);
+        rig.set("leftdepth", left);
+        rig.set("rightdepth", right);
+        rig.setNote(note, 1.0f, true);
+        for (int i = 0; i < 50; ++i)
+            rig.run(std::vector<float>(32, 0.0f));
+        return rig.lastControlOut[0];
+    };
+
+    // At the breakpoint nothing changes; a negative right depth quietens the keys above it
+    // and leaves the ones below; a positive left depth cannot go past full level.
+    assert(std::abs(level(60, -50.0f, -50.0f) - level(60, 0.0f, 0.0f)) < 1.0e-5f);
+    assert(level(96, 0.0f, -50.0f) < level(96, 0.0f, 0.0f) * 0.1f);
+    assert(std::abs(level(24, 0.0f, -50.0f) - level(24, 0.0f, 0.0f)) < 1.0e-5f);
+    assert(level(24, 30.0f, 0.0f) <= 1.0f + 1.0e-5f);
+    // Halfway out the effect is half of the full depth: 18 semitones is half of 36.
+    const float full = level(96, 0.0f, -40.0f), half = level(78, 0.0f, -40.0f);
+    assert(half > full && half < 1.0f);
+}
+
+void testPitchEnvelopeRatio()
+{
+    ElementTestFixture rig("RateLevelEnvelope");
+    rig.set("pitchrange", 1.0f);
+    rig.set("l1", 99.0f);
+    rig.set("l2", 99.0f);
+    rig.set("l3", 99.0f);
+    rig.set("l4", 50.0f);
+    rig.set("r1", 99.0f);
+
+    // At rest on L4 = 50 the ratio is 1.
+    rig.run(std::vector<float>(32, 0.0f));
+    assert(std::abs(rig.lastControlOut[1] - 1.0f) < 1.0e-5f);
+
+    // Struck, it goes to L1 = 99, almost an octave up.
+    rig.setNote(60, 1.0f, true);
+    for (int i = 0; i < 50; ++i)
+        rig.run(std::vector<float>(32, 0.0f));
+    assert(std::abs(rig.lastControlOut[1] - std::exp2(0.98f)) < 0.01f);
+
+    // With the range at its default there is no pitch movement at all.
+    ElementTestFixture flat("RateLevelEnvelope");
+    flat.setNote(60, 1.0f, true);
+    for (int i = 0; i < 50; ++i)
+        flat.run(std::vector<float>(32, 0.0f));
+    assert(flat.lastControlOut[1] == 1.0f);
+}
+
 void testVelocitySensitivity()
 {
     ElementTestFixture rig("RateLevelEnvelope");
@@ -357,12 +525,16 @@ int main()
     testFeedbackAddsHarmonics();
     testOperatorIsDeterministic();
     testMatrixMatchesSeparateOperators();
+    testAlgorithms();
     testMatrixLoopSpansOperators();
     testMatrixSilence();
     testEnvelopeSegments();
     testRateIsASpeed();
     testEnvelopeStagesRun();
     testVelocitySensitivity();
+    testKeyboardRateScaling();
+    testKeyboardLevelScaling();
+    testPitchEnvelopeRatio();
 
     std::puts("FMTest passed");
     return 0;
