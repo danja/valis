@@ -12,3 +12,4 @@ These should be saved with the existing examples :
 * halloween-ornaments2.ttl - you decide
 
 Once they are created used reaper-mpc tools to create a 3 minute long song using the instruments above. Make it catchy but haunting. Think of a suitable title.
+Save Reaper files in a dir under  ~/Music/
