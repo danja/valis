@@ -3,6 +3,7 @@
 #include "Common.h"
 
 #include "dsp/Scale.h"
+#include "dsp/Tuning.h"
 
 #include "dsp/Random.h"
 
@@ -599,18 +600,118 @@ public:
         scaleIndex = controlIndex(type, "scale");
     }
 
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "tuning")
+            return true;
+
+        dsp::Tuning loaded;
+        if (! loaded.load(value, error))
+            return false;
+
+        tuning = std::move(loaded);
+        return true;
+    }
+
     void process(const ProcessArgs& args) noexcept override
     {
         if (args.numControlOut < 1)
             return;
 
-        const int scale = dsp::clampScale(static_cast<int>(controlAt(args, scaleIndex, 4.0f) + 0.5f));
-        const int root  = std::clamp(static_cast<int>(controlAt(args, rootIndex, 0.0f) + 0.5f), 0, 11);
-        args.controlOut[0] = dsp::nearestInScale(scale, controlAt(args, inIndex, 0.0f), root);
+        const int  chosen = static_cast<int>(controlAt(args, scaleIndex, 4.0f) + 0.5f);
+        const int  root   = std::clamp(static_cast<int>(controlAt(args, rootIndex, 0.0f) + 0.5f), 0, 11);
+        const float value = controlAt(args, inIndex, 0.0f);
+
+        if (chosen >= kCustom)
+        {
+            // Scale degrees are counted from the root pitch class, in cents
+            // rather than semitones.
+            args.controlOut[0] = tuning.empty()
+                ? value
+                : static_cast<float>(root + tuning.nearestSemitones(static_cast<double>(value) - root));
+            return;
+        }
+
+        args.controlOut[0] = dsp::nearestInScale(dsp::clampScale(chosen), value, root);
     }
 
 private:
+    static constexpr int kCustom = dsp::kScaleCount;   ///< the scale point after the built-in ones
+
+    dsp::Tuning tuning;
     int inIndex = -1, rootIndex = -1, scaleIndex = -1;
+};
+
+/// Sample-and-hold of a random number, taken when a trigger rises. Two numbers are
+/// drawn per trigger whether or not the hit is taken, so the values a seed produces
+/// do not depend on the probability: turning it down skips hits without reshuffling
+/// the ones that remain.
+class Vary final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        triggerIndex     = controlIndex(type, "trigger");
+        minIndex         = controlIndex(type, "min");
+        maxIndex         = controlIndex(type, "max");
+        probabilityIndex = controlIndex(type, "probability");
+        stepsIndex       = controlIndex(type, "steps");
+        seedIndex        = controlIndex(type, "seed");
+        reset();
+    }
+
+    void reset() override
+    {
+        // reset() sees no controls, so the seed is applied on the next block.
+        reseeded = false;
+        wasHigh  = false;
+        held     = 0.5f;
+        started  = false;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const auto seed = static_cast<std::uint32_t>(std::max(controlAt(args, seedIndex, 1.0f), 0.0f));
+        if (! reseeded || seed != lastSeed)
+        {
+            random.seed(seed * 2654435761u + 0x9E3779B9u);
+            lastSeed = seed;
+            reseeded = true;
+            started  = false;
+        }
+
+        const float low  = controlAt(args, minIndex, 0.0f);
+        const float high = controlAt(args, maxIndex, 1.0f);
+
+        const bool isHigh = controlAt(args, triggerIndex, 0.0f) > 0.5f;
+        if (isHigh && ! wasHigh)
+        {
+            const bool  take  = random.chance(std::clamp(controlAt(args, probabilityIndex, 1.0f), 0.0f, 1.0f));
+            const float draw  = random.next();
+            const int   steps = static_cast<int>(controlAt(args, stepsIndex, 0.0f) + 0.5f);
+            if (take)
+            {
+                held = steps >= 2 ? std::floor(draw * static_cast<float>(steps)) / static_cast<float>(steps - 1)
+                                  : draw;
+                started = true;
+            }
+        }
+        wasHigh = isHigh;
+
+        // Until the first hit is taken the output rests at the middle of the range.
+        args.controlOut[0] = low + (started ? held : 0.5f) * (high - low);
+    }
+
+private:
+    dsp::Random random;
+    std::uint32_t lastSeed = 0;
+    bool  reseeded = false, wasHigh = false, started = false;
+    float held = 0.5f;
+    int triggerIndex = -1, minIndex = -1, maxIndex = -1, probabilityIndex = -1,
+        stepsIndex = -1, seedIndex = -1;
 };
 
 }  // namespace valis::elements
@@ -637,6 +738,7 @@ void registerUtility(ElementRegistry& registry)
     registry.add("FreqAnalyzer",    &make<elements::FreqAnalyzer>);
     registry.add("NoteOut",         &make<elements::NoteOut>);
     registry.add("Quantise",        &make<elements::Quantise>);
+    registry.add("Vary",            &make<elements::Vary>);
 }
 
 // The one place that knows the whole set. makeDefaultRegistry's keys and the

@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include "dsp/Random.h"
+
 namespace valis::elements {
 
 /// Topology-preserving transform state variable filter in Andy Simper's
@@ -1075,6 +1077,269 @@ private:
     int pitchIndex = -1, mixIndex = -1;
 };
 
+/// Frequency shifter: every partial moves by the same number of hertz, so a harmonic
+/// series stops being one. The input is split into two copies a quarter turn apart by a
+/// pair of allpass chains (Olli Niemitalo's twelve-pole IIR Hilbert transformer, accurate
+/// from about 0.002 to 0.998 of Nyquist), and those are multiplied by a cosine and a
+/// sine of the shift frequency and combined, which is single-sideband modulation.
+/// The allpass chains delay by an amount that varies with frequency, so the dry signal is
+/// not aligned with the shifted one and no latency is declared.
+class FreqShifter final : public DspElement
+{
+    static constexpr int kSections = 4;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        shiftIndex    = controlIndex(type, "shift");
+        feedbackIndex = controlIndex(type, "feedback");
+        mixIndex      = controlIndex(type, "mix");
+        reset();
+    }
+
+    void reset() override
+    {
+        for (auto& chain : state)
+            for (auto& s : chain)
+                s = Section{};
+        quadratureDelay = 0.0;
+        angle = 0.0;
+        previous = 0.0f;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const double nyquist = 0.5 * sampleRate;
+        const double shift   = std::clamp(static_cast<double>(controlAt(args, shiftIndex, 0.0f)),
+                                          -nyquist, nyquist);
+        const float feedback = std::clamp(controlAt(args, feedbackIndex, 0.0f), 0.0f, 0.95f);
+        const float mix      = std::clamp(controlAt(args, mixIndex, 1.0f), 0.0f, 1.0f);
+        const double step    = 2.0 * 3.14159265358979323846 * shift / sampleRate;
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const double x = static_cast<double>(in[i]) + static_cast<double>(feedback * previous);
+
+            double inPhase = x;
+            double quad    = x;
+            for (int k = 0; k < kSections; ++k)
+            {
+                inPhase = state[0][static_cast<std::size_t>(k)].run(inPhase, kCoefficientsI[k]);
+                quad    = state[1][static_cast<std::size_t>(k)].run(quad,    kCoefficientsQ[k]);
+            }
+            // The second chain is one sample late; the extra delay makes the pair a
+            // quarter turn apart.
+            const double delayedI = quadratureDelay;
+            quadratureDelay = inPhase;
+
+            const double shifted = delayedI * std::cos(angle) + quad * std::sin(angle);
+            angle += step;
+            if (angle > 3.14159265358979323846)       angle -= 2.0 * 3.14159265358979323846;
+            else if (angle < -3.14159265358979323846) angle += 2.0 * 3.14159265358979323846;
+
+            previous = static_cast<float>(shifted);
+            out[i] = in[i] * (1.0f - mix) + previous * mix;
+        }
+    }
+
+private:
+    /// One second-order allpass: y = a2 * (x + y[-2]) - x[-2].
+    struct Section
+    {
+        double x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0;
+
+        double run(double x, double a2) noexcept
+        {
+            const double y = a2 * (x + y2) - x2;
+            x2 = x1; x1 = x;
+            y2 = y1; y1 = y;
+            return y;
+        }
+    };
+
+    // Niemitalo's coefficients, already squared.
+    static constexpr double kCoefficientsI[kSections] = {
+        0.6923878 * 0.6923878, 0.9360654322959 * 0.9360654322959,
+        0.9882295226860 * 0.9882295226860, 0.9987488452737 * 0.9987488452737 };
+    static constexpr double kCoefficientsQ[kSections] = {
+        0.4021921162426 * 0.4021921162426, 0.8561710882420 * 0.8561710882420,
+        0.9722909545651 * 0.9722909545651, 0.9952884791278 * 0.9952884791278 };
+
+    double sampleRate = 44100.0;
+    Section state[2][kSections];
+    double quadratureDelay = 0.0;
+    double angle = 0.0;
+    float previous = 0.0f;
+    int shiftIndex = -1, feedbackIndex = -1, mixIndex = -1;
+};
+
+/// Tape: the four things a recording on tape does to a sound that a plain saturator
+/// does not. In order along the path:
+///
+///   saturation   tanh, normalised so a quiet signal passes at unity gain; at zero
+///                drive it is nearly linear for signals up to about 0.5
+///   head bump    a broad low boost near 80 Hz, from the playback head's response
+///   wow/flutter  a short delay whose length moves, which is speed variation: a slow
+///                sway (wow, under 2 Hz), a fast one (flutter, near 9 Hz) and a little
+///                random drift
+///   loss + hiss  a one-pole high cut for the tape's limited bandwidth, and the
+///                noise it carries, which passes through the same cut
+///
+/// The path adds a fixed 3 ms, which is the middle of the delay the modulation moves
+/// around, and that is declared as latency.
+class Tape final : public DspElement
+{
+    static constexpr double kBaseMs = 3.0;
+    static constexpr double kPi = 3.14159265358979323846;
+
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        driveIndex   = controlIndex(type, "drive");
+        bumpIndex    = controlIndex(type, "bump");
+        wowIndex     = controlIndex(type, "wow");
+        flutterIndex = controlIndex(type, "flutter");
+        hfIndex      = controlIndex(type, "hf");
+        hissIndex    = controlIndex(type, "hiss");
+        seedIndex    = controlIndex(type, "seed");
+
+        base = kBaseMs * 0.001 * rate;
+        line.assign(static_cast<std::size_t>(base * 2.0) + 16, 0.0f);
+        reset();
+    }
+
+    void reset() override
+    {
+        std::fill(line.begin(), line.end(), 0.0f);
+        writePos = 0;
+        wowPhase = flutterPhase = 0.0;
+        drift = 0.0;
+        loss = 0.0;
+        z1 = z2 = 0.0;
+        reseeded = false;
+    }
+
+    int latencyInSamples() const override { return static_cast<int>(std::lround(base)); }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const auto seed = static_cast<std::uint32_t>(std::max(controlAt(args, seedIndex, 1.0f), 0.0f));
+        if (! reseeded || seed != lastSeed)
+        {
+            random.seed(seed * 2654435761u + 0x9E3779B9u);
+            lastSeed = seed;
+            reseeded = true;
+        }
+
+        const float  driveDb = std::clamp(controlAt(args, driveIndex, 6.0f), 0.0f, 30.0f);
+        const float  bumpDb  = std::clamp(controlAt(args, bumpIndex, 3.0f), 0.0f, 12.0f);
+        const double wow     = std::clamp(static_cast<double>(controlAt(args, wowIndex, 0.3f)), 0.0, 1.0);
+        const double flutter = std::clamp(static_cast<double>(controlAt(args, flutterIndex, 0.2f)), 0.0, 1.0);
+        const double hf      = std::clamp(static_cast<double>(controlAt(args, hfIndex, 14000.0f)), 1000.0, 20000.0);
+        const float  hissDb  = std::clamp(controlAt(args, hissIndex, -80.0f), -120.0f, -20.0f);
+
+        // 0.3 puts a signal of 0.5 well inside the linear part of the curve at zero drive.
+        const double gain     = 0.3 * std::pow(10.0, static_cast<double>(driveDb) / 20.0);
+        const double hissGain = std::pow(10.0, static_cast<double>(hissDb) / 20.0);
+        setBump(bumpDb);
+
+        // Speed variation as a depth in samples: a fractional speed error e at
+        // frequency f moves the delay by e / (2 pi f).
+        const double wowDepth     = wow     * 0.005 / (2.0 * kPi * 0.8) * sampleRate;
+        const double flutterDepth = flutter * 0.003 / (2.0 * kPi * 9.0) * sampleRate;
+        const double driftDepth   = (wow + flutter) * 2.0;
+
+        const double lossCoefficient = 1.0 - std::exp(-2.0 * kPi * hf / sampleRate);
+        const int    size = static_cast<int>(line.size());
+
+        const float* in  = args.audioIn[0];
+        float*       out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            // Saturation, unity gain for small signals.
+            const double x = std::tanh(gain * static_cast<double>(in[i])) / gain;
+
+            // Head bump (transposed direct form II).
+            const double bumped = b0 * x + z1;
+            z1 = b1 * x - a1 * bumped + z2;
+            z2 = b2 * x - a2 * bumped;
+
+            line[static_cast<std::size_t>(writePos)] = static_cast<float>(bumped);
+
+            drift += 0.0005 * (random.bipolar() * 40.0 - drift);
+            wowPhase     += 0.8 / sampleRate;
+            flutterPhase += 9.0 / sampleRate;
+            wowPhase     -= std::floor(wowPhase);
+            flutterPhase -= std::floor(flutterPhase);
+
+            const double modulation = wowDepth * std::sin(2.0 * kPi * wowPhase)
+                                    + flutterDepth * std::sin(2.0 * kPi * flutterPhase)
+                                    + driftDepth * drift;
+            const double delay = std::clamp(base + modulation, 1.0, base * 2.0 - 2.0);
+
+            const int   whole = static_cast<int>(delay);
+            const float frac  = static_cast<float>(delay - whole);
+            int a = writePos - whole;
+            if (a < 0) a += size;
+            int b = a - 1;
+            if (b < 0) b += size;
+            const double played = static_cast<double>(line[static_cast<std::size_t>(a)]) * (1.0 - frac)
+                                + static_cast<double>(line[static_cast<std::size_t>(b)]) * frac;
+
+            loss += lossCoefficient * (played + hissGain * static_cast<double>(random.bipolar()) - loss);
+            out[i] = static_cast<float>(loss);
+
+            if (++writePos >= size)
+                writePos = 0;
+        }
+    }
+
+private:
+    /// RBJ peaking filter at 80 Hz, Q of 0.7, so the boost is broad.
+    /// https://www.w3.org/TR/audio-eq-cookbook/
+    void setBump(float gainDb) noexcept
+    {
+        if (gainDb == bumpDb)
+            return;
+        bumpDb = gainDb;
+
+        const double A     = std::pow(10.0, static_cast<double>(gainDb) / 40.0);
+        const double w0    = 2.0 * kPi * 80.0 / sampleRate;
+        const double alpha = std::sin(w0) / (2.0 * 0.7);
+        const double a0    = 1.0 + alpha / A;
+
+        b0 = (1.0 + alpha * A) / a0;
+        b1 = (-2.0 * std::cos(w0)) / a0;
+        b2 = (1.0 - alpha * A) / a0;
+        a1 = b1;
+        a2 = (1.0 - alpha / A) / a0;
+    }
+
+    double sampleRate = 48000.0, base = 144.0;
+    std::vector<float> line;
+    int writePos = 0;
+    double wowPhase = 0.0, flutterPhase = 0.0, drift = 0.0, loss = 0.0;
+    double b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0, z1 = 0.0, z2 = 0.0;
+    float bumpDb = 0.0f;
+    dsp::Random random;
+    std::uint32_t lastSeed = 0;
+    bool reseeded = false;
+    int driveIndex = -1, bumpIndex = -1, wowIndex = -1, flutterIndex = -1,
+        hfIndex = -1, hissIndex = -1, seedIndex = -1;
+};
+
 }  // namespace valis::elements
 
 namespace valis {
@@ -1098,5 +1363,7 @@ void registerFilters(ElementRegistry& registry)
     registry.add("Crossover",     &make<elements::Crossover>);
     registry.add("Redux",         &make<elements::Redux>);
     registry.add("PitchShift",    &make<elements::PitchShift>);
+    registry.add("FreqShifter",   &make<elements::FreqShifter>);
+    registry.add("Tape",          &make<elements::Tape>);
 }
 }  // namespace valis

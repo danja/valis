@@ -14,6 +14,7 @@ set(VALIS_TESTS
   dsp/GranulatorTest.cpp
   dsp/GristFeaturesTest.cpp
   dsp/SpectralTest.cpp
+  dsp/SpectralExtrasTest.cpp
   dsp/FluteTest.cpp
   dsp/ClarinetTest.cpp
   dsp/CelloTest.cpp
@@ -26,6 +27,11 @@ set(VALIS_TESTS
   dsp/ReduxTest.cpp
   dsp/DriftTest.cpp
   dsp/PitchShiftTest.cpp
+  dsp/FreqShifterTest.cpp
+  dsp/TuningTest.cpp
+  dsp/VaryTest.cpp
+  dsp/TapeTest.cpp
+  dsp/LfoTest.cpp
   dsp/WavetableTest.cpp
   dsp/StateVariableDriveTest.cpp
   dsp/CompressorTest.cpp

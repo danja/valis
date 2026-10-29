@@ -4,8 +4,11 @@
 #include "Waveguide.h"
 
 #include "dsp/Random.h"
+#include "dsp/Tuning.h"
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace valis::elements {
 
@@ -225,18 +228,72 @@ private:
 
 /// Control-rate oscillator. One value per block, which is what a modulation arc
 /// carries - audio-rate modulation would need an audio arc instead.
+///
+/// A rise through 0.5 on retrigger restarts the cycle, which is how a note starts
+/// the same sweep every time. A sync above zero is the length of a cycle in beats
+/// and locks the phase to the host's musical position while the transport plays;
+/// it takes precedence over rate and retrigger there. The Curve shape plays the
+/// points of val:curve, evenly spaced over one cycle and joined by straight lines,
+/// the last back round to the first.
 class LFO final : public DspElement
 {
+    static constexpr std::size_t kMaxCurvePoints = 256;
+
 public:
     void prepare(const ElementType& type, double rate, int) override
     {
-        sampleRate = rate;
-        rateIndex  = controlIndex(type, "rate");
-        shapeIndex = controlIndex(type, "shape");
+        sampleRate     = rate;
+        rateIndex      = controlIndex(type, "rate");
+        shapeIndex     = controlIndex(type, "shape");
+        retriggerIndex = controlIndex(type, "retrigger");
+        syncIndex      = controlIndex(type, "sync");
         reset();
     }
 
-    void reset() override { phase = 0.0; held = 0.0f; }
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "curve")
+            return true;
+
+        std::vector<float> points;
+        const std::string text(value);
+        const char* cursor = text.c_str();
+        while (*cursor != '\0')
+        {
+            if (*cursor == ',' || *cursor == ' ' || *cursor == '\t' || *cursor == '\n')
+            {
+                ++cursor;
+                continue;
+            }
+
+            char* stop = nullptr;
+            const float number = std::strtof(cursor, &stop);
+            if (stop == cursor)
+            {
+                error = "expected a list of numbers from -1 to 1, found '" + std::string(cursor) + "'";
+                return false;
+            }
+            if (points.size() >= kMaxCurvePoints)
+            {
+                error = "a curve has at most " + std::to_string(kMaxCurvePoints) + " points";
+                return false;
+            }
+
+            points.push_back(std::clamp(number, -1.0f, 1.0f));
+            cursor = stop;
+        }
+
+        if (points.empty())
+        {
+            error = "a curve needs at least one point";
+            return false;
+        }
+
+        curve = std::move(points);
+        return true;
+    }
+
+    void reset() override { phase = 0.0; held = 0.0f; wasHigh = false; lastPhase = 0.0f; }
 
     void process(const ProcessArgs& args) noexcept override
     {
@@ -245,6 +302,21 @@ public:
 
         const float frequency = std::max(controlAt(args, rateIndex, 2.0f), 0.001f);
         const int shape = static_cast<int>(controlAt(args, shapeIndex, 0.0f) + 0.5f);
+        const double beats = std::max(static_cast<double>(controlAt(args, syncIndex, 0.0f)), 0.0);
+
+        const bool synced = beats > 0.0 && args.transport.playing;
+        if (synced)
+        {
+            phase = args.transport.ppqPosition / beats;
+            phase -= std::floor(phase);
+        }
+        else
+        {
+            const bool high = controlAt(args, retriggerIndex, 0.0f) > 0.5f;
+            if (high && ! wasHigh)
+                phase = 0.0;
+            wasHigh = high;
+        }
 
         const auto p = static_cast<float>(phase);
         float value;
@@ -261,22 +333,42 @@ public:
                 }
                 value = held;
                 break;
+            case 5:                                                      // drawn curve
+            {
+                if (curve.empty())
+                {
+                    value = 0.0f;
+                    break;
+                }
+                const auto n = static_cast<float>(curve.size());
+                const float at = p * n;
+                const auto  i = std::min(static_cast<std::size_t>(at), curve.size() - 1);
+                const float a = curve[i];
+                const float b = curve[(i + 1) % curve.size()];
+                value = a + (b - a) * (at - static_cast<float>(i));
+                break;
+            }
             default: value = std::sin(6.283185307179586f * p);   break;
         }
 
         lastPhase = p;
         args.controlOut[0] = value;
 
-        phase += static_cast<double>(frequency) * args.numSamples / sampleRate;
-        while (phase >= 1.0)
-            phase -= 1.0;
+        if (! synced)
+        {
+            phase += static_cast<double>(frequency) * args.numSamples / sampleRate;
+            while (phase >= 1.0)
+                phase -= 1.0;
+        }
     }
 
 private:
     double sampleRate = 44100.0, phase = 0.0;
     float held = 0.0f, lastPhase = 0.0f;
     uint32_t seed = 22222u;
-    int rateIndex = -1, shapeIndex = -1;
+    bool wasHigh = false;
+    std::vector<float> curve;
+    int rateIndex = -1, shapeIndex = -1, retriggerIndex = -1, syncIndex = -1;
 };
 
 /// Slow, bounded, random wander: an Ornstein-Uhlenbeck process, which is noise pulled
@@ -363,18 +455,45 @@ private:
 
 /// Outputs the frequency (Hz) of the most recent MIDI note as a control signal.
 /// Holds the last value, so arcs driven by this read a stable pitch between
-/// notes. Default is A4 (440 Hz) until the first note arrives.
+/// notes. Default is A4 (440 Hz) until the first note arrives. With a val:tuning
+/// the scale is counted up from the root key instead of twelve to the octave.
 class MidiPitch final : public DspElement
 {
 public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        referenceIndex = controlIndex(type, "reference");
+        rootIndex      = controlIndex(type, "root");
+    }
+
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "tuning")
+            return true;
+
+        dsp::Tuning loaded;
+        if (! loaded.load(value, error))
+            return false;
+
+        tuning = std::move(loaded);
+        return true;
+    }
+
     void process(const ProcessArgs& args) noexcept override
     {
         if (args.numControlOut < 1)
             return;
-        // MIDI note → Hz: f = 440 · 2^((n − 69) / 12)
-        args.controlOut[0] = 440.0f *
-            std::exp2(static_cast<float>(args.noteNumber - 69) * (1.0f / 12.0f));
+
+        const double reference = std::clamp(static_cast<double>(controlAt(args, referenceIndex, 440.0f)),
+                                            400.0, 480.0);
+        const int    root      = std::clamp(static_cast<int>(controlAt(args, rootIndex, 69.0f) + 0.5f), 0, 127);
+
+        args.controlOut[0] = static_cast<float>(tuning.frequency(args.noteNumber, root, reference));
     }
+
+private:
+    dsp::Tuning tuning;
+    int referenceIndex = -1, rootIndex = -1;
 };
 
 /// Outputs the velocity of the most recent MIDI note-on as a control signal

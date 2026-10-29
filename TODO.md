@@ -44,9 +44,6 @@ A review of `~/github/oxide-studio` (MIT/Apache, Rust) found these gaps in Valis
 oxide code is a pointer to what is missing, not code to port: write each from the
 algorithm, mono, with a test. In order of use:
 
-* **Dual-threshold dynamics.** `val:Compressor` has one threshold for both its
-  downward and upward stages and the lift is capped by `val:boost`. Oxide's band
-  dynamics has a separate threshold for each. `examples/multiband.ttl` works with one.
 * **Reverb size and decay.** Size glides, but a fractional delay low-passes the tail
   slightly, so `decay` is exact only at size 1.
 * **STFT time-stretch** with formant preservation, beside `val:Granulator`. Oxide's warp
@@ -56,13 +53,35 @@ algorithm, mono, with a test. In order of use:
   signal, which an element that produces one output sample per input sample cannot do, so
   it needs either a sound file source (as `val:Granulator` has) or a live version that
   stretches a recent history.
-* **Wavetable follow-ups.** `val:Wavetable` switches mip level in steps as the pitch
-  moves; crossfading adjacent levels would hide the step in a wide pitch sweep. Tables
-  are the built-in three sets: loading a user table from a sound file, as
-  `val:SampleLoad` does, is the next step.
+* **Wavetable follow-ups.** Tables are the built-in three sets: loading a user table
+  from a sound file, as `val:SampleLoad` does, is the next step.
 * **PitchShift for chords.** The 30 ms two-head shifter is good on a single voice and
   shows a 33 Hz flutter on a held chord. A longer grain with a correlation search for the
   jump point (SOLA) would fix it at the cost of latency.
+
+## Ideas from the map.audio PAM survey
+
+From https://map.audio/mfx (a sampler and drum synth, so only its effects and modulation
+design apply). Roughly in order of how self-contained they are:
+
+* **Scala follow-ups.** `val:MidiPitch` and `val:Quantise` read a `.scl` file
+  (`src/dsp/Tuning.h`). Still to do: a `.kbm` keyboard mapping, MTS-ESP sync, a
+  `val:tuning` session override like the one for `val:SampleLoad`, and offering the scale
+  to `val:Granulator`'s grain pitch.
+* **Squeeze.** PAM's description of it could not be found (searched once, April 2026
+  reviews do not mention it). Probably a bit-depth or dynamic-range squeezer; check the
+  PAM manual before building.
+* **A/B morph follow-ups.** `OpDispatcher::morph` and the `morph` MCP tool move every
+  `val:Param` that declares `val:valueA` and `val:valueB`. Still to do: a slider for it in
+  the Controls view, a host parameter so it can be automated, and a modulation source so an
+  LFO can sweep it.
+* **More drum engines.** `examples/modal-tom.ttl` is a membrane voice and
+  `dx7-bells.ttl` covers FM bells. The tom has a pitch drop. Still open: a chaos voice and a snare
+  with a wire rattle.
+* **Randomizer follow-ups.** `OpDispatcher::randomize` and the `randomize` MCP tool
+  draw every parameter from its range by seed. Still to do: a button for it in the Controls
+  view, bounding it by a declared scale or genre, and randomising modulation and structure
+  rather than only the knobs.
 
 ## From the plugin survey
 

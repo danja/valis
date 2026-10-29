@@ -82,6 +82,10 @@ struct ParamBinding
     /// is used in circuits where the physical range differs.
     std::optional<double> minimum, maximum;
 
+    /// The two ends of an A/B morph, in the property's own units. A binding that
+    /// declares both moves between them when the morph position changes.
+    std::optional<double> morphA, morphB;
+
     /// Optional heading for the Controls panel. Bindings with the same section string
     /// are grouped together under that label.
     std::string section;

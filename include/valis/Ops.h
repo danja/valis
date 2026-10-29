@@ -67,6 +67,7 @@ struct ParamInfo
     int slot = -1;
     std::string name, symbol, unit, targetNode, property;
     double minimum = 0.0, maximum = 1.0, value = 0.0;
+    std::optional<double> morphA, morphB;   ///< val:valueA and val:valueB, if declared
 };
 
 /// Anything the ops need to reach. Injected rather than owned, so the same ops
@@ -128,6 +129,18 @@ public:
     std::vector<ParamInfo> listParams() const;
     OpResult getParam(int slot) const;
     OpResult setParam(int slot, double value);
+
+    /// Moves every parameter that declares both val:valueA and val:valueB to its
+    /// place between them: 0 is every A, 1 is every B. The result lists the slots
+    /// moved. A circuit with no morph bindings is a failure, not a silent no-op.
+    OpResult morph(double position);
+
+    /// Gives every parameter a new random value within its range, from a seed, so
+    /// the same seed on the same circuit gives the same patch. `amount` is how far
+    /// each moves from where it is toward its random value: 1 replaces it, 0.1
+    /// nudges it. Parameters named in `keep` (by slot) are left alone. Surfaces
+    /// the values it set.
+    OpResult randomize(unsigned seed, double amount = 1.0, const std::vector<int>& keep = {});
 
     // -- playing -----------------------------------------------------------
     /// What the editor's virtual keyboard does. A caller driving Valis from

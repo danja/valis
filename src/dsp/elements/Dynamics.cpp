@@ -109,6 +109,7 @@ protected:
         releaseIndex   = controlIndex(type, "release");
         upwardIndex    = controlIndex(type, "upward");
         boostIndex     = controlIndex(type, "boost");
+        liftIndex      = controlIndex(type, "liftThreshold");
     }
 
     void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
@@ -120,6 +121,11 @@ protected:
         const float release   = timeToCoeff(controlAt(args, releaseIndex, 100.0f), sampleRate);
         const float upward    = std::clamp(controlAt(args, upwardIndex, 0.0f), 0.0f, 1.0f);
         const float maxBoost  = std::max(controlAt(args, boostIndex, 18.0f), 0.0f);
+
+        // The bottom of the port's range means "the same as threshold", so a
+        // circuit written before the port existed behaves as it did.
+        const float liftSetting = controlAt(args, liftIndex, kFollowsThreshold);
+        const float liftBelow   = liftSetting <= kFollowsThreshold ? threshold : liftSetting;
 
         const float ratioInv = 1.0f / ratio;
 
@@ -144,19 +150,21 @@ protected:
                 targetDb = threshold + over * ratioInv;
             }
 
-            // Upward: lift what sits below the threshold, by no more than maxBoost,
+            // Upward: lift what sits below its own threshold, by no more than maxBoost,
             // or the noise floor of a quiet passage would be lifted a hundred decibels.
-            if (upward > 0.0f && levelDb < threshold)
-                targetDb += std::min(upward * (threshold - levelDb) * (1.0f - ratioInv), maxBoost);
+            if (upward > 0.0f && levelDb < liftBelow)
+                targetDb += std::min(upward * (liftBelow - levelDb) * (1.0f - ratioInv), maxBoost);
 
             out[i] = in[i] * dbToGain(targetDb - levelDb);
         }
     }
 
 private:
+    static constexpr float kFollowsThreshold = -90.0f;
+
     float envelope = 0.0f;
     int thresholdIndex = -1, ratioIndex = -1, kneeIndex = -1;
-    int attackIndex = -1, releaseIndex = -1, upwardIndex = -1, boostIndex = -1;
+    int attackIndex = -1, releaseIndex = -1, upwardIndex = -1, boostIndex = -1, liftIndex = -1;
 };
 
 /// ADSR contour on a control output, driven by note events.

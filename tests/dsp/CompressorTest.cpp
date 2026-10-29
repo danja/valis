@@ -76,6 +76,27 @@ void testCapDoesNotTouchTheDownwardStage()
     assert(std::abs(g + 9.0) < 0.5);
 }
 
+void testLiftHasItsOwnThreshold()
+{
+    // Threshold -20, lift threshold -50. A -30 dB signal is below the first and
+    // above the second: not lifted. A -60 dB one is lifted from -50: 10 x 0.75.
+    auto rig = upwardRig(60.0f);
+    rig.set("liftThreshold", -50.0f);
+
+    const double between = gainDb(rig, -30.0);
+    const double below   = gainDb(rig, -60.0);
+    std::printf("  lift threshold -50: -30 dB changed by %.2f dB, -60 dB lifted by %.2f dB\n", between, below);
+    assert(std::abs(between) < 0.3);
+    assert(std::abs(below - 7.5) < 0.5);
+
+    // The downward stage is still on the main threshold.
+    assert(std::abs(gainDb(rig, -8.0) + 9.0) < 0.5);
+
+    // The lowest setting follows the threshold, as before the port existed.
+    rig.set("liftThreshold", -90.0f);
+    assert(std::abs(gainDb(rig, -30.0) - 7.5) < 0.5);
+}
+
 }  // namespace
 
 int main()
@@ -83,6 +104,7 @@ int main()
     testBoostIsCapped();
     testSmallLiftsAreUnaffectedByTheCap();
     testCapDoesNotTouchTheDownwardStage();
+    testLiftHasItsOwnThreshold();
 
     std::printf("CompressorTest PASSED\n");
     return 0;

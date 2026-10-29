@@ -141,6 +141,22 @@ val:section a rdf:Property ;
     rdfs:domain val:Param ;
     rdfs:range rdfs:Literal .
 
+val:valueA a rdf:Property ;
+    rdfs:label "valueA" ;
+    rdfs:comment """One end of an A/B morph: the value, in the property's own units, that a
+val:Param takes when the morph position is 0. A binding with both val:valueA and val:valueB
+moves between them as the position moves to 1, in a straight line. One position then changes
+every such binding at once, which is a macro control across the whole circuit. Bindings
+without both are left alone.""" ;
+    rdfs:domain val:Param ;
+    rdfs:range xsd:double .
+
+val:valueB a rdf:Property ;
+    rdfs:label "valueB" ;
+    rdfs:comment "The other end of an A/B morph: the value at position 1. See val:valueA." ;
+    rdfs:domain val:Param ;
+    rdfs:range xsd:double .
+
 ################################################################
 # Anti-aliasing strategies                                     #
 ################################################################
@@ -998,6 +1014,78 @@ until the shift is moved again.""" ;
         lv2:name "Mix" ; lv2:default 1.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
+val:FreqShifter a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "FreqShifter" ;
+    rdfs:comment """Moves every partial of the input by val:shift hertz. Unlike val:PitchShift,
+which multiplies frequencies, this adds to them, so a harmonic series becomes inharmonic and
+the result sounds metallic or bell-like. It is single-sideband modulation: the input is split
+into two copies a quarter turn apart by a Hilbert transformer (a pair of allpass chains), then
+multiplied by a cosine and a sine at the shift frequency and combined.
+
+A positive shift moves partials up and a negative one moves them down. val:feedback returns
+the shifted output to the input, so the shift repeats and the sound rises or falls
+continuously, the barberpole phaser effect. The allpass chains delay by a frequency
+dependent amount and no latency is declared, so a partial blend with the dry signal is
+slightly phase coloured.""" ;
+    val:implementation "FreqShifter" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shift" ;
+        lv2:name "Shift" ; lv2:default 0.0 ;
+        lv2:minimum -2000.0 ; lv2:maximum 2000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 0.95 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:Tape a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Tape" ;
+    rdfs:comment """A tape machine's effect on a signal, in four stages. val:drive pushes the signal
+into a tanh saturator that has unity gain for quiet signals, so more drive adds soft clipping
+without making it louder. val:bump is a broad boost near 80 Hz, the low-frequency swell of a
+playback head. val:wow and val:flutter vary the tape speed, which shows up as pitch sway: wow
+is slow, under 2 Hz, flutter is faster, near 9 Hz, and both ride on a little random drift.
+Finally val:hf rolls off the top end with a one-pole cut, and val:hiss adds noise at that
+level in decibels, which passes through the same cut.
+
+The speed variation is a delay that moves around a fixed 3 ms. That 3 ms is declared as
+latency. val:seed chooses the noise and drift; the same seed after a reset gives the same
+output.
+
+See https://en.wikipedia.org/wiki/Wow_and_flutter_measurement""" ;
+    val:implementation "Tape" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "drive" ;
+        lv2:name "Drive" ; lv2:default 6.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 30.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bump" ;
+        lv2:name "Bump" ; lv2:default 3.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 12.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "wow" ;
+        lv2:name "Wow" ; lv2:default 0.3 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "flutter" ;
+        lv2:name "Flutter" ; lv2:default 0.2 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "hf" ;
+        lv2:name "High cut" ; lv2:default 14000.0 ;
+        lv2:minimum 1000.0 ; lv2:maximum 20000.0 ;
+        lv2:portProperty lv2:logarithmic ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "hiss" ;
+        lv2:name "Hiss" ; lv2:default -80.0 ;
+        lv2:minimum -120.0 ; lv2:maximum -20.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "seed" ;
+        lv2:name "Seed" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
+        lv2:portProperty lv2:integer ] .
+
 val:Chorus a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Chorus" ;
     rdfs:comment """Three-voice chorus. Bucket-brigade-style delay lines modulated
@@ -1344,7 +1432,12 @@ value through unchanged.
 
 It acts on semitones, so it sits between a source of intervals and whatever uses
 them: val:MidiInterval into val:Quantise into a granulator's pitch plays only
-notes of the scale however the keyboard is played.""" ;
+notes of the scale however the keyboard is played.
+
+Custom snaps to the notes of the Scala scale val:tuning names, counted up from the root
+and repeating at the scale's last interval. The output is in semitones, so a scale of
+other than twelve notes gives fractions. Without a val:tuning, Custom passes the value
+through unchanged.""" ;
     val:implementation "Quantise" ;
     val:linear false ;
     lv2:port
@@ -1359,7 +1452,7 @@ notes of the scale however the keyboard is played.""" ;
         rdfs:comment "Pitch class of the scale's root, 0 for C." ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "scale" ;
         lv2:name "Scale" ; lv2:default 4.0 ;
-        lv2:minimum 0.0 ; lv2:maximum 6.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 7.0 ;
         lv2:portProperty lv2:enumeration, lv2:integer ;
         lv2:scalePoint [ rdfs:label "Free"         ; rdf:value 0 ] ,
                        [ rdfs:label "Semitones"    ; rdf:value 1 ] ,
@@ -1367,7 +1460,17 @@ notes of the scale however the keyboard is played.""" ;
                        [ rdfs:label "Fifths"       ; rdf:value 3 ] ,
                        [ rdfs:label "Major"        ; rdf:value 4 ] ,
                        [ rdfs:label "Minor"        ; rdf:value 5 ] ,
-                       [ rdfs:label "Pentatonic"   ; rdf:value 6 ] ; ] .
+                       [ rdfs:label "Pentatonic"   ; rdf:value 6 ] ,
+                       [ rdfs:label "Custom"       ; rdf:value 7 ] ; ] .
+
+val:tuning a rdf:Property ;
+    rdfs:label "tuning" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """Path to a Scala (.scl) tuning file, read on the message thread. Paths
+resolve as val:file does. A file that is missing or malformed fails the load with the line
+that was wrong. The format is described at
+<https://www.huygens-fokker.org/scala/scl_format.html>; thousands of scales are
+published in the Scala archive, <https://www.huygens-fokker.org/docs/scales.zip>.""" .
 
 val:Scale a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Scale" ;
@@ -1546,6 +1649,99 @@ See https://en.wikipedia.org/wiki/Short-time_Fourier_transform""" ;
       [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "threshold" ;
         lv2:name "Threshold" ; lv2:default -60.0 ;
         lv2:minimum -120.0 ; lv2:maximum 0.0 ; units:unit units:db ] .
+
+val:SpectralDelay a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "SpectralDelay" ;
+    rdfs:comment """Delays each frequency by its own time, so a sound arrives spread out in
+pitch: with a positive val:spread the highs trail the lows, like a chirp played backwards, and
+with a negative one the lows trail. A val:spread of zero is an ordinary delay. The delay of a
+bin is val:time at its centre, from nothing to twice val:time across the spectrum at full
+spread.
+
+Delay is in whole frames of the short-time Fourier transform, so its resolution is one hop,
+about 5 ms at the default 1024-point window and 48 kHz. val:feedback returns each bin to its
+own delay line, so every frequency repeats on its own schedule. val:fftSize sets the window as
+for val:SpectralGate; a larger window costs more latency, which is declared.
+
+See https://en.wikipedia.org/wiki/Short-time_Fourier_transform""" ;
+    val:implementation "SpectralDelay" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "time" ;
+        lv2:name "Time" ; lv2:default 200.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "spread" ;
+        lv2:name "Spread" ; lv2:default 0.5 ;
+        lv2:minimum -1.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
+        lv2:name "Feedback" ; lv2:default 0.3 ;
+        lv2:minimum 0.0 ; lv2:maximum 0.95 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 0.5 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:Codec a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Codec" ;
+    rdfs:comment """The sound of low-bitrate audio coding. Frequencies above val:bandwidth are
+removed, bins more than val:floor decibels below the loudest in each frame are dropped, and the
+magnitudes that are left are rounded to steps of val:step decibels. The bins that survive
+change from frame to frame, so what remains warbles and swirls the way a coarse codec does.
+
+This is an approximation of the effect and not a model of any one encoder: it has no
+psychoacoustic masking, no bit allocation and no codec transform of its own. It works on a
+1024-point short-time Fourier transform and declares its latency.
+A val:floor of 0 and a val:step of 0 with the bandwidth at its top leave the signal as it
+was, delayed.
+
+See https://en.wikipedia.org/wiki/Audio_coding_format""" ;
+    val:implementation "Codec" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;  lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bandwidth" ;
+        lv2:name "Bandwidth" ; lv2:default 12000.0 ;
+        lv2:minimum 500.0 ; lv2:maximum 24000.0 ;
+        lv2:portProperty lv2:logarithmic ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "step" ;
+        lv2:name "Step" ; lv2:default 3.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "floor" ;
+        lv2:name "Floor" ; lv2:default 30.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 90.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:LPC a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "LPC" ;
+    rdfs:comment """Linear predictive cross-synthesis, a vocoder that works on the spectral
+envelope. The first input, val:in, is the modulator, usually a voice. The second, val:carrier,
+is what is shaped, usually a buzzy or noisy signal. The output is the carrier with the
+modulator's formants, so a sawtooth can be made to speak.
+
+Every 128 samples a window of each input is fitted with an all-pole model of val:order poles by
+Levinson-Durbin recursion on its autocorrelation, which always gives a stable filter. The
+carrier is whitened by the inverse of its own model, so its own shape does not matter, then
+passed through the modulator's model and scaled to the modulator's level. There is no latency.
+A higher val:order follows the envelope in more detail; about 16 suits speech at 48 kHz.
+val:mix blends the result with the plain carrier.
+
+See https://en.wikipedia.org/wiki/Linear_predictive_coding""" ;
+    val:implementation "LPC" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;      lv2:name "Modulator" ] ,
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "carrier" ; lv2:name "Carrier" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;     lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "order" ;
+        lv2:name "Order" ; lv2:default 16.0 ;
+        lv2:minimum 2.0 ; lv2:maximum 32.0 ; lv2:portProperty lv2:integer ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
 val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "FreqAnalyzer" ;
@@ -1840,7 +2036,13 @@ val:Compressor a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:comment """Giannoulis, Massberg and Reiss soft-knee compressor. Setting
 upward above zero adds the upward stage that gives an OTT-style sound. The upward
 stage lifts a signal quieter than the threshold, by at most val:boost decibels, so
-that silence is not lifted into hiss.""" ;
+that silence is not lifted into hiss.
+
+The upward stage has its own threshold, val:liftThreshold: only a signal quieter than it is
+lifted, and the downward stage keeps val:threshold. Set apart, they leave a band between the
+two that is neither squashed nor lifted, which is how a multiband compressor keeps the body
+of a sound. At its lowest setting, -90 dB, val:liftThreshold follows val:threshold, which is
+how the element behaved before the port was added.""" ;
     val:implementation "Compressor" ;
     val:linear false ;
     lv2:port
@@ -1866,7 +2068,11 @@ that silence is not lifted into hiss.""" ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "boost" ;
         lv2:name "Max boost" ; lv2:default 18.0 ;
-        lv2:minimum 0.0 ; lv2:maximum 60.0 ; units:unit units:db ] .
+        lv2:minimum 0.0 ; lv2:maximum 60.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "liftThreshold" ;
+        lv2:name "Lift threshold" ; lv2:default -90.0 ;
+        lv2:minimum -90.0 ; lv2:maximum 0.0 ; units:unit units:db ;
+        rdfs:comment "Level below which the upward stage lifts. The lowest setting follows the threshold." ] .
 
 val:Limiter a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Limiter" ;
@@ -1897,7 +2103,17 @@ unconnected link does nothing.""" ;
 
 val:LFO a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "LFO" ;
-    rdfs:comment "Control-rate oscillator. Its output drives control arcs." ;
+    rdfs:comment """Control-rate oscillator. Its output drives control arcs.
+
+A rise through 0.5 at val:retrigger restarts the cycle from its beginning, so a note started
+by the same gate always begins the same sweep. A val:sync above zero is the length of one
+cycle in beats: while the host transport plays, the phase follows the host's musical position,
+so the LFO stays in time with the song and val:rate and val:retrigger are ignored. When the
+transport is stopped it free-runs at val:rate.
+
+The Curve shape plays a drawn waveform. val:curve is a list of numbers from -1 to 1 separated
+by spaces or commas, up to 256, spaced evenly over one cycle and joined by straight lines,
+with the last point joining back to the first.""" ;
     val:implementation "LFO" ;
     val:linear false ;
     lv2:port
@@ -1907,14 +2123,28 @@ val:LFO a rdfs:Class ; rdfs:subClassOf val:Source ;
         lv2:minimum 0.01 ; lv2:maximum 100.0 ; units:unit units:hz ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shape" ;
         lv2:name "Shape" ; lv2:default 0.0 ;
-        lv2:minimum 0.0 ; lv2:maximum 4.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 5.0 ;
         lv2:portProperty lv2:enumeration, lv2:integer ;
         lv2:scalePoint [ rdfs:label "Sine"            ; rdf:value 0 ] ,
                        [ rdfs:label "Triangle"        ; rdf:value 1 ] ,
                        [ rdfs:label "Saw"             ; rdf:value 2 ] ,
                        [ rdfs:label "Square"          ; rdf:value 3 ] ,
-                       [ rdfs:label "Sample and hold" ; rdf:value 4 ] ;
-        rdfs:comment "0 sine, 1 triangle, 2 saw, 3 square, 4 sample-and-hold" ] .
+                       [ rdfs:label "Sample and hold" ; rdf:value 4 ] ,
+                       [ rdfs:label "Curve"           ; rdf:value 5 ] ;
+        rdfs:comment "0 sine, 1 triangle, 2 saw, 3 square, 4 sample-and-hold, 5 drawn curve" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "retrigger" ;
+        lv2:name "Retrigger" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "sync" ;
+        lv2:name "Sync" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 64.0 ;
+        rdfs:comment "Cycle length in beats while the host plays; 0 free-runs at the rate." ] .
+
+val:curve a rdf:Property ;
+    rdfs:label "curve" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The points of a val:LFO's Curve shape: numbers from -1 to 1 separated by
+spaces or commas, evenly spaced over one cycle.""" .
 
 val:Drift a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Drift" ;
@@ -1949,12 +2179,66 @@ the same drift, so a render repeats exactly.""" ;
         lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
         lv2:portProperty lv2:integer ] .
 
+val:Vary a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Vary" ;
+    rdfs:comment """Picks a new random value each time a trigger fires and holds it until the
+next one: a sample-and-hold of noise, so a control can take a different value on every hit.
+Connect a gate or a clock to val:trigger and the output to whatever should vary, such as a
+filter cutoff or an oscillator's pitch.
+
+The value is drawn between val:min and val:max. val:steps above 1 restricts it to that many
+evenly spaced values, from val:min to val:max inclusive; 0 draws any value in range.
+val:probability is the chance that a trigger takes a new value, and otherwise the old one is
+kept. Until the first one is taken the output rests at the middle of the range.
+
+val:seed chooses the sequence, and the same seed after a reset gives the same values. The
+values do not depend on val:probability: lowering it skips hits without changing the ones
+that are taken. A trigger is a rise through 0.5.""" ;
+    val:implementation "Vary" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "min" ;
+        lv2:name "Min" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "max" ;
+        lv2:name "Max" ; lv2:default 1.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "probability" ;
+        lv2:name "Probability" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "steps" ;
+        lv2:name "Steps" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 64.0 ;
+        lv2:portProperty lv2:integer ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "seed" ;
+        lv2:name "Seed" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 65535.0 ;
+        lv2:portProperty lv2:integer ] .
+
 val:MidiPitch a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "MidiPitch" ;
-    rdfs:comment "Outputs the frequency of the most recent MIDI note as a control signal (Hz). Holds the last value; defaults to A4 (440 Hz) before any note." ;
+    rdfs:comment """Outputs the frequency of the most recent MIDI note as a control signal (Hz).
+Holds the last value; defaults to A4 (440 Hz) before any note.
+
+val:reference tunes the A above middle C, from 400 to 480 Hz. With a val:tuning the notes
+follow a Scala scale instead of twelve to the octave: val:root is the MIDI note that
+sounds the scale's first degree, at the pitch twelve-tone tuning gives that key, and each
+key above or below it is one scale degree further. The scale repeats at its last interval,
+usually the octave.""" ;
     val:implementation "MidiPitch" ;
     val:linear false ;
     lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "reference" ;
+        lv2:name "Reference A" ; lv2:default 440.0 ;
+        lv2:minimum 400.0 ; lv2:maximum 480.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "root" ;
+        lv2:name "Root" ; lv2:default 69.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 127.0 ; lv2:portProperty lv2:integer ;
+        rdfs:comment "The MIDI note that sounds the first degree of a val:tuning. Without one it changes nothing. 69 is A4." ] ,
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
         lv2:default 440.0 ; lv2:minimum 0.0 ; lv2:maximum 20000.0 ;
         units:unit units:hz ] .

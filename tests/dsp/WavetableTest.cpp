@@ -161,6 +161,41 @@ void testSweepingThePositionIsContinuous()
 
 }  // namespace
 
+/// Power in harmonics `from` to `to` of a saw at `hz`, against the fundamental's.
+double upperHarmonics(double hz, int from, int to)
+{
+    const auto out = play(hz, 2.0f / 3.0f);
+    const double fundamental = amplitudeAt(out, hz);
+    double power = 0.0;
+    for (int k = from; k <= to; ++k)
+    {
+        const double a = amplitudeAt(out, hz * k);
+        power += a * a;
+    }
+    return power / (fundamental * fundamental);
+}
+
+void testLevelsCrossfadeInsteadOfStepping()
+{
+    // Level 3 holds 128 harmonics and level 4 holds 64. Level 3 stops being safe at
+    // 187.5 Hz. Harmonics 70 to 128 are what separates them: they must be fading out
+    // through the half octave before that point, and gone by it, rather than
+    // present until the last moment and then dropped at once.
+    double previous = 1.0e9;
+    for (const double hz : { 130.0, 150.0, 165.0, 178.0, 185.0, 187.0, 188.0, 195.0 })
+    {
+        const double power = upperHarmonics(hz, 70, 120);
+        std::printf("  %.0f Hz: harmonics 70 to 120 are %.1f dB of the fundamental\n", hz, db(std::sqrt(power)));
+        assert(power <= previous * 1.05 || power < 1.0e-6);   // below -60 dB is measurement noise
+        previous = power;
+    }
+
+    // Either side of the old switching point the sound is the same to a fraction of a decibel.
+    const double before = upperHarmonics(187.0, 70, 120), after = upperHarmonics(188.0, 70, 120);
+    assert(before < 0.01 * upperHarmonics(150.0, 70, 120));
+    assert(before < 1.0e-5 && after < 1.0e-5);
+}
+
 int main()
 {
     testPositionZeroIsASine();
@@ -170,6 +205,7 @@ int main()
     testPitchIsExact();
     testEverySetIsFiniteAndNormalised();
     testSweepingThePositionIsContinuous();
+    testLevelsCrossfadeInsteadOfStepping();
 
     std::printf("WavetableTest PASSED\n");
     return 0;

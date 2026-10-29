@@ -9,6 +9,8 @@
 #include "valis/ValisEngine.h"
 #include "valis/Vocabulary.h"
 
+#include "dsp/Random.h"
+
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include <cmath>
@@ -479,6 +481,8 @@ std::vector<ParamInfo> OpDispatcher::listParams() const
         info.symbol     = binding.symbol;
         info.targetNode = binding.targetNode;
         info.property   = binding.propertySymbol;
+        info.morphA     = binding.morphA;
+        info.morphB     = binding.morphB;
 
         if (const auto* element = model->findElement(binding.targetNode);
             element != nullptr && element->type != nullptr)
@@ -539,6 +543,64 @@ OpResult OpDispatcher::setParam(int slot, double value)
     }
 
     return OpResult::failure("no parameter bound to slot " + std::to_string(slot));
+}
+
+OpResult OpDispatcher::morph(double position)
+{
+    const double t = std::clamp(position, 0.0, 1.0);
+
+    std::string moved = "[";
+    int count = 0;
+    for (const auto& param : listParams())
+    {
+        if (! param.morphA || ! param.morphB)
+            continue;
+
+        const auto result = setParam(param.slot, *param.morphA + (*param.morphB - *param.morphA) * t);
+        if (! result.ok)
+            return result;
+
+        moved += (count++ == 0 ? "" : ",") + std::to_string(param.slot);
+    }
+
+    if (count == 0)
+        return OpResult::failure("no parameter declares both val:valueA and val:valueB");
+
+    OpResult result = OpResult::success(moved + "]");
+    if (t != position)
+        result.diagnostics.push_back({"position clamped to [0, 1]", {}});
+    return result;
+}
+
+OpResult OpDispatcher::randomize(unsigned seed, double amount, const std::vector<int>& keep)
+{
+    const double blend = std::clamp(amount, 0.0, 1.0);
+
+    dsp::Random random(seed * 2654435761u + 0x9E3779B9u);
+
+    std::string set = "[";
+    int count = 0;
+    for (const auto& param : listParams())
+    {
+        // Drawn for every parameter, kept or not, so keeping one does not
+        // reshuffle the values of the rest.
+        const double draw = param.minimum + (param.maximum - param.minimum) * random.next();
+
+        if (std::find(keep.begin(), keep.end(), param.slot) != keep.end())
+            continue;
+
+        const auto result = setParam(param.slot, param.value + (draw - param.value) * blend);
+        if (! result.ok)
+            return result;
+
+        set += (count++ == 0 ? "" : ",") + std::string("{\"slot\":") + std::to_string(param.slot)
+             + ",\"value\":" + result.value + "}";
+    }
+
+    if (count == 0)
+        return OpResult::failure("the circuit has no parameters to randomise");
+
+    return OpResult::success(set + "]");
 }
 
 OpResult OpDispatcher::getProfile() const

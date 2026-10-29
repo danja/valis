@@ -83,6 +83,25 @@ void testTailFallsAtTheDecayAsked()
     }
 }
 
+void testDecayIsExactAtAnySize()
+{
+    // At a size that makes the delays fractional, the tail used to fall faster than
+    // asked, because interpolating between samples is a lowpass.
+    for (const float size : { 1.0f, 1.37f, 0.63f })
+    {
+        ElementTestFixture rig("Reverb", kRate);
+        rig.set("mix", 1.0f);
+        rig.set("damping", 0.0f);
+        rig.set("decay", 2.0f);
+        rig.set("size", size);
+
+        const auto tail = impulseResponse(rig, 2.5);
+        const double fall = windowDb(tail, 0.4, 0.5) - windowDb(tail, 1.4, 1.5);
+        std::printf("  size %.2f: fell %.1f dB in 1 s (expected 30)\n", size, fall);
+        assert(std::abs(fall - 30.0) < 3.0);
+    }
+}
+
 void testLongestSettingCannotGrow()
 {
     ElementTestFixture rig("Reverb", kRate);
@@ -208,6 +227,7 @@ int main()
 {
     testMixZeroIsDry();
     testTailFallsAtTheDecayAsked();
+    testDecayIsExactAtAnySize();
     testLongestSettingCannotGrow();
     testDampingTakesTheHighsFirst();
     testSmallerRoomFillsInSooner();

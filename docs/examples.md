@@ -12,6 +12,7 @@ The [manual](manual/index.md) has case studies for some of them.
   oscillator and noise into a ladder filter and amplifier, with an LFO.
   See [the case study](manual/sh101.md).
 - `subsynth.ttl`: a smaller subtractive synthesiser with a switchable oscillator shape.
+- `tuning.ttl`: a keyboard played in a [Scala](https://www.huygens-fokker.org/scala/scl_format.html) tuning, 31 tone equal temperament by default. The scale files are in `examples/tunings/`.
 - `polysynth.ttl`: a voice written once and stamped out eight times with
   `val:voices`, so the engine allocates and steals notes. Shows polyphony.
 
@@ -52,6 +53,7 @@ The [manual](manual/index.md) has case studies for some of them.
 
 - `909.ttl`: a TR-909 kit on General MIDI channel 10, with bridged-T resonators and
   sectioned controls. [Case study](manual/909.md).
+- `modal-tom.ttl`: a tom from a noise burst striking six membrane modes, with a pitch drop. The note is its pitch.
 - `metal-bash.ttl`: a hammer striking a sheet of metal, tuned to MIDI. Noise through a
   granulator makes the strike, two parallel modal banks (plate and bar tables) make the
   ring, and a distortion, filters, compressor and short delays follow. Four voices.
@@ -78,6 +80,8 @@ The [manual](manual/index.md) has case studies for some of them.
 - `multiband.ttl`: a three-band compressor with an upward stage, built from two
   crossovers and a compressor per band. The low band passes through a third crossover
   so that all three bands carry the same phase shift and add back to a flat response.
+- `noise-gate.ttl`: an envelope follower driving a `val:Expander`, with threshold, ratio and release as parameters.
+- `ducking.ttl`: sidechain ducking. The left input channel drives an envelope follower that turns down the right channel.
 - `nam.ttl`: a Neural Amp Modeler capture. Needs a build with `-DVALIS_WITH_NAM=ON`.
 - `subcircuit.ttl`: one `val:Subcircuit` instantiated twice, once per channel,
   which is how stereo is built.

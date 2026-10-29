@@ -412,6 +412,12 @@ const ToolSpec kTools[] = {
     {"set_param", "Set one parameter slot, in the property's own units. Out-of-range values are clamped and reported.",
      R"({"type":"object","properties":{"slot":{"type":"integer"},"value":{"type":"number"}},"required":["slot","value"]})"},
 
+    {"morph", "Move every parameter that declares val:valueA and val:valueB to its place between them: 0 is all A, 1 is all B. A macro across the circuit.",
+     R"({"type":"object","properties":{"position":{"type":"number","description":"0 to 1"}},"required":["position"]})"},
+
+    {"randomize", "Give every parameter a new random value within its range, from a seed: the same seed on the same circuit gives the same patch. amount (0 to 1, default 1) is how far each moves toward its random value. keep lists slots to leave alone.",
+     R"({"type":"object","properties":{"seed":{"type":"integer"},"amount":{"type":"number"},"keep":{"type":"array","items":{"type":"integer"}}},"required":["seed"]})"},
+
     {"get_sample", "The file a val:SampleLoad (sound) or val:NamModel (.nam model) node is using.",
      R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
 
@@ -526,6 +532,21 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
         if (name == "set_param")
             return resultOf(ops.setParam(static_cast<int>(arguments["slot"]),
                                          static_cast<double>(arguments["value"])));
+
+        if (name == "morph")
+            return resultOf(ops.morph(static_cast<double>(arguments["position"])));
+
+        if (name == "randomize")
+        {
+            const double amount = arguments.hasProperty("amount") ? static_cast<double>(arguments["amount"]) : 1.0;
+
+            std::vector<int> keep;
+            if (const auto* list = arguments["keep"].getArray())
+                for (const auto& slot : *list)
+                    keep.push_back(static_cast<int>(slot));
+
+            return resultOf(ops.randomize(static_cast<unsigned>(static_cast<int>(arguments["seed"])), amount, keep));
+        }
 
         if (name == "get_sample")
             return resultOf(ops.getSample(stringArgument(arguments, "node")));

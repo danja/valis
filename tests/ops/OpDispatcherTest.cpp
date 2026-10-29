@@ -17,6 +17,7 @@
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <tuple>
 #include <string>
 #include <vector>
 
@@ -645,6 +646,95 @@ void testAnIncompleteProfileIsReportedNotFatal()
     assert(said("no trn:role"));
 }
 
+void testMorph()
+{
+    // basic.ttl with the cutoff and resonance bound to two ends each, and the
+    // drive left alone.
+    auto source = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    const auto bind = [&](const char* symbol, const char* a, const char* b)
+    {
+        const std::string anchor = std::string("lv2:symbol \"") + symbol + "\"";
+        const auto at = source.find(anchor);
+        assert(at != std::string::npos);
+        source.insert(at, std::string("val:valueA ") + a + " ; val:valueB " + b + " ; ");
+    };
+    bind("cutoff", "200.0", "2000.0");
+    bind("resonance", "0.1", "0.9");
+
+    Host host(source);
+    assert(host.loaded);
+    auto ops = host.ops();
+
+    const auto at = [&](double position)
+    {
+        const auto result = ops.morph(position);
+        assert(result.ok);
+        return std::pair{ std::stod(ops.getParam(0).value), std::stod(ops.getParam(1).value) };
+    };
+
+    auto [cutoff, resonance] = at(0.0);
+    assert(std::abs(cutoff - 200.0) < 1.0e-3 && std::abs(resonance - 0.1) < 1.0e-6);
+    std::tie(cutoff, resonance) = at(1.0);
+    assert(std::abs(cutoff - 2000.0) < 1.0e-3 && std::abs(resonance - 0.9) < 1.0e-6);
+    std::tie(cutoff, resonance) = at(0.25);
+    assert(std::abs(cutoff - 650.0) < 1.0e-3 && std::abs(resonance - 0.3) < 1.0e-6);
+
+    // Out of range is clamped and said so; the drive was never touched.
+    const double drive = std::stod(ops.getParam(2).value);
+    const auto clamped = ops.morph(3.0);
+    assert(clamped.ok && ! clamped.diagnostics.empty());
+    assert(std::abs(std::stod(ops.getParam(0).value) - 2000.0) < 1.0e-3);
+    assert(std::stod(ops.getParam(2).value) == drive);
+
+    // A circuit that declares no morph says so instead of doing nothing.
+    Host plain(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    assert(! plain.ops().morph(0.5).ok);
+}
+
+void testRandomize()
+{
+    const auto source = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+
+    const auto values = [](OpDispatcher& ops)
+    {
+        std::vector<double> out;
+        for (const auto& p : ops.listParams())
+            out.push_back(p.value);
+        return out;
+    };
+
+    Host a(source), b(source), c(source);
+    auto opsA = a.ops(), opsB = b.ops(), opsC = c.ops();
+
+    assert(opsA.randomize(7).ok);
+    assert(opsB.randomize(7).ok);
+    assert(opsC.randomize(8).ok);
+    assert(values(opsA) == values(opsB));   // same seed, same patch
+    assert(values(opsA) != values(opsC));
+
+    // Every value is inside its range.
+    for (const auto& p : opsA.listParams())
+        assert(p.value >= p.minimum && p.value <= p.maximum);
+
+    // A kept slot does not move, and keeping it leaves the others as they were.
+    Host d(source), e(source);
+    auto opsD = d.ops(), opsE = e.ops();
+    const double before = opsD.listParams()[0].value;
+    assert(opsD.randomize(7, 1.0, {0}).ok);
+    assert(opsE.randomize(7).ok);
+    assert(opsD.listParams()[0].value == before);
+    assert(opsD.listParams()[1].value == opsE.listParams()[1].value);
+
+    // An amount of zero leaves everything where it was, to float precision.
+    Host f(source);
+    auto opsF = f.ops();
+    const auto start = values(opsF);
+    assert(opsF.randomize(7, 0.0).ok);
+    const auto after = values(opsF);
+    for (std::size_t i = 0; i < start.size(); ++i)
+        assert(std::abs(after[i] - start[i]) < 1.0e-4 * std::max(1.0, std::abs(start[i])));
+}
+
 int main()
 {
     testTurtleRoundTrip();
@@ -668,6 +758,8 @@ int main()
     testCircuitProfile();
     testACircuitNeedsNoProfile();
     testAnIncompleteProfileIsReportedNotFatal();
+    testMorph();
+    testRandomize();
 
     std::puts("OpDispatcherTest PASSED");
     return 0;

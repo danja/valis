@@ -214,9 +214,25 @@ public:
         while (level < kLevels - 1 && harmonicsAtLevel(level) > allowed)
             ++level;
 
+        // A level is dull for the pitch it is used at as soon as it is the next one's turn,
+        // so the move to the next level is spread over the half octave before it is needed
+        // rather than made in one step. By the time the current level would be unsafe the
+        // next one is already carrying the whole sound.
+        float fadeTarget = 0.0f;
+        if (level < kLevels - 1)
+        {
+            const double harmonics = harmonicsAtLevel(level);
+            fadeTarget = static_cast<float>(std::clamp((1.5 * harmonics - allowed) / (0.5 * harmonics), 0.0, 1.0));
+        }
+
         if (position < 0.0f)
+        {
             position = target;
-        const float step = (target - position) / static_cast<float>(std::max(args.numSamples, 1));
+            fade = fadeTarget;
+        }
+        const float numSteps = static_cast<float>(std::max(args.numSamples, 1));
+        const float step = (target - position) / numSteps;
+        const float fadeStep = (fadeTarget - fade) / numSteps;
 
         const double increment = frequency / sampleRate;
         float* out = args.audioOut[0];
@@ -224,6 +240,7 @@ public:
         for (int i = 0; i < args.numSamples; ++i)
         {
             position += step;
+            fade += fadeStep;
 
             const float scaled = std::clamp(position, 0.0f, 1.0f) * (kFrames - 1);
             const int   frame  = std::min(static_cast<int>(scaled), kFrames - 2);
@@ -233,23 +250,31 @@ public:
             const int     index = static_cast<int>(at);
             const float   frac  = static_cast<float>(at - index);
 
-            const float* a = tables->at(set, frame, level);
-            const float* b = tables->at(set, frame + 1, level);
-            const float  va = a[index] + frac * (a[index + 1] - a[index]);
-            const float  vb = b[index] + frac * (b[index + 1] - b[index]);
-            out[i] = va + blend * (vb - va);
+            const auto read = [&](int atLevel)
+            {
+                const float* a = tables->at(set, frame, atLevel);
+                const float* b = tables->at(set, frame + 1, atLevel);
+                const float  va = a[index] + frac * (a[index + 1] - a[index]);
+                const float  vb = b[index] + frac * (b[index + 1] - b[index]);
+                return va + blend * (vb - va);
+            };
+
+            const float here = read(level);
+            out[i] = fade > 0.0f && level < kLevels - 1 ? here + fade * (read(level + 1) - here) : here;
 
             phase += increment;
             if (phase >= 1.0)
                 phase -= 1.0;
         }
         position = target;
+        fade = fadeTarget;
     }
 
 private:
     double sampleRate = 44100.0;
     double phase = 0.0;
     float  position = -1.0f;
+    float  fade = 0.0f;   ///< set with the position on the first block; how far the sound has moved from this level to the next
     const Tables* tables = nullptr;
     int frequencyIndex = -1, positionIndex = -1, setIndex = -1;
 };

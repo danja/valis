@@ -1,0 +1,42 @@
+# examples/tuning.ttl
+#
+# A keyboard played in a Scala tuning. val:tuning names the scale file; here it is
+# 31 tone equal temperament, so thirty-one keys make an octave, counted up from
+# middle C. Swap in tunings/just-5limit.scl for a seven-note just scale, or remove
+# val:tuning to hear twelve-tone tuning with the A set by val:reference.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:tuning#> .
+
+:tuning a val:Circuit ;
+    rdfs:label "Scala Tuning" ;
+    val:element :pitch , :ampEnv , :osc , :vca , :out ;
+    val:arc :aPitchOsc , :aEnvVca , :aOscVca , :aVcaOut .
+
+:pitch a val:MidiPitch ; val:tuning "tunings/31edo.scl" ; val:root 60 ; val:reference 440.0 .
+
+:ampEnv a val:Envelope ;
+    val:attack 10.0 ; val:decay 200.0 ; val:sustain 0.6 ; val:release 300.0 .
+
+:osc a val:Oscillator ; val:shape 1.0 .
+:vca a val:VCA .
+:out a val:Output .
+
+:aPitchOsc a val:ControlArc ;
+    val:from [ val:node :pitch ; val:port "out"       ] ;
+    val:to   [ val:node :osc   ; val:port "frequency" ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca    ; val:port "cv"  ] .
+
+:aOscVca a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in"  ] .
+
+:aVcaOut a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .

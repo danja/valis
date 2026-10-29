@@ -1,0 +1,138 @@
+# examples/modal-tom.ttl
+#
+# A tom. A short burst of noise, softened by a low-pass, strikes six resonators
+# tuned to the modes of a circular membrane: 1, 1.59, 2.14, 2.30, 2.65 and 2.92
+# times the fundamental. Those ratios are what make a drum sound like a drum and
+# not a pitched note. It is the same circuit as rings-modal.ttl with the
+# membrane selected and a shorter ring, and the note is the drum's pitch: play
+# low notes for a floor tom and higher ones for a rack tom.
+#
+# A real tom's pitch falls as the head relaxes after the strike. A fast envelope
+# is scaled to a ratio from 1 up to 1 + the drop, and multiplied into the note's
+# frequency before it reaches the bank. The envelope rests at zero, so the ratio
+# rests at 1 and the drum settles on the pitch of the note.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:modal-tom#> .
+
+:modal_tom a val:Circuit ;
+    rdfs:label "Modal Tom" ;
+    val:element :pitch , :noise , :tone , :env , :vca , :bank , :vol , :out ,
+                :dropEnv , :dropRatio , :dropMul ;
+    val:arc :aNoiseShape , :aShapeVca , :aVcaBank , :aBankVol , :aVolOut ;
+    val:arc :aPitchMul , :aDropEnvRatio , :aDropRatioMul , :aMulBank , :aEnvVca .
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+
+:pitch a val:MidiPitch .
+
+:noise a val:Noise ; val:colour 0.5 .
+
+# Mallet hardness: lowpass the noise burst before gating it.
+# Low cutoff = soft mallet (warm thump); high cutoff = hard mallet (bright attack).
+:tone a val:OnePole ;
+    val:cutoff 1800.0 ;   # Hz — stick hardness
+    val:mode   0.0 .      # lowpass
+
+# Short ADSR: impulse-like. A near-zero attack and low sustain mean only the
+# initial transient seeds the resonators, giving a struck rather than bowed feel.
+:env a val:Envelope ;
+    val:attack  0.1 ;     # ms
+    val:decay   8.0 ;     # ms — width of the mallet strike
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+# ── Processing ───────────────────────────────────────────────────────────────
+
+:vca a val:VCA .
+
+:bank a val:ModalBank ;
+    val:frequency  220.0 ;
+    val:decay      2.0 ;      # T60 for the fundamental, seconds
+    val:brightness 0.6 ;
+    val:mode       0.0 .      # 0 = marimba
+
+:vol a val:Gain ; val:gain -5.0 .
+
+:out a val:Output .
+
+# Pitch drop: 40 ms from a ratio of 1.35 down to 1.
+:dropEnv a val:Envelope ;
+    val:attack 0.1 ; val:decay 40.0 ; val:sustain 0.0 ; val:release 1.0 .
+
+:dropRatio a val:Scale ; val:min 1.0 ; val:max 1.35 .
+
+:dropMul a val:ControlMultiply .
+
+# ── Audio arcs ───────────────────────────────────────────────────────────────
+
+:aNoiseShape a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :tone  ; val:port "in"  ] .
+
+:aShapeVca a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :vca  ; val:port "in"  ] .
+
+:aVcaBank a val:Arc ;
+    val:from [ val:node :vca  ; val:port "out" ] ;
+    val:to   [ val:node :bank ; val:port "in"  ] .
+
+:aBankVol a val:Arc ;
+    val:from [ val:node :bank ; val:port "out" ] ;
+    val:to   [ val:node :vol  ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+# ── Control arcs ─────────────────────────────────────────────────────────────
+
+:aPitchMul a val:ControlArc ;
+    val:from [ val:node :pitch   ; val:port "out" ] ;
+    val:to   [ val:node :dropMul ; val:port "a"   ] .
+
+:aDropEnvRatio a val:ControlArc ;
+    val:from [ val:node :dropEnv   ; val:port "out" ] ;
+    val:to   [ val:node :dropRatio ; val:port "in"  ] .
+
+:aDropRatioMul a val:ControlArc ;
+    val:from [ val:node :dropRatio ; val:port "out" ] ;
+    val:to   [ val:node :dropMul   ; val:port "b"   ] .
+
+:aMulBank a val:ControlArc ;
+    val:from [ val:node :dropMul ; val:port "out"       ] ;
+    val:to   [ val:node :bank    ; val:port "frequency" ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+# ── Host parameters ──────────────────────────────────────────────────────────
+
+:p0 a val:Param ; val:slot 0 ; val:target :bank ; val:property val:mode ;
+    lv2:name "Mode" ; lv2:symbol "mode" ; val:section "Resonator" ;
+    lv2:minimum 0.0 ; lv2:maximum 3.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :bank ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ; val:section "Resonator" ; units:unit units:s .
+
+:p2 a val:Param ; val:slot 2 ; val:target :bank ; val:property val:brightness ;
+    lv2:name "Brightness" ; lv2:symbol "brightness" ; val:section "Resonator" .
+
+:p3 a val:Param ; val:slot 3 ; val:target :tone ; val:property val:cutoff ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ; val:section "Exciter" ; units:unit units:hz ;
+    lv2:minimum 200.0 ; lv2:maximum 20000.0 .
+
+:p4 a val:Param ; val:slot 4 ; val:target :env ; val:property val:decay ;
+    lv2:name "Strike Width" ; lv2:symbol "strike_width" ; val:section "Exciter" ; units:unit units:ms .
+
+:p5 a val:Param ; val:slot 5 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .
+
+:p6 a val:Param ; val:slot 6 ; val:target :dropRatio ; val:property val:max ;
+    lv2:name "Pitch Drop" ; lv2:symbol "pitch_drop" ; val:section "Exciter" ;
+    lv2:minimum 1.0 ; lv2:maximum 2.0 .

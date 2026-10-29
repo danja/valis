@@ -81,6 +81,13 @@ public:
         // moving knob changes the read points smoothly instead of with a click.
         if (smoothedSize < 0.0f)
             smoothedSize = sizeTarget;
+
+        // A line that sits still is read at a whole number of samples. A fractional read
+        // interpolates, and linear interpolation is a lowpass, so the tail would fall a
+        // little faster than asked at every size that is not a whole number of samples.
+        // Only a line that is moving needs the fraction.
+        const bool steady = sizeTarget == smoothedSize;
+
         const float sizeStep = (sizeTarget - smoothedSize) / static_cast<float>(std::max(args.numSamples, 1));
 
         const float lowpass = 1.0f - 0.95f * damping;
@@ -90,8 +97,10 @@ public:
         std::array<float, kLines> gain;
         const float endSize = sizeTarget;
         for (std::size_t i = 0; i < kLines; ++i)
-            gain[i] = std::exp(-6.907755f * baseLength[i] * endSize
-                               / (decay * static_cast<float>(sampleRate)));
+        {
+            const float lap = steady ? std::round(baseLength[i] * endSize) : baseLength[i] * endSize;
+            gain[i] = std::exp(-6.907755f * lap / (decay * static_cast<float>(sampleRate)));
+        }
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
@@ -120,7 +129,9 @@ public:
                 auto& buf = line[i];
                 const int len = static_cast<int>(buf.size());
 
-                const float delay = std::min(baseLength[i] * smoothedSize, static_cast<float>(len - 3));
+                float delay = std::min(baseLength[i] * smoothedSize, static_cast<float>(len - 3));
+                if (steady)
+                    delay = std::round(delay);
                 const int   whole = static_cast<int>(delay);
                 const float frac  = delay - static_cast<float>(whole);
 
@@ -171,6 +182,9 @@ public:
             if (right != nullptr)
                 right[n] = in[n] * (1.0f - mix) + wetRight * kNorm * 2.0f * mix;
         }
+
+        // The glide ends here, exactly, so the next block can tell a resting size.
+        smoothedSize = sizeTarget;
     }
 
 private:
