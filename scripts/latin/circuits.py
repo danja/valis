@@ -11,22 +11,24 @@ def plucked(hardness, position, string, ring):
     VN=[("pitch","MidiPitch",{}),
         ("pick","Pluck",{"position":position,"hardness":hardness}),
         ("string","StiffString",string),
-        ("ampEnv","Envelope",{"attack":0.5,"decay":ring,"sustain":0.0,"release":140.0}),("ampVca","VCA",{}),
+        ("ampEnv","Envelope",{"attack":0.5,"decay":ring,"sustain":0.0,"release":ring}),("ampVca","VCA",{}),
         ("dc","OnePole",{"mode":1,"cutoff":28.0})]
     VA=[("pitch","out","string","frequency"),("pitch","out","pick","frequency"),("pick","out","string","in"),
         ("string","out","ampVca","in"),("ampEnv","out","ampVca","cv"),("ampVca","out","dc","in")]
     return VN, VA
 
 # ---- nylon guitar: the vihuela when played high and strummed, the guitar when played low and picked
-VN,VA=plucked(0.45,0.17,{"feedback":0.9965,"damping":0.2,"dispersion":0.004},1800.0)
+VN,VA=plucked(0.45,0.17,{"feedback":0.9965,"damping":0.5,"dispersion":0.004},1800.0)
 VP=[("sustain","Sustain",0.9965,0.9,0.999,"string","feedback",None,False),
-    ("damping","Damping",0.2,0,1,"string","damping",None,False),
+    ("damping","Damping",0.5,0,1,"string","damping",None,False),
     ("pick","Pick hardness",0.45,0.0,1.0,"pick","hardness",None,False),
     ("ring","Ring time",1800.0,200,5000,"ampEnv","decay","ms",True)]
 N=[("topPlate","StateVariable",{"cutoff":210.0,"resonance":2.2}),("air","StateVariable",{"cutoff":105.0,"resonance":3.0}),
+   ("wood","ModalBank",{"frequency":330.0,"decay":0.12,"brightness":0.6,"mode":3}),("woodLvl","Gain",{"gain":-28.0}),
    ("body","Mixer",{}),("room","Reverb",{"size":0.7,"decay":1.1,"damping":0.5,"mix":0.12}),
    ("trim","Gain",{"gain":-8.0}),("limit","Limiter",{"ceiling":-1.0}),("out","Output",{})]
 A=[("poly","out","topPlate","in"),("poly","out","air","in"),("poly","out","body","in"),("topPlate","bp","body","in"),("air","bp","body","in"),
+   ("poly","out","wood","in"),("wood","out","woodLvl","in"),("woodLvl","out","body","in"),
    ("body","out","room","in"),("room","out","trim","in"),("trim","out","limit","in"),("limit","out","out","in")]
 P=[(0,"sustain","Sustain","sustain","String",None),(1,"damping","Damping","damping","String",None),
    (2,"pick","Pick hardness","pick_hardness","String",None),(3,"ring","Ring time","ring_time","String","ms")]
@@ -40,7 +42,7 @@ https://en.wikipedia.org/wiki/Vihuela""",
 ["Guitar","Acoustic","Latin"],VN,VA,VP,("dc","out"),6,N,A,P,out("nylon-guitar.ttl"))
 
 # ---- harp: a long ring, bright pluck
-VN,VA=plucked(0.6,0.12,{"feedback":0.9985,"damping":0.1,"dispersion":0.002},4200.0)
+VN,VA=plucked(0.6,0.12,{"feedback":0.9985,"damping":0.3,"dispersion":0.002},4200.0)
 VP=[("ring","Ring time",4200.0,500,8000,"ampEnv","decay","ms",True),
     ("pick","Pick hardness",0.6,0.0,1.0,"pick","hardness",None,False)]
 N=[("soundboard","StateVariable",{"cutoff":160.0,"resonance":2.0}),("body","Mixer",{}),
@@ -57,15 +59,16 @@ https://en.wikipedia.org/wiki/Harp""",
 
 # ---- guitarron: a big, round bass guitar
 N=[("pitch","MidiPitch",{}),("dc","OnePole",{"mode":1,"cutoff":25.0}),
- ("pick","Pluck",{"position":0.14,"hardness":0.2}),
- ("string","StiffString",{"feedback":0.993,"damping":0.3,"dispersion":0.01}),
- ("ampEnv","Envelope",{"attack":0.5,"decay":650.0,"sustain":0.0,"release":90.0}),("ampVca","VCA",{}),
- ("box","StateVariable",{"cutoff":95.0,"resonance":2.4}),("body","Mixer",{}),
+ ("pick","Pluck",{"position":0.14,"hardness":0.45}),
+ ("string","StiffString",{"feedback":0.993,"damping":0.45,"dispersion":0.01}),
+ ("ampEnv","Envelope",{"attack":0.5,"decay":900.0,"sustain":0.0,"release":900.0}),("ampVca","VCA",{}),
+ ("box","StateVariable",{"cutoff":95.0,"resonance":2.4}),("wood","ModalBank",{"frequency":150.0,"decay":0.18,"brightness":0.5,"mode":3}),
+ ("woodLvl","Gain",{"gain":-28.0}),("body","Mixer",{}),
  ("tone","OnePole",{"mode":0,"cutoff":1800.0}),
- ("trim","Gain",{"gain":-6.0}),("limit","Limiter",{"ceiling":-1.0}),("out","Output",{})]
+ ("trim","Gain",{"gain":-13.0}),("limit","Limiter",{"ceiling":-1.0}),("out","Output",{})]
 A=[("pitch","out","string","frequency"),("pitch","out","pick","frequency"),("pick","out","string","in"),
  ("string","out","ampVca","in"),("ampEnv","out","ampVca","cv"),
- ("ampVca","out","dc","in"),("dc","out","box","in"),("dc","out","body","in"),("box","bp","body","in"),
+ ("ampVca","out","dc","in"),("dc","out","box","in"),("dc","out","body","in"),("dc","out","wood","in"),("wood","out","woodLvl","in"),("woodLvl","out","body","in"),("box","bp","body","in"),
  ("body","out","tone","in"),("tone","out","trim","in"),("trim","out","limit","in"),("limit","out","out","in")]
 P=[(0,"string","damping","Damping","damping",0,1,"String",None),
  (1,"pick","hardness","Pick hardness","pick_hardness",0,1,"String",None),

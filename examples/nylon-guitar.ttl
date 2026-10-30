@@ -28,7 +28,7 @@
 
              [ a lv2:InputPort , lv2:ControlPort ;
                lv2:symbol "damping" ; lv2:name "Damping" ;
-               lv2:default 0.2 ; lv2:minimum 0 ; lv2:maximum 1 ;
+               lv2:default 0.5 ; lv2:minimum 0 ; lv2:maximum 1 ;
                val:node :string ; val:port "damping" ] ,
 
              [ a lv2:InputPort , lv2:ControlPort ;
@@ -59,14 +59,14 @@
 
 :string a val:StiffString ;
     val:feedback 0.9965 ;
-    val:damping 0.2 ;
+    val:damping 0.5 ;
     val:dispersion 0.004 .
 
 :ampEnv a val:Envelope ;
     val:attack 0.5 ;
     val:decay 1800.0 ;
     val:sustain 0.0 ;
-    val:release 140.0 .
+    val:release 1800.0 .
 
 :ampVca a val:VCA .
 
@@ -99,12 +99,15 @@
     trn:produces trn:Audio ;
     trn:genre "Guitar", "Acoustic", "Latin" ;
     rdfs:label "Nylon-string guitar" ;
-    val:element :poly , :topPlate , :air , :body , :room , :trim , :limit , :out ;
+    val:element :poly , :topPlate , :air , :wood , :woodLvl , :body , :room , :trim , :limit , :out ;
     val:arc :a_poly_out__topPlate_in ,
         :a_poly_out__air_in ,
         :a_poly_out__body_in ,
         :a_topPlate_bp__body_in ,
         :a_air_bp__body_in ,
+        :a_poly_out__wood_in ,
+        :a_wood_out__woodLvl_in ,
+        :a_woodLvl_out__body_in ,
         :a_body_out__room_in ,
         :a_room_out__trim_in ,
         :a_trim_out__limit_in ,
@@ -119,6 +122,15 @@
 :air a val:StateVariable ;
     val:cutoff 105.0 ;
     val:resonance 3.0 .
+
+:wood a val:ModalBank ;
+    val:frequency 330.0 ;
+    val:decay 0.12 ;
+    val:brightness 0.6 ;
+    val:mode 3 .
+
+:woodLvl a val:Gain ;
+    val:gain -28.0 .
 
 :body a val:Mixer .
 
@@ -150,6 +162,15 @@
     val:to   [ val:node :body ; val:port "in" ] .
 :a_air_bp__body_in a val:Arc ;
     val:from [ val:node :air ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_poly_out__wood_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :wood ; val:port "in" ] .
+:a_wood_out__woodLvl_in a val:Arc ;
+    val:from [ val:node :wood ; val:port "out" ] ;
+    val:to   [ val:node :woodLvl ; val:port "in" ] .
+:a_woodLvl_out__body_in a val:Arc ;
+    val:from [ val:node :woodLvl ; val:port "out" ] ;
     val:to   [ val:node :body ; val:port "in" ] .
 :a_body_out__room_in a val:Arc ;
     val:from [ val:node :body ; val:port "out" ] ;

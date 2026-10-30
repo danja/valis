@@ -46,14 +46,14 @@
 
 :string a val:StiffString ;
     val:feedback 0.9985 ;
-    val:damping 0.1 ;
+    val:damping 0.3 ;
     val:dispersion 0.002 .
 
 :ampEnv a val:Envelope ;
     val:attack 0.5 ;
     val:decay 4200.0 ;
     val:sustain 0.0 ;
-    val:release 140.0 .
+    val:release 4200.0 .
 
 :ampVca a val:VCA .
 
