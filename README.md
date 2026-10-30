@@ -1,5 +1,9 @@
 # Valis
 
+[![Tenement Lights](docs/images/tenement-lights-thumb.jpeg)](https://www.youtube.com/watch?v=AeckJOo5350)
+
+*Tenement Lights: an original instrumental, created with Valis. [How it was made](docs/new-order-track.md).*
+
 **Virtual Analog LLM Integrated System**
 
 [Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
