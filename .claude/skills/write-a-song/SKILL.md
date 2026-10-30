@@ -45,3 +45,10 @@ newer and tidier pattern; copy it.
 - Render in the background from a small shell script and poll its log, so the session is not blocked.
 - The mix is a reference. Vocals and mastering are done in Reaper (`reaper-from-stems`).
 - Report honestly that a song has been measured and not heard.
+- Save each mix under a new version number (`name-v3.flac`) and keep the previous one, so the listener can compare.
+  Do not overwrite.
+- Add small random timing and velocity variations per part (a fixed seed), clamping every start at 0, and put a
+  synthetic room on the mix. Physically modelled instruments (`val:Brass`, `val:Bow`, `val:Pluck` with
+  `val:StiffString`, `val:ModalBank`, `val:Shaker`) sound far less like a preset than filtered oscillators.
+- Keep a guide voice out of the listening mix: it is deliberately synthetic and reads as a cheap keyboard.
+- The stems are large. Gitignore the WAVs and keep a FLAC of the mix (GitHub refuses files over 100 MB).

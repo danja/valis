@@ -10,6 +10,33 @@
   carrier and a modulator input), the speech stutter (specified in `docs/new-order-track.md`), a Source patch with a third waveform per oscillator and octave
   switches, and a release build of `valis_render` so a render takes seconds and not minutes.
 
+## From earshot (see `docs/shot.md`)
+
+* **Free-mode modal bank and a fitter.** `val:ModalBank` has six modes at fixed ratios. A bank whose modes are set
+  one by one, plus an ESPRIT fit of a struck recording (earshot `fit/modal.py`), would turn a recording of a real
+  conga or cowbell into a circuit.
+* **Parameter search against a target.** Render a circuit, score it against a wav with `spectralDistance`, move the
+  exposed `val:Param` values. Needs an optimiser and a headless engine loop, no new DSP.
+* **Calibrate `listen`.** Port earshot's vocabulary of 322 descriptions and its statistics, so a cosine becomes a z-score
+  and a verdict; then a realness score (real recording or synthesised) on the same CLAP features.
+* **`valis-shot` as an MCP op.** `measure` and `compare` are command-line only; the operation surface (`src/ops/`)
+  should offer them too, so the MCP server and the UI do not need a second implementation.
+* **A loudness target in the mix scripts.** Scripts such as `scripts/lights-on-nobody-home/track.py` set the level by
+  peak and tanh; they could aim at a LUFS figure using `measureLoudness`.
+
+## Acoustic instruments
+
+* **Lint for arc kinds.** `ops_LintTest` does not flag an arc from a control output to an audio input, or the
+  reverse; only the renderer warns. Add the check (MISTAKES.md, "Control and audio ports joined by an arc").
+* **Pitch estimator octave errors.** `analyseSignal` (YIN) reported E4 for a nylon guitar note played as E3, because the
+  second harmonic is strong. Prefer the lowest strong candidate, or accept a hint of the expected note.
+* **Violins above G5.** `val:Bow` is out of tune above about 880 Hz (E6 is 51 cents flat) and the violins' voice
+  clips on the highest notes. A section that goes higher needs the bow-force work noted under "Bow" below.
+* **Trumpet and violin expression.** Vibrato starts after the note; still to do: a scoop into the note, breath
+  noise that follows pressure, and per-voice detune in the violin section (a `val:Drift` per voice).
+* **Percussion by ear.** The Latin percussion was balanced by peak level only; listen and adjust the decay times.
+* **Release build of `valis_render`.** The track renders in minutes with the Debug build.
+
 ## New instruments
 
 The instruments that are done are described in `docs/examples.md`. What is open:

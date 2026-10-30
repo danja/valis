@@ -56,6 +56,10 @@ set(VALIS_TESTS
   engine/FileSlotTest.cpp
   engine/GrainSplitTest.cpp
   ops/AnalysisTest.cpp
+  shot/LoudnessTest.cpp
+  shot/EnvelopeTimesTest.cpp
+  shot/SpectralDistanceTest.cpp
+  shot/FrontendTest.cpp
   ops/ContextWiringTest.cpp
   ops/CircuitHistoryTest.cpp
   ops/CircuitDiffTest.cpp
@@ -84,6 +88,11 @@ add_test(NAME ui_UiThemeTest COMMAND ui_UiThemeTest)
 add_executable(ui_ValueFormatTest ui/ValueFormatTest.cpp)
 target_link_libraries(ui_ValueFormatTest PRIVATE valis_core)
 add_test(NAME ui_ValueFormatTest COMMAND ui_ValueFormatTest)
+
+# The neural ears run real models; the test skips itself when scripts/shot/fetch-models.sh has not been run.
+if(VALIS_WITH_ONNX)
+  list(APPEND VALIS_TESTS shot/NeuralEarsTest.cpp)
+endif()
 
 foreach(_src ${VALIS_TESTS})
   string(REPLACE "/" "_" _name ${_src})

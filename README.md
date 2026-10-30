@@ -293,6 +293,20 @@ drift from what the plugin offers:
 ./scripts/generate-docs.sh
 ```
 
+### Listening tools: `valis-shot` (work in progress)
+
+`valis-shot` gives a caller that cannot hear measurements of a rendered sound in place of ears. `measure` reports
+loudness (LUFS, loudness range, true peak), attack and decay times and the spectrum; `compare` gives the distance in
+dB between two renders; and `listen`, built with `-DVALIS_WITH_ONNX=ON`, runs two neural models locally through
+[ONNX Runtime](https://onnxruntime.ai) to label a sound and to score how well sentences describe it. The code is in
+`src/shot/`. This is a work in progress: the interfaces and the output will change, and nothing here has been
+calibrated against listening. See [`docs/shot.md`](docs/shot.md) for what is done and what is not.
+
+The ideas come from [earshot](https://github.com/Leonxlnx/earshot) by Leon Lin (MIT licence), "ears for coding
+agents", which `src/shot/` ports to C++. The neural models are CLAP by [LAION](https://github.com/LAION-AI/CLAP) and
+the [Audio Spectrogram Transformer](https://arxiv.org/abs/2104.01778) by Gong, Chung and Glass. Their weights are
+not in this repository; `scripts/shot/fetch-models.sh` downloads them on request.
+
 ## Requirements
 
 - CMake 3.22 or newer, and a C and C++20 compiler. JUCE refuses to configure unless

@@ -105,6 +105,10 @@ to confirm a running instance before using MCP tools that require a host.
 - Measure harmonics against the pitch the instrument actually played, not the one it was
   asked for. A few cents of drift moves a partial out of the measurement window and reports a
   tone far purer than it is.
+- A plucked or struck instrument must keep ringing after note-off: give its envelope a release at least as long as
+  its ring time and let the string's damping, not the envelope, fade the high harmonics first. See MISTAKES.md.
+- Prefer a physical model to a filtered oscillator for acoustic sounds: `val:Brass`, `val:Bow`, `val:Pluck` into
+  `val:StiffString`, `val:ModalBank` for membranes, bars, plates and boxes, `val:Shaker` for maracas and guiro.
 
 ## Control arc semantics
 
@@ -119,6 +123,8 @@ to confirm a running instance before using MCP tools that require a host.
 - Small files, one class each. Public headers in `include/valis/`, implementations in `src/`.
 - `tests/` mirrors `src/`. One bare `main()` + `<cassert>` per file, registered with CTest. No GoogleTest, no Catch2. Cover valid, invalid, and failure cases.
 - Every external dependency behind a CMake `option()`. `build.sh` is the one-command build; `./valis` launches the standalone.
+- `src/shot/` holds measurements ported from earshot (loudness, envelope timing, spectral distance) and the
+  `valis-shot` tool; see `docs/shot.md`. Use it in place of listening, and say that a result is measured, not heard.
 - Prefer deterministic offline audio tests (`valis-render`) over device-based ones.
 - C++20. Match surrounding idiom and comment density. Every file starts with `// path/filename`.
 - Comments describe purpose only where intent is non-obvious. No effect descriptions.
@@ -153,6 +159,8 @@ to confirm a running instance before using MCP tools that require a host.
 - DSP: `juce_dsp` — `StateVariableTPTFilter`, `LadderFilter`, `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `FastMathApproximations`
 - GUI: `juce_gui_basics`, `CodeEditorComponent` for the Code tab
 - Sound files: `juce_audio_formats` - WAV, AIFF, FLAC, Ogg and MP3. Message thread only.
+- Neural ears (`valis-shot listen`): ONNX Runtime, behind `VALIS_WITH_ONNX` (off by default). Weights are never in git
+  or fetched by a build: `scripts/shot/fetch-models.sh`, pinned and checksummed. No Python in this path.
 - HTTP: cpp-httplib; JSON: `juce::JSON` / `juce::var`
 
 ## Change workflow

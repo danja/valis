@@ -15,6 +15,7 @@ option(VALIS_BUILD_PLUGIN "Build the JUCE plugin targets"    ON)
 option(VALIS_WITH_MCP     "Build the in-process MCP server"  ON)
 option(VALIS_WITH_CLAP    "Also build the CLAP format"       OFF)
 option(VALIS_WITH_NAM     "Build val:NamModel against NeuralAmpModelerCore" ON)
+option(VALIS_WITH_ONNX    "Build the neural ears (CLAP, AST) of valis-shot against ONNX Runtime" OFF)
 set(VALIS_JUCE_DIR "/home/danny/github/JUCE" CACHE PATH "Path to the JUCE checkout")
 
 include(FindOrFetchSerd)
@@ -54,6 +55,12 @@ add_library(valis_core STATIC
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
   src/ops/Analysis.cpp
+  src/shot/Loudness.cpp
+  src/shot/EnvelopeTimes.cpp
+  src/shot/SpectralDistance.cpp
+  src/shot/ClapFrontend.cpp
+  src/shot/AstFrontend.cpp
+  src/shot/BpeTokenizer.cpp
   src/ops/Lint.cpp
   src/ops/CircuitDiff.cpp
   src/ops/AgentResources.cpp
@@ -102,12 +109,26 @@ if(VALIS_WITH_NAM)
   target_compile_definitions(valis_core PUBLIC VALIS_WITH_NAM=1)
 endif()
 
+if(VALIS_WITH_ONNX)
+  include(FindOrFetchOnnxRuntime)
+  target_sources(valis_core PRIVATE src/shot/NeuralEars.cpp)
+  target_link_libraries(valis_core PRIVATE valis::onnxruntime)
+  target_compile_definitions(valis_core PUBLIC VALIS_WITH_ONNX=1)
+endif()
+
 # --------------------------------------------------------------------------
 # valis-render - headless offline renderer. No GUI, no audio device.
 # --------------------------------------------------------------------------
 juce_add_console_app(valis_render PRODUCT_NAME "valis-render")
 target_sources(valis_render PRIVATE src/tools/RenderMain.cpp)
 target_link_libraries(valis_render
+  PRIVATE valis_core juce::juce_audio_formats
+  PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
+# valis-shot - measurements for a caller that cannot hear (ideas from earshot).
+juce_add_console_app(valis_shot PRODUCT_NAME "valis-shot")
+target_sources(valis_shot PRIVATE src/shot/ShotMain.cpp)
+target_link_libraries(valis_shot
   PRIVATE valis_core juce::juce_audio_formats
   PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 

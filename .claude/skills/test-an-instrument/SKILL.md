@@ -28,6 +28,12 @@ description: Check a pitched instrument circuit for pitch, silence, release and 
 
 Add the file name to `kInstruments`. Effects are tested with a burst in and silence in.
 
+## Check a short note
+
+Play a note much shorter than the instrument rings (an eighth note for a guitar) and measure the level a second
+after note-off. A plucked or struck instrument should still be ringing, with the high harmonics already gone. A
+pluck that stops at note-off is a release shorter than the ring: see MISTAKES.md.
+
 ## Check a rendered stem
 
 Print the rms of each bar of the stem and compare it with the score. A part that is silent where it has notes is a

@@ -258,3 +258,63 @@ that adds timing jitter clamps the start at 0. Run a new score under `ulimit -v`
 
 **Prevention.** After regenerating any circuit in `examples/`, run `ops_LintTest` as well as the render. It takes under
 a second. Velocity should drive something (here, bow speed), not be declared and dropped.
+
+## Plucked notes cut off at note-off
+
+**What happened.** The first acoustic guitar, harp and guitarron for "Lights On, Nobody Home" measured in tune and
+in range, but sounded like chiptunes. Every pluck stopped about 0.3 s after its note ended, and every harmonic faded
+together.
+
+**Root cause.** The amplitude envelope had a release of 90 to 140 ms and the string's own loop was left almost
+undamped, so the envelope, not the string, set the decay. Tests played one long note, so the gate stayed on for
+longer than the ring and the truncation never showed. The song's notes are short.
+
+**Prevention.** Give a plucked or struck instrument a release at least as long as its ring time, and let the string's
+damping, not the envelope, shape the decay (high harmonics should fade first). Test it with a note much shorter than
+the ring and check the level one second after note-off (`test-an-instrument` skill).
+
+## A test that measured the wrong thing, twice
+
+**What happened.** `PluckTest` failed on the pick-position comb that was in fact correct.
+
+**Root cause.** The test never released the gate between plucks, so only the first pluck fired, and
+`ElementTestFixture::computeSpectrum` applies a window that nearly removes a burst at the start of the block.
+
+**Prevention.** When a test of a one-shot fails, check that every trigger in the test is a fresh gate edge and that
+the measurement window contains the event. Use a plain DFT for a burst at the start of a block.
+
+## Control and audio ports joined by an arc
+
+**What happened.** Vibrato was added to the trumpets and violins with a `val:VCA` between an LFO and a `val:Scale`.
+`ops_LintTest` passed. The renderer printed "arc joins a control output to a audio input" as warnings and the
+vibrato did nothing; the warnings were buried in a long run.
+
+**Root cause.** The lint does not check that an arc joins ports of the same kind.
+
+**Prevention.** Use `val:ControlMultiply` for control-rate products and `val:VCA` only on audio. After regenerating a
+circuit, render it once and read the renderer's output for "arc joins".
+
+## A background wait that matched itself
+
+**What happened.** Four background commands began with `until ! pgrep -f "cmake --build" ...; do sleep 10; done` to
+wait for a build. None ever ran its payload. A test that had aborted during that period (`ops_LintTest`) went unexamined
+for a long time, and passed when run on its own.
+
+**Root cause.** `pgrep -f` matches full command lines, including the shell running the wait, whose own text contains
+the pattern. The condition never became false.
+
+**Prevention.** Do not wait by pattern-matching process names. Run the build in the foreground (or as the background
+command itself) and chain the next step after it. A test that aborts during a concurrent build should be re-run alone
+before it is called a failure or ignored.
+
+## Reaching for Python to check a C++ front end
+
+**What happened.** To check the CLAP and AST feature extractors, a Python reference was started with `transformers`.
+Versions 5.x and 4.46.3 both demanded `torch` for the feature extractors, a multi-gigabyte install, and the user
+had said to avoid Python in this path. The script, environment and data were deleted.
+
+**Root cause.** The goal (no Python dependency) was not applied to the verification step as well as the product.
+
+**Prevention.** The front ends are validated by properties and by end-to-end model results (the guitar and congas are
+identified correctly), not against a reference. Treat that as a known gap: a mismatch in a front end would lower scores
+without failing a test.
