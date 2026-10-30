@@ -474,3 +474,12 @@ it names, plays in stereo under a MIDI note, and allocates nothing in
 File reading is the one thing here that could not be done with `juce_dsp`
 alone, so `valis_core` gained a PRIVATE link against `juce_audio_formats`. It is
 console-safe and opens no window, so every test remains a plain console binary.
+
+### Status, October 2026
+
+All milestones remain complete. 66 tests pass; the ontology declares 82 elements. Since the earlier notes:
+sample-accurate note events, subcircuits and a bounded voice pool, per-element oversampling, a spectral
+domain, event outputs, Scala tunings, `val:ControlAdd` and `val:Slew`, a tuned `val:StiffString`, and a conformance
+suite that holds every element to determinism, reset, block-size independence, boundedness and no allocation.
+Two sets of worked instruments exist, with their notes: the Halloween set ([process](halloween-process.md)) and the
+1983-style set ([requirements and status](new-order-track.md)). Still open work is in `TODO.md`.

@@ -3,6 +3,8 @@
 The Console tab is a terminal into the loaded circuit. Local commands query
 and drive it; an AI mode drafts new circuits for you.
 
+<a href="images/console.jpeg"><img src="images/console.jpeg" alt="The Console tab after typing help: the list of commands"></a>
+
 ## Commands
 
 | Command | Effect |
@@ -11,6 +13,7 @@ and drive it; an AI mode drafts new circuits for you.
 | `stats` | element, arc and param counts plus latency |
 | `turtle` | print the current Turtle source |
 | `types [filter]` | element classes with ports, ranges and units |
+| `describe <class>` | one element in full: what it is for, its ports and its options |
 | `params` | parameter bindings with live values |
 | `get <slot>` / `set <slot> <val>` | read or move one parameter in its own units |
 | `validate` | check the current Turtle without reinstalling it |

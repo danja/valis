@@ -12,13 +12,14 @@ can read, edit and hand to a language model.
   <a href="images/controls.jpeg"><img src="images/controls-thumb.jpeg" alt="Controls view"></a>
   <a href="images/circuit.jpeg"><img src="images/circuit-thumb.jpeg" alt="Circuit view"></a>
   <a href="images/code.jpeg"><img src="images/code-thumb.jpeg" alt="Code view"></a>
+  <a href="images/console.jpeg"><img src="images/console-thumb.jpeg" alt="Console tab showing the help text"></a>
 </div>
 
 - [Features](features.md) : what Valis can do, and a note on how it does each
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
 - [Examples](../examples.md) : every circuit in `examples/`, grouped by kind
 - [Element reference](elements.md) : every class the ontology declares
-- [Console](console.md) : the REPL tab and the AI circuit designer
+- [Console](console.md) : the REPL tab and the AI circuit designer, with the command list
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
 - [The standalone app](standalone.md) : running Valis without a DAW, and driving it from an agent
 - [Building](building.md) : prerequisites and the build
@@ -34,6 +35,8 @@ can read, edit and hand to a language model.
 - [Clarinet](clarinet.md) : the same waveguide stopped at one end, and what that changes
 - [FM synthesis](dx7.md) : DX7-style operators and algorithms, with an electric piano, a bass and bells
 - [Granular synthesiser](granular.md) : grains from a sound file or live audio, timed by the host transport
+- [A 1983-style track](../new-order-track.md) : researching a record's machines, modelling them as circuits, and writing an original piece with them
+- [Making a song with Valis](../halloween-process.md) : MIDI, offline stems, a mix, and Reaper
 
 ### See Also
 

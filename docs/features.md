@@ -47,7 +47,7 @@ frequency reads as `440 Hz` and a gain as `-6.0 dB`.
 
 ## The element set
 
-**53 elements**, across four families: sources, filters, memoryless transfer
+**82 elements**, across four families: sources, filters, memoryless transfer
 curves, and utility. They include oscillators, noise, envelopes, dynamics,
 delays, modulation effects, and physical models.
 
@@ -61,7 +61,13 @@ from them behaves like the circuit it names.
 (`src/dsp/elements/Waveguide.h`): a fractional delay line, a one-pole loss
 filter that reports its own phase delay, a DC blocker and deterministic
 turbulence. An instrument writes only its exciter. `val:Flute`, `val:Reed`,
-`val:StiffString` and `val:ModalBank` are built this way.
+`val:StiffString` and `val:ModalBank` are built this way. A waveguide is tuned by its
+total loop delay, so the string subtracts what its damping filter and dispersion
+chain add; it is within a cent from E2 to E5, held by `tests/dsp/StiffStringTest.cpp`.
+
+**Control arithmetic.** `val:ControlMultiply` and `val:ControlAdd` combine control
+signals, and `val:Slew` moves a control to its target over a chosen rise and fall
+time, which is what portamento and legato need.
 
 **Monitors are elements.** `val:Oscilloscope` and `val:FreqAnalyzer` appear in
 the Controls view with live readouts, fed by a bounded ring the audio thread

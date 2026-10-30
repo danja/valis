@@ -6,11 +6,11 @@
 
 Valis is a standalone app and a DAW plugin for building virtual analog circuits. It can be seen as a factory for instruments and effects processors.
 
-| Controls | Circuit | Code |
-|----------|---------|------|
-| [![Controls view](docs/images/controls-thumb.jpeg)](docs/images/controls.jpeg) | [![Circuit view](docs/images/circuit-thumb.jpeg)](docs/images/circuit.jpeg) | [![Code view](docs/images/code-thumb.jpeg)](docs/images/code.jpeg) |
+| Controls | Circuit | Code | Console |
+|----------|---------|------|---------|
+| [![Controls view](docs/images/controls-thumb.jpeg)](docs/images/controls.jpeg) | [![Circuit view](docs/images/circuit-thumb.jpeg)](docs/images/circuit.jpeg) | [![Code view](docs/images/code-thumb.jpeg)](docs/images/code.jpeg) | [![Console tab](docs/images/console-thumb.jpeg)](docs/images/console.jpeg) |
 
-Circuits are built from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view **Controls** with knobs etc, a node-and-arc network of components **Circuit** and a syntax-highlighted Turtle editor **Code**. The Controls view is styled after Cold War test equipment, with Dark (default) and Light faceplates under Settings → Theme.
+Circuits are built from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view **Controls** with knobs etc, a node-and-arc network of components **Circuit** and a syntax-highlighted Turtle editor **Code**. A fourth tab, **Console**, is a terminal into the loaded circuit with an AI circuit designer. The Controls view is styled after Cold War test equipment, with Dark (default) and Light faceplates under Settings → Theme.
 
 Functionality is also supported through MCP, so an LLM can drive every operation the UI can. You can ask AI to design and build circuits. See the [guide for agents](docs/guide-for-agents.md) for how to use the MCP interface to build instruments and processors from scratch.
 
@@ -96,7 +96,7 @@ compiler and DSP layers stay testable as plain console executables.
 
 ## Status
 
-**All milestones are complete.** Nine test binaries pass, and all four plugin
+**All milestones are complete.** 66 tests pass, and all four plugin
 formats build: Standalone, VST3, LV2 and CLAP.
 
 What works:
@@ -104,7 +104,7 @@ What works:
 - A circuit is parsed from Turtle, validated against the ontology, compiled to
   an execution order and run. Errors name the element or arc at fault, and
   parse errors carry line and column.
-- All 45 elements, with the ontology and the DSP registry asserted equal as
+- All 82 elements, with the ontology and the DSP registry asserted equal as
   sets in both directions - a class with no factory, or a factory with no class,
   fails the build.
 - The engine allocates nothing on the audio thread, enforced by a test that
@@ -113,7 +113,7 @@ What works:
 - All three views: a syntax-highlighted Turtle editor with diagnostics, a
   node-and-arc graph with drag-to-connect and an ontology-driven palette, and
   knobs generated from the circuit's parameter bindings.
-- An HTTP MCP server exposing 16 tools, all adapters over the same `Op` surface
+- An HTTP MCP server exposing 34 tools, all adapters over the same `Op` surface
   the views use. Inserting an element over MCP redraws the graph view while the
   audio keeps running.
 - `valis-render`, a headless renderer that needs no host, GUI or audio device.
@@ -186,9 +186,17 @@ notes play it or it drones as an effect, and a Mix knob from the plugin's own
 input to the granulated signal. See [the case study](docs/manual/granular.md).
 
 Remaining rough edges: the graph view's structural edits re-serialise the
-document, so hand formatting and comments are lost (it warns on first use), and
-note events are applied per block rather than at their sample offset - bounded
-by the 32-sample control grid.
+document, so hand formatting and comments are lost (it warns on first use).
+Note events are sample-accurate: the engine cuts a control slice at each event.
+
+Since then: `val:ControlAdd` and `val:Slew` (a control-rate sum, and a glide
+with separate rise and fall times); `val:StiffString` is tuned across its range
+by subtracting the delay its own loop filters add (within a cent from E2 to
+E5); and a set of instruments modelled on the machines of a 1983 electronic
+record (a Source-style bass, a six-string bass, a Prophet-style poly synth, a
+sampler choir, string machine, and a speaker-and-room effect) with an original
+instrumental played by them. See [the 1983-style track](docs/new-order-track.md)
+and the [examples](docs/examples.md).
 
 ## Development
 
