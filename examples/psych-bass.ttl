@@ -1,0 +1,213 @@
+# examples/psych-bass.ttl
+#
+# A monophonic bass for acid rock: a saw at the played pitch and a square an octave below, a
+# 24 dB per octave ladder filter opened by an envelope, and then a fuzz (a hard tanh stage and a tone
+# control), which gives the pounding, slightly fizzy sound of a bass played through a fuzz pedal.
+# https://en.wikipedia.org/wiki/Fuzzbox
+# Play it from E1 to E3.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:psychbass#> .
+
+:psychbass a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Bass", "Fuzz", "Rock" ;
+    rdfs:label "Psych fuzz bass" ;
+    val:element :pitch , :osc2Ratio , :osc1 , :osc2 , :osc1Lvl , :osc2Lvl , :mix , :filtEnv , :filtScale , :track , :cutoff , :vcf , :ampEnv , :vca , :fuzz , :fuzzTone , :dc , :trim , :limit , :out ;
+    val:arc :a_pitch_out__osc1_frequency ,
+        :a_pitch_out__osc2Ratio_a ,
+        :a_osc2Ratio_out__osc2_frequency ,
+        :a_osc1_out__osc1Lvl_in ,
+        :a_osc2_out__osc2Lvl_in ,
+        :a_osc1Lvl_out__mix_in ,
+        :a_osc2Lvl_out__mix_in ,
+        :a_filtEnv_out__filtScale_in ,
+        :a_pitch_out__track_a ,
+        :a_filtScale_out__cutoff_a ,
+        :a_track_out__cutoff_b ,
+        :a_cutoff_out__vcf_cutoff ,
+        :a_mix_out__vcf_in ,
+        :a_vcf_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__fuzz_in ,
+        :a_fuzz_out__fuzzTone_in ,
+        :a_fuzzTone_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:osc2Ratio a val:ControlMultiply ;
+    val:b 0.502 .
+
+:osc1 a val:Oscillator ;
+    val:shape 1 .
+
+:osc2 a val:Oscillator ;
+    val:shape 2 .
+
+:osc1Lvl a val:Gain ;
+    val:gain -3.0 .
+
+:osc2Lvl a val:Gain ;
+    val:gain -3.0 .
+
+:mix a val:Mixer .
+
+:filtEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 220.0 ;
+    val:sustain 0.3 ;
+    val:release 90.0 .
+
+:filtScale a val:Scale ;
+    val:min 220.0 ;
+    val:max 1500.0 .
+
+:track a val:ControlMultiply ;
+    val:b 0.8 .
+
+:cutoff a val:ControlAdd .
+
+:vcf a val:Ladder ;
+    val:resonance 0.28 ;
+    val:drive 2.0 .
+
+:ampEnv a val:Envelope ;
+    val:attack 2.0 ;
+    val:decay 500.0 ;
+    val:sustain 0.85 ;
+    val:release 70.0 .
+
+:vca a val:VCA .
+
+:fuzz a val:Tanh ;
+    val:gain 6.0 .
+
+:fuzzTone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 2600.0 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:trim a val:Gain ;
+    val:gain -14.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__osc1_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :osc1 ; val:port "frequency" ] .
+:a_pitch_out__osc2Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :osc2Ratio ; val:port "a" ] .
+:a_osc2Ratio_out__osc2_frequency a val:Arc ;
+    val:from [ val:node :osc2Ratio ; val:port "out" ] ;
+    val:to   [ val:node :osc2 ; val:port "frequency" ] .
+:a_osc1_out__osc1Lvl_in a val:Arc ;
+    val:from [ val:node :osc1 ; val:port "out" ] ;
+    val:to   [ val:node :osc1Lvl ; val:port "in" ] .
+:a_osc2_out__osc2Lvl_in a val:Arc ;
+    val:from [ val:node :osc2 ; val:port "out" ] ;
+    val:to   [ val:node :osc2Lvl ; val:port "in" ] .
+:a_osc1Lvl_out__mix_in a val:Arc ;
+    val:from [ val:node :osc1Lvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_osc2Lvl_out__mix_in a val:Arc ;
+    val:from [ val:node :osc2Lvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_filtEnv_out__filtScale_in a val:Arc ;
+    val:from [ val:node :filtEnv ; val:port "out" ] ;
+    val:to   [ val:node :filtScale ; val:port "in" ] .
+:a_pitch_out__track_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :track ; val:port "a" ] .
+:a_filtScale_out__cutoff_a a val:Arc ;
+    val:from [ val:node :filtScale ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "a" ] .
+:a_track_out__cutoff_b a val:Arc ;
+    val:from [ val:node :track ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "b" ] .
+:a_cutoff_out__vcf_cutoff a val:Arc ;
+    val:from [ val:node :cutoff ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "cutoff" ] .
+:a_mix_out__vcf_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__fuzz_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :fuzz ; val:port "in" ] .
+:a_fuzz_out__fuzzTone_in a val:Arc ;
+    val:from [ val:node :fuzz ; val:port "out" ] ;
+    val:to   [ val:node :fuzzTone ; val:port "in" ] .
+:a_fuzzTone_out__dc_in a val:Arc ;
+    val:from [ val:node :fuzzTone ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :filtScale ; val:property val:min ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 60 ; lv2:maximum 1500 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :filtScale ; val:property val:max ;
+    lv2:name "Envelope amount" ; lv2:symbol "env_amount" ;
+    lv2:minimum 200 ; lv2:maximum 6000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :vcf ; val:property val:resonance ;
+    lv2:name "Emphasis" ; lv2:symbol "emphasis" ;
+    lv2:minimum 0 ; lv2:maximum 0.95 ;
+    val:section "Filter" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :fuzz ; val:property val:gain ;
+    lv2:name "Fuzz" ; lv2:symbol "fuzz" ;
+    lv2:minimum 1 ; lv2:maximum 30 ;
+    val:section "Fuzz" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :fuzzTone ; val:property val:cutoff ;
+    lv2:name "Fuzz tone" ; lv2:symbol "fuzz_tone" ;
+    lv2:minimum 600 ; lv2:maximum 9000 ;
+    val:section "Fuzz" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Amp decay" ; lv2:symbol "amp_decay" ;
+    lv2:minimum 20 ; lv2:maximum 2000 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :ampEnv ; val:property val:release ;
+    lv2:name "Amp release" ; lv2:symbol "amp_release" ;
+    lv2:minimum 5 ; lv2:maximum 1000 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .

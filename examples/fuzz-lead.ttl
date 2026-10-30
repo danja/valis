@@ -1,0 +1,294 @@
+# examples/fuzz-lead.ttl
+#
+# A monophonic lead for call lines. A saw and a slightly sharp square go through a resonant ladder filter
+# with an envelope, then a light vibrato, then a heavy fuzz (a tanh stage into an asymmetric diode clipper and a tone
+# control). A glide (val:Slew on the pitch) slides between notes. A tape-style echo repeats at a dotted eighth note of
+# 112 beats per minute and the sum goes through a hall. The gaps between the phrases are left to the echo and the room,
+# so that a guitar can answer.
+# https://en.wikipedia.org/wiki/Fuzzbox
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:fuzzlead#> .
+
+:fuzzlead a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Lead", "Fuzz", "Rock" ;
+    rdfs:label "Fuzz lead" ;
+    val:element :pitch , :glide , :detune , :oscA , :oscB , :oscALvl , :oscBLvl , :mix , :filtEnv , :filtScale , :track , :cutoff , :vcf , :ampEnv , :vca , :vib , :fuzz , :fuzz2 , :fuzzTone , :dc , :drive , :echo , :echoTone , :echoLvl , :sum , :room , :limit , :out ;
+    val:arc :a_pitch_out__glide_in ,
+        :a_glide_out__oscA_frequency ,
+        :a_glide_out__detune_a ,
+        :a_detune_out__oscB_frequency ,
+        :a_oscA_out__oscALvl_in ,
+        :a_oscB_out__oscBLvl_in ,
+        :a_oscALvl_out__mix_in ,
+        :a_oscBLvl_out__mix_in ,
+        :a_filtEnv_out__filtScale_in ,
+        :a_glide_out__track_a ,
+        :a_filtScale_out__cutoff_a ,
+        :a_track_out__cutoff_b ,
+        :a_cutoff_out__vcf_cutoff ,
+        :a_mix_out__vcf_in ,
+        :a_vcf_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__vib_in ,
+        :a_vib_out__fuzz_in ,
+        :a_fuzz_out__fuzz2_in ,
+        :a_fuzz2_out__fuzzTone_in ,
+        :a_fuzzTone_out__dc_in ,
+        :a_dc_out__drive_in ,
+        :a_drive_out__sum_in ,
+        :a_drive_out__echo_in ,
+        :a_echo_out__echoTone_in ,
+        :a_echoTone_out__echoLvl_in ,
+        :a_echoLvl_out__sum_in ,
+        :a_sum_out__room_in ,
+        :a_room_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:glide a val:Slew ;
+    val:rise 55.0 ;
+    val:fall 55.0 .
+
+:detune a val:ControlMultiply ;
+    val:b 1.006 .
+
+:oscA a val:Oscillator ;
+    val:shape 1 .
+
+:oscB a val:Oscillator ;
+    val:shape 2 .
+
+:oscALvl a val:Gain ;
+    val:gain -3.0 .
+
+:oscBLvl a val:Gain ;
+    val:gain -6.0 .
+
+:mix a val:Mixer .
+
+:filtEnv a val:Envelope ;
+    val:attack 6.0 ;
+    val:decay 260.0 ;
+    val:sustain 0.5 ;
+    val:release 160.0 .
+
+:filtScale a val:Scale ;
+    val:min 1200.0 ;
+    val:max 5200.0 .
+
+:track a val:ControlMultiply ;
+    val:b 1.0 .
+
+:cutoff a val:ControlAdd .
+
+:vcf a val:Ladder ;
+    val:resonance 0.4 ;
+    val:drive 2.5 .
+
+:ampEnv a val:Envelope ;
+    val:attack 8.0 ;
+    val:decay 300.0 ;
+    val:sustain 0.85 ;
+    val:release 180.0 .
+
+:vca a val:VCA .
+
+:vib a val:Chorus ;
+    val:rate 5.2 ;
+    val:depth 0.35 ;
+    val:mix 0.5 .
+
+:fuzz a val:Tanh ;
+    val:gain 16.0 .
+
+:fuzz2 a val:AsymClip ;
+    val:drive 3.0 ;
+    val:posVf 0.3 ;
+    val:negVf 0.6 .
+
+:fuzzTone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 4800.0 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 40.0 .
+
+:drive a val:Gain ;
+    val:gain -14.0 .
+
+:echo a val:Delay ;
+    val:time 401.7857142857143 ;
+    val:feedback 0.42 .
+
+:echoTone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 3200.0 .
+
+:echoLvl a val:Gain ;
+    val:gain -7.0 .
+
+:sum a val:Mixer .
+
+:room a val:Reverb ;
+    val:size 1.4 ;
+    val:decay 3.0 ;
+    val:damping 0.5 ;
+    val:mix 0.2 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__glide_in a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :glide ; val:port "in" ] .
+:a_glide_out__oscA_frequency a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "frequency" ] .
+:a_glide_out__detune_a a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:a_detune_out__oscB_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "frequency" ] .
+:a_oscA_out__oscALvl_in a val:Arc ;
+    val:from [ val:node :oscA ; val:port "out" ] ;
+    val:to   [ val:node :oscALvl ; val:port "in" ] .
+:a_oscB_out__oscBLvl_in a val:Arc ;
+    val:from [ val:node :oscB ; val:port "out" ] ;
+    val:to   [ val:node :oscBLvl ; val:port "in" ] .
+:a_oscALvl_out__mix_in a val:Arc ;
+    val:from [ val:node :oscALvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_oscBLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :oscBLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_filtEnv_out__filtScale_in a val:Arc ;
+    val:from [ val:node :filtEnv ; val:port "out" ] ;
+    val:to   [ val:node :filtScale ; val:port "in" ] .
+:a_glide_out__track_a a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :track ; val:port "a" ] .
+:a_filtScale_out__cutoff_a a val:Arc ;
+    val:from [ val:node :filtScale ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "a" ] .
+:a_track_out__cutoff_b a val:Arc ;
+    val:from [ val:node :track ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "b" ] .
+:a_cutoff_out__vcf_cutoff a val:Arc ;
+    val:from [ val:node :cutoff ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "cutoff" ] .
+:a_mix_out__vcf_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__vib_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :vib ; val:port "in" ] .
+:a_vib_out__fuzz_in a val:Arc ;
+    val:from [ val:node :vib ; val:port "out" ] ;
+    val:to   [ val:node :fuzz ; val:port "in" ] .
+:a_fuzz_out__fuzz2_in a val:Arc ;
+    val:from [ val:node :fuzz ; val:port "out" ] ;
+    val:to   [ val:node :fuzz2 ; val:port "in" ] .
+:a_fuzz2_out__fuzzTone_in a val:Arc ;
+    val:from [ val:node :fuzz2 ; val:port "out" ] ;
+    val:to   [ val:node :fuzzTone ; val:port "in" ] .
+:a_fuzzTone_out__dc_in a val:Arc ;
+    val:from [ val:node :fuzzTone ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__drive_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :drive ; val:port "in" ] .
+:a_drive_out__sum_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_drive_out__echo_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_echo_out__echoTone_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :echoTone ; val:port "in" ] .
+:a_echoTone_out__echoLvl_in a val:Arc ;
+    val:from [ val:node :echoTone ; val:port "out" ] ;
+    val:to   [ val:node :echoLvl ; val:port "in" ] .
+:a_echoLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :echoLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__room_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__limit_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :filtScale ; val:property val:min ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 300 ; lv2:maximum 4000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :filtScale ; val:property val:max ;
+    lv2:name "Envelope amount" ; lv2:symbol "env_amount" ;
+    lv2:minimum 600 ; lv2:maximum 9000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :vcf ; val:property val:resonance ;
+    lv2:name "Emphasis" ; lv2:symbol "emphasis" ;
+    lv2:minimum 0 ; lv2:maximum 0.95 ;
+    val:section "Filter" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :fuzz ; val:property val:gain ;
+    lv2:name "Fuzz" ; lv2:symbol "fuzz" ;
+    lv2:minimum 1 ; lv2:maximum 50 ;
+    val:section "Fuzz" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :fuzzTone ; val:property val:cutoff ;
+    lv2:name "Fuzz tone" ; lv2:symbol "fuzz_tone" ;
+    lv2:minimum 800 ; lv2:maximum 9000 ;
+    val:section "Fuzz" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :glide ; val:property val:rise ;
+    lv2:name "Glide up" ; lv2:symbol "glide_up" ;
+    lv2:minimum 0 ; lv2:maximum 2000 ;
+    val:section "Pitch" ;
+    units:unit units:ms .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :glide ; val:property val:fall ;
+    lv2:name "Glide down" ; lv2:symbol "glide_down" ;
+    lv2:minimum 0 ; lv2:maximum 2000 ;
+    val:section "Pitch" ;
+    units:unit units:ms .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_feedback" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Echo" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :echoLvl ; val:property val:gain ;
+    lv2:name "Echo level" ; lv2:symbol "echo_level" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Echo" ;
+    units:unit units:db .

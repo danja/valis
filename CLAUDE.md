@@ -169,6 +169,12 @@ to confirm a running instance before using MCP tools that require a host.
    compiled form prints identically in both, the binaries differ, not the code.
 6. Update milestone status in `docs/plan.md` when a milestone completes.
 
+## Valis artifacts
+
+Finished creations made with Valis (tracks, stems, MIDI, sleeves, lyrics) go in a separate
+repo, `~/github/valis-artifacts`. Read its `docs/dir-layout.md` before adding anything. Inputs
+for a piece live under `sources/[track title]/`.
+
 ## Reference projects
 
 - `/home/danny/github/transmission` — layering, CMake feature-gating, real-time rules

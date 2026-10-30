@@ -1,0 +1,214 @@
+# examples/leslie.ttl
+#
+# A rotating speaker cabinet for an organ, after the Leslie 122 (https://en.wikipedia.org/wiki/Leslie_speaker).
+# A crossover at 800 Hz splits the sound between the horn, which turns quickly, and the drum, which is
+# heavier and turns more slowly. Each rotor makes two effects: a tremolo, as the speaker turns toward
+# and away from the microphone, and a Doppler shift (a short delay swept by the same rotation, standing
+# in for the changing distance).
+# The speed switch is a MIDI note. While note 60 is held both rotors run fast ("tremolo"), 0.8 and 0.67 Hz
+# slow ("chorale") otherwise. The horn speeds up in about a second and slows in about two; the heavy drum takes
+# three and a half and five seconds, as the real rotors do. Mono in and out.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:leslie#> .
+
+:leslie a val:Circuit , trn:PluginProfile ;
+    trn:role trn:Effect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Effect", "Organ", "Rotary" ;
+    rdfs:label "Rotating speaker" ;
+    val:element :in , :speedGate , :hornSlew , :drumSlew , :hornRate , :drumRate , :hornLfo , :drumLfo , :hornAm , :drumAm , :split , :hornDoppler , :drumDoppler , :hornVca , :drumVca , :mix , :cabinet , :room , :trim , :limit , :out ;
+    val:arc :a_speedGate_gate__hornSlew_in ,
+        :a_speedGate_gate__drumSlew_in ,
+        :a_hornSlew_out__hornRate_in ,
+        :a_drumSlew_out__drumRate_in ,
+        :a_hornRate_out__hornLfo_rate ,
+        :a_drumRate_out__drumLfo_rate ,
+        :a_hornRate_out__hornDoppler_rate ,
+        :a_drumRate_out__drumDoppler_rate ,
+        :a_hornLfo_out__hornAm_in ,
+        :a_drumLfo_out__drumAm_in ,
+        :a_hornAm_out__hornVca_cv ,
+        :a_drumAm_out__drumVca_cv ,
+        :a_in_out__split_in ,
+        :a_split_high__hornDoppler_in ,
+        :a_split_low__drumDoppler_in ,
+        :a_hornDoppler_out__hornVca_in ,
+        :a_drumDoppler_out__drumVca_in ,
+        :a_hornVca_out__mix_in ,
+        :a_drumVca_out__mix_in ,
+        :a_mix_out__cabinet_in ,
+        :a_cabinet_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:in a val:Input .
+
+:speedGate a val:NoteGate ;
+    val:note 60 .
+
+:hornSlew a val:Slew ;
+    val:rise 900.0 ;
+    val:fall 1800.0 .
+
+:drumSlew a val:Slew ;
+    val:rise 3500.0 ;
+    val:fall 5000.0 .
+
+:hornRate a val:Scale ;
+    val:min 0.8 ;
+    val:max 6.7 .
+
+:drumRate a val:Scale ;
+    val:min 0.67 ;
+    val:max 5.7 .
+
+:hornLfo a val:LFO ;
+    val:shape 0 .
+
+:drumLfo a val:LFO ;
+    val:shape 0 .
+
+:hornAm a val:Scale ;
+    val:min 0.55 ;
+    val:max 1.0 .
+
+:drumAm a val:Scale ;
+    val:min 0.7 ;
+    val:max 1.0 .
+
+:split a val:Crossover ;
+    val:frequency 800.0 .
+
+:hornDoppler a val:Chorus ;
+    val:depth 0.9 ;
+    val:mix 1.0 .
+
+:drumDoppler a val:Chorus ;
+    val:depth 1.2 ;
+    val:mix 1.0 .
+
+:hornVca a val:VCA .
+
+:drumVca a val:VCA .
+
+:mix a val:Mixer .
+
+:cabinet a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 6500.0 .
+
+:room a val:Reverb ;
+    val:size 0.7 ;
+    val:decay 1.2 ;
+    val:damping 0.6 ;
+    val:mix 0.12 .
+
+:trim a val:Gain ;
+    val:gain 0.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_speedGate_gate__hornSlew_in a val:Arc ;
+    val:from [ val:node :speedGate ; val:port "gate" ] ;
+    val:to   [ val:node :hornSlew ; val:port "in" ] .
+:a_speedGate_gate__drumSlew_in a val:Arc ;
+    val:from [ val:node :speedGate ; val:port "gate" ] ;
+    val:to   [ val:node :drumSlew ; val:port "in" ] .
+:a_hornSlew_out__hornRate_in a val:Arc ;
+    val:from [ val:node :hornSlew ; val:port "out" ] ;
+    val:to   [ val:node :hornRate ; val:port "in" ] .
+:a_drumSlew_out__drumRate_in a val:Arc ;
+    val:from [ val:node :drumSlew ; val:port "out" ] ;
+    val:to   [ val:node :drumRate ; val:port "in" ] .
+:a_hornRate_out__hornLfo_rate a val:Arc ;
+    val:from [ val:node :hornRate ; val:port "out" ] ;
+    val:to   [ val:node :hornLfo ; val:port "rate" ] .
+:a_drumRate_out__drumLfo_rate a val:Arc ;
+    val:from [ val:node :drumRate ; val:port "out" ] ;
+    val:to   [ val:node :drumLfo ; val:port "rate" ] .
+:a_hornRate_out__hornDoppler_rate a val:Arc ;
+    val:from [ val:node :hornRate ; val:port "out" ] ;
+    val:to   [ val:node :hornDoppler ; val:port "rate" ] .
+:a_drumRate_out__drumDoppler_rate a val:Arc ;
+    val:from [ val:node :drumRate ; val:port "out" ] ;
+    val:to   [ val:node :drumDoppler ; val:port "rate" ] .
+:a_hornLfo_out__hornAm_in a val:Arc ;
+    val:from [ val:node :hornLfo ; val:port "out" ] ;
+    val:to   [ val:node :hornAm ; val:port "in" ] .
+:a_drumLfo_out__drumAm_in a val:Arc ;
+    val:from [ val:node :drumLfo ; val:port "out" ] ;
+    val:to   [ val:node :drumAm ; val:port "in" ] .
+:a_hornAm_out__hornVca_cv a val:Arc ;
+    val:from [ val:node :hornAm ; val:port "out" ] ;
+    val:to   [ val:node :hornVca ; val:port "cv" ] .
+:a_drumAm_out__drumVca_cv a val:Arc ;
+    val:from [ val:node :drumAm ; val:port "out" ] ;
+    val:to   [ val:node :drumVca ; val:port "cv" ] .
+:a_in_out__split_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :split ; val:port "in" ] .
+:a_split_high__hornDoppler_in a val:Arc ;
+    val:from [ val:node :split ; val:port "high" ] ;
+    val:to   [ val:node :hornDoppler ; val:port "in" ] .
+:a_split_low__drumDoppler_in a val:Arc ;
+    val:from [ val:node :split ; val:port "low" ] ;
+    val:to   [ val:node :drumDoppler ; val:port "in" ] .
+:a_hornDoppler_out__hornVca_in a val:Arc ;
+    val:from [ val:node :hornDoppler ; val:port "out" ] ;
+    val:to   [ val:node :hornVca ; val:port "in" ] .
+:a_drumDoppler_out__drumVca_in a val:Arc ;
+    val:from [ val:node :drumDoppler ; val:port "out" ] ;
+    val:to   [ val:node :drumVca ; val:port "in" ] .
+:a_hornVca_out__mix_in a val:Arc ;
+    val:from [ val:node :hornVca ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_drumVca_out__mix_in a val:Arc ;
+    val:from [ val:node :drumVca ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__cabinet_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :cabinet ; val:port "in" ] .
+:a_cabinet_out__room_in a val:Arc ;
+    val:from [ val:node :cabinet ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :split ; val:property val:frequency ;
+    lv2:name "Crossover" ; lv2:symbol "crossover" ;
+    lv2:minimum 300 ; lv2:maximum 2000 ;
+    val:section "Rotors" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :hornAm ; val:property val:min ;
+    lv2:name "Horn depth" ; lv2:symbol "horn_depth" ;
+    lv2:minimum 0.2 ; lv2:maximum 1.0 ;
+    val:section "Rotors" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :drumAm ; val:property val:min ;
+    lv2:name "Drum depth" ; lv2:symbol "drum_depth" ;
+    lv2:minimum 0.2 ; lv2:maximum 1.0 ;
+    val:section "Rotors" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum 0 ; lv2:maximum 0.5 ;
+    val:section "Cabinet" .

@@ -1,0 +1,533 @@
+# examples/tonewheel-organ.ttl
+#
+# A polyphonic drawbar organ in the manner of the Hammond B-3 (https://en.wikipedia.org/wiki/Hammond_organ):
+# eight voices, each nine sine drawbars at the footages 16', 5 1/3', 8', 4', 2 2/3', 2', 1 3/5', 1 1/3' and 1',
+# a third-harmonic percussion that decays on each key, and a short filtered key click. The default
+# registration is 88 8300 000 with the percussion on. A tube preamp stage follows the voices. The
+# rotating speaker is a separate circuit, leslie.ttl, so that the cabinet can be played on its own.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:tonewheelorgan#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :vca ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar16" ; lv2:name "Drawbar 16'" ;
+               lv2:default 0.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b16Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar513" ; lv2:name "Drawbar 513'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b513Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar8" ; lv2:name "Drawbar 8'" ;
+               lv2:default 0.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b8Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar4" ; lv2:name "Drawbar 4'" ;
+               lv2:default -3.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b4Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar223" ; lv2:name "Drawbar 223'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b223Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar2" ; lv2:name "Drawbar 2'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b2Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar135" ; lv2:name "Drawbar 135'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b135Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar113" ; lv2:name "Drawbar 113'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b113Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bar1" ; lv2:name "Drawbar 1'" ;
+               lv2:default -40.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :b1Gain ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "perc" ; lv2:name "Percussion" ;
+               lv2:default -5.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :percLvl ; val:port "gain" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "keyclick" ; lv2:name "Key click" ;
+               lv2:default -16.0 ; lv2:minimum -40 ; lv2:maximum 0 ;
+               units:unit units:db ;
+               val:node :clickLvl ; val:port "gain" ] ;
+
+    val:element :pitch , :env , :bars , :click , :clickBp , :clickEnv , :clickVca , :clickLvl , :percRatio , :percOsc , :percEnv , :percVca , :percLvl , :sum , :vca , :b16Ratio , :b16Osc , :b16Gain , :b513Ratio , :b513Osc , :b513Gain , :b8Ratio , :b8Osc , :b8Gain , :b4Ratio , :b4Osc , :b4Gain , :b223Ratio , :b223Osc , :b223Gain , :b2Ratio , :b2Osc , :b2Gain , :b135Ratio , :b135Osc , :b135Gain , :b113Ratio , :b113Osc , :b113Gain , :b1Ratio , :b1Osc , :b1Gain ;
+    val:arc :v_click_out__clickBp_in ,
+        :v_clickBp_bp__clickVca_in ,
+        :v_clickEnv_out__clickVca_cv ,
+        :v_clickVca_out__clickLvl_in ,
+        :v_clickLvl_out__sum_in ,
+        :v_bars_out__sum_in ,
+        :v_pitch_out__percRatio_a ,
+        :v_percRatio_out__percOsc_frequency ,
+        :v_percOsc_out__percVca_in ,
+        :v_percEnv_out__percVca_cv ,
+        :v_percVca_out__percLvl_in ,
+        :v_percLvl_out__sum_in ,
+        :v_sum_out__vca_in ,
+        :v_env_out__vca_cv ,
+        :v_pitch_out__b16Ratio_a ,
+        :v_b16Ratio_out__b16Osc_frequency ,
+        :v_b16Osc_out__b16Gain_in ,
+        :v_b16Gain_out__bars_in ,
+        :v_pitch_out__b513Ratio_a ,
+        :v_b513Ratio_out__b513Osc_frequency ,
+        :v_b513Osc_out__b513Gain_in ,
+        :v_b513Gain_out__bars_in ,
+        :v_pitch_out__b8Ratio_a ,
+        :v_b8Ratio_out__b8Osc_frequency ,
+        :v_b8Osc_out__b8Gain_in ,
+        :v_b8Gain_out__bars_in ,
+        :v_pitch_out__b4Ratio_a ,
+        :v_b4Ratio_out__b4Osc_frequency ,
+        :v_b4Osc_out__b4Gain_in ,
+        :v_b4Gain_out__bars_in ,
+        :v_pitch_out__b223Ratio_a ,
+        :v_b223Ratio_out__b223Osc_frequency ,
+        :v_b223Osc_out__b223Gain_in ,
+        :v_b223Gain_out__bars_in ,
+        :v_pitch_out__b2Ratio_a ,
+        :v_b2Ratio_out__b2Osc_frequency ,
+        :v_b2Osc_out__b2Gain_in ,
+        :v_b2Gain_out__bars_in ,
+        :v_pitch_out__b135Ratio_a ,
+        :v_b135Ratio_out__b135Osc_frequency ,
+        :v_b135Osc_out__b135Gain_in ,
+        :v_b135Gain_out__bars_in ,
+        :v_pitch_out__b113Ratio_a ,
+        :v_b113Ratio_out__b113Osc_frequency ,
+        :v_b113Osc_out__b113Gain_in ,
+        :v_b113Gain_out__bars_in ,
+        :v_pitch_out__b1Ratio_a ,
+        :v_b1Ratio_out__b1Osc_frequency ,
+        :v_b1Osc_out__b1Gain_in ,
+        :v_b1Gain_out__bars_in .
+
+:pitch a val:MidiPitch .
+
+:env a val:Envelope ;
+    val:attack 3.0 ;
+    val:decay 100.0 ;
+    val:sustain 1.0 ;
+    val:release 55.0 .
+
+:bars a val:Mixer .
+
+:click a val:Noise ;
+    val:colour 0.2 .
+
+:clickBp a val:StateVariable ;
+    val:cutoff 3200.0 ;
+    val:resonance 1.5 .
+
+:clickEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 12.0 ;
+    val:sustain 0.0 ;
+    val:release 5.0 .
+
+:clickVca a val:VCA .
+
+:clickLvl a val:Gain ;
+    val:gain -16.0 .
+
+:percRatio a val:ControlMultiply ;
+    val:b 3.0 .
+
+:percOsc a val:Oscillator ;
+    val:shape 0 .
+
+:percEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 260.0 ;
+    val:sustain 0.0 ;
+    val:release 20.0 .
+
+:percVca a val:VCA .
+
+:percLvl a val:Gain ;
+    val:gain -5.0 .
+
+:sum a val:Mixer .
+
+:vca a val:VCA .
+
+:b16Ratio a val:ControlMultiply ;
+    val:b 0.5 .
+
+:b16Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b16Gain a val:Gain ;
+    val:gain 0.0 .
+
+:b513Ratio a val:ControlMultiply ;
+    val:b 1.5 .
+
+:b513Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b513Gain a val:Gain ;
+    val:gain -40.0 .
+
+:b8Ratio a val:ControlMultiply ;
+    val:b 1.0 .
+
+:b8Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b8Gain a val:Gain ;
+    val:gain 0.0 .
+
+:b4Ratio a val:ControlMultiply ;
+    val:b 2.0 .
+
+:b4Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b4Gain a val:Gain ;
+    val:gain -3.0 .
+
+:b223Ratio a val:ControlMultiply ;
+    val:b 3.0 .
+
+:b223Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b223Gain a val:Gain ;
+    val:gain -40.0 .
+
+:b2Ratio a val:ControlMultiply ;
+    val:b 4.0 .
+
+:b2Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b2Gain a val:Gain ;
+    val:gain -40.0 .
+
+:b135Ratio a val:ControlMultiply ;
+    val:b 5.0 .
+
+:b135Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b135Gain a val:Gain ;
+    val:gain -40.0 .
+
+:b113Ratio a val:ControlMultiply ;
+    val:b 6.0 .
+
+:b113Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b113Gain a val:Gain ;
+    val:gain -40.0 .
+
+:b1Ratio a val:ControlMultiply ;
+    val:b 8.0 .
+
+:b1Osc a val:Oscillator ;
+    val:shape 0 .
+
+:b1Gain a val:Gain ;
+    val:gain -40.0 .
+
+:v_click_out__clickBp_in a val:Arc ;
+    val:from [ val:node :click ; val:port "out" ] ;
+    val:to   [ val:node :clickBp ; val:port "in" ] .
+:v_clickBp_bp__clickVca_in a val:Arc ;
+    val:from [ val:node :clickBp ; val:port "bp" ] ;
+    val:to   [ val:node :clickVca ; val:port "in" ] .
+:v_clickEnv_out__clickVca_cv a val:Arc ;
+    val:from [ val:node :clickEnv ; val:port "out" ] ;
+    val:to   [ val:node :clickVca ; val:port "cv" ] .
+:v_clickVca_out__clickLvl_in a val:Arc ;
+    val:from [ val:node :clickVca ; val:port "out" ] ;
+    val:to   [ val:node :clickLvl ; val:port "in" ] .
+:v_clickLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :clickLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_bars_out__sum_in a val:Arc ;
+    val:from [ val:node :bars ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_pitch_out__percRatio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :percRatio ; val:port "a" ] .
+:v_percRatio_out__percOsc_frequency a val:Arc ;
+    val:from [ val:node :percRatio ; val:port "out" ] ;
+    val:to   [ val:node :percOsc ; val:port "frequency" ] .
+:v_percOsc_out__percVca_in a val:Arc ;
+    val:from [ val:node :percOsc ; val:port "out" ] ;
+    val:to   [ val:node :percVca ; val:port "in" ] .
+:v_percEnv_out__percVca_cv a val:Arc ;
+    val:from [ val:node :percEnv ; val:port "out" ] ;
+    val:to   [ val:node :percVca ; val:port "cv" ] .
+:v_percVca_out__percLvl_in a val:Arc ;
+    val:from [ val:node :percVca ; val:port "out" ] ;
+    val:to   [ val:node :percLvl ; val:port "in" ] .
+:v_percLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :percLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_sum_out__vca_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:v_env_out__vca_cv a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:v_pitch_out__b16Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b16Ratio ; val:port "a" ] .
+:v_b16Ratio_out__b16Osc_frequency a val:Arc ;
+    val:from [ val:node :b16Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b16Osc ; val:port "frequency" ] .
+:v_b16Osc_out__b16Gain_in a val:Arc ;
+    val:from [ val:node :b16Osc ; val:port "out" ] ;
+    val:to   [ val:node :b16Gain ; val:port "in" ] .
+:v_b16Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b16Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b513Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b513Ratio ; val:port "a" ] .
+:v_b513Ratio_out__b513Osc_frequency a val:Arc ;
+    val:from [ val:node :b513Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b513Osc ; val:port "frequency" ] .
+:v_b513Osc_out__b513Gain_in a val:Arc ;
+    val:from [ val:node :b513Osc ; val:port "out" ] ;
+    val:to   [ val:node :b513Gain ; val:port "in" ] .
+:v_b513Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b513Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b8Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b8Ratio ; val:port "a" ] .
+:v_b8Ratio_out__b8Osc_frequency a val:Arc ;
+    val:from [ val:node :b8Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b8Osc ; val:port "frequency" ] .
+:v_b8Osc_out__b8Gain_in a val:Arc ;
+    val:from [ val:node :b8Osc ; val:port "out" ] ;
+    val:to   [ val:node :b8Gain ; val:port "in" ] .
+:v_b8Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b8Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b4Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b4Ratio ; val:port "a" ] .
+:v_b4Ratio_out__b4Osc_frequency a val:Arc ;
+    val:from [ val:node :b4Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b4Osc ; val:port "frequency" ] .
+:v_b4Osc_out__b4Gain_in a val:Arc ;
+    val:from [ val:node :b4Osc ; val:port "out" ] ;
+    val:to   [ val:node :b4Gain ; val:port "in" ] .
+:v_b4Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b4Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b223Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b223Ratio ; val:port "a" ] .
+:v_b223Ratio_out__b223Osc_frequency a val:Arc ;
+    val:from [ val:node :b223Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b223Osc ; val:port "frequency" ] .
+:v_b223Osc_out__b223Gain_in a val:Arc ;
+    val:from [ val:node :b223Osc ; val:port "out" ] ;
+    val:to   [ val:node :b223Gain ; val:port "in" ] .
+:v_b223Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b223Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b2Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b2Ratio ; val:port "a" ] .
+:v_b2Ratio_out__b2Osc_frequency a val:Arc ;
+    val:from [ val:node :b2Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b2Osc ; val:port "frequency" ] .
+:v_b2Osc_out__b2Gain_in a val:Arc ;
+    val:from [ val:node :b2Osc ; val:port "out" ] ;
+    val:to   [ val:node :b2Gain ; val:port "in" ] .
+:v_b2Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b2Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b135Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b135Ratio ; val:port "a" ] .
+:v_b135Ratio_out__b135Osc_frequency a val:Arc ;
+    val:from [ val:node :b135Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b135Osc ; val:port "frequency" ] .
+:v_b135Osc_out__b135Gain_in a val:Arc ;
+    val:from [ val:node :b135Osc ; val:port "out" ] ;
+    val:to   [ val:node :b135Gain ; val:port "in" ] .
+:v_b135Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b135Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b113Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b113Ratio ; val:port "a" ] .
+:v_b113Ratio_out__b113Osc_frequency a val:Arc ;
+    val:from [ val:node :b113Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b113Osc ; val:port "frequency" ] .
+:v_b113Osc_out__b113Gain_in a val:Arc ;
+    val:from [ val:node :b113Osc ; val:port "out" ] ;
+    val:to   [ val:node :b113Gain ; val:port "in" ] .
+:v_b113Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b113Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+:v_pitch_out__b1Ratio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :b1Ratio ; val:port "a" ] .
+:v_b1Ratio_out__b1Osc_frequency a val:Arc ;
+    val:from [ val:node :b1Ratio ; val:port "out" ] ;
+    val:to   [ val:node :b1Osc ; val:port "frequency" ] .
+:v_b1Osc_out__b1Gain_in a val:Arc ;
+    val:from [ val:node :b1Osc ; val:port "out" ] ;
+    val:to   [ val:node :b1Gain ; val:port "in" ] .
+:v_b1Gain_out__bars_in a val:Arc ;
+    val:from [ val:node :b1Gain ; val:port "out" ] ;
+    val:to   [ val:node :bars ; val:port "in" ] .
+
+:tonewheelorgan a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Organ", "Keys", "Rock" ;
+    rdfs:label "Tonewheel organ" ;
+    val:element :poly , :preamp , :tone , :trim , :limit , :out ;
+    val:arc :a_poly_out__preamp_in ,
+        :a_preamp_out__tone_in ,
+        :a_tone_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 8 .
+
+:preamp a val:Tanh ;
+    val:gain 2.2 .
+
+:tone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 7500.0 .
+
+:trim a val:Gain ;
+    val:gain -12.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__preamp_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :preamp ; val:port "in" ] .
+:a_preamp_out__tone_in a val:Arc ;
+    val:from [ val:node :preamp ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "in" ] .
+:a_tone_out__trim_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:bar16 ;
+    lv2:name "Drawbar 16'" ; lv2:symbol "drawbar_16" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:bar513 ;
+    lv2:name "Drawbar 513'" ; lv2:symbol "drawbar_513" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:bar8 ;
+    lv2:name "Drawbar 8'" ; lv2:symbol "drawbar_8" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:bar4 ;
+    lv2:name "Drawbar 4'" ; lv2:symbol "drawbar_4" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :poly ; val:property val:bar223 ;
+    lv2:name "Drawbar 223'" ; lv2:symbol "drawbar_223" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :poly ; val:property val:bar2 ;
+    lv2:name "Drawbar 2'" ; lv2:symbol "drawbar_2" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :poly ; val:property val:bar135 ;
+    lv2:name "Drawbar 135'" ; lv2:symbol "drawbar_135" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :poly ; val:property val:bar113 ;
+    lv2:name "Drawbar 113'" ; lv2:symbol "drawbar_113" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :poly ; val:property val:bar1 ;
+    lv2:name "Drawbar 1'" ; lv2:symbol "drawbar_1" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Drawbars" ;
+    units:unit units:db .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :poly ; val:property val:perc ;
+    lv2:name "Percussion" ; lv2:symbol "percussion" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Tone" ;
+    units:unit units:db .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :poly ; val:property val:keyclick ;
+    lv2:name "Key click" ; lv2:symbol "key_click" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Tone" ;
+    units:unit units:db .
