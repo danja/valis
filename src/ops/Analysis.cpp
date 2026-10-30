@@ -102,11 +102,18 @@ Frame yinFrame(const float* x, int window, int minLag, int maxLag, std::vector<d
             running > 0.0 ? difference[static_cast<std::size_t>(tau)] * tau / running : 1.0;
     }
 
-    constexpr double kThreshold = 0.15;
+    // A strong second harmonic makes the half-period dip fall under the threshold too, so the first dip is taken
+    // only if it is also near the deepest one (the whole-period dip is far deeper).
+    constexpr double kThreshold = 0.15, kNearDeepest = 0.05;
+    double deepest = 1.0;
+    for (int tau = std::max(2, minLag); tau < maxLag; ++tau)
+        deepest = std::min(deepest, normalised[static_cast<std::size_t>(tau)]);
+    const double accept = std::min(kThreshold, deepest + kNearDeepest);
+
     int best = 0;
     for (int tau = std::max(2, minLag); tau < maxLag; ++tau)
     {
-        if (normalised[static_cast<std::size_t>(tau)] < kThreshold)
+        if (normalised[static_cast<std::size_t>(tau)] < accept)
         {
             // Walk to the bottom of this dip.
             while (tau + 1 < maxLag && normalised[static_cast<std::size_t>(tau + 1)] < normalised[static_cast<std::size_t>(tau)])

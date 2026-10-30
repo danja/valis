@@ -28,8 +28,6 @@
 
 * **Lint for arc kinds.** `ops_LintTest` does not flag an arc from a control output to an audio input, or the
   reverse; only the renderer warns. Add the check (MISTAKES.md, "Control and audio ports joined by an arc").
-* **Pitch estimator octave errors.** `analyseSignal` (YIN) reported E4 for a nylon guitar note played as E3, because the
-  second harmonic is strong. Prefer the lowest strong candidate, or accept a hint of the expected note.
 * **Violins above G5.** `val:Bow` is out of tune above about 880 Hz (E6 is 51 cents flat) and the violins' voice
   clips on the highest notes. A section that goes higher needs the bow-force work noted under "Bow" below.
 * **Trumpet and violin expression.** Vibrato starts after the note; still to do: a scoop into the note, breath

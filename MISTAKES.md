@@ -315,6 +315,7 @@ had said to avoid Python in this path. The script, environment and data were del
 
 **Root cause.** The goal (no Python dependency) was not applied to the verification step as well as the product.
 
-**Prevention.** The front ends are validated by properties and by end-to-end model results (the guitar and congas are
-identified correctly), not against a reference. Treat that as a known gap: a mismatch in a front end would lower scores
-without failing a test.
+**Prevention.** Check a front end against known answers instead of a reference: `shot_NeuralEarsTest` requires AST to
+name a 440 Hz sine `Sine wave` (it does, at 0.84) and hiss `White noise`, and CLAP to put an 80 Hz tone nearer "a low,
+deep rumble" and a 5 kHz tone nearer "a high pitched whistle". A wrong mel scale or normalisation fails these. They do
+not prove bit-exact features, so small shifts in a score are not ruled out.

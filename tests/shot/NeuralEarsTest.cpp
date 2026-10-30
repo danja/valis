@@ -90,6 +90,14 @@ int main()
                     cosine(string, aString), cosine(string, aHiss), cosine(noise, aString), cosine(noise, aHiss));
         assert(cosine(string, aString) > cosine(string, aHiss));
         assert(cosine(noise, aHiss) > cosine(noise, aString));
+
+        // The mel axis: a low tone is nearer "a low rumble" and a high tone nearer "a high whistle", not the reverse.
+        const auto low = ears.embedAudio(sine(80.0), kRate), high = ears.embedAudio(sine(5000.0), kRate);
+        const auto aLow = ears.embedText("a low, deep rumble"), aHigh = ears.embedText("a high pitched whistle");
+        std::printf("  clap: 80 Hz vs low %.3f high %.3f; 5 kHz vs low %.3f high %.3f\n", cosine(low, aLow), cosine(low, aHigh),
+                    cosine(high, aLow), cosine(high, aHigh));
+        assert(cosine(low, aLow) > cosine(low, aHigh));
+        assert(cosine(high, aHigh) > cosine(high, aLow));
     }
     if (ears.hasAst())
     {
@@ -109,10 +117,8 @@ int main()
         const auto tone = ears.tags(sine(440.0), kRate, 10), noise = ears.tags(hiss(), kRate, 10);
         std::printf("  ast sine: rank of 'Sine wave' %d; hiss: rank of 'White noise' %d, 'Noise' %d\n",
                     rankOf(tone, "Sine wave"), rankOf(noise, "White noise"), rankOf(noise, "Noise"));
-        for (const auto& t : tone)
-            std::printf("    sine -> %s %.2f\n", t.label.c_str(), t.probability);
-        for (const auto& t : noise)
-            std::printf("    hiss -> %s %.2f\n", t.label.c_str(), t.probability);
+        assert(rankOf(tone, "Sine wave") == 0 && tone[0].probability > 0.5f);
+        assert(rankOf(noise, "White noise") >= 0);
     }
     std::printf("NeuralEarsTest PASSED\n");
     return 0;

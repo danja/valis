@@ -74,6 +74,23 @@ void testPitchAcrossTheRange()
     assert(r.pitch.found && std::abs(r.pitch.hz - 196.0) < 2.0);
 }
 
+void testAWeakFundamentalIsNotAnOctaveHigh()
+{
+    // A plucked nylon string played as E3 has a strong second harmonic: the half-period dip in the difference function
+    // falls under the usual threshold, though the true period dips far lower. The estimate must be E3, not E4.
+    constexpr double rate = 48000.0, f0 = 164.81;
+    std::vector<float> x(static_cast<std::size_t>(rate * 2.0));
+    for (std::size_t i = 0; i < x.size(); ++i)
+    {
+        const double t = 2.0 * kPi * f0 * static_cast<double>(i) / rate;
+        x[i] = static_cast<float>(0.08 * std::sin(t) + 0.5 * std::sin(2.0 * t) + 0.03 * std::sin(3.0 * t));
+    }
+    const auto r = analyseSignal(x, {}, rate);
+    std::printf("  weak fundamental: found %.2f Hz (%s)\n", r.pitch.hz, noteName(r.pitch.midiNote).c_str());
+    assert(r.pitch.found && std::abs(1200.0 * std::log2(r.pitch.hz / f0)) < 10.0);
+    assert(noteName(r.pitch.midiNote) == "E3");
+}
+
 void testBandsAreInDecibelsFullScale()
 {
     // A 1 kHz sine at 0.5 puts all of its power in the 1 kHz octave: -9 dBFS RMS.
@@ -210,6 +227,7 @@ int main()
 {
     testASineIsMeasuredExactly();
     testPitchAcrossTheRange();
+    testAWeakFundamentalIsNotAnOctaveHigh();
     testBandsAreInDecibelsFullScale();
     testSilenceIsSaidToBeSilence();
     testClippingDcAndBrokenValuesAreFlagged();

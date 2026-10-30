@@ -75,7 +75,9 @@ those weights. Set `VALIS_MODELS` to keep them elsewhere. The tests skip themsel
 
 Known limits: CLAP's front end covers 50 Hz to 14 kHz, so it cannot hear "air" above that (the loudness and spectral
 tools can). Sounds longer than ten seconds are embedded as ten-second windows every five seconds and averaged.
-CLAP does not know Valis: a cosine says how a sound resembles a described sound, not whether a circuit is well made.
+The front ends have no reference implementation to compare with (that needs Python and torch). Instead the test
+requires known answers: AST must name a sine `Sine wave` and hiss `White noise`, and CLAP must place a low tone nearer a
+low rumble and a high tone nearer a whistle. CLAP does not know Valis: a cosine says how a sound resembles a described sound, not whether a circuit is well made.
 
 ## Not ported, and why
 

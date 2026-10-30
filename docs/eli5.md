@@ -140,7 +140,7 @@ Read these parts first:
 | Field | What it tells you | A warning sign |
 |---|---|---|
 | `signal.notes` | Plain-language findings: silence, clipping, a DC offset, values that are not numbers. | Anything listed here. Read it before the numbers. |
-| `signal.pitch` | The note it found, and how far off in cents. | `found: false` for an instrument that should be pitched. It can also land an octave off on a plucked string whose second harmonic is strong: the guitar note above, played as E3, is reported as E4. Check against the note you asked for. |
+| `signal.pitch` | The note it found, and how far off in cents. | `found: false` for an instrument that should be pitched. A chord has no single pitch and reads as none. |
 | `loudness.integratedLufs` | Overall loudness ([LUFS](https://en.wikipedia.org/wiki/LKFS)). Streaming services aim near -14. | Above about -9 is very loud. |
 | `loudness.truePeakDbtp` | The highest level, including the peaks between samples. | Above -1 may distort when converted to MP3. |
 | `envelope.attackMs` | How fast the sound starts. A drum is a few ms; a bowed string is hundreds. | A pluck with a slow attack is not a pluck. |
