@@ -25,3 +25,10 @@ It is an invented release by an invented artist and label, so it carries no real
 
 The joke is the mismatch: a card that holds about 128 billion bytes carrying less than ten minutes of music, on a
 record that holds 15, in a year when a hard disk held ten million bytes.
+
+## Separate images
+
+- `short-circuit-sleeve-front.png` and `short-circuit-sleeve-back.png`: each side alone, 1680 by 1680 pixels.
+- `short-circuit-sleeve-front-1920x1080.png` and `short-circuit-sleeve-back-1920x1080.png`: each side centred on
+  a plain grey ground in a 16:9 frame, for a video background. The grey is the colour of the cut corner and
+  the window, so the card's outline reads against it.
