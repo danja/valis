@@ -8,6 +8,8 @@ def write(path, notes, bpm):
     """notes: [(start_beats, length_beats, pitch, velocity)]"""
     ev=[]
     for s,l,p,v in notes:
+        if s < 0 or l <= 0:
+            raise ValueError("note %r starts before 0 or has no length" % ((s,l,p,v),))
         ev.append((round(s*PPQ),1,p,max(1,min(127,v)))); ev.append((round((s+l)*PPQ),0,p,0))
     ev.sort(key=lambda e:(e[0],e[1]))  # offs before ons at the same tick
     tr=bytearray(); tr+=b'\x00\xff\x51\x03'+struct.pack('>I',int(60000000/bpm))[1:]

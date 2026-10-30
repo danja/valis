@@ -1,0 +1,295 @@
+# examples/violins.ttl
+#
+# A section of violins: four voices, each a bowed string (val:Bow, tuned to within about 9 cents up to
+# 880 Hz) with bow speed from an envelope, a vibrato, and a level that rises with pitch to make up for how quickly a bowed
+# string loses level as it climbs. After the voices comes a violin's body: the air resonance near 280 Hz and the main wood
+# resonance near 460 Hz (two val:ModalBank elements), and the bridge hill, a lift near 2.6 kHz that gives the instrument its
+# brilliance. A slow chorus makes a section from the voices, and a small room closes the sum.
+# val:Bow is not yet reliable above about 900 Hz, which is the upper end of a violin's normal range.
+# https://en.wikipedia.org/wiki/Violin_acoustics
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:violins#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :vca ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "pressure" ; lv2:name "Bow pressure" ;
+               lv2:default 0.6 ; lv2:minimum 0.2 ; lv2:maximum 0.9 ;
+               val:node :string ; val:port "pressure" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "position" ; lv2:name "Bow position" ;
+               lv2:default 0.09 ; lv2:minimum 0.04 ; lv2:maximum 0.3 ;
+               val:node :string ; val:port "position" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "attack" ; lv2:name "Attack" ;
+               lv2:default 110.0 ; lv2:minimum 5 ; lv2:maximum 1500 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "attack" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "release" ; lv2:name "Release" ;
+               lv2:default 120.0 ; lv2:minimum 10 ; lv2:maximum 2500 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "release" ] ;
+
+    val:element :pitch , :vel , :vibLfo , :vibEnv , :vibVca , :vibScale , :vibMul , :env , :bowSpeed , :velScale , :speed , :slope , :lift , :string , :comp , :vca ;
+    val:arc :v_pitch_out__vibMul_a ,
+        :v_vibLfo_out__vibVca_a ,
+        :v_vibEnv_out__vibVca_b ,
+        :v_vibVca_out__vibScale_in ,
+        :v_vibScale_out__vibMul_b ,
+        :v_vibMul_out__string_frequency ,
+        :v_env_out__bowSpeed_in ,
+        :v_vel_out__velScale_in ,
+        :v_bowSpeed_out__speed_a ,
+        :v_velScale_out__speed_b ,
+        :v_speed_out__string_velocity ,
+        :v_pitch_out__slope_a ,
+        :v_slope_out__lift_a ,
+        :v_lift_out__comp_gain ,
+        :v_string_out__comp_in ,
+        :v_comp_out__vca_in ,
+        :v_env_out__vca_cv .
+
+:pitch a val:MidiPitch .
+
+:vel a val:MidiVelocity .
+
+:vibLfo a val:LFO ;
+    val:rate 5.6 ;
+    val:shape 0 .
+
+:vibEnv a val:Envelope ;
+    val:attack 520.0 ;
+    val:decay 10.0 ;
+    val:sustain 1.0 ;
+    val:release 40.0 .
+
+:vibVca a val:ControlMultiply .
+
+:vibScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.0042 .
+
+:vibMul a val:ControlMultiply .
+
+:env a val:Envelope ;
+    val:attack 110.0 ;
+    val:decay 150.0 ;
+    val:sustain 1.0 ;
+    val:release 120.0 .
+
+:bowSpeed a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.5 .
+
+:velScale a val:Scale ;
+    val:min 0.8 ;
+    val:max 1.1 .
+
+:speed a val:ControlMultiply .
+
+:slope a val:ControlMultiply ;
+    val:b 0.033 .
+
+:lift a val:ControlAdd ;
+    val:b -10.9 .
+
+:string a val:Bow ;
+    val:pressure 0.6 ;
+    val:position 0.09 ;
+    val:damping 0.35 .
+
+:comp a val:Gain .
+
+:vca a val:VCA .
+
+:v_pitch_out__vibMul_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "a" ] .
+:v_vibLfo_out__vibVca_a a val:Arc ;
+    val:from [ val:node :vibLfo ; val:port "out" ] ;
+    val:to   [ val:node :vibVca ; val:port "a" ] .
+:v_vibEnv_out__vibVca_b a val:Arc ;
+    val:from [ val:node :vibEnv ; val:port "out" ] ;
+    val:to   [ val:node :vibVca ; val:port "b" ] .
+:v_vibVca_out__vibScale_in a val:Arc ;
+    val:from [ val:node :vibVca ; val:port "out" ] ;
+    val:to   [ val:node :vibScale ; val:port "in" ] .
+:v_vibScale_out__vibMul_b a val:Arc ;
+    val:from [ val:node :vibScale ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "b" ] .
+:v_vibMul_out__string_frequency a val:Arc ;
+    val:from [ val:node :vibMul ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:v_env_out__bowSpeed_in a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :bowSpeed ; val:port "in" ] .
+:v_vel_out__velScale_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :velScale ; val:port "in" ] .
+:v_bowSpeed_out__speed_a a val:Arc ;
+    val:from [ val:node :bowSpeed ; val:port "out" ] ;
+    val:to   [ val:node :speed ; val:port "a" ] .
+:v_velScale_out__speed_b a val:Arc ;
+    val:from [ val:node :velScale ; val:port "out" ] ;
+    val:to   [ val:node :speed ; val:port "b" ] .
+:v_speed_out__string_velocity a val:Arc ;
+    val:from [ val:node :speed ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "velocity" ] .
+:v_pitch_out__slope_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :slope ; val:port "a" ] .
+:v_slope_out__lift_a a val:Arc ;
+    val:from [ val:node :slope ; val:port "out" ] ;
+    val:to   [ val:node :lift ; val:port "a" ] .
+:v_lift_out__comp_gain a val:Arc ;
+    val:from [ val:node :lift ; val:port "out" ] ;
+    val:to   [ val:node :comp ; val:port "gain" ] .
+:v_string_out__comp_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :comp ; val:port "in" ] .
+:v_comp_out__vca_in a val:Arc ;
+    val:from [ val:node :comp ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:v_env_out__vca_cv a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+
+:violins a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Strings", "Violin", "Latin" ;
+    rdfs:label "Mariachi violins" ;
+    val:element :poly , :air , :wood , :hill , :hillLvl , :body , :bodyLvl , :ens , :room , :limit , :out ;
+    val:arc :a_poly_out__air_in ,
+        :a_poly_out__wood_in ,
+        :a_poly_out__hill_in ,
+        :a_hill_bp__hillLvl_in ,
+        :a_poly_out__body_in ,
+        :a_air_out__body_in ,
+        :a_wood_out__body_in ,
+        :a_hillLvl_out__body_in ,
+        :a_body_out__bodyLvl_in ,
+        :a_bodyLvl_out__ens_in ,
+        :a_ens_out__room_in ,
+        :a_room_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 4 .
+
+:air a val:ModalBank ;
+    val:frequency 280.0 ;
+    val:decay 0.05 ;
+    val:brightness 0.6 .
+
+:wood a val:ModalBank ;
+    val:frequency 460.0 ;
+    val:decay 0.04 ;
+    val:brightness 0.7 .
+
+:hill a val:StateVariable ;
+    val:cutoff 2600.0 ;
+    val:resonance 1.6 .
+
+:hillLvl a val:Gain ;
+    val:gain -6.0 .
+
+:body a val:Mixer .
+
+:bodyLvl a val:Gain ;
+    val:gain -26.0 .
+
+:ens a val:Chorus ;
+    val:rate 0.5 ;
+    val:depth 2.2 ;
+    val:mix 0.4 .
+
+:room a val:Reverb ;
+    val:size 1.2 ;
+    val:decay 2.0 ;
+    val:damping 0.5 ;
+    val:mix 0.18 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__air_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :air ; val:port "in" ] .
+:a_poly_out__wood_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :wood ; val:port "in" ] .
+:a_poly_out__hill_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :hill ; val:port "in" ] .
+:a_hill_bp__hillLvl_in a val:Arc ;
+    val:from [ val:node :hill ; val:port "bp" ] ;
+    val:to   [ val:node :hillLvl ; val:port "in" ] .
+:a_poly_out__body_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_air_out__body_in a val:Arc ;
+    val:from [ val:node :air ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_wood_out__body_in a val:Arc ;
+    val:from [ val:node :wood ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_hillLvl_out__body_in a val:Arc ;
+    val:from [ val:node :hillLvl ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__bodyLvl_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :bodyLvl ; val:port "in" ] .
+:a_bodyLvl_out__ens_in a val:Arc ;
+    val:from [ val:node :bodyLvl ; val:port "out" ] ;
+    val:to   [ val:node :ens ; val:port "in" ] .
+:a_ens_out__room_in a val:Arc ;
+    val:from [ val:node :ens ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__limit_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:pressure ;
+    lv2:name "Bow pressure" ; lv2:symbol "bow_pressure" ;
+    lv2:minimum 0.2 ; lv2:maximum 0.9 ;
+    val:section "Bow" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:position ;
+    lv2:name "Bow position" ; lv2:symbol "bow_position" ;
+    lv2:minimum 0.04 ; lv2:maximum 0.3 ;
+    val:section "Bow" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 1500 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 10 ; lv2:maximum 2500 ;
+    val:section "Envelope" ;
+    units:unit units:ms .

@@ -20,6 +20,9 @@ set(VALIS_TESTS
   dsp/StiffStringTest.cpp
   dsp/ControlMathTest.cpp
   dsp/ClarinetTest.cpp
+  dsp/BrassTest.cpp
+  dsp/ShakerTest.cpp
+  dsp/PluckTest.cpp
   dsp/CelloTest.cpp
   dsp/FMTest.cpp
   dsp/NamModelTest.cpp

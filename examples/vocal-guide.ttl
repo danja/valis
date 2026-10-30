@@ -1,0 +1,172 @@
+# examples/vocal-guide.ttl
+#
+# A plain "ah" voice for a guide track: two slightly apart saws through three formant filters at the frequencies of
+# an "ah" (about 750, 1250 and 2700 Hz), a quick attack so short syllables are heard, and a light vibrato. It is
+# meant to show a singer the notes and the rhythm, not to sound like a singer.
+# https://en.wikipedia.org/wiki/Formant
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:vocalguide#> .
+
+:vocalguide a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Voice", "Guide" ;
+    rdfs:label "Vocal guide voice" ;
+    val:element :pitch , :detune , :saw1 , :saw2 , :src , :f1 , :f2 , :f3 , :f1Lvl , :f2Lvl , :f3Lvl , :vowel , :env , :vca , :vib , :trim , :limit , :out ;
+    val:arc :a_pitch_out__saw1_frequency ,
+        :a_pitch_out__detune_a ,
+        :a_detune_out__saw2_frequency ,
+        :a_saw1_out__src_in ,
+        :a_saw2_out__src_in ,
+        :a_src_out__f1_in ,
+        :a_src_out__f2_in ,
+        :a_src_out__f3_in ,
+        :a_f1_bp__f1Lvl_in ,
+        :a_f2_bp__f2Lvl_in ,
+        :a_f3_bp__f3Lvl_in ,
+        :a_f1Lvl_out__vowel_in ,
+        :a_f2Lvl_out__vowel_in ,
+        :a_f3Lvl_out__vowel_in ,
+        :a_vowel_out__vca_in ,
+        :a_env_out__vca_cv ,
+        :a_vca_out__vib_in ,
+        :a_vib_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:detune a val:ControlMultiply ;
+    val:b 1.004 .
+
+:saw1 a val:Oscillator ;
+    val:shape 1 .
+
+:saw2 a val:Oscillator ;
+    val:shape 1 .
+
+:src a val:Mixer .
+
+:f1 a val:StateVariable ;
+    val:cutoff 750.0 ;
+    val:resonance 4.0 .
+
+:f2 a val:StateVariable ;
+    val:cutoff 1250.0 ;
+    val:resonance 4.0 .
+
+:f3 a val:StateVariable ;
+    val:cutoff 2700.0 ;
+    val:resonance 3.0 .
+
+:f1Lvl a val:Gain ;
+    val:gain 0.0 .
+
+:f2Lvl a val:Gain ;
+    val:gain -5.0 .
+
+:f3Lvl a val:Gain ;
+    val:gain -12.0 .
+
+:vowel a val:Mixer .
+
+:env a val:Envelope ;
+    val:attack 14.0 ;
+    val:decay 80.0 ;
+    val:sustain 0.9 ;
+    val:release 70.0 .
+
+:vca a val:VCA .
+
+:vib a val:Chorus ;
+    val:rate 5.3 ;
+    val:depth 0.3 ;
+    val:mix 0.4 .
+
+:trim a val:Gain ;
+    val:gain -3.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__saw1_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :saw1 ; val:port "frequency" ] .
+:a_pitch_out__detune_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:a_detune_out__saw2_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :saw2 ; val:port "frequency" ] .
+:a_saw1_out__src_in a val:Arc ;
+    val:from [ val:node :saw1 ; val:port "out" ] ;
+    val:to   [ val:node :src ; val:port "in" ] .
+:a_saw2_out__src_in a val:Arc ;
+    val:from [ val:node :saw2 ; val:port "out" ] ;
+    val:to   [ val:node :src ; val:port "in" ] .
+:a_src_out__f1_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f1 ; val:port "in" ] .
+:a_src_out__f2_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f2 ; val:port "in" ] .
+:a_src_out__f3_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f3 ; val:port "in" ] .
+:a_f1_bp__f1Lvl_in a val:Arc ;
+    val:from [ val:node :f1 ; val:port "bp" ] ;
+    val:to   [ val:node :f1Lvl ; val:port "in" ] .
+:a_f2_bp__f2Lvl_in a val:Arc ;
+    val:from [ val:node :f2 ; val:port "bp" ] ;
+    val:to   [ val:node :f2Lvl ; val:port "in" ] .
+:a_f3_bp__f3Lvl_in a val:Arc ;
+    val:from [ val:node :f3 ; val:port "bp" ] ;
+    val:to   [ val:node :f3Lvl ; val:port "in" ] .
+:a_f1Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f1Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:a_f2Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f2Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:a_f3Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f3Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:a_vowel_out__vca_in a val:Arc ;
+    val:from [ val:node :vowel ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_env_out__vca_cv a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__vib_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :vib ; val:port "in" ] .
+:a_vib_out__trim_in a val:Arc ;
+    val:from [ val:node :vib ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :env ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 2 ; lv2:maximum 200 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :env ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 10 ; lv2:maximum 500 ;
+    val:section "Envelope" ;
+    units:unit units:ms .

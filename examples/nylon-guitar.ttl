@@ -1,0 +1,187 @@
+# examples/nylon-guitar.ttl
+#
+# A six-voice nylon-string guitar. In each voice a val:Pluck, a fingertip or nail a sixth of the way
+# along the string, strikes a stiff string (val:StiffString, tuned by its loop delay). After the voices two resonances stand in for the body: the air in
+# the box at about 105 Hz and the top plate at about 210 Hz, mixed back against the strings. Played in the middle of the
+# keyboard it is a guitar; strummed high, with the notes of a chord a few milliseconds apart, it is a vihuela, the small
+# bright guitar of a mariachi band.
+# https://en.wikipedia.org/wiki/Vihuela
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nylonguitar#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :dc ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "sustain" ; lv2:name "Sustain" ;
+               lv2:default 0.9965 ; lv2:minimum 0.9 ; lv2:maximum 0.999 ;
+               val:node :string ; val:port "feedback" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "damping" ; lv2:name "Damping" ;
+               lv2:default 0.2 ; lv2:minimum 0 ; lv2:maximum 1 ;
+               val:node :string ; val:port "damping" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "pick" ; lv2:name "Pick hardness" ;
+               lv2:default 0.45 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+               val:node :pick ; val:port "hardness" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "ring" ; lv2:name "Ring time" ;
+               lv2:default 1800.0 ; lv2:minimum 200 ; lv2:maximum 5000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :ampEnv ; val:port "decay" ] ;
+
+    val:element :pitch , :pick , :string , :ampEnv , :ampVca , :dc ;
+    val:arc :v_pitch_out__string_frequency ,
+        :v_pitch_out__pick_frequency ,
+        :v_pick_out__string_in ,
+        :v_string_out__ampVca_in ,
+        :v_ampEnv_out__ampVca_cv ,
+        :v_ampVca_out__dc_in .
+
+:pitch a val:MidiPitch .
+
+:pick a val:Pluck ;
+    val:position 0.17 ;
+    val:hardness 0.45 .
+
+:string a val:StiffString ;
+    val:feedback 0.9965 ;
+    val:damping 0.2 ;
+    val:dispersion 0.004 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 1800.0 ;
+    val:sustain 0.0 ;
+    val:release 140.0 .
+
+:ampVca a val:VCA .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 28.0 .
+
+:v_pitch_out__string_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:v_pitch_out__pick_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :pick ; val:port "frequency" ] .
+:v_pick_out__string_in a val:Arc ;
+    val:from [ val:node :pick ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:v_string_out__ampVca_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "in" ] .
+:v_ampEnv_out__ampVca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "cv" ] .
+:v_ampVca_out__dc_in a val:Arc ;
+    val:from [ val:node :ampVca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+
+:nylonguitar a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Guitar", "Acoustic", "Latin" ;
+    rdfs:label "Nylon-string guitar" ;
+    val:element :poly , :topPlate , :air , :body , :room , :trim , :limit , :out ;
+    val:arc :a_poly_out__topPlate_in ,
+        :a_poly_out__air_in ,
+        :a_poly_out__body_in ,
+        :a_topPlate_bp__body_in ,
+        :a_air_bp__body_in ,
+        :a_body_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 6 .
+
+:topPlate a val:StateVariable ;
+    val:cutoff 210.0 ;
+    val:resonance 2.2 .
+
+:air a val:StateVariable ;
+    val:cutoff 105.0 ;
+    val:resonance 3.0 .
+
+:body a val:Mixer .
+
+:room a val:Reverb ;
+    val:size 0.7 ;
+    val:decay 1.1 ;
+    val:damping 0.5 ;
+    val:mix 0.12 .
+
+:trim a val:Gain ;
+    val:gain -8.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__topPlate_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :topPlate ; val:port "in" ] .
+:a_poly_out__air_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :air ; val:port "in" ] .
+:a_poly_out__body_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_topPlate_bp__body_in a val:Arc ;
+    val:from [ val:node :topPlate ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_air_bp__body_in a val:Arc ;
+    val:from [ val:node :air ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__room_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:sustain ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" ;
+    lv2:minimum 0.9 ; lv2:maximum 0.999 ;
+    val:section "String" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:pick ;
+    lv2:name "Pick hardness" ; lv2:symbol "pick_hardness" ;
+    lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+    val:section "String" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:ring ;
+    lv2:name "Ring time" ; lv2:symbol "ring_time" ;
+    lv2:minimum 200 ; lv2:maximum 5000 ;
+    val:section "String" ;
+    units:unit units:ms .

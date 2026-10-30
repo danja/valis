@@ -1,0 +1,138 @@
+# examples/guitarron.ttl
+#
+# The guitarron, the large six-string bass of a mariachi band, which plays the root and the fifth under the
+# chords. A soft thumb pluck (val:Pluck) strikes a heavily damped stiff string; a low resonance stands in for its deep, round
+# box and a low-pass takes the edge off. Play it from E1 (28) to A2 (45).
+# https://en.wikipedia.org/wiki/Guitarr%C3%B3n_mexicano
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:guitarron#> .
+
+:guitarron a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Bass", "Acoustic", "Latin" ;
+    rdfs:label "Guitarron" ;
+    val:element :pitch , :dc , :pick , :string , :ampEnv , :ampVca , :box , :body , :tone , :trim , :limit , :out ;
+    val:arc :a_pitch_out__string_frequency ,
+        :a_pitch_out__pick_frequency ,
+        :a_pick_out__string_in ,
+        :a_string_out__ampVca_in ,
+        :a_ampEnv_out__ampVca_cv ,
+        :a_ampVca_out__dc_in ,
+        :a_dc_out__box_in ,
+        :a_dc_out__body_in ,
+        :a_box_bp__body_in ,
+        :a_body_out__tone_in ,
+        :a_tone_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 25.0 .
+
+:pick a val:Pluck ;
+    val:position 0.14 ;
+    val:hardness 0.2 .
+
+:string a val:StiffString ;
+    val:feedback 0.993 ;
+    val:damping 0.3 ;
+    val:dispersion 0.01 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 650.0 ;
+    val:sustain 0.0 ;
+    val:release 90.0 .
+
+:ampVca a val:VCA .
+
+:box a val:StateVariable ;
+    val:cutoff 95.0 ;
+    val:resonance 2.4 .
+
+:body a val:Mixer .
+
+:tone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 1800.0 .
+
+:trim a val:Gain ;
+    val:gain -6.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__string_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:a_pitch_out__pick_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :pick ; val:port "frequency" ] .
+:a_pick_out__string_in a val:Arc ;
+    val:from [ val:node :pick ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:a_string_out__ampVca_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "in" ] .
+:a_ampEnv_out__ampVca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "cv" ] .
+:a_ampVca_out__dc_in a val:Arc ;
+    val:from [ val:node :ampVca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__box_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :box ; val:port "in" ] .
+:a_dc_out__body_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_box_bp__body_in a val:Arc ;
+    val:from [ val:node :box ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__tone_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "in" ] .
+:a_tone_out__trim_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :string ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :pick ; val:property val:hardness ;
+    lv2:name "Pick hardness" ; lv2:symbol "pick_hardness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Ring time" ; lv2:symbol "ring_time" ;
+    lv2:minimum 100 ; lv2:maximum 3000 ;
+    val:section "String" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :tone ; val:property val:cutoff ;
+    lv2:name "Tone" ; lv2:symbol "tone" ;
+    lv2:minimum 500 ; lv2:maximum 6000 ;
+    val:section "Tone" ;
+    units:unit units:hertz .

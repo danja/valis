@@ -1138,6 +1138,368 @@ private:
     int freqIdx = -1, pressureIdx = -1, stiffnessIdx = -1, dampingIdx = -1, breathIdx = -1;
 };
 
+/// A lip-reed waveguide brass instrument: a trumpet, a trombone, a horn.
+///
+/// The player's lips are a resonator that the pressure difference across them
+/// drives. How far they open follows the square of their displacement, which is
+/// what makes the valve close twice a cycle and the loop sound at the pitch it
+/// was tuned to. The bore is a delay line, and what comes back from it works
+/// against the player's pressure. The lips push the air column hard enough to
+/// make a real brass tone: the harmonics are many and they grow brighter as the
+/// player blows harder, which no filter on a saw wave does.
+///
+/// A brass instrument only speaks over a band of mouth pressure, and the band
+/// moves up with the note. The pressure control is mapped onto that band for the
+/// note being played, so 0 is silent and 1 is as hard as that note will take.
+///
+/// After Perry Cook, "SlideBrass" in the Synthesis ToolKit, with the tuning
+/// measured and tabulated here; see tests/dsp/BrassTest.cpp.
+class Brass final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate  = rate;
+        freqIdx     = controlIndex(type, "frequency");
+        pressureIdx = controlIndex(type, "pressure");
+        lipIdx      = controlIndex(type, "lip");
+        dampingIdx  = controlIndex(type, "damping");
+        breathIdx   = controlIndex(type, "breath");
+
+        bore.prepare(static_cast<std::size_t>(rate / 10.0) + 4);
+        reference.setPole(kReferencePole);
+        reset();
+    }
+
+    void reset() override
+    {
+        bore.clear();
+        loss.clear();
+        blocker.clear();
+        lip1 = lip2 = 0.0f;
+        turbulence.seed(0x2d7a41c9u);
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float frequency = std::clamp(controlAt(args, freqIdx, 262.0f), 40.0f,
+                                           static_cast<float>(sampleRate * 0.15));
+        const float pressure  = std::clamp(controlAt(args, pressureIdx, 0.5f), 0.0f, 1.0f);
+        const float tension   = std::clamp(controlAt(args, lipIdx, 0.5f), 0.0f, 1.0f);
+        const float damping   = std::clamp(controlAt(args, dampingIdx, 0.2f), 0.0f, 1.0f);
+        const float breath    = std::clamp(controlAt(args, breathIdx, 0.02f), 0.0f, 1.0f);
+
+        // The lips: a two-pole resonator at the note, peak gain about 1.
+        const float omega = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
+        const float radius = kRadiusBase + kRadiusRange * tension;
+        const float a1 = -2.0f * radius * std::cos(omega);
+        const float a2 = radius * radius;
+        const float b0 = 0.5f - 0.5f * a2;
+
+        loss.setPole(kPoleRange * damping);
+
+        // The bore is two periods long: the squared valve doubles the lip
+        // frequency, so the loop closes on half the delay. What the lips and the
+        // loss filter add, and the amount the loop is pulled by the lips, is
+        // taken out with a table measured at the tuning test.
+        const float octaves = std::log2(frequency / kTableBase);
+        const float cents   = tableAt(octaves);
+        const float length  = 2.0f * static_cast<float>(sampleRate) / frequency * std::exp2(cents / 1200.0f)
+                            + kLoopLatency - (loss.phaseDelay(omega) - reference.phaseDelay(omega));
+        bore.setDelay(std::max(2.0f, length));
+
+        // The band of mouth pressure this note will speak over. Its floor rises
+        // with the note, and a low note has little room above the floor.
+        const float floorPressure = kFloor * std::pow(frequency / 196.0f, kFloorSlope);
+        const float room          = std::clamp(kRoomBase + kRoomPerOctave * std::log2(frequency / 196.0f), kRoomBase, kRoomMax);
+        const float blowing = pressure < kThreshold
+                                  ? floorPressure * pressure / kThreshold
+                                  : floorPressure * (1.0f + room * (pressure - kThreshold) / (1.0f - kThreshold));
+        const float noise = breath * pressure;
+
+        // The blowing pressure rises with the note, and so does the level it makes; this brings the notes
+        // back to about the same loudness, so the pitch the caller asks for is not also a volume.
+        const float level = kOutputLevel * std::pow(kTableBase / frequency, kLevelSlope);
+
+        float* out = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const float mouth = blowing * (1.0f + noise * turbulence.next());
+            const float bell  = kBoreGain * loss.process(bore.last());
+
+            const float across = mouth - bell;
+            const float swing  = b0 * across - a1 * lip1 - a2 * lip2;
+            lip2 = lip1;
+            lip1 = swing;
+
+            const float opening = std::min(1.0f, swing * swing);
+            const float mixed   = opening * mouth + (1.0f - opening) * bell;
+
+            const float settledSample = blocker.process(mixed);
+            bore.tick(settledSample);
+            out[i] = level * settledSample;
+        }
+    }
+
+private:
+    /// How much longer than two periods the bore must be, in cents, to sound the note, against octaves above
+    /// kTableBase. Measured at mid pressure (tests/dsp/BrassTest.cpp) and linear between the points: the lips
+    /// pull the pitch about 0.43 cents for each cent of delay, which is why these are larger than the error.
+    static float tableAt(float octaves) noexcept
+    {
+        constexpr int n = 11;
+        constexpr float x[n] = {-1.0f, -0.42f, 0.0f, 0.41f, 0.83f, 1.25f, 1.58f, 1.83f, 2.16f, 2.5f, 3.0f};
+        constexpr float y[n] = {230.0f, 218.0f, 193.0f, 179.0f, 170.0f, 160.0f, 145.0f, 131.0f, 105.0f, 74.0f, 40.0f};
+        if (octaves <= x[0]) return y[0];
+        for (int k = 1; k < n; ++k)
+            if (octaves <= x[k])
+                return y[k - 1] + (y[k] - y[k - 1]) * (octaves - x[k - 1]) / (x[k] - x[k - 1]);
+        return y[n - 1];
+    }
+
+    static constexpr float kTableBase = 262.0f;
+    static constexpr float kRadiusBase = 0.994f, kRadiusRange = 0.0045f;
+    static constexpr float kPoleRange = 0.5f, kReferencePole = 0.1f;
+    static constexpr float kBoreGain = 0.85f;
+    static constexpr float kLoopLatency = 3.0f;
+    static constexpr float kFloor = 0.1f, kFloorSlope = 1.35f;
+    static constexpr float kRoomBase = 0.5f, kRoomPerOctave = 0.5f, kRoomMax = 2.5f;
+    static constexpr float kThreshold = 0.1f;
+    static constexpr float kOutputLevel = 1.6f, kLevelSlope = 0.85f;
+
+    waveguide::Delay bore;
+    waveguide::Loss  loss, reference;
+    waveguide::DcBlocker blocker;
+    waveguide::Turbulence turbulence;
+
+    float lip1 = 0.0f, lip2 = 0.0f;
+    double sampleRate = 44100.0;
+    int freqIdx = -1, pressureIdx = -1, lipIdx = -1, dampingIdx = -1, breathIdx = -1;
+};
+
+/// A shaken or scraped container of small particles: maracas, a cabasa, a guiro, a rain stick.
+///
+/// A shake puts energy into the system. The energy dies away, and while it lasts the particles collide at random,
+/// each collision adding a small burst of sound that fades quickly. The bursts excite a pair of resonances that
+/// stand for the shell. How many collisions there are in a second follows the energy and the number of particles, so
+/// a hard shake is a dense roar that thins to single grains as it dies, which is what filtered noise cannot do.
+/// A guiro is the same system with the collisions made regular: the teeth of the notches go past at a steady rate.
+///
+/// After Perry Cook's PhISEM, <https://www.cs.princeton.edu/~prc/SingingSynth.html> (the Physically Informed
+/// Stochastic Event Modeling of Cook, 1997).
+class Shaker final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate    = rate;
+        triggerIdx    = controlIndex(type, "trigger");
+        velocityIdx   = controlIndex(type, "velocity");
+        particlesIdx  = controlIndex(type, "particles");
+        shakeIdx      = controlIndex(type, "shake");
+        soundIdx      = controlIndex(type, "sound");
+        frequencyIdx  = controlIndex(type, "frequency");
+        resonanceIdx  = controlIndex(type, "resonance");
+        regularityIdx = controlIndex(type, "regularity");
+        rateIdx       = controlIndex(type, "scrape");
+        reset();
+    }
+
+    void reset() override
+    {
+        energy = level = 0.0f;
+        phase = 0.0f;
+        previousTrigger = 0.0f;
+        a = b = {};
+        random.seed(0x5eed1e57u);
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float particles  = std::clamp(controlAt(args, particlesIdx, 40.0f), 1.0f, 400.0f);
+        const float shakeMs    = std::clamp(controlAt(args, shakeIdx, 120.0f), 5.0f, 4000.0f);
+        const float soundMs    = std::clamp(controlAt(args, soundIdx, 4.0f), 0.2f, 200.0f);
+        const float frequency  = std::clamp(controlAt(args, frequencyIdx, 3200.0f), 200.0f, static_cast<float>(sampleRate * 0.4));
+        const float resonance  = std::clamp(controlAt(args, resonanceIdx, 3.0f), 0.5f, 30.0f);
+        const float regularity = std::clamp(controlAt(args, regularityIdx, 0.0f), 0.0f, 1.0f);
+        const float scrape     = std::clamp(controlAt(args, rateIdx, 40.0f), 1.0f, 400.0f);
+
+        const float trigger = controlAt(args, triggerIdx, -1.0f);
+        const bool gate = trigger >= 0.0f ? trigger > 0.5f : args.gate;
+        if (gate && previousTrigger <= 0.5f)
+        {
+            const float vel = controlAt(args, velocityIdx, -1.0f);
+            const float strength = vel >= 0.0f ? vel : (args.velocity > 0.0f ? args.velocity : 1.0f);
+            energy = std::min(energy + strength, 1.5f);
+        }
+        previousTrigger = gate ? 1.0f : 0.0f;
+
+        const float rate         = static_cast<float>(sampleRate);
+        const float energyCoeff  = std::exp(-1.0f / (shakeMs * 0.001f * rate));
+        const float soundCoeff   = std::exp(-1.0f / (soundMs * 0.001f * rate));
+        const float step         = scrape / rate;
+        const float collisions   = particles * kCollisionsPerParticle / rate;
+
+        // The shell: two resonances, the second a little above the first and quieter.
+        setResonator(a, frequency, resonance, rate);
+        setResonator(b, frequency * kSecondRatio, resonance, rate);
+
+        float* out = args.audioOut[0];
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            energy *= energyCoeff;
+
+            bool hit = random.chance((1.0f - regularity) * std::min(0.5f, collisions * energy));
+            phase += step;
+            if (phase >= 1.0f)
+            {
+                phase -= 1.0f;
+                if (regularity > 0.0f && energy > 0.002f && random.chance(regularity))
+                    hit = true;
+            }
+            if (hit)
+                level += energy * (0.35f + 0.65f * random.next());
+
+            const float excitation = level * random.bipolar();
+            level *= soundCoeff;
+
+            out[i] = kOutputLevel * (resonate(a, excitation) + kSecondLevel * resonate(b, excitation));
+        }
+    }
+
+private:
+    struct Resonator { float b0 = 0.0f, a1 = 0.0f, a2 = 0.0f, y1 = 0.0f, y2 = 0.0f; };
+
+    static void setResonator(Resonator& r, float frequency, float q, float rate) noexcept
+    {
+        const float radius = std::exp(-3.141592653589793f * frequency / (q * rate));
+        const float omega  = 6.283185307179586f * frequency / rate;
+        r.a1 = -2.0f * radius * std::cos(omega);
+        r.a2 = radius * radius;
+        r.b0 = 1.0f - radius;
+    }
+
+    static float resonate(Resonator& r, float x) noexcept
+    {
+        const float y = r.b0 * x - r.a1 * r.y1 - r.a2 * r.y2;
+        r.y2 = r.y1;
+        r.y1 = y;
+        return y;
+    }
+
+    static constexpr float kCollisionsPerParticle = 90.0f;
+    static constexpr float kSecondRatio = 1.62f, kSecondLevel = 0.55f;
+    static constexpr float kOutputLevel = 0.17f;
+
+    dsp::Random random;
+    Resonator a, b;
+    float energy = 0.0f, level = 0.0f, phase = 0.0f, previousTrigger = 0.0f;
+    double sampleRate = 44100.0;
+    int triggerIdx = -1, velocityIdx = -1, particlesIdx = -1, shakeIdx = -1, soundIdx = -1, frequencyIdx = -1,
+        resonanceIdx = -1, regularityIdx = -1, rateIdx = -1;
+};
+
+/// The exciter for a plucked string: what the finger or the plectrum does in the first few milliseconds.
+///
+/// A pluck is a short burst whose spectrum depends on how hard the string was struck and how hard the thing that struck
+/// it is, which is the control val:hardness: a soft fingertip is dull and a nail or a pick is bright, and a harder
+/// pluck, as measured by velocity, is brighter too. Where along the string the pluck lands then removes the harmonics
+/// that have a node there: plucked a fifth of the way along, every fifth harmonic is missing, and the further from the
+/// bridge the hollower it sounds. That is a comb filter whose delay is the pluck position times the string's period.
+/// Feed the output to val:StiffString.
+///
+/// After Julius Smith, "Digital Waveguide Modeling of Musical Instruments", pluck position and the pick as a lowpass,
+/// <https://ccrma.stanford.edu/~jos/pasp/Plucked_String_Model.html>.
+class Pluck final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate   = rate;
+        triggerIdx   = controlIndex(type, "trigger");
+        velocityIdx  = controlIndex(type, "velocity");
+        frequencyIdx = controlIndex(type, "frequency");
+        positionIdx  = controlIndex(type, "position");
+        hardnessIdx  = controlIndex(type, "hardness");
+        comb.prepare(static_cast<std::size_t>(rate / 20.0) + 8);
+        reset();
+    }
+
+    void reset() override
+    {
+        comb.clear();
+        age = kIdle;
+        tone = tone2 = 0.0f;
+        previousTrigger = 0.0f;
+        amplitude = 0.0f;
+        random.seed(0x91c4a3d7u);
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioOut < 1)
+            return;
+
+        const float frequency = std::clamp(controlAt(args, frequencyIdx, 220.0f), 40.0f, static_cast<float>(sampleRate * 0.2));
+        const float position  = std::clamp(controlAt(args, positionIdx, 0.2f), 0.04f, 0.5f);
+        const float hardness  = std::clamp(controlAt(args, hardnessIdx, 0.5f), 0.0f, 1.0f);
+
+        const float trigger = controlAt(args, triggerIdx, -1.0f);
+        const bool gate = trigger >= 0.0f ? trigger > 0.5f : args.gate;
+        if (gate && previousTrigger <= 0.5f)
+        {
+            const float vel = controlAt(args, velocityIdx, -1.0f);
+            amplitude = vel >= 0.0f ? vel : (args.velocity > 0.0f ? args.velocity : 1.0f);
+            age = 0;
+        }
+        previousTrigger = gate ? 1.0f : 0.0f;
+
+        const float period = static_cast<float>(sampleRate) / frequency;
+        // A hard plectrum is quick, so the burst is short; a fingertip lingers.
+        const int length = std::max(8, static_cast<int>(period * (0.55f - 0.4f * hardness)));
+        // Brightness follows the plectrum and how hard it was struck.
+        const float cutoff = (500.0f + 9500.0f * std::pow(hardness, 1.3f)) * (0.5f + 0.7f * amplitude);
+        const float pole = std::exp(-6.283185307179586f * std::min(cutoff, static_cast<float>(sampleRate * 0.45)) / static_cast<float>(sampleRate));
+        comb.setDelay(std::max(1.5f, position * period));
+
+        float* out = args.audioOut[0];
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            float raw = 0.0f;
+            if (age >= 0 && age < length)
+            {
+                const float t = static_cast<float>(age) / static_cast<float>(length);
+                const float window = (1.0f - t) * (1.0f - t);
+                raw = random.bipolar() * window;
+                ++age;
+            }
+            else
+                age = kIdle;
+
+            tone = (1.0f - pole) * raw + pole * tone;
+            tone2 = (1.0f - pole) * tone + pole * tone2;
+            out[i] = kOutputLevel * amplitude * (tone2 - comb.tick(tone2));
+        }
+    }
+
+private:
+    static constexpr int kIdle = -1;
+    static constexpr float kOutputLevel = 2.5f;
+
+    waveguide::Delay comb;
+    dsp::Random random;
+    float tone = 0.0f, tone2 = 0.0f, amplitude = 0.0f, previousTrigger = 0.0f;
+    int age = kIdle;
+    double sampleRate = 44100.0;
+    int triggerIdx = -1, velocityIdx = -1, frequencyIdx = -1, positionIdx = -1, hardnessIdx = -1;
+};
 
 }  // namespace valis::elements
 
@@ -1158,6 +1520,9 @@ void registerSources(ElementRegistry& registry)
     registry.add("NoteGate",     &make<elements::NoteGate>);
     registry.add("Bow",           &make<elements::Bow>);
     registry.add("Reed",         &make<elements::Reed>);
+    registry.add("Brass",        &make<elements::Brass>);
+    registry.add("Shaker",       &make<elements::Shaker>);
+    registry.add("Pluck",        &make<elements::Pluck>);
     registry.add("Flute",        &make<elements::Flute>);
     registry.add("Input",        &make<elements::Input>);
     registry.add("Output",       &make<elements::Output>);

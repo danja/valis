@@ -1,0 +1,210 @@
+# examples/trumpets.ttl
+#
+# Four voices of trumpet, played as a pair in thirds in a mariachi band. Each voice is a lip-reed waveguide
+# (val:Brass): the lips, the air column and the bell are modelled, so the tone gets brighter when the player blows
+# harder, as a real trumpet's does, instead of a filter being opened on a saw wave. Blowing pressure comes from an
+# envelope scaled by the note's velocity, and a slight vibrato moves the pitch. After the voices a resonance at 1.25 kHz
+# lifts the region where a trumpet's bell speaks, and a small room closes the sum.
+# https://en.wikipedia.org/wiki/Mariachi
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:trumpets#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :horn ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "lip" ; lv2:name "Lip tension" ;
+               lv2:default 0.55 ; lv2:minimum 0 ; lv2:maximum 1 ;
+               val:node :horn ; val:port "lip" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "damping" ; lv2:name "Bore damping" ;
+               lv2:default 0.2 ; lv2:minimum 0 ; lv2:maximum 1 ;
+               val:node :horn ; val:port "damping" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "attack" ; lv2:name "Attack" ;
+               lv2:default 38.0 ; lv2:minimum 5 ; lv2:maximum 400 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "attack" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "release" ; lv2:name "Release" ;
+               lv2:default 70.0 ; lv2:minimum 10 ; lv2:maximum 1500 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "release" ] ;
+
+    val:element :pitch , :vel , :velScale , :vibLfo , :vibEnv , :vibVca , :vibScale , :vibMul , :env , :press , :horn ;
+    val:arc :v_pitch_out__vibMul_a ,
+        :v_vibLfo_out__vibVca_a ,
+        :v_vibEnv_out__vibVca_b ,
+        :v_vibVca_out__vibScale_in ,
+        :v_vibScale_out__vibMul_b ,
+        :v_vibMul_out__horn_frequency ,
+        :v_vel_out__velScale_in ,
+        :v_velScale_out__press_b ,
+        :v_env_out__press_a ,
+        :v_press_out__horn_pressure .
+
+:pitch a val:MidiPitch .
+
+:vel a val:MidiVelocity .
+
+:velScale a val:Scale ;
+    val:min 0.72 ;
+    val:max 1.0 .
+
+:vibLfo a val:LFO ;
+    val:rate 5.3 ;
+    val:shape 0 .
+
+:vibEnv a val:Envelope ;
+    val:attack 380.0 ;
+    val:decay 10.0 ;
+    val:sustain 1.0 ;
+    val:release 40.0 .
+
+:vibVca a val:ControlMultiply .
+
+:vibScale a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.0032 .
+
+:vibMul a val:ControlMultiply .
+
+:env a val:Envelope ;
+    val:attack 38.0 ;
+    val:decay 140.0 ;
+    val:sustain 0.78 ;
+    val:release 70.0 .
+
+:press a val:ControlMultiply .
+
+:horn a val:Brass ;
+    val:lip 0.55 ;
+    val:breath 0.03 ;
+    val:damping 0.2 .
+
+:v_pitch_out__vibMul_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "a" ] .
+:v_vibLfo_out__vibVca_a a val:Arc ;
+    val:from [ val:node :vibLfo ; val:port "out" ] ;
+    val:to   [ val:node :vibVca ; val:port "a" ] .
+:v_vibEnv_out__vibVca_b a val:Arc ;
+    val:from [ val:node :vibEnv ; val:port "out" ] ;
+    val:to   [ val:node :vibVca ; val:port "b" ] .
+:v_vibVca_out__vibScale_in a val:Arc ;
+    val:from [ val:node :vibVca ; val:port "out" ] ;
+    val:to   [ val:node :vibScale ; val:port "in" ] .
+:v_vibScale_out__vibMul_b a val:Arc ;
+    val:from [ val:node :vibScale ; val:port "out" ] ;
+    val:to   [ val:node :vibMul ; val:port "b" ] .
+:v_vibMul_out__horn_frequency a val:Arc ;
+    val:from [ val:node :vibMul ; val:port "out" ] ;
+    val:to   [ val:node :horn ; val:port "frequency" ] .
+:v_vel_out__velScale_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :velScale ; val:port "in" ] .
+:v_velScale_out__press_b a val:Arc ;
+    val:from [ val:node :velScale ; val:port "out" ] ;
+    val:to   [ val:node :press ; val:port "b" ] .
+:v_env_out__press_a a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :press ; val:port "a" ] .
+:v_press_out__horn_pressure a val:Arc ;
+    val:from [ val:node :press ; val:port "out" ] ;
+    val:to   [ val:node :horn ; val:port "pressure" ] .
+
+:trumpets a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Brass", "Trumpet", "Latin" ;
+    rdfs:label "Mariachi trumpets" ;
+    val:element :poly , :bell , :body , :room , :trim , :limit , :out ;
+    val:arc :a_poly_out__bell_in ,
+        :a_poly_out__body_in ,
+        :a_bell_bp__body_in ,
+        :a_body_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 4 .
+
+:bell a val:StateVariable ;
+    val:cutoff 1250.0 ;
+    val:resonance 0.9 .
+
+:body a val:Mixer .
+
+:room a val:Reverb ;
+    val:size 1.1 ;
+    val:decay 1.8 ;
+    val:damping 0.45 ;
+    val:mix 0.14 .
+
+:trim a val:Gain ;
+    val:gain -7.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__bell_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :bell ; val:port "in" ] .
+:a_poly_out__body_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_bell_bp__body_in a val:Arc ;
+    val:from [ val:node :bell ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__room_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:lip ;
+    lv2:name "Lip tension" ; lv2:symbol "lip_tension" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Lips" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:damping ;
+    lv2:name "Bore damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Bore" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 400 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 10 ; lv2:maximum 1500 ;
+    val:section "Envelope" ;
+    units:unit units:ms .

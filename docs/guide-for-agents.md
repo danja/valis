@@ -496,6 +496,9 @@ This table is a start for common jobs. Each port named in it exists; the test
 | `val:PitchShift` | pitch shift in semitones | `in`, `pitch`, `mix`, `out` |
 | `val:FreqShifter` | shift every partial by hertz | `in`, `shift`, `feedback`, `out` |
 | `val:Reed` | waveguide clarinet voice | `frequency`, `pressure`, `stiffness`, `damping`, `out` |
+| `val:Brass` | lip-reed waveguide trumpet or horn voice | `frequency`, `pressure`, `lip`, `breath`, `damping`, `out` |
+| `val:Shaker` | PhISEM shaken-particle percussion (maracas, cabasa, guiro) | `trigger`, `velocity`, `particles`, `shake`, `sound`, `frequency`, `resonance`, `regularity`, `scrape`, `out` |
+| `val:Pluck` | short plucked-string exciter for a string or comb; position and hardness set the tone | `trigger`, `velocity`, `frequency`, `position`, `hardness`, `out` |
 | `val:TwinTBridge` | bridged-T drum resonator | `frequency`, `decay`, `trigger`, `velocity`, `out` |
 | `val:SampleLoad` | plays a sound file | `speed`, `start`, `loop`, `trigger`, `choke`, `out` |
 | `val:TimeStretch` | a sound file at its own speed and pitch | `speed`, `pitch`, `formant`, `loop`, `out` |

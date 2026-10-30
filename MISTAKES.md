@@ -235,3 +235,26 @@ suggested an amount, not a level.
 
 **Prevention.** Check a port's unit and range in the ontology before setting a value in a generated circuit, and
 render with no note played: an instrument must be silent. The engine test asserts it (`generate-circuit` skill).
+
+## A MIDI writer that looped forever on a negative time
+
+**What happened.** The score for "Lights On, Nobody Home" gave the guitar a small random timing offset. On bar 0 it
+made one note start at a negative time. `scripts/halloween/midiw.py` turned the negative delta into a variable-length
+quantity, and its `while n:` loop never ends for a negative number, because shifting a negative integer right never
+reaches 0. The process grew until the system killed it (exit 137), twice, and took the session down with it.
+
+**Root cause.** The writer trusted its input, and the score added a jitter to a note at time 0 without clamping it.
+
+**Prevention.** `midiw.write` now raises `ValueError` for a note that starts before 0 or has no length. A score
+that adds timing jitter clamps the start at 0. Run a new score under `ulimit -v` and `timeout` the first time.
+
+## An element added to a voice and never connected
+
+**What happened.** The new violin voice declared a `val:MidiVelocity` that nothing read. The full test run failed
+`ops_LintTest` ("has no path to the output"), although the circuit rendered and measured fine.
+
+**Root cause.** The circuit was checked by rendering and by pitch alone. The lint test, which runs over every file in
+`examples/`, was run before the circuit was rewritten and not after.
+
+**Prevention.** After regenerating any circuit in `examples/`, run `ops_LintTest` as well as the render. It takes under
+a second. Velocity should drive something (here, bow speed), not be declared and dropped.

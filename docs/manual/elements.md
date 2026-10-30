@@ -71,6 +71,22 @@ Nonlinear.
 | `position` | Position | 0.12 | 0.02 to 0.5 |  |
 | `damping` | Damping | 0.3 | 0 to 1 |  |
 
+## val:Brass
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 262 | 40 to 3000 | Hz |
+| `pressure` | Pressure | 0.5 | 0 to 1 |  |
+| `lip` | Lip tension | 0.5 | 0 to 1 |  |
+| `breath` | Breath | 0.02 | 0 to 1 |  |
+| `damping` | Damping | 0.2 | 0 to 1 |  |
+
 ## val:BucketBrigade
 
 Nonlinear.
@@ -362,6 +378,28 @@ FM matrix. Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
+| `amp6` | Amp 6 | 1 | 0 to 1 |  |
+| `carrier6` | Carrier 6 | 0 | 0 to 1 |  |
+| `m11` | Feedback 1 | 0 | 0 to 7 |  |
+| `m12` | 2 to 1 | 0 | 0 to 1 |  |
+| `m13` | 3 to 1 | 0 | 0 to 1 |  |
+| `m14` | 4 to 1 | 0 | 0 to 1 |  |
+| `m15` | 5 to 1 | 0 | 0 to 1 |  |
+| `m16` | 6 to 1 | 0 | 0 to 1 |  |
+| `m21` | 1 to 2 | 0 | 0 to 1 |  |
+| `m22` | Feedback 2 | 0 | 0 to 7 |  |
+| `m23` | 3 to 2 | 0 | 0 to 1 |  |
+| `m24` | 4 to 2 | 0 | 0 to 1 |  |
+| `m25` | 5 to 2 | 0 | 0 to 1 |  |
+| `m26` | 6 to 2 | 0 | 0 to 1 |  |
+| `m31` | 1 to 3 | 0 | 0 to 1 |  |
+| `m32` | 2 to 3 | 0 | 0 to 1 |  |
+| `m33` | Feedback 3 | 0 | 0 to 7 |  |
+| `m34` | 4 to 3 | 0 | 0 to 1 |  |
+| `m35` | 5 to 3 | 0 | 0 to 1 |  |
+| `m36` | 6 to 3 | 0 | 0 to 1 |  |
+| `m41` | 1 to 4 | 0 | 0 to 1 |  |
+| `m42` | 2 to 4 | 0 | 0 to 1 |  |
 | `m43` | 3 to 4 | 0 | 0 to 1 |  |
 | `m44` | Feedback 4 | 0 | 0 to 7 |  |
 | `m45` | 5 to 4 | 0 | 0 to 1 |  |
@@ -410,28 +448,6 @@ FM matrix. Nonlinear.
 | `ratio6` | Ratio 6 | 1 | 0 to 32 |  |
 | `detune6` | Detune 6 | 0 | -100 to 100 | ct |
 | `level6` | Level 6 | 99 | 0 to 99 |  |
-| `amp6` | Amp 6 | 1 | 0 to 1 |  |
-| `carrier6` | Carrier 6 | 0 | 0 to 1 |  |
-| `m11` | Feedback 1 | 0 | 0 to 7 |  |
-| `m12` | 2 to 1 | 0 | 0 to 1 |  |
-| `m13` | 3 to 1 | 0 | 0 to 1 |  |
-| `m14` | 4 to 1 | 0 | 0 to 1 |  |
-| `m15` | 5 to 1 | 0 | 0 to 1 |  |
-| `m16` | 6 to 1 | 0 | 0 to 1 |  |
-| `m21` | 1 to 2 | 0 | 0 to 1 |  |
-| `m22` | Feedback 2 | 0 | 0 to 7 |  |
-| `m23` | 3 to 2 | 0 | 0 to 1 |  |
-| `m24` | 4 to 2 | 0 | 0 to 1 |  |
-| `m25` | 5 to 2 | 0 | 0 to 1 |  |
-| `m26` | 6 to 2 | 0 | 0 to 1 |  |
-| `m31` | 1 to 3 | 0 | 0 to 1 |  |
-| `m32` | 2 to 3 | 0 | 0 to 1 |  |
-| `m33` | Feedback 3 | 0 | 0 to 7 |  |
-| `m34` | 4 to 3 | 0 | 0 to 1 |  |
-| `m35` | 5 to 3 | 0 | 0 to 1 |  |
-| `m36` | 6 to 3 | 0 | 0 to 1 |  |
-| `m41` | 1 to 4 | 0 | 0 to 1 |  |
-| `m42` | 2 to 4 | 0 | 0 to 1 |  |
 
 ## val:FMOperator
 
@@ -900,6 +916,22 @@ Linear.
 | `mix` | Mix | 1 | 0 to 1 |  |
 | `align` | Align | 0 | 0 to 1 |  |
 
+## val:Pluck
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `trigger` | Trigger | -1 | -1 to 1 |  |
+| `velocity` | Velocity | -1 | -1 to 1 |  |
+| `frequency` | Frequency | 220 | 40 to 5000 | Hz |
+| `position` | Position | 0.2 | 0.04 to 0.5 |  |
+| `hardness` | Hardness | 0.5 | 0 to 1 |  |
+
 ## val:Quantise
 
 Nonlinear.
@@ -1033,6 +1065,26 @@ Linear.
 | `a` | A | 0 | -1e+06 to 1e+06 |  |
 | `b` | B | 1 | -1e+06 to 1e+06 |  |
 | `select` | Select | 0 | 0 to 1 |  |
+
+## val:Shaker
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `trigger` | Trigger | -1 | -1 to 1 |  |
+| `velocity` | Velocity | -1 | -1 to 1 |  |
+| `particles` | Particles | 40 | 1 to 400 |  |
+| `shake` | Shake decay | 120 | 5 to 4000 | ms |
+| `sound` | Grain decay | 4 | 0.2 to 200 | ms |
+| `frequency` | Shell frequency | 3200 | 200 to 12000 | Hz |
+| `resonance` | Shell resonance | 3 | 0.5 to 30 |  |
+| `regularity` | Regularity | 0 | 0 to 1 |  |
+| `scrape` | Scrape rate | 40 | 1 to 400 | Hz |
 
 ## val:SignalGenerator
 

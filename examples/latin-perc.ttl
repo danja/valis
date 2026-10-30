@@ -1,0 +1,1028 @@
+# examples/latin-perc.ttl
+#
+# Hand percussion for a Latin band and a small punk kit, played by note number from one MIDI file or several.
+# Notes: 36 bass drum, 38 snare, 39 snare body, 41 floor tom, 49 crash, 56 cowbell, 60 high bongo, 61 low bongo,
+# 62 conga slap, 63 high conga, 64 low conga, 69 cabasa, 70 maracas, 73 short guiro, 74 long guiro, 75 claves.
+# Struck things are a brief burst of noise through a low-pass (the stick, the palm) into a val:ModalBank tuned to
+# the modes of the object: a circular membrane for drums, wooden bars for claves, a plate for the cowbell and crash.
+# The snare adds wires as filtered noise. The maracas, cabasa and guiro are val:Shaker, which models the collisions
+# of particles in a shell instead of filtering noise. A small room closes the sum.
+# https://en.wikipedia.org/wiki/Latin_percussion
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:latinperc#> .
+
+:latinperc a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Percussion", "Acoustic", "Latin" ;
+    rdfs:label "Latin percussion and kit" ;
+    val:element :marGate , :marShk , :marLvl , :cabGate , :cabShk , :cabLvl , :gusGate , :gusShk , :gusLvl , :gulGate , :gulShk , :gulLvl , :cghGate , :cghEnv , :cghHit , :cghNoise , :cghVca , :cghSoft , :cghMod , :cghLvl , :cglGate , :cglEnv , :cglHit , :cglNoise , :cglVca , :cglSoft , :cglMod , :cglLvl , :slpGate , :slpEnv , :slpHit , :slpNoise , :slpVca , :slpSoft , :slpMod , :slpLvl , :bghGate , :bghEnv , :bghHit , :bghNoise , :bghVca , :bghSoft , :bghMod , :bghLvl , :bglGate , :bglEnv , :bglHit , :bglNoise , :bglVca , :bglSoft , :bglMod , :bglLvl , :clvGate , :clvEnv , :clvHit , :clvNoise , :clvVca , :clvSoft , :clvMod , :clvLvl , :snbGate , :snbEnv , :snbHit , :snbNoise , :snbVca , :snbSoft , :snbMod , :snbLvl , :tomGate , :tomEnv , :tomHit , :tomNoise , :tomVca , :tomSoft , :tomMod , :tomLvl , :kckGate , :kckEnv , :kckHit , :kckNoise , :kckVca , :kckSoft , :kckMod , :kckLvl , :cwGate , :cwEnv , :cwHit , :cwNoise , :cwVca , :cwSoft , :cwMod , :cwLvl , :snrGate , :snrEnv , :snrHit , :snrNoise , :snrFilt , :snrVca , :snrLvl , :crpGate , :crpEnv , :crpHit , :crpNoise , :crpVca , :crpSoft , :crpMod , :crpLvl , :crsGate , :crsEnv , :crsHit , :crsNoise , :crsFilt , :crsVca , :crsLvl , :master , :room , :trim , :limit , :out ;
+    val:arc :a_marGate_gate__marShk_trigger ,
+        :a_marGate_velocity__marShk_velocity ,
+        :a_marShk_out__marLvl_in ,
+        :a_cabGate_gate__cabShk_trigger ,
+        :a_cabGate_velocity__cabShk_velocity ,
+        :a_cabShk_out__cabLvl_in ,
+        :a_gusGate_gate__gusShk_trigger ,
+        :a_gusGate_velocity__gusShk_velocity ,
+        :a_gusShk_out__gusLvl_in ,
+        :a_gulGate_gate__gulShk_trigger ,
+        :a_gulGate_velocity__gulShk_velocity ,
+        :a_gulShk_out__gulLvl_in ,
+        :a_cghGate_gate__cghEnv_gate ,
+        :a_cghEnv_out__cghHit_a ,
+        :a_cghGate_velocity__cghHit_b ,
+        :a_cghNoise_out__cghVca_in ,
+        :a_cghHit_out__cghVca_cv ,
+        :a_cghVca_out__cghSoft_in ,
+        :a_cghSoft_out__cghMod_in ,
+        :a_cghMod_out__cghLvl_in ,
+        :a_cglGate_gate__cglEnv_gate ,
+        :a_cglEnv_out__cglHit_a ,
+        :a_cglGate_velocity__cglHit_b ,
+        :a_cglNoise_out__cglVca_in ,
+        :a_cglHit_out__cglVca_cv ,
+        :a_cglVca_out__cglSoft_in ,
+        :a_cglSoft_out__cglMod_in ,
+        :a_cglMod_out__cglLvl_in ,
+        :a_slpGate_gate__slpEnv_gate ,
+        :a_slpEnv_out__slpHit_a ,
+        :a_slpGate_velocity__slpHit_b ,
+        :a_slpNoise_out__slpVca_in ,
+        :a_slpHit_out__slpVca_cv ,
+        :a_slpVca_out__slpSoft_in ,
+        :a_slpSoft_out__slpMod_in ,
+        :a_slpMod_out__slpLvl_in ,
+        :a_bghGate_gate__bghEnv_gate ,
+        :a_bghEnv_out__bghHit_a ,
+        :a_bghGate_velocity__bghHit_b ,
+        :a_bghNoise_out__bghVca_in ,
+        :a_bghHit_out__bghVca_cv ,
+        :a_bghVca_out__bghSoft_in ,
+        :a_bghSoft_out__bghMod_in ,
+        :a_bghMod_out__bghLvl_in ,
+        :a_bglGate_gate__bglEnv_gate ,
+        :a_bglEnv_out__bglHit_a ,
+        :a_bglGate_velocity__bglHit_b ,
+        :a_bglNoise_out__bglVca_in ,
+        :a_bglHit_out__bglVca_cv ,
+        :a_bglVca_out__bglSoft_in ,
+        :a_bglSoft_out__bglMod_in ,
+        :a_bglMod_out__bglLvl_in ,
+        :a_clvGate_gate__clvEnv_gate ,
+        :a_clvEnv_out__clvHit_a ,
+        :a_clvGate_velocity__clvHit_b ,
+        :a_clvNoise_out__clvVca_in ,
+        :a_clvHit_out__clvVca_cv ,
+        :a_clvVca_out__clvSoft_in ,
+        :a_clvSoft_out__clvMod_in ,
+        :a_clvMod_out__clvLvl_in ,
+        :a_snbGate_gate__snbEnv_gate ,
+        :a_snbEnv_out__snbHit_a ,
+        :a_snbGate_velocity__snbHit_b ,
+        :a_snbNoise_out__snbVca_in ,
+        :a_snbHit_out__snbVca_cv ,
+        :a_snbVca_out__snbSoft_in ,
+        :a_snbSoft_out__snbMod_in ,
+        :a_snbMod_out__snbLvl_in ,
+        :a_tomGate_gate__tomEnv_gate ,
+        :a_tomEnv_out__tomHit_a ,
+        :a_tomGate_velocity__tomHit_b ,
+        :a_tomNoise_out__tomVca_in ,
+        :a_tomHit_out__tomVca_cv ,
+        :a_tomVca_out__tomSoft_in ,
+        :a_tomSoft_out__tomMod_in ,
+        :a_tomMod_out__tomLvl_in ,
+        :a_kckGate_gate__kckEnv_gate ,
+        :a_kckEnv_out__kckHit_a ,
+        :a_kckGate_velocity__kckHit_b ,
+        :a_kckNoise_out__kckVca_in ,
+        :a_kckHit_out__kckVca_cv ,
+        :a_kckVca_out__kckSoft_in ,
+        :a_kckSoft_out__kckMod_in ,
+        :a_kckMod_out__kckLvl_in ,
+        :a_cwGate_gate__cwEnv_gate ,
+        :a_cwEnv_out__cwHit_a ,
+        :a_cwGate_velocity__cwHit_b ,
+        :a_cwNoise_out__cwVca_in ,
+        :a_cwHit_out__cwVca_cv ,
+        :a_cwVca_out__cwSoft_in ,
+        :a_cwSoft_out__cwMod_in ,
+        :a_cwMod_out__cwLvl_in ,
+        :a_snrGate_gate__snrEnv_gate ,
+        :a_snrEnv_out__snrHit_a ,
+        :a_snrGate_velocity__snrHit_b ,
+        :a_snrNoise_out__snrFilt_in ,
+        :a_snrFilt_bp__snrVca_in ,
+        :a_snrHit_out__snrVca_cv ,
+        :a_snrVca_out__snrLvl_in ,
+        :a_crpGate_gate__crpEnv_gate ,
+        :a_crpEnv_out__crpHit_a ,
+        :a_crpGate_velocity__crpHit_b ,
+        :a_crpNoise_out__crpVca_in ,
+        :a_crpHit_out__crpVca_cv ,
+        :a_crpVca_out__crpSoft_in ,
+        :a_crpSoft_out__crpMod_in ,
+        :a_crpMod_out__crpLvl_in ,
+        :a_crsGate_gate__crsEnv_gate ,
+        :a_crsEnv_out__crsHit_a ,
+        :a_crsGate_velocity__crsHit_b ,
+        :a_crsNoise_out__crsFilt_in ,
+        :a_crsFilt_hp__crsVca_in ,
+        :a_crsHit_out__crsVca_cv ,
+        :a_crsVca_out__crsLvl_in ,
+        :a_marLvl_out__master_in ,
+        :a_cabLvl_out__master_in ,
+        :a_gusLvl_out__master_in ,
+        :a_gulLvl_out__master_in ,
+        :a_snrLvl_out__master_in ,
+        :a_crsLvl_out__master_in ,
+        :a_crpLvl_out__master_in ,
+        :a_slpLvl_out__master_in ,
+        :a_clvLvl_out__master_in ,
+        :a_cghLvl_out__master_in ,
+        :a_cglLvl_out__master_in ,
+        :a_bghLvl_out__master_in ,
+        :a_bglLvl_out__master_in ,
+        :a_snbLvl_out__master_in ,
+        :a_tomLvl_out__master_in ,
+        :a_kckLvl_out__master_in ,
+        :a_cwLvl_out__master_in ,
+        :a_master_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:marGate a val:NoteGate ;
+    val:note 70 .
+
+:marShk a val:Shaker ;
+    val:particles 28.0 ;
+    val:shake 75.0 ;
+    val:sound 3.0 ;
+    val:frequency 5200.0 ;
+    val:resonance 2.5 .
+
+:marLvl a val:Gain ;
+    val:gain -4.0 .
+
+:cabGate a val:NoteGate ;
+    val:note 69 .
+
+:cabShk a val:Shaker ;
+    val:particles 90.0 ;
+    val:shake 120.0 ;
+    val:sound 1.5 ;
+    val:frequency 7400.0 ;
+    val:resonance 1.8 .
+
+:cabLvl a val:Gain ;
+    val:gain -8.0 .
+
+:gusGate a val:NoteGate ;
+    val:note 73 .
+
+:gusShk a val:Shaker ;
+    val:particles 40.0 ;
+    val:shake 90.0 ;
+    val:sound 2.0 ;
+    val:frequency 2700.0 ;
+    val:resonance 7.0 ;
+    val:regularity 0.92 ;
+    val:scrape 46.0 .
+
+:gusLvl a val:Gain ;
+    val:gain 14.0 .
+
+:gulGate a val:NoteGate ;
+    val:note 74 .
+
+:gulShk a val:Shaker ;
+    val:particles 40.0 ;
+    val:shake 380.0 ;
+    val:sound 2.0 ;
+    val:frequency 2500.0 ;
+    val:resonance 7.0 ;
+    val:regularity 0.92 ;
+    val:scrape 34.0 .
+
+:gulLvl a val:Gain ;
+    val:gain 10.0 .
+
+:cghGate a val:NoteGate ;
+    val:note 63 .
+
+:cghEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 6.0 ;
+    val:sustain 0.0 ;
+    val:release 6.0 .
+
+:cghHit a val:ControlMultiply .
+
+:cghNoise a val:Noise ;
+    val:colour 0.0 .
+
+:cghVca a val:VCA .
+
+:cghSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 2200.0 .
+
+:cghMod a val:ModalBank ;
+    val:frequency 310.0 ;
+    val:decay 0.3 ;
+    val:brightness 0.45 ;
+    val:mode 1 .
+
+:cghLvl a val:Gain ;
+    val:gain -9.0 .
+
+:cglGate a val:NoteGate ;
+    val:note 64 .
+
+:cglEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 6.0 ;
+    val:sustain 0.0 ;
+    val:release 6.0 .
+
+:cglHit a val:ControlMultiply .
+
+:cglNoise a val:Noise ;
+    val:colour 0.0 .
+
+:cglVca a val:VCA .
+
+:cglSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 1800.0 .
+
+:cglMod a val:ModalBank ;
+    val:frequency 225.0 ;
+    val:decay 0.38 ;
+    val:brightness 0.4 ;
+    val:mode 1 .
+
+:cglLvl a val:Gain ;
+    val:gain -9.0 .
+
+:slpGate a val:NoteGate ;
+    val:note 62 .
+
+:slpEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 2.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:slpHit a val:ControlMultiply .
+
+:slpNoise a val:Noise ;
+    val:colour 0.0 .
+
+:slpVca a val:VCA .
+
+:slpSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 6500.0 .
+
+:slpMod a val:ModalBank ;
+    val:frequency 330.0 ;
+    val:decay 0.12 ;
+    val:brightness 0.9 ;
+    val:mode 1 .
+
+:slpLvl a val:Gain ;
+    val:gain -21.0 .
+
+:bghGate a val:NoteGate ;
+    val:note 60 .
+
+:bghEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 3.0 ;
+    val:sustain 0.0 ;
+    val:release 3.0 .
+
+:bghHit a val:ControlMultiply .
+
+:bghNoise a val:Noise ;
+    val:colour 0.0 .
+
+:bghVca a val:VCA .
+
+:bghSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 3500.0 .
+
+:bghMod a val:ModalBank ;
+    val:frequency 430.0 ;
+    val:decay 0.16 ;
+    val:brightness 0.55 ;
+    val:mode 1 .
+
+:bghLvl a val:Gain ;
+    val:gain -16.0 .
+
+:bglGate a val:NoteGate ;
+    val:note 61 .
+
+:bglEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 3.0 ;
+    val:sustain 0.0 ;
+    val:release 3.0 .
+
+:bglHit a val:ControlMultiply .
+
+:bglNoise a val:Noise ;
+    val:colour 0.0 .
+
+:bglVca a val:VCA .
+
+:bglSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 3000.0 .
+
+:bglMod a val:ModalBank ;
+    val:frequency 330.0 ;
+    val:decay 0.2 ;
+    val:brightness 0.5 ;
+    val:mode 1 .
+
+:bglLvl a val:Gain ;
+    val:gain -16.0 .
+
+:clvGate a val:NoteGate ;
+    val:note 75 .
+
+:clvEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 0.8 ;
+    val:sustain 0.0 ;
+    val:release 0.8 .
+
+:clvHit a val:ControlMultiply .
+
+:clvNoise a val:Noise ;
+    val:colour 0.0 .
+
+:clvVca a val:VCA .
+
+:clvSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 9000.0 .
+
+:clvMod a val:ModalBank ;
+    val:frequency 2300.0 ;
+    val:decay 0.1 ;
+    val:brightness 0.2 ;
+    val:mode 0 .
+
+:clvLvl a val:Gain ;
+    val:gain -1.0 .
+
+:snbGate a val:NoteGate ;
+    val:note 39 .
+
+:snbEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 3.0 ;
+    val:sustain 0.0 ;
+    val:release 3.0 .
+
+:snbHit a val:ControlMultiply .
+
+:snbNoise a val:Noise ;
+    val:colour 0.0 .
+
+:snbVca a val:VCA .
+
+:snbSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 4500.0 .
+
+:snbMod a val:ModalBank ;
+    val:frequency 190.0 ;
+    val:decay 0.14 ;
+    val:brightness 0.5 ;
+    val:mode 1 .
+
+:snbLvl a val:Gain ;
+    val:gain -14.0 .
+
+:tomGate a val:NoteGate ;
+    val:note 41 .
+
+:tomEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 4.0 ;
+    val:sustain 0.0 ;
+    val:release 4.0 .
+
+:tomHit a val:ControlMultiply .
+
+:tomNoise a val:Noise ;
+    val:colour 0.0 .
+
+:tomVca a val:VCA .
+
+:tomSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 2500.0 .
+
+:tomMod a val:ModalBank ;
+    val:frequency 92.0 ;
+    val:decay 0.55 ;
+    val:brightness 0.35 ;
+    val:mode 1 .
+
+:tomLvl a val:Gain ;
+    val:gain -12.0 .
+
+:kckGate a val:NoteGate ;
+    val:note 36 .
+
+:kckEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 5.0 ;
+    val:sustain 0.0 ;
+    val:release 5.0 .
+
+:kckHit a val:ControlMultiply .
+
+:kckNoise a val:Noise ;
+    val:colour 0.0 .
+
+:kckVca a val:VCA .
+
+:kckSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 900.0 .
+
+:kckMod a val:ModalBank ;
+    val:frequency 58.0 ;
+    val:decay 0.3 ;
+    val:brightness 0.12 ;
+    val:mode 1 .
+
+:kckLvl a val:Gain ;
+    val:gain -18.0 .
+
+:cwGate a val:NoteGate ;
+    val:note 56 .
+
+:cwEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 1.0 ;
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+:cwHit a val:ControlMultiply .
+
+:cwNoise a val:Noise ;
+    val:colour 0.0 .
+
+:cwVca a val:VCA .
+
+:cwSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 5000.0 .
+
+:cwMod a val:ModalBank ;
+    val:frequency 560.0 ;
+    val:decay 0.45 ;
+    val:brightness 0.85 ;
+    val:mode 3 .
+
+:cwLvl a val:Gain ;
+    val:gain -7.0 .
+
+:snrGate a val:NoteGate ;
+    val:note 38 .
+
+:snrEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 160.0 ;
+    val:sustain 0.0 ;
+    val:release 160.0 .
+
+:snrHit a val:ControlMultiply .
+
+:snrNoise a val:Noise ;
+    val:colour 0.0 .
+
+:snrFilt a val:StateVariable ;
+    val:cutoff 3000.0 ;
+    val:resonance 0.9 .
+
+:snrVca a val:VCA .
+
+:snrLvl a val:Gain ;
+    val:gain -4.0 .
+
+:crpGate a val:NoteGate ;
+    val:note 49 .
+
+:crpEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 2.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:crpHit a val:ControlMultiply .
+
+:crpNoise a val:Noise ;
+    val:colour 0.0 .
+
+:crpVca a val:VCA .
+
+:crpSoft a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 9000.0 .
+
+:crpMod a val:ModalBank ;
+    val:frequency 3100.0 ;
+    val:decay 1.6 ;
+    val:brightness 0.9 ;
+    val:mode 3 .
+
+:crpLvl a val:Gain ;
+    val:gain -26.0 .
+
+:crsGate a val:NoteGate ;
+    val:note 49 .
+
+:crsEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 1300.0 ;
+    val:sustain 0.0 ;
+    val:release 1300.0 .
+
+:crsHit a val:ControlMultiply .
+
+:crsNoise a val:Noise ;
+    val:colour 0.0 .
+
+:crsFilt a val:StateVariable ;
+    val:cutoff 5200.0 ;
+    val:resonance 0.7 .
+
+:crsVca a val:VCA .
+
+:crsLvl a val:Gain ;
+    val:gain -10.0 .
+
+:master a val:Mixer .
+
+:room a val:Reverb ;
+    val:size 0.6 ;
+    val:decay 0.9 ;
+    val:damping 0.5 ;
+    val:mix 0.08 .
+
+:trim a val:Gain ;
+    val:gain 0.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_marGate_gate__marShk_trigger a val:Arc ;
+    val:from [ val:node :marGate ; val:port "gate" ] ;
+    val:to   [ val:node :marShk ; val:port "trigger" ] .
+:a_marGate_velocity__marShk_velocity a val:Arc ;
+    val:from [ val:node :marGate ; val:port "velocity" ] ;
+    val:to   [ val:node :marShk ; val:port "velocity" ] .
+:a_marShk_out__marLvl_in a val:Arc ;
+    val:from [ val:node :marShk ; val:port "out" ] ;
+    val:to   [ val:node :marLvl ; val:port "in" ] .
+:a_cabGate_gate__cabShk_trigger a val:Arc ;
+    val:from [ val:node :cabGate ; val:port "gate" ] ;
+    val:to   [ val:node :cabShk ; val:port "trigger" ] .
+:a_cabGate_velocity__cabShk_velocity a val:Arc ;
+    val:from [ val:node :cabGate ; val:port "velocity" ] ;
+    val:to   [ val:node :cabShk ; val:port "velocity" ] .
+:a_cabShk_out__cabLvl_in a val:Arc ;
+    val:from [ val:node :cabShk ; val:port "out" ] ;
+    val:to   [ val:node :cabLvl ; val:port "in" ] .
+:a_gusGate_gate__gusShk_trigger a val:Arc ;
+    val:from [ val:node :gusGate ; val:port "gate" ] ;
+    val:to   [ val:node :gusShk ; val:port "trigger" ] .
+:a_gusGate_velocity__gusShk_velocity a val:Arc ;
+    val:from [ val:node :gusGate ; val:port "velocity" ] ;
+    val:to   [ val:node :gusShk ; val:port "velocity" ] .
+:a_gusShk_out__gusLvl_in a val:Arc ;
+    val:from [ val:node :gusShk ; val:port "out" ] ;
+    val:to   [ val:node :gusLvl ; val:port "in" ] .
+:a_gulGate_gate__gulShk_trigger a val:Arc ;
+    val:from [ val:node :gulGate ; val:port "gate" ] ;
+    val:to   [ val:node :gulShk ; val:port "trigger" ] .
+:a_gulGate_velocity__gulShk_velocity a val:Arc ;
+    val:from [ val:node :gulGate ; val:port "velocity" ] ;
+    val:to   [ val:node :gulShk ; val:port "velocity" ] .
+:a_gulShk_out__gulLvl_in a val:Arc ;
+    val:from [ val:node :gulShk ; val:port "out" ] ;
+    val:to   [ val:node :gulLvl ; val:port "in" ] .
+:a_cghGate_gate__cghEnv_gate a val:Arc ;
+    val:from [ val:node :cghGate ; val:port "gate" ] ;
+    val:to   [ val:node :cghEnv ; val:port "gate" ] .
+:a_cghEnv_out__cghHit_a a val:Arc ;
+    val:from [ val:node :cghEnv ; val:port "out" ] ;
+    val:to   [ val:node :cghHit ; val:port "a" ] .
+:a_cghGate_velocity__cghHit_b a val:Arc ;
+    val:from [ val:node :cghGate ; val:port "velocity" ] ;
+    val:to   [ val:node :cghHit ; val:port "b" ] .
+:a_cghNoise_out__cghVca_in a val:Arc ;
+    val:from [ val:node :cghNoise ; val:port "out" ] ;
+    val:to   [ val:node :cghVca ; val:port "in" ] .
+:a_cghHit_out__cghVca_cv a val:Arc ;
+    val:from [ val:node :cghHit ; val:port "out" ] ;
+    val:to   [ val:node :cghVca ; val:port "cv" ] .
+:a_cghVca_out__cghSoft_in a val:Arc ;
+    val:from [ val:node :cghVca ; val:port "out" ] ;
+    val:to   [ val:node :cghSoft ; val:port "in" ] .
+:a_cghSoft_out__cghMod_in a val:Arc ;
+    val:from [ val:node :cghSoft ; val:port "out" ] ;
+    val:to   [ val:node :cghMod ; val:port "in" ] .
+:a_cghMod_out__cghLvl_in a val:Arc ;
+    val:from [ val:node :cghMod ; val:port "out" ] ;
+    val:to   [ val:node :cghLvl ; val:port "in" ] .
+:a_cglGate_gate__cglEnv_gate a val:Arc ;
+    val:from [ val:node :cglGate ; val:port "gate" ] ;
+    val:to   [ val:node :cglEnv ; val:port "gate" ] .
+:a_cglEnv_out__cglHit_a a val:Arc ;
+    val:from [ val:node :cglEnv ; val:port "out" ] ;
+    val:to   [ val:node :cglHit ; val:port "a" ] .
+:a_cglGate_velocity__cglHit_b a val:Arc ;
+    val:from [ val:node :cglGate ; val:port "velocity" ] ;
+    val:to   [ val:node :cglHit ; val:port "b" ] .
+:a_cglNoise_out__cglVca_in a val:Arc ;
+    val:from [ val:node :cglNoise ; val:port "out" ] ;
+    val:to   [ val:node :cglVca ; val:port "in" ] .
+:a_cglHit_out__cglVca_cv a val:Arc ;
+    val:from [ val:node :cglHit ; val:port "out" ] ;
+    val:to   [ val:node :cglVca ; val:port "cv" ] .
+:a_cglVca_out__cglSoft_in a val:Arc ;
+    val:from [ val:node :cglVca ; val:port "out" ] ;
+    val:to   [ val:node :cglSoft ; val:port "in" ] .
+:a_cglSoft_out__cglMod_in a val:Arc ;
+    val:from [ val:node :cglSoft ; val:port "out" ] ;
+    val:to   [ val:node :cglMod ; val:port "in" ] .
+:a_cglMod_out__cglLvl_in a val:Arc ;
+    val:from [ val:node :cglMod ; val:port "out" ] ;
+    val:to   [ val:node :cglLvl ; val:port "in" ] .
+:a_slpGate_gate__slpEnv_gate a val:Arc ;
+    val:from [ val:node :slpGate ; val:port "gate" ] ;
+    val:to   [ val:node :slpEnv ; val:port "gate" ] .
+:a_slpEnv_out__slpHit_a a val:Arc ;
+    val:from [ val:node :slpEnv ; val:port "out" ] ;
+    val:to   [ val:node :slpHit ; val:port "a" ] .
+:a_slpGate_velocity__slpHit_b a val:Arc ;
+    val:from [ val:node :slpGate ; val:port "velocity" ] ;
+    val:to   [ val:node :slpHit ; val:port "b" ] .
+:a_slpNoise_out__slpVca_in a val:Arc ;
+    val:from [ val:node :slpNoise ; val:port "out" ] ;
+    val:to   [ val:node :slpVca ; val:port "in" ] .
+:a_slpHit_out__slpVca_cv a val:Arc ;
+    val:from [ val:node :slpHit ; val:port "out" ] ;
+    val:to   [ val:node :slpVca ; val:port "cv" ] .
+:a_slpVca_out__slpSoft_in a val:Arc ;
+    val:from [ val:node :slpVca ; val:port "out" ] ;
+    val:to   [ val:node :slpSoft ; val:port "in" ] .
+:a_slpSoft_out__slpMod_in a val:Arc ;
+    val:from [ val:node :slpSoft ; val:port "out" ] ;
+    val:to   [ val:node :slpMod ; val:port "in" ] .
+:a_slpMod_out__slpLvl_in a val:Arc ;
+    val:from [ val:node :slpMod ; val:port "out" ] ;
+    val:to   [ val:node :slpLvl ; val:port "in" ] .
+:a_bghGate_gate__bghEnv_gate a val:Arc ;
+    val:from [ val:node :bghGate ; val:port "gate" ] ;
+    val:to   [ val:node :bghEnv ; val:port "gate" ] .
+:a_bghEnv_out__bghHit_a a val:Arc ;
+    val:from [ val:node :bghEnv ; val:port "out" ] ;
+    val:to   [ val:node :bghHit ; val:port "a" ] .
+:a_bghGate_velocity__bghHit_b a val:Arc ;
+    val:from [ val:node :bghGate ; val:port "velocity" ] ;
+    val:to   [ val:node :bghHit ; val:port "b" ] .
+:a_bghNoise_out__bghVca_in a val:Arc ;
+    val:from [ val:node :bghNoise ; val:port "out" ] ;
+    val:to   [ val:node :bghVca ; val:port "in" ] .
+:a_bghHit_out__bghVca_cv a val:Arc ;
+    val:from [ val:node :bghHit ; val:port "out" ] ;
+    val:to   [ val:node :bghVca ; val:port "cv" ] .
+:a_bghVca_out__bghSoft_in a val:Arc ;
+    val:from [ val:node :bghVca ; val:port "out" ] ;
+    val:to   [ val:node :bghSoft ; val:port "in" ] .
+:a_bghSoft_out__bghMod_in a val:Arc ;
+    val:from [ val:node :bghSoft ; val:port "out" ] ;
+    val:to   [ val:node :bghMod ; val:port "in" ] .
+:a_bghMod_out__bghLvl_in a val:Arc ;
+    val:from [ val:node :bghMod ; val:port "out" ] ;
+    val:to   [ val:node :bghLvl ; val:port "in" ] .
+:a_bglGate_gate__bglEnv_gate a val:Arc ;
+    val:from [ val:node :bglGate ; val:port "gate" ] ;
+    val:to   [ val:node :bglEnv ; val:port "gate" ] .
+:a_bglEnv_out__bglHit_a a val:Arc ;
+    val:from [ val:node :bglEnv ; val:port "out" ] ;
+    val:to   [ val:node :bglHit ; val:port "a" ] .
+:a_bglGate_velocity__bglHit_b a val:Arc ;
+    val:from [ val:node :bglGate ; val:port "velocity" ] ;
+    val:to   [ val:node :bglHit ; val:port "b" ] .
+:a_bglNoise_out__bglVca_in a val:Arc ;
+    val:from [ val:node :bglNoise ; val:port "out" ] ;
+    val:to   [ val:node :bglVca ; val:port "in" ] .
+:a_bglHit_out__bglVca_cv a val:Arc ;
+    val:from [ val:node :bglHit ; val:port "out" ] ;
+    val:to   [ val:node :bglVca ; val:port "cv" ] .
+:a_bglVca_out__bglSoft_in a val:Arc ;
+    val:from [ val:node :bglVca ; val:port "out" ] ;
+    val:to   [ val:node :bglSoft ; val:port "in" ] .
+:a_bglSoft_out__bglMod_in a val:Arc ;
+    val:from [ val:node :bglSoft ; val:port "out" ] ;
+    val:to   [ val:node :bglMod ; val:port "in" ] .
+:a_bglMod_out__bglLvl_in a val:Arc ;
+    val:from [ val:node :bglMod ; val:port "out" ] ;
+    val:to   [ val:node :bglLvl ; val:port "in" ] .
+:a_clvGate_gate__clvEnv_gate a val:Arc ;
+    val:from [ val:node :clvGate ; val:port "gate" ] ;
+    val:to   [ val:node :clvEnv ; val:port "gate" ] .
+:a_clvEnv_out__clvHit_a a val:Arc ;
+    val:from [ val:node :clvEnv ; val:port "out" ] ;
+    val:to   [ val:node :clvHit ; val:port "a" ] .
+:a_clvGate_velocity__clvHit_b a val:Arc ;
+    val:from [ val:node :clvGate ; val:port "velocity" ] ;
+    val:to   [ val:node :clvHit ; val:port "b" ] .
+:a_clvNoise_out__clvVca_in a val:Arc ;
+    val:from [ val:node :clvNoise ; val:port "out" ] ;
+    val:to   [ val:node :clvVca ; val:port "in" ] .
+:a_clvHit_out__clvVca_cv a val:Arc ;
+    val:from [ val:node :clvHit ; val:port "out" ] ;
+    val:to   [ val:node :clvVca ; val:port "cv" ] .
+:a_clvVca_out__clvSoft_in a val:Arc ;
+    val:from [ val:node :clvVca ; val:port "out" ] ;
+    val:to   [ val:node :clvSoft ; val:port "in" ] .
+:a_clvSoft_out__clvMod_in a val:Arc ;
+    val:from [ val:node :clvSoft ; val:port "out" ] ;
+    val:to   [ val:node :clvMod ; val:port "in" ] .
+:a_clvMod_out__clvLvl_in a val:Arc ;
+    val:from [ val:node :clvMod ; val:port "out" ] ;
+    val:to   [ val:node :clvLvl ; val:port "in" ] .
+:a_snbGate_gate__snbEnv_gate a val:Arc ;
+    val:from [ val:node :snbGate ; val:port "gate" ] ;
+    val:to   [ val:node :snbEnv ; val:port "gate" ] .
+:a_snbEnv_out__snbHit_a a val:Arc ;
+    val:from [ val:node :snbEnv ; val:port "out" ] ;
+    val:to   [ val:node :snbHit ; val:port "a" ] .
+:a_snbGate_velocity__snbHit_b a val:Arc ;
+    val:from [ val:node :snbGate ; val:port "velocity" ] ;
+    val:to   [ val:node :snbHit ; val:port "b" ] .
+:a_snbNoise_out__snbVca_in a val:Arc ;
+    val:from [ val:node :snbNoise ; val:port "out" ] ;
+    val:to   [ val:node :snbVca ; val:port "in" ] .
+:a_snbHit_out__snbVca_cv a val:Arc ;
+    val:from [ val:node :snbHit ; val:port "out" ] ;
+    val:to   [ val:node :snbVca ; val:port "cv" ] .
+:a_snbVca_out__snbSoft_in a val:Arc ;
+    val:from [ val:node :snbVca ; val:port "out" ] ;
+    val:to   [ val:node :snbSoft ; val:port "in" ] .
+:a_snbSoft_out__snbMod_in a val:Arc ;
+    val:from [ val:node :snbSoft ; val:port "out" ] ;
+    val:to   [ val:node :snbMod ; val:port "in" ] .
+:a_snbMod_out__snbLvl_in a val:Arc ;
+    val:from [ val:node :snbMod ; val:port "out" ] ;
+    val:to   [ val:node :snbLvl ; val:port "in" ] .
+:a_tomGate_gate__tomEnv_gate a val:Arc ;
+    val:from [ val:node :tomGate ; val:port "gate" ] ;
+    val:to   [ val:node :tomEnv ; val:port "gate" ] .
+:a_tomEnv_out__tomHit_a a val:Arc ;
+    val:from [ val:node :tomEnv ; val:port "out" ] ;
+    val:to   [ val:node :tomHit ; val:port "a" ] .
+:a_tomGate_velocity__tomHit_b a val:Arc ;
+    val:from [ val:node :tomGate ; val:port "velocity" ] ;
+    val:to   [ val:node :tomHit ; val:port "b" ] .
+:a_tomNoise_out__tomVca_in a val:Arc ;
+    val:from [ val:node :tomNoise ; val:port "out" ] ;
+    val:to   [ val:node :tomVca ; val:port "in" ] .
+:a_tomHit_out__tomVca_cv a val:Arc ;
+    val:from [ val:node :tomHit ; val:port "out" ] ;
+    val:to   [ val:node :tomVca ; val:port "cv" ] .
+:a_tomVca_out__tomSoft_in a val:Arc ;
+    val:from [ val:node :tomVca ; val:port "out" ] ;
+    val:to   [ val:node :tomSoft ; val:port "in" ] .
+:a_tomSoft_out__tomMod_in a val:Arc ;
+    val:from [ val:node :tomSoft ; val:port "out" ] ;
+    val:to   [ val:node :tomMod ; val:port "in" ] .
+:a_tomMod_out__tomLvl_in a val:Arc ;
+    val:from [ val:node :tomMod ; val:port "out" ] ;
+    val:to   [ val:node :tomLvl ; val:port "in" ] .
+:a_kckGate_gate__kckEnv_gate a val:Arc ;
+    val:from [ val:node :kckGate ; val:port "gate" ] ;
+    val:to   [ val:node :kckEnv ; val:port "gate" ] .
+:a_kckEnv_out__kckHit_a a val:Arc ;
+    val:from [ val:node :kckEnv ; val:port "out" ] ;
+    val:to   [ val:node :kckHit ; val:port "a" ] .
+:a_kckGate_velocity__kckHit_b a val:Arc ;
+    val:from [ val:node :kckGate ; val:port "velocity" ] ;
+    val:to   [ val:node :kckHit ; val:port "b" ] .
+:a_kckNoise_out__kckVca_in a val:Arc ;
+    val:from [ val:node :kckNoise ; val:port "out" ] ;
+    val:to   [ val:node :kckVca ; val:port "in" ] .
+:a_kckHit_out__kckVca_cv a val:Arc ;
+    val:from [ val:node :kckHit ; val:port "out" ] ;
+    val:to   [ val:node :kckVca ; val:port "cv" ] .
+:a_kckVca_out__kckSoft_in a val:Arc ;
+    val:from [ val:node :kckVca ; val:port "out" ] ;
+    val:to   [ val:node :kckSoft ; val:port "in" ] .
+:a_kckSoft_out__kckMod_in a val:Arc ;
+    val:from [ val:node :kckSoft ; val:port "out" ] ;
+    val:to   [ val:node :kckMod ; val:port "in" ] .
+:a_kckMod_out__kckLvl_in a val:Arc ;
+    val:from [ val:node :kckMod ; val:port "out" ] ;
+    val:to   [ val:node :kckLvl ; val:port "in" ] .
+:a_cwGate_gate__cwEnv_gate a val:Arc ;
+    val:from [ val:node :cwGate ; val:port "gate" ] ;
+    val:to   [ val:node :cwEnv ; val:port "gate" ] .
+:a_cwEnv_out__cwHit_a a val:Arc ;
+    val:from [ val:node :cwEnv ; val:port "out" ] ;
+    val:to   [ val:node :cwHit ; val:port "a" ] .
+:a_cwGate_velocity__cwHit_b a val:Arc ;
+    val:from [ val:node :cwGate ; val:port "velocity" ] ;
+    val:to   [ val:node :cwHit ; val:port "b" ] .
+:a_cwNoise_out__cwVca_in a val:Arc ;
+    val:from [ val:node :cwNoise ; val:port "out" ] ;
+    val:to   [ val:node :cwVca ; val:port "in" ] .
+:a_cwHit_out__cwVca_cv a val:Arc ;
+    val:from [ val:node :cwHit ; val:port "out" ] ;
+    val:to   [ val:node :cwVca ; val:port "cv" ] .
+:a_cwVca_out__cwSoft_in a val:Arc ;
+    val:from [ val:node :cwVca ; val:port "out" ] ;
+    val:to   [ val:node :cwSoft ; val:port "in" ] .
+:a_cwSoft_out__cwMod_in a val:Arc ;
+    val:from [ val:node :cwSoft ; val:port "out" ] ;
+    val:to   [ val:node :cwMod ; val:port "in" ] .
+:a_cwMod_out__cwLvl_in a val:Arc ;
+    val:from [ val:node :cwMod ; val:port "out" ] ;
+    val:to   [ val:node :cwLvl ; val:port "in" ] .
+:a_snrGate_gate__snrEnv_gate a val:Arc ;
+    val:from [ val:node :snrGate ; val:port "gate" ] ;
+    val:to   [ val:node :snrEnv ; val:port "gate" ] .
+:a_snrEnv_out__snrHit_a a val:Arc ;
+    val:from [ val:node :snrEnv ; val:port "out" ] ;
+    val:to   [ val:node :snrHit ; val:port "a" ] .
+:a_snrGate_velocity__snrHit_b a val:Arc ;
+    val:from [ val:node :snrGate ; val:port "velocity" ] ;
+    val:to   [ val:node :snrHit ; val:port "b" ] .
+:a_snrNoise_out__snrFilt_in a val:Arc ;
+    val:from [ val:node :snrNoise ; val:port "out" ] ;
+    val:to   [ val:node :snrFilt ; val:port "in" ] .
+:a_snrFilt_bp__snrVca_in a val:Arc ;
+    val:from [ val:node :snrFilt ; val:port "bp" ] ;
+    val:to   [ val:node :snrVca ; val:port "in" ] .
+:a_snrHit_out__snrVca_cv a val:Arc ;
+    val:from [ val:node :snrHit ; val:port "out" ] ;
+    val:to   [ val:node :snrVca ; val:port "cv" ] .
+:a_snrVca_out__snrLvl_in a val:Arc ;
+    val:from [ val:node :snrVca ; val:port "out" ] ;
+    val:to   [ val:node :snrLvl ; val:port "in" ] .
+:a_crpGate_gate__crpEnv_gate a val:Arc ;
+    val:from [ val:node :crpGate ; val:port "gate" ] ;
+    val:to   [ val:node :crpEnv ; val:port "gate" ] .
+:a_crpEnv_out__crpHit_a a val:Arc ;
+    val:from [ val:node :crpEnv ; val:port "out" ] ;
+    val:to   [ val:node :crpHit ; val:port "a" ] .
+:a_crpGate_velocity__crpHit_b a val:Arc ;
+    val:from [ val:node :crpGate ; val:port "velocity" ] ;
+    val:to   [ val:node :crpHit ; val:port "b" ] .
+:a_crpNoise_out__crpVca_in a val:Arc ;
+    val:from [ val:node :crpNoise ; val:port "out" ] ;
+    val:to   [ val:node :crpVca ; val:port "in" ] .
+:a_crpHit_out__crpVca_cv a val:Arc ;
+    val:from [ val:node :crpHit ; val:port "out" ] ;
+    val:to   [ val:node :crpVca ; val:port "cv" ] .
+:a_crpVca_out__crpSoft_in a val:Arc ;
+    val:from [ val:node :crpVca ; val:port "out" ] ;
+    val:to   [ val:node :crpSoft ; val:port "in" ] .
+:a_crpSoft_out__crpMod_in a val:Arc ;
+    val:from [ val:node :crpSoft ; val:port "out" ] ;
+    val:to   [ val:node :crpMod ; val:port "in" ] .
+:a_crpMod_out__crpLvl_in a val:Arc ;
+    val:from [ val:node :crpMod ; val:port "out" ] ;
+    val:to   [ val:node :crpLvl ; val:port "in" ] .
+:a_crsGate_gate__crsEnv_gate a val:Arc ;
+    val:from [ val:node :crsGate ; val:port "gate" ] ;
+    val:to   [ val:node :crsEnv ; val:port "gate" ] .
+:a_crsEnv_out__crsHit_a a val:Arc ;
+    val:from [ val:node :crsEnv ; val:port "out" ] ;
+    val:to   [ val:node :crsHit ; val:port "a" ] .
+:a_crsGate_velocity__crsHit_b a val:Arc ;
+    val:from [ val:node :crsGate ; val:port "velocity" ] ;
+    val:to   [ val:node :crsHit ; val:port "b" ] .
+:a_crsNoise_out__crsFilt_in a val:Arc ;
+    val:from [ val:node :crsNoise ; val:port "out" ] ;
+    val:to   [ val:node :crsFilt ; val:port "in" ] .
+:a_crsFilt_hp__crsVca_in a val:Arc ;
+    val:from [ val:node :crsFilt ; val:port "hp" ] ;
+    val:to   [ val:node :crsVca ; val:port "in" ] .
+:a_crsHit_out__crsVca_cv a val:Arc ;
+    val:from [ val:node :crsHit ; val:port "out" ] ;
+    val:to   [ val:node :crsVca ; val:port "cv" ] .
+:a_crsVca_out__crsLvl_in a val:Arc ;
+    val:from [ val:node :crsVca ; val:port "out" ] ;
+    val:to   [ val:node :crsLvl ; val:port "in" ] .
+:a_marLvl_out__master_in a val:Arc ;
+    val:from [ val:node :marLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_cabLvl_out__master_in a val:Arc ;
+    val:from [ val:node :cabLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_gusLvl_out__master_in a val:Arc ;
+    val:from [ val:node :gusLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_gulLvl_out__master_in a val:Arc ;
+    val:from [ val:node :gulLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_snrLvl_out__master_in a val:Arc ;
+    val:from [ val:node :snrLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_crsLvl_out__master_in a val:Arc ;
+    val:from [ val:node :crsLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_crpLvl_out__master_in a val:Arc ;
+    val:from [ val:node :crpLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_slpLvl_out__master_in a val:Arc ;
+    val:from [ val:node :slpLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_clvLvl_out__master_in a val:Arc ;
+    val:from [ val:node :clvLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_cghLvl_out__master_in a val:Arc ;
+    val:from [ val:node :cghLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_cglLvl_out__master_in a val:Arc ;
+    val:from [ val:node :cglLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_bghLvl_out__master_in a val:Arc ;
+    val:from [ val:node :bghLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_bglLvl_out__master_in a val:Arc ;
+    val:from [ val:node :bglLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_snbLvl_out__master_in a val:Arc ;
+    val:from [ val:node :snbLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_tomLvl_out__master_in a val:Arc ;
+    val:from [ val:node :tomLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_kckLvl_out__master_in a val:Arc ;
+    val:from [ val:node :kckLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_cwLvl_out__master_in a val:Arc ;
+    val:from [ val:node :cwLvl ; val:port "out" ] ;
+    val:to   [ val:node :master ; val:port "in" ] .
+:a_master_out__room_in a val:Arc ;
+    val:from [ val:node :master ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :cghMod ; val:property val:decay ;
+    lv2:name "High conga ring" ; lv2:symbol "conga_high" ;
+    lv2:minimum 0.1 ; lv2:maximum 1.0 ;
+    val:section "Congas" ;
+    units:unit units:seconds .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :cglMod ; val:property val:decay ;
+    lv2:name "Low conga ring" ; lv2:symbol "conga_low" ;
+    lv2:minimum 0.1 ; lv2:maximum 1.0 ;
+    val:section "Congas" ;
+    units:unit units:seconds .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :marShk ; val:property val:frequency ;
+    lv2:name "Maracas tone" ; lv2:symbol "maracas_tone" ;
+    lv2:minimum 3000 ; lv2:maximum 9000 ;
+    val:section "Shakers" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :cwMod ; val:property val:frequency ;
+    lv2:name "Cowbell pitch" ; lv2:symbol "cowbell_pitch" ;
+    lv2:minimum 400 ; lv2:maximum 900 ;
+    val:section "Cowbell" ;
+    units:unit units:hertz .
