@@ -173,6 +173,20 @@ Nonlinear.
 | `boost` | Max boost | 18 | 0 to 60 | dB |
 | `liftThreshold` | Lift threshold | -90 | -90 to 0 | dB |
 
+## val:ControlAdd
+
+Linear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `a` | A | 0 | -1e+06 to 1e+06 |  |
+| `b` | B | 0 | -1e+06 to 1e+06 |  |
+| `c` | C | 0 | -1e+06 to 1e+06 |  |
+
 ## val:ControlMax
 
 Nonlinear.
@@ -1047,6 +1061,20 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `gain` | Gain | 1 | 0.1 to 100 |  |
+
+## val:Slew
+
+Linear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `in` | In | 0 | -1e+06 to 1e+06 |  |
+| `rise` | Rise | 50 | 0 to 10000 | ms |
+| `fall` | Fall | 50 | 0 to 10000 | ms |
 
 ## val:SoftSine
 

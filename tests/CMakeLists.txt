@@ -17,6 +17,8 @@ set(VALIS_TESTS
   dsp/SpectralTest.cpp
   dsp/SpectralExtrasTest.cpp
   dsp/FluteTest.cpp
+  dsp/StiffStringTest.cpp
+  dsp/ControlMathTest.cpp
   dsp/ClarinetTest.cpp
   dsp/CelloTest.cpp
   dsp/FMTest.cpp
@@ -43,6 +45,7 @@ set(VALIS_TESTS
   engine/ValisEngineTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp
+  engine/ElectroInstrumentsTest.cpp
   engine/GristExampleTest.cpp
   engine/DemoEffectsTest.cpp
   engine/MetalBashTest.cpp

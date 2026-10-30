@@ -481,6 +481,8 @@ This table is a start for common jobs. Each port named in it exists; the test
 | `val:DryWet` | crossfade a processed signal against the original | `dry`, `wet`, `mix`, `out` |
 | `val:Scale` | remap 0 to 1 onto a range | `in`, `min`, `max`, `out` |
 | `val:ControlMultiply` | multiply two controls | `a`, `b`, `out` |
+| `val:ControlAdd` | add three controls | `a`, `b`, `c`, `out` |
+| `val:Slew` | glide a control to its target over a time | `in`, `rise`, `fall`, `out` |
 | `val:ControlMax` | the largest of three controls; an OR for gates | `a`, `b`, `c`, `out` |
 | `val:AudioSelect` | pick one of three audio inputs | `a`, `b`, `c`, `select`, `out` |
 | `val:DiodePair` | soft clipper | `in`, `seriesResistance`, `out` |

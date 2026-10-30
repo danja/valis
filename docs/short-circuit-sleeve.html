@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Short Circuit sleeve</title>
+<!-- docs/short-circuit-sleeve.html
+     The sleeve for "Tenement Lights (Short Circuit)": a microSD card drawn at the size of a 12-inch sleeve.
+     Front and back, each 840 by 840 px (12 inches at 70 px to the inch). See docs/short-circuit-sleeve.md.
+     The label and artist are invented. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root { --wall: #5d6166; --caption: #d7dade; }
+body { margin: 0; background: var(--wall); font-family: 'Jost', 'Futura', 'Century Gothic', sans-serif; color: var(--caption); }
+main { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; padding: 40px 16px; }
+figure { margin: 0; }
+figcaption { margin-top: 10px; font-size: 16px; letter-spacing: 2px; text-align: center; }
+.board { width: 840px; max-width: 100%; }
+@media print { body { background: #fff; } figcaption { color: #000; } main { display: block; } figure { break-after: page; } }
+</style>
+</head>
+<body>
+<main>
+<figure><div class="board">
+<div style="width: 840px; height: 840px; position: relative; background: #8d9196; font-family: 'Jost', 'Futura', 'Century Gothic', sans-serif; overflow: hidden">
+
+<!-- the sleeve: a square of black card with the top right corner cut away, as on a memory card -->
+<div style="position: absolute; left: 0; top: 0; width: 840px; height: 840px; background: #17181a; clip-path: polygon(0 0, 700px 0, 840px 140px, 840px 840px, 0 840px)">
+
+<!-- a faint ridge round the edge, where the card is moulded -->
+<div style="position: absolute; left: 14px; top: 14px; right: 14px; bottom: 14px; border: 1px solid #2a2c2f; clip-path: polygon(0 0, 680px 0, 812px 132px, 812px 812px, 0 812px)"></div>
+
+<!-- the write-protect notch on the left edge -->
+<div style="position: absolute; left: 0; top: 330px; width: 22px; height: 70px; background: #8d9196"></div>
+
+<!-- type on the card, at its top left -->
+<div style="position: absolute; left: 56px; top: 52px; color: #d7dade">
+<div style="font-size: 30px; font-weight: 600; letter-spacing: 1px">tenement lights</div>
+<div style="font-size: 20px; font-weight: 400; letter-spacing: 3px; margin-top: 6px; color: #aeb3b8">short circuit</div>
+</div>
+
+<!-- the die-cut window: the record shows through it -->
+<div style="position: absolute; left: 190px; top: 190px; width: 460px; height: 460px; border-radius: 50%; background: #8d9196; box-shadow: inset 0 0 0 6px #0c0d0e">
+<div style="position: absolute; left: 12px; top: 12px; width: 436px; height: 436px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0b0b0c 0, #0b0b0c 36%, #1b1c1e 36.5%, #0e0e0f 38%, #1b1c1e 41%, #0e0e0f 44%, #1b1c1e 49%, #0e0e0f 53%, #1b1c1e 60%, #0e0e0f 66%, #1b1c1e 74%, #0b0b0c 100%)">
+<div style="position: absolute; left: 118px; top: 118px; width: 200px; height: 200px; border-radius: 50%; background: #c9a24a">
+<div style="position: absolute; left: 90px; top: 90px; width: 20px; height: 20px; border-radius: 50%; background: #0b0b0c"></div>
+<div style="position: absolute; left: 0; top: 44px; width: 200px; text-align: center; color: #17181a; font-size: 16px; font-weight: 600; letter-spacing: 2px">128 GB</div>
+<div style="position: absolute; left: 0; top: 140px; width: 200px; text-align: center; color: #17181a; font-size: 14px; font-weight: 500; letter-spacing: 1px">3:00</div>
+</div>
+</div>
+</div>
+
+<!-- the colour code, down the right edge: four squares that spell the catalogue number on the back -->
+<div style="position: absolute; left: 764px; top: 250px; width: 36px; height: 36px; background: #d6403b"></div>
+<div style="position: absolute; left: 764px; top: 296px; width: 36px; height: 36px; background: #e8a33a"></div>
+<div style="position: absolute; left: 764px; top: 342px; width: 36px; height: 36px; background: #2f8f83"></div>
+<div style="position: absolute; left: 764px; top: 388px; width: 36px; height: 36px; background: #3a6fb0"></div>
+
+<!-- the specification, set small, bottom left -->
+<div style="position: absolute; left: 56px; top: 664px; color: #d7dade">
+<div style="font-size: 26px; font-weight: 600; letter-spacing: 1px">microSDXC</div>
+<div style="font-size: 16px; font-weight: 400; letter-spacing: 2px; margin-top: 6px; color: #aeb3b8">UHS-I &nbsp; A2 &nbsp; V30 &nbsp; 100 MB/s</div>
+</div>
+
+<!-- the contacts -->
+<div style="position: absolute; left: 150px; top: 750px; width: 540px; height: 90px; display: flex; gap: 12px">
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+<div style="flex: 1 1 0; background: linear-gradient(#e0bd63, #b98f35)"></div>
+</div>
+
+</div>
+</div>
+</div><figcaption>FRONT</figcaption></figure>
+<figure><div class="board">
+<div style="width: 840px; height: 840px; position: relative; background: #8d9196; font-family: 'Jost', 'Futura', 'Century Gothic', sans-serif; overflow: hidden">
+
+<!-- the same card, seen from behind: the corner is cut on the left now -->
+<div style="position: absolute; left: 0; top: 0; width: 840px; height: 840px; background: #17181a; clip-path: polygon(140px 0, 840px 0, 840px 840px, 0 840px, 0 140px)">
+
+<div style="position: absolute; left: 14px; top: 14px; right: 14px; bottom: 14px; border: 1px solid #2a2c2f; clip-path: polygon(132px 0, 812px 0, 812px 812px, 0 812px, 0 132px)"></div>
+
+<!-- the sides -->
+<div style="position: absolute; left: 150px; top: 70px; width: 560px; color: #d7dade">
+<div style="font-size: 16px; font-weight: 500; letter-spacing: 3px; color: #aeb3b8">SIDE A</div>
+<div style="font-size: 34px; font-weight: 600; margin-top: 8px">tenement lights (short circuit)</div>
+<div style="font-size: 18px; letter-spacing: 2px; margin-top: 4px; color: #aeb3b8">3:00</div>
+
+<div style="font-size: 16px; font-weight: 500; letter-spacing: 3px; margin-top: 44px; color: #aeb3b8">SIDE B</div>
+<div style="font-size: 34px; font-weight: 600; margin-top: 8px">tenement lights</div>
+<div style="font-size: 18px; letter-spacing: 2px; margin-top: 4px; color: #aeb3b8">6:53</div>
+</div>
+
+<!-- the lines about the contents, in the manner of a specification -->
+<div style="position: absolute; left: 150px; top: 380px; width: 520px; color: #d7dade; font-size: 17px; line-height: 1.7; letter-spacing: 0.5px">
+<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #34373b"><span style="color: #aeb3b8">capacity</span><span>128 GB</span></div>
+<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #34373b"><span style="color: #aeb3b8">contents</span><span>9 minutes 53 seconds</span></div>
+<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #34373b"><span style="color: #aeb3b8">read speed</span><span>100 MB/s</span></div>
+<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #34373b"><span style="color: #aeb3b8">tested with</span><span>any record deck, at 45 rpm</span></div>
+<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #34373b"><span style="color: #aeb3b8">pins</span><span>8, gold, do not touch</span></div>
+</div>
+
+<!-- credits -->
+<div style="position: absolute; left: 150px; top: 640px; width: 520px; color: #aeb3b8; font-size: 16px; line-height: 1.6; letter-spacing: 0.5px">
+Machines: a drum machine, a monophonic synthesiser, a polyphonic synthesiser, a string machine, a sampler and a six-string bass, all modelled as circuits in Valis. Played by a sequencer, with one note a sixteenth late.
+</div>
+
+<!-- the colour code and its key -->
+<div style="position: absolute; left: 150px; top: 748px; display: flex; gap: 10px; align-items: center">
+<div style="width: 26px; height: 26px; background: #d6403b"></div>
+<div style="width: 26px; height: 26px; background: #e8a33a"></div>
+<div style="width: 26px; height: 26px; background: #2f8f83"></div>
+<div style="width: 26px; height: 26px; background: #3a6fb0"></div>
+<div style="color: #d7dade; font-size: 16px; letter-spacing: 3px; margin-left: 14px">T &nbsp; L &nbsp; 8 &nbsp; 3</div>
+</div>
+<div style="position: absolute; left: 150px; top: 790px; color: #8f949a; font-size: 14px; letter-spacing: 1px">the squares on the front spell the catalogue number</div>
+
+<!-- the logo-less badge: a made-up label -->
+<div style="position: absolute; left: 640px; top: 736px; width: 120px; height: 56px; border: 2px solid #d7dade; display: flex; align-items: center; justify-content: center; color: #d7dade; font-size: 15px; font-weight: 600; letter-spacing: 2px; text-align: center; line-height: 1.2">tenement<br>recordings</div>
+
+</div>
+</div>
+</div><figcaption>BACK</figcaption></figure>
+</main>
+</body>
+</html>

@@ -1,0 +1,204 @@
+# examples/six-string-bass.ttl
+#
+# A six-string bass guitar of the kind Peter Hook played in Joy Division and New Order: strung
+# and tuned like a guitar but an octave lower (E A D G B E), and played high on the neck, so a
+# melody on it was often taken for a guitar. A noise burst through a low-pass excites a stiff
+# string (val:StiffString, tuned across its range), a band-pass stands in for the pickup, a soft
+# clip for the amplifier, and a chorus widens it.
+#
+# Play it from E3 (52) to E5 (76), where the lead lines of the band's bass lived. It plays one
+# note at a time, as a melodic line does.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:sixstringbass#> .
+
+:sixstringbass a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Bass", "Guitar", "Post-punk" ;
+    rdfs:label "Six-string bass guitar" ;
+    val:element :pitch , :dc , :pluckEnv , :noise , :pluckVca , :pick , :string , :ampEnv , :ampVca , :pickup , :body , :bodyLp , :amp , :chorus , :trim , :limit , :out ;
+    val:arc :a_pitch_out__string_frequency ,
+        :a_pluckEnv_out__pluckVca_cv ,
+        :a_noise_out__pluckVca_in ,
+        :a_pluckVca_out__pick_in ,
+        :a_pick_lp__string_in ,
+        :a_string_out__ampVca_in ,
+        :a_ampEnv_out__ampVca_cv ,
+        :a_ampVca_out__dc_in ,
+        :a_dc_out__pickup_in ,
+        :a_pickup_bp__body_in ,
+        :a_dc_out__body_in ,
+        :a_body_out__bodyLp_in ,
+        :a_bodyLp_out__amp_in ,
+        :a_amp_out__chorus_in ,
+        :a_chorus_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:pluckEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 7.0 ;
+    val:sustain 0.0 ;
+    val:release 2.0 .
+
+:noise a val:Noise ;
+    val:colour 0.2 .
+
+:pluckVca a val:VCA .
+
+:pick a val:StateVariable ;
+    val:cutoff 3000.0 ;
+    val:resonance 0.7 .
+
+:string a val:StiffString ;
+    val:feedback 0.993 ;
+    val:damping 0.12 ;
+    val:dispersion 0.01 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 3000.0 ;
+    val:sustain 0.25 ;
+    val:release 160.0 .
+
+:ampVca a val:VCA .
+
+:pickup a val:StateVariable ;
+    val:cutoff 1900.0 ;
+    val:resonance 0.9 .
+
+:body a val:Mixer .
+
+:bodyLp a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 5200.0 .
+
+:amp a val:Tanh ;
+    val:gain 1.7 .
+
+:chorus a val:Chorus ;
+    val:rate 0.7 ;
+    val:depth 2.8 ;
+    val:mix 0.5 .
+
+:trim a val:Gain ;
+    val:gain 5.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__string_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:a_pluckEnv_out__pluckVca_cv a val:Arc ;
+    val:from [ val:node :pluckEnv ; val:port "out" ] ;
+    val:to   [ val:node :pluckVca ; val:port "cv" ] .
+:a_noise_out__pluckVca_in a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :pluckVca ; val:port "in" ] .
+:a_pluckVca_out__pick_in a val:Arc ;
+    val:from [ val:node :pluckVca ; val:port "out" ] ;
+    val:to   [ val:node :pick ; val:port "in" ] .
+:a_pick_lp__string_in a val:Arc ;
+    val:from [ val:node :pick ; val:port "lp" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:a_string_out__ampVca_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "in" ] .
+:a_ampEnv_out__ampVca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "cv" ] .
+:a_ampVca_out__dc_in a val:Arc ;
+    val:from [ val:node :ampVca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__pickup_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :pickup ; val:port "in" ] .
+:a_pickup_bp__body_in a val:Arc ;
+    val:from [ val:node :pickup ; val:port "bp" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_dc_out__body_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__bodyLp_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :bodyLp ; val:port "in" ] .
+:a_bodyLp_out__amp_in a val:Arc ;
+    val:from [ val:node :bodyLp ; val:port "out" ] ;
+    val:to   [ val:node :amp ; val:port "in" ] .
+:a_amp_out__chorus_in a val:Arc ;
+    val:from [ val:node :amp ; val:port "out" ] ;
+    val:to   [ val:node :chorus ; val:port "in" ] .
+:a_chorus_out__trim_in a val:Arc ;
+    val:from [ val:node :chorus ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :string ; val:property val:feedback ;
+    lv2:name "Sustain" ; lv2:symbol "sustain" ;
+    lv2:minimum 0.9 ; lv2:maximum 0.998 ;
+    val:section "String" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :string ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :pick ; val:property val:cutoff ;
+    lv2:name "Pick brightness" ; lv2:symbol "pick_bright" ;
+    lv2:minimum 800 ; lv2:maximum 9000 ;
+    val:section "String" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Ring time" ; lv2:symbol "ring_time" ;
+    lv2:minimum 200 ; lv2:maximum 5000 ;
+    val:section "String" ;
+    units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :pickup ; val:property val:cutoff ;
+    lv2:name "Pickup centre" ; lv2:symbol "pickup_centre" ;
+    lv2:minimum 500 ; lv2:maximum 5000 ;
+    val:section "Pickup" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :amp ; val:property val:gain ;
+    lv2:name "Amp drive" ; lv2:symbol "amp_drive" ;
+    lv2:minimum 1 ; lv2:maximum 10 ;
+    val:section "Amp" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :chorus ; val:property val:rate ;
+    lv2:name "Chorus rate" ; lv2:symbol "chorus_rate" ;
+    lv2:minimum 0.1 ; lv2:maximum 6 ;
+    val:section "Chorus" ;
+    units:unit units:hertz .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :chorus ; val:property val:depth ;
+    lv2:name "Chorus depth" ; lv2:symbol "chorus_depth" ;
+    lv2:minimum 0 ; lv2:maximum 6 ;
+    val:section "Chorus" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :chorus ; val:property val:mix ;
+    lv2:name "Chorus mix" ; lv2:symbol "chorus_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Chorus" .

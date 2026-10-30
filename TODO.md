@@ -2,12 +2,13 @@
 
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
   (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
-* **Blue Monday.** `examples/blue-monday-sketch.ttl` has the shape: a `val:StepSequencer` bass through
-  a saw, ladder filter and VCA, over four sequenced DMX sounds. Its patterns are placeholders, not
-  the record's. Still to do: the actual bass pattern and drum programming (needs a reliable
-  transcription; do not guess), a Moog Source voice matched to its two oscillators and filter
-  rather than the generic saw, the Emulator choir (no samples in the repository), and Peter Hook's
-  bass guitar lead, which needs a plucked-string voice on `val:StiffString` (not yet tried).
+* **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
+  `scripts/electro83/`, output in `~/Music/tenement-lights/`). Not listened to yet: listen, then fix balance,
+  the Source's envelope, the choir's formants and the arrangement by ear, in `track.py` and the circuits.
+  A three-minute arrangement with lyrics (`docs/short-circuit-lyrics.md`) and a sleeve
+  (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to build: `val:Vocoder` (a filter bank with a
+  carrier and a modulator input), the speech stutter (specified in `docs/new-order-track.md`), a Source patch with a third waveform per oscillator and octave
+  switches, and a release build of `valis_render` so a render takes seconds and not minutes.
 
 ## New instruments
 
@@ -273,16 +274,6 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   "url": "http://localhost:7676/mcp"}}}`) so a checkout works without a manual `claude mcp add`.
 * **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone while `render` uses 48000. The
   live figure looks wrong, or the Standalone has no audio device open. Find out which.
-* **No glide or slew element.** A theremin, portamento bass or legato lead needs a control signal to move
-  to its target over a time. `halloween-theremin.ttl` fakes it with a scooping envelope. Add `val:Slew`
-  (rise and fall times, in milliseconds).
-* **No control-rate add.** `val:ControlMultiply` is the only arithmetic, so a detune in cents, a pitch
-  offset in Hz, or the compensation for a loop's delay cannot be written. Add `val:ControlAdd`.
-* **`val:StiffString` is not tuned.** It runs flat by a delay that does not depend on pitch (about 90 to
-  100 microseconds), measured as 25 cents at E3, 58 at E4 and 104 at E5. The damping filter and the
-  dispersion allpasses lengthen the loop. Subtract their phase delay as `Loss::phaseDelay` does in
-  `Waveguide.h`, and add a test across the range. `halloween-guitar.ttl` multiplies the pitch by 1.025
-  as a stopgap and is in tune only near G3 to G4.
 * **`analyze` reports the wrong octave** for a pure tone with a bright second partial: the wood block
   at 1850 Hz was named as 925.6 Hz (A#5). Check the pitch tracker against a sine and a TwinTBridge ping.
 * **`render` cannot run a transport.** The tempo-synced wobble LFO in `halloween-bass.ttl` free-runs in

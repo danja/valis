@@ -1,0 +1,293 @@
+# examples/emulator-choir.ttl
+#
+# A choir pad in the manner of a voice sampled into an early sampler, the E-mu Emulator
+# (https://en.wikipedia.org/wiki/E-mu_Emulator), which held a couple of seconds of 8-bit sound and
+# looped it. The band said their choir sounded like a Mellotron, so it is a vowel and a little breath,
+# held by a bit-reducer, then a slow tape wobble and a chorus.
+#
+# The voice is two detuned saws through three formant filters at the frequencies of an "ah". The
+# formants stay put as the note changes, as they do in a sample played up and down a keyboard. Four voices.
+# No recording is used.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:emulatorchoir#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :vca ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "attack" ; lv2:name "Attack" ;
+               lv2:default 220.0 ; lv2:minimum 5 ; lv2:maximum 3000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "attack" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "release" ; lv2:name "Release" ;
+               lv2:default 520.0 ; lv2:minimum 20 ; lv2:maximum 4000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "release" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "bits" ; lv2:name "Bits" ;
+               lv2:default 8.0 ; lv2:minimum 4 ; lv2:maximum 16 ;
+               val:node :bits ; val:port "bits" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "holdrate" ; lv2:name "Sample-rate divide" ;
+               lv2:default 2.0 ; lv2:minimum 1 ; lv2:maximum 8 ;
+               val:node :bits ; val:port "downsample" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "f1" ; lv2:name "Formant 1" ;
+               lv2:default 700.0 ; lv2:minimum 300 ; lv2:maximum 1000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hertz ;
+               val:node :f1 ; val:port "cutoff" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "f2" ; lv2:name "Formant 2" ;
+               lv2:default 1220.0 ; lv2:minimum 700 ; lv2:maximum 2500 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hertz ;
+               val:node :f2 ; val:port "cutoff" ] ;
+
+    val:element :pitch , :detune , :saw1 , :saw2 , :breath , :breathLvl , :src , :f1 , :f2 , :f3 , :f1Lvl , :f2Lvl , :f3Lvl , :vowel , :bits , :env , :vca ;
+    val:arc :v_pitch_out__saw1_frequency ,
+        :v_pitch_out__detune_a ,
+        :v_detune_out__saw2_frequency ,
+        :v_saw1_out__src_in ,
+        :v_saw2_out__src_in ,
+        :v_breath_out__breathLvl_in ,
+        :v_breathLvl_out__src_in ,
+        :v_src_out__f1_in ,
+        :v_src_out__f2_in ,
+        :v_src_out__f3_in ,
+        :v_f1_bp__f1Lvl_in ,
+        :v_f2_bp__f2Lvl_in ,
+        :v_f3_bp__f3Lvl_in ,
+        :v_f1Lvl_out__vowel_in ,
+        :v_f2Lvl_out__vowel_in ,
+        :v_f3Lvl_out__vowel_in ,
+        :v_vowel_out__bits_in ,
+        :v_bits_out__vca_in ,
+        :v_env_out__vca_cv .
+
+:pitch a val:MidiPitch .
+
+:detune a val:ControlMultiply ;
+    val:b 1.007 .
+
+:saw1 a val:Oscillator ;
+    val:shape 1 .
+
+:saw2 a val:Oscillator ;
+    val:shape 1 .
+
+:breath a val:Noise ;
+    val:colour 0.1 .
+
+:breathLvl a val:Gain ;
+    val:gain -26.0 .
+
+:src a val:Mixer .
+
+:f1 a val:StateVariable ;
+    val:cutoff 700.0 ;
+    val:resonance 3.5 .
+
+:f2 a val:StateVariable ;
+    val:cutoff 1220.0 ;
+    val:resonance 3.5 .
+
+:f3 a val:StateVariable ;
+    val:cutoff 2600.0 ;
+    val:resonance 3.0 .
+
+:f1Lvl a val:Gain ;
+    val:gain 0.0 .
+
+:f2Lvl a val:Gain ;
+    val:gain -5.0 .
+
+:f3Lvl a val:Gain ;
+    val:gain -12.0 .
+
+:vowel a val:Mixer .
+
+:bits a val:Redux ;
+    val:bits 8.0 ;
+    val:downsample 2.0 ;
+    val:jitter 0.0 .
+
+:env a val:Envelope ;
+    val:attack 220.0 ;
+    val:decay 400.0 ;
+    val:sustain 0.85 ;
+    val:release 520.0 .
+
+:vca a val:VCA .
+
+:v_pitch_out__saw1_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :saw1 ; val:port "frequency" ] .
+:v_pitch_out__detune_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:v_detune_out__saw2_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :saw2 ; val:port "frequency" ] .
+:v_saw1_out__src_in a val:Arc ;
+    val:from [ val:node :saw1 ; val:port "out" ] ;
+    val:to   [ val:node :src ; val:port "in" ] .
+:v_saw2_out__src_in a val:Arc ;
+    val:from [ val:node :saw2 ; val:port "out" ] ;
+    val:to   [ val:node :src ; val:port "in" ] .
+:v_breath_out__breathLvl_in a val:Arc ;
+    val:from [ val:node :breath ; val:port "out" ] ;
+    val:to   [ val:node :breathLvl ; val:port "in" ] .
+:v_breathLvl_out__src_in a val:Arc ;
+    val:from [ val:node :breathLvl ; val:port "out" ] ;
+    val:to   [ val:node :src ; val:port "in" ] .
+:v_src_out__f1_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f1 ; val:port "in" ] .
+:v_src_out__f2_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f2 ; val:port "in" ] .
+:v_src_out__f3_in a val:Arc ;
+    val:from [ val:node :src ; val:port "out" ] ;
+    val:to   [ val:node :f3 ; val:port "in" ] .
+:v_f1_bp__f1Lvl_in a val:Arc ;
+    val:from [ val:node :f1 ; val:port "bp" ] ;
+    val:to   [ val:node :f1Lvl ; val:port "in" ] .
+:v_f2_bp__f2Lvl_in a val:Arc ;
+    val:from [ val:node :f2 ; val:port "bp" ] ;
+    val:to   [ val:node :f2Lvl ; val:port "in" ] .
+:v_f3_bp__f3Lvl_in a val:Arc ;
+    val:from [ val:node :f3 ; val:port "bp" ] ;
+    val:to   [ val:node :f3Lvl ; val:port "in" ] .
+:v_f1Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f1Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:v_f2Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f2Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:v_f3Lvl_out__vowel_in a val:Arc ;
+    val:from [ val:node :f3Lvl ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "in" ] .
+:v_vowel_out__bits_in a val:Arc ;
+    val:from [ val:node :vowel ; val:port "out" ] ;
+    val:to   [ val:node :bits ; val:port "in" ] .
+:v_bits_out__vca_in a val:Arc ;
+    val:from [ val:node :bits ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:v_env_out__vca_cv a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+
+:emulatorchoir a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Choir", "Pad", "Sampler" ;
+    rdfs:label "Emulator choir" ;
+    val:element :poly , :tape , :chorus , :hall , :trim , :limit , :out ;
+    val:arc :a_poly_out__tape_in ,
+        :a_tape_out__chorus_in ,
+        :a_chorus_out__hall_in ,
+        :a_hall_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 4 .
+
+:tape a val:Tape ;
+    val:drive 2.0 ;
+    val:bump 0.0 ;
+    val:wow 0.45 ;
+    val:flutter 0.35 ;
+    val:hf 7000.0 ;
+    val:hiss -70.0 .
+
+:chorus a val:Chorus ;
+    val:rate 0.35 ;
+    val:depth 2.2 ;
+    val:mix 0.4 .
+
+:hall a val:Reverb ;
+    val:size 1.4 ;
+    val:decay 3.2 ;
+    val:damping 0.55 ;
+    val:mix 0.28 .
+
+:trim a val:Gain ;
+    val:gain -12.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__tape_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :tape ; val:port "in" ] .
+:a_tape_out__chorus_in a val:Arc ;
+    val:from [ val:node :tape ; val:port "out" ] ;
+    val:to   [ val:node :chorus ; val:port "in" ] .
+:a_chorus_out__hall_in a val:Arc ;
+    val:from [ val:node :chorus ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__trim_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 3000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 20 ; lv2:maximum 4000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:bits ;
+    lv2:name "Bits" ; lv2:symbol "bits" ;
+    lv2:minimum 4 ; lv2:maximum 16 ;
+    val:section "Sampler" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:holdrate ;
+    lv2:name "Sample-rate divide" ; lv2:symbol "rate_divide" ;
+    lv2:minimum 1 ; lv2:maximum 8 ;
+    val:section "Sampler" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :poly ; val:property val:f1 ;
+    lv2:name "Formant 1" ; lv2:symbol "formant_1" ;
+    lv2:minimum 300 ; lv2:maximum 1000 ;
+    val:section "Vowel" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :poly ; val:property val:f2 ;
+    lv2:name "Formant 2" ; lv2:symbol "formant_2" ;
+    lv2:minimum 700 ; lv2:maximum 2500 ;
+    val:section "Vowel" ;
+    units:unit units:hertz .

@@ -210,3 +210,28 @@ used.
 Windows), makes a new `httplib::Server` for each port it tries, and `start()` returns only once the
 server is listening. `tests/mcp/McpServerPortTest.cpp` covers all three. Any code that wraps a library
 with its own lifecycle rules gets a start, stop and restart test as well as a first-use test.
+
+## A part that played once
+
+**What happened.** The bass-guitar stem of "Tenement Lights" rendered with a normal peak and an rms that looked
+low but plausible. Only the first note of each section sounded; the rest of the part was exact digital silence.
+The mix went ahead, and the fault showed only when the stem's rms was printed for each bar.
+
+**Root cause.** The score wrote each note to end at the instant the next began. The engine's gate stays high
+across touching notes, so an envelope with sustain 0 (a pluck) was never started again. The monophonic Source
+bass hid the same fault because its envelope sustains.
+
+**Prevention.** The score shortens every note in a sequenced part by a fifth of a step so the gate drops, and
+`tests/engine/ElectroInstrumentsTest.cpp` plays a second note after a short gap on every instrument. Before mixing,
+print the rms of each bar of each stem and compare it with the score (`.claude/skills/test-an-instrument`).
+
+## Tape hiss set in the wrong unit
+
+**What happened.** The choir circuit set `val:hiss` on `val:Tape` to 0, meaning "none". The element reads the
+value in decibels, so 0 is full-scale noise, and the choir was not silent before a note.
+
+**Root cause.** The unit was not checked against the port declaration in `vocabs/valis.ttl`; the property name
+suggested an amount, not a level.
+
+**Prevention.** Check a port's unit and range in the ontology before setting a value in a generated circuit, and
+render with no note played: an instrument must be silent. The engine test asserts it (`generate-circuit` skill).

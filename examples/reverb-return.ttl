@@ -1,0 +1,93 @@
+# examples/reverb-return.ttl
+#
+# The wet side of a reverb, for a reverb return: the input is sent through a low cut, a room and a
+# high cut, and only the room comes out. Mix it under the dry sound. The low cut keeps the room off the
+# low end, which is why it suits high percussion such as a wood block, a tambourine or a shaker.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:reverbreturn#> .
+
+:reverbreturn a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Effect", "Reverb", "Return" ;
+    rdfs:label "Reverb return" ;
+    val:element :in , :lowCut , :hall , :highCut , :limit , :out ;
+    val:arc :a_in_out__lowCut_in ,
+        :a_lowCut_out__hall_in ,
+        :a_hall_out__highCut_in ,
+        :a_highCut_out__limit_in ,
+        :a_limit_out__out_in .
+
+:in a val:Input .
+
+:lowCut a val:Biquad ;
+    val:mode 4 ;
+    val:frequency 450.0 ;
+    val:q 0.7 .
+
+:hall a val:Reverb ;
+    val:size 0.9 ;
+    val:decay 1.7 ;
+    val:damping 0.45 ;
+    val:mix 1.0 .
+
+:highCut a val:Biquad ;
+    val:mode 5 ;
+    val:frequency 9500.0 ;
+    val:q 0.7 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_in_out__lowCut_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :lowCut ; val:port "in" ] .
+:a_lowCut_out__hall_in a val:Arc ;
+    val:from [ val:node :lowCut ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__highCut_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :highCut ; val:port "in" ] .
+:a_highCut_out__limit_in a val:Arc ;
+    val:from [ val:node :highCut ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :lowCut ; val:property val:frequency ;
+    lv2:name "Low cut" ; lv2:symbol "low_cut" ;
+    lv2:minimum 100 ; lv2:maximum 2000 ;
+    val:section "Return" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :hall ; val:property val:size ;
+    lv2:name "Size" ; lv2:symbol "size" ;
+    lv2:minimum 0.2 ; lv2:maximum 2 ;
+    val:section "Room" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :hall ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ;
+    lv2:minimum 0.2 ; lv2:maximum 6 ;
+    val:section "Room" ;
+    units:unit units:s .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :hall ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Room" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :highCut ; val:property val:frequency ;
+    lv2:name "High cut" ; lv2:symbol "high_cut" ;
+    lv2:minimum 2000 ; lv2:maximum 16000 ;
+    val:section "Return" ;
+    units:unit units:hertz .

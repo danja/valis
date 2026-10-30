@@ -100,10 +100,24 @@ notes each drum voice answers are listed in its header.
 - `halloween-drums-high.ttl`: closed hat, an open hat through a feedback `val:FreqShifter`, a swelling shaker and wood block into a bucket-brigade echo, and a clap into a hall.
 - `halloween-bass.ttl`: three layers on one voice: a sine sub, detuned saws through a ladder filter whose cutoff wobbles in time with the host, and a clipped wavetable growl.
 - `halloween-organ.ttl`: eight voices of six sine drawbars at the Hammond footages with key click, then overdrive, a chorus for the scanner vibrato and a large room.
-- `halloween-guitar.ttl`: a plucked `val:StiffString` through a pickup, amp clip, spring-style reverb and a dotted-eighth echo. The string runs flat as it rises, so it is corrected for the middle of the range.
-- `halloween-theremin.ttl`: sine with a scoop into each note, wide vibrato and a random drift, then a slow phaser, echo and a long hall.
+- `halloween-guitar.ttl`: a plucked `val:StiffString` through a pickup, amp clip, spring-style reverb and a dotted-eighth echo.
+- `halloween-theremin.ttl`: sine that glides between notes through `val:Slew`, scoops into each note, with wide vibrato and a random drift, then a slow phaser, echo and a long hall.
 - `halloween-ornaments1.ttl`: two drifting vowel-wavetable choirs and a modal glass bell, through a chorus, a spectral delay and a long hall.
 - `halloween-ornaments2.ttl`: a falling-saucer dive with warble, wavefolded, bit-crushed and smeared by a feedback frequency shifter, with a stuttering echo.
+
+## Instruments for a 1983 electronic record
+
+Built for "Tenement Lights", an original instrumental in the manner of New Order's 1983 work. Each models a
+machine the band used; see `docs/new-order-track.md`. The drums are `dmx.ttl`. The score and mix are in
+`scripts/electro83/`.
+
+- `moog-source.ttl`: a mono bass voice with a saw and an octave-down square, a 24 dB ladder filter whose cutoff is an envelope sweep plus a share of the keyboard pitch (`val:ControlAdd`), and two ADSR envelopes.
+- `six-string-bass.ttl`: a plucked `val:StiffString` played high on the neck through a pickup, amp clip and chorus. One note at a time.
+- `prophet-5.ttl`: eight voices of a saw and a sharp square through a 24 dB filter with keyboard tracking, then a chorus and a small room.
+- `emulator-choir.ttl`: four voices of a vowel (two saws through three fixed formants), bit-reduced, then a tape wobble, chorus and hall. No recording is used.
+- `quadra-strings.ttl`: eight voices of three detuned saws with a slow attack, two choruses and a phaser.
+- `reverb-return.ttl`: an effect. Only the room comes out: a low cut, a reverb and a high cut, for a send. Used on the high percussion.
+- `speaker-room.ttl`: an effect. A low cut, a cone resonance, a soft clip and a small room, for a drum played through a monitor and recorded again. Feed it with `valis-render -i`.
 
 ## Not examples
 

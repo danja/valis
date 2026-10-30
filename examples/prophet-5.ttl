@@ -1,0 +1,268 @@
+# examples/prophet-5.ttl
+#
+# An eight-voice analogue polyphonic synthesiser in the manner of the Sequential Circuits Prophet-5
+# (https://en.wikipedia.org/wiki/Prophet-5), the instrument behind the synthesiser line on New Order's
+# 1983 single "Blue Monday". Each voice has a saw and a slightly sharp square oscillator, a 24 dB
+# per octave low-pass filter with its own envelope and keyboard tracking, and an amplifier envelope.
+# After the voices come a soft-clip distortion (a little, for edge), a light chorus and a small room.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:prophet5#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :vca ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "cutoff" ; lv2:name "Cutoff" ;
+               lv2:default 700.0 ; lv2:minimum 100 ; lv2:maximum 4000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hertz ;
+               val:node :filtScale ; val:port "min" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "envamt" ; lv2:name "Envelope amount" ;
+               lv2:default 5200.0 ; lv2:minimum 300 ; lv2:maximum 9000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hertz ;
+               val:node :filtScale ; val:port "max" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "resonance" ; lv2:name "Resonance" ;
+               lv2:default 0.22 ; lv2:minimum 0 ; lv2:maximum 0.9 ;
+               val:node :vcf ; val:port "resonance" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "attack" ; lv2:name "Attack" ;
+               lv2:default 3.0 ; lv2:minimum 0.5 ; lv2:maximum 2000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :ampEnv ; val:port "attack" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "release" ; lv2:name "Release" ;
+               lv2:default 320.0 ; lv2:minimum 10 ; lv2:maximum 3000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :ampEnv ; val:port "release" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "detune" ; lv2:name "Oscillator B detune" ;
+               lv2:default 1.0045 ; lv2:minimum 0.98 ; lv2:maximum 1.02 ;
+               val:node :detune ; val:port "b" ] ;
+
+    val:element :pitch , :detune , :oscA , :oscB , :oscALvl , :oscBLvl , :mix , :filtEnv , :filtScale , :track , :cutoff , :vcf , :ampEnv , :vca ;
+    val:arc :v_pitch_out__oscA_frequency ,
+        :v_pitch_out__detune_a ,
+        :v_detune_out__oscB_frequency ,
+        :v_oscA_out__oscALvl_in ,
+        :v_oscB_out__oscBLvl_in ,
+        :v_oscALvl_out__mix_in ,
+        :v_oscBLvl_out__mix_in ,
+        :v_filtEnv_out__filtScale_in ,
+        :v_pitch_out__track_a ,
+        :v_filtScale_out__cutoff_a ,
+        :v_track_out__cutoff_b ,
+        :v_cutoff_out__vcf_cutoff ,
+        :v_mix_out__vcf_in ,
+        :v_vcf_out__vca_in ,
+        :v_ampEnv_out__vca_cv .
+
+:pitch a val:MidiPitch .
+
+:detune a val:ControlMultiply ;
+    val:b 1.0045 .
+
+:oscA a val:Oscillator ;
+    val:shape 1 .
+
+:oscB a val:Oscillator ;
+    val:shape 2 .
+
+:oscALvl a val:Gain ;
+    val:gain -4.0 .
+
+:oscBLvl a val:Gain ;
+    val:gain -7.0 .
+
+:mix a val:Mixer .
+
+:filtEnv a val:Envelope ;
+    val:attack 3.0 ;
+    val:decay 380.0 ;
+    val:sustain 0.35 ;
+    val:release 260.0 .
+
+:filtScale a val:Scale ;
+    val:min 700.0 ;
+    val:max 5200.0 .
+
+:track a val:ControlMultiply ;
+    val:b 1.0 .
+
+:cutoff a val:ControlAdd .
+
+:vcf a val:Ladder ;
+    val:resonance 0.22 ;
+    val:drive 1.6 .
+
+:ampEnv a val:Envelope ;
+    val:attack 3.0 ;
+    val:decay 300.0 ;
+    val:sustain 0.75 ;
+    val:release 320.0 .
+
+:vca a val:VCA .
+
+:v_pitch_out__oscA_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "frequency" ] .
+:v_pitch_out__detune_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:v_detune_out__oscB_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "frequency" ] .
+:v_oscA_out__oscALvl_in a val:Arc ;
+    val:from [ val:node :oscA ; val:port "out" ] ;
+    val:to   [ val:node :oscALvl ; val:port "in" ] .
+:v_oscB_out__oscBLvl_in a val:Arc ;
+    val:from [ val:node :oscB ; val:port "out" ] ;
+    val:to   [ val:node :oscBLvl ; val:port "in" ] .
+:v_oscALvl_out__mix_in a val:Arc ;
+    val:from [ val:node :oscALvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:v_oscBLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :oscBLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:v_filtEnv_out__filtScale_in a val:Arc ;
+    val:from [ val:node :filtEnv ; val:port "out" ] ;
+    val:to   [ val:node :filtScale ; val:port "in" ] .
+:v_pitch_out__track_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :track ; val:port "a" ] .
+:v_filtScale_out__cutoff_a a val:Arc ;
+    val:from [ val:node :filtScale ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "a" ] .
+:v_track_out__cutoff_b a val:Arc ;
+    val:from [ val:node :track ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "b" ] .
+:v_cutoff_out__vcf_cutoff a val:Arc ;
+    val:from [ val:node :cutoff ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "cutoff" ] .
+:v_mix_out__vcf_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:v_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:v_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+
+:prophet5 a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Synth", "Poly", "Electro" ;
+    rdfs:label "Prophet-5 style poly synth" ;
+    val:element :poly , :grit , :gritTone , :chorus , :room , :trim , :limit , :out ;
+    val:arc :a_poly_out__grit_in ,
+        :a_grit_out__gritTone_in ,
+        :a_gritTone_out__chorus_in ,
+        :a_chorus_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 8 .
+
+:grit a val:Tanh ;
+    val:gain 2.4 .
+
+:gritTone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 7000.0 .
+
+:chorus a val:Chorus ;
+    val:rate 0.45 ;
+    val:depth 1.8 ;
+    val:mix 0.3 .
+
+:room a val:Reverb ;
+    val:size 0.8 ;
+    val:decay 1.8 ;
+    val:damping 0.5 ;
+    val:mix 0.16 .
+
+:trim a val:Gain ;
+    val:gain -9.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__grit_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :grit ; val:port "in" ] .
+:a_grit_out__gritTone_in a val:Arc ;
+    val:from [ val:node :grit ; val:port "out" ] ;
+    val:to   [ val:node :gritTone ; val:port "in" ] .
+:a_gritTone_out__chorus_in a val:Arc ;
+    val:from [ val:node :gritTone ; val:port "out" ] ;
+    val:to   [ val:node :chorus ; val:port "in" ] .
+:a_chorus_out__room_in a val:Arc ;
+    val:from [ val:node :chorus ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 100 ; lv2:maximum 4000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:envamt ;
+    lv2:name "Envelope amount" ; lv2:symbol "env_amount" ;
+    lv2:minimum 300 ; lv2:maximum 9000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Filter" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :poly ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 0.5 ; lv2:maximum 2000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :poly ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 10 ; lv2:maximum 3000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :poly ; val:property val:detune ;
+    lv2:name "Oscillator B detune" ; lv2:symbol "detune" ;
+    lv2:minimum 0.98 ; lv2:maximum 1.02 ;
+    val:section "Oscillators" .

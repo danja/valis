@@ -6,9 +6,8 @@
 # spring-style reverb, and a bucket-brigade echo set to a dotted eighth that darkens as
 # it repeats. The tape stage adds a slow wobble.
 #
-# The string runs flat by an amount that grows with pitch (about 25 cents at E3 and 100 cents at E5),
-# so the pitch is raised by 2.5 per cent to centre the middle of the range; it is in tune near
-# G3 to G4. Play it there. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.
+# The string is tuned across its range (see tests/dsp/StiffStringTest.cpp). It plays single notes only,
+# as the riff does. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.
 
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
@@ -23,9 +22,8 @@
     trn:produces trn:Audio ;
     trn:genre "Guitar", "Surf", "Gothic" ;
     rdfs:label "Halloween: twang guitar" ;
-    val:element :pitch , :tuneFix , :dc , :pluckEnv , :noise , :pluckVca , :pick , :string , :ampEnv , :ampVca , :pickup , :body , :bodyLp , :amp , :spring , :echo , :wet , :trem , :trim , :limit , :out ;
-    val:arc :a_pitch_out__tuneFix_a ,
-        :a_tuneFix_out__string_frequency ,
+    val:element :pitch , :dc , :pluckEnv , :noise , :pluckVca , :pick , :string , :ampEnv , :ampVca , :pickup , :body , :bodyLp , :amp , :spring , :echo , :wet , :trem , :trim , :limit , :out ;
+    val:arc :a_pitch_out__string_frequency ,
         :a_pluckEnv_out__pluckVca_cv ,
         :a_noise_out__pluckVca_in ,
         :a_pluckVca_out__pick_in ,
@@ -48,9 +46,6 @@
         :a_limit_out__out_in .
 
 :pitch a val:MidiPitch .
-
-:tuneFix a val:ControlMultiply ;
-    val:b 1.025 .
 
 :dc a val:OnePole ;
     val:mode 1 ;
@@ -125,11 +120,8 @@
 
 :out a val:Output .
 
-:a_pitch_out__tuneFix_a a val:Arc ;
+:a_pitch_out__string_frequency a val:Arc ;
     val:from [ val:node :pitch ; val:port "out" ] ;
-    val:to   [ val:node :tuneFix ; val:port "a" ] .
-:a_tuneFix_out__string_frequency a val:Arc ;
-    val:from [ val:node :tuneFix ; val:port "out" ] ;
     val:to   [ val:node :string ; val:port "frequency" ] .
 :a_pluckEnv_out__pluckVca_cv a val:Arc ;
     val:from [ val:node :pluckEnv ; val:port "out" ] ;

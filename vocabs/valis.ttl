@@ -1750,6 +1750,57 @@ yet. Both inputs usually come from control arcs; an input with no arc keeps its 
         lv2:name "Out" ; lv2:default 0.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
 
+val:ControlAdd a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "ControlAdd" ;
+    rdfs:comment """Adds three control signals: the output is val:a plus val:b plus val:c. Use it to
+offset one control by another, such as a pitch in Hz plus a detune in Hz, a note's frequency plus a
+vibrato, or a base cutoff plus an envelope's sweep. An input with no arc keeps its own value, so
+setting val:b on the element itself gives a fixed offset, and the unused third input adds nothing.
+
+Control signals update once per block of 32 samples, so this adds control values and not audio.
+For audio, mix with val:Mixer. To multiply controls, use val:ControlMultiply.""" ;
+    val:implementation "ControlAdd" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "a" ;
+        lv2:name "A" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "b" ;
+        lv2:name "B" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "c" ;
+        lv2:name "C" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
+
+val:Slew a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Slew" ;
+    rdfs:comment """Makes a control signal move to its target over a time instead of jumping. Use it for
+portamento (a note's frequency through val:Slew into an oscillator), a theremin's glide, legato
+leads, or to soften a stepped control such as a sequencer's pitch.
+
+val:rise is the time in milliseconds for a rising input and val:fall for a falling one. The
+approach is exponential: the output covers 90% of a step in that time and the rest more slowly,
+like a capacitor charging. A time of 0 follows the input at once. The first value after a reset is
+taken as it is, so the circuit does not begin with a glide up from zero.""" ;
+    val:implementation "Slew" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "in" ;
+        lv2:name "In" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "rise" ;
+        lv2:name "Rise" ; lv2:default 50.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 10000.0 ; units:unit units:ms ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "fall" ;
+        lv2:name "Fall" ; lv2:default 50.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 10000.0 ; units:unit units:ms ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
+
 val:AudioSelect a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "AudioSelect" ;
     rdfs:comment """Passes one of three audio inputs, a, b or c, chosen by val:select. A change of

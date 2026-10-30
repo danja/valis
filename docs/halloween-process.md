@@ -46,12 +46,10 @@ covered by the existing tests that run over every file in `examples/`.
 - **Pitch ratios use `val:ControlMultiply`.** A sub-oscillator, a drawbar footage and a detune
   are each the keyboard pitch times a fixed ratio. There is no control-rate add, so a detune in
   cents or a fixed offset in hertz cannot be written yet.
-- **The theremin's glide is faked.** There is no slew element, so each note scoops up from about
-  a semitone below through an envelope. See `TODO.md`.
-- **The guitar string is flat and gets flatter as it rises** (about 25 cents at E3, 104 at E5),
-  because the loop filters add delay that the tuning does not subtract. The circuit raises the
-  pitch by 2.5 per cent as a stopgap, which centres it near G3 to G4. The song keeps the guitar
-  in that range.
+- **The theremin glides through `val:Slew`** (140 ms up and down), and each note still scoops up from about
+  a semitone below.
+- **The guitar string is in tune.** It ran flat by an amount that grew with pitch (25 cents at E3, 104 at E5)
+  until `val:StiffString` subtracted the delay of its own loop filters. The circuit no longer corrects it.
 - **Polyphony is a `val:Subcircuit` with `val:voices`.** The organ is written once as a voice and
   stamped out eight times. See `docs/manual/circuits.md` and `examples/polysynth.ttl`.
 - **Levels.** Several instruments came out too hot or too quiet on the first render. Fix levels

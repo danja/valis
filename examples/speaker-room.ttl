@@ -1,0 +1,133 @@
+# examples/speaker-room.ttl
+#
+# A sound played through a loudspeaker and picked up again by a microphone in the room,
+# which is how the kick on a 1983 electronic record was often made fuller: the drum machine
+# went to a studio monitor and the monitor's sound, with the room in it, was recorded.
+#
+# The model is a low cut, a bell for the cone's resonance, a soft clip where the cone runs out
+# of travel, a high cut, and a short small room. Feed it audio with valis-render -i, or
+# insert it after a drum or a voice. It has no input of its own when nothing is connected.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:speakerroom#> .
+
+:speakerroom a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Effect", "Speaker", "Room" ;
+    rdfs:label "Speaker and room" ;
+    val:element :in , :lowCut , :cone , :push , :highCut , :room , :trim , :limit , :out ;
+    val:arc :a_in_out__lowCut_in ,
+        :a_lowCut_out__cone_in ,
+        :a_cone_out__push_in ,
+        :a_push_out__highCut_in ,
+        :a_highCut_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:in a val:Input .
+
+:lowCut a val:Biquad ;
+    val:mode 4 ;
+    val:frequency 38.0 ;
+    val:q 0.9 .
+
+:cone a val:Biquad ;
+    val:mode 1 ;
+    val:frequency 62.0 ;
+    val:gain 7.0 ;
+    val:q 1.4 .
+
+:push a val:Tanh ;
+    val:gain 1.7 .
+
+:highCut a val:Biquad ;
+    val:mode 5 ;
+    val:frequency 9000.0 ;
+    val:q 0.7 .
+
+:room a val:Reverb ;
+    val:size 0.22 ;
+    val:decay 0.35 ;
+    val:damping 0.65 ;
+    val:mix 0.22 .
+
+:trim a val:Gain ;
+    val:gain -1.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_in_out__lowCut_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :lowCut ; val:port "in" ] .
+:a_lowCut_out__cone_in a val:Arc ;
+    val:from [ val:node :lowCut ; val:port "out" ] ;
+    val:to   [ val:node :cone ; val:port "in" ] .
+:a_cone_out__push_in a val:Arc ;
+    val:from [ val:node :cone ; val:port "out" ] ;
+    val:to   [ val:node :push ; val:port "in" ] .
+:a_push_out__highCut_in a val:Arc ;
+    val:from [ val:node :push ; val:port "out" ] ;
+    val:to   [ val:node :highCut ; val:port "in" ] .
+:a_highCut_out__room_in a val:Arc ;
+    val:from [ val:node :highCut ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :lowCut ; val:property val:frequency ;
+    lv2:name "Low cut" ; lv2:symbol "low_cut" ;
+    lv2:minimum 20 ; lv2:maximum 120 ;
+    val:section "Speaker" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :cone ; val:property val:frequency ;
+    lv2:name "Cone resonance" ; lv2:symbol "cone_freq" ;
+    lv2:minimum 40 ; lv2:maximum 120 ;
+    val:section "Speaker" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :cone ; val:property val:gain ;
+    lv2:name "Cone gain" ; lv2:symbol "cone_gain" ;
+    lv2:minimum 0 ; lv2:maximum 15 ;
+    val:section "Speaker" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :push ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ;
+    lv2:minimum 1 ; lv2:maximum 6 ;
+    val:section "Speaker" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :highCut ; val:property val:frequency ;
+    lv2:name "High cut" ; lv2:symbol "high_cut" ;
+    lv2:minimum 2000 ; lv2:maximum 16000 ;
+    val:section "Speaker" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Room" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :room ; val:property val:decay ;
+    lv2:name "Room decay" ; lv2:symbol "room_decay" ;
+    lv2:minimum 0.1 ; lv2:maximum 3 ;
+    val:section "Room" ;
+    units:unit units:s .

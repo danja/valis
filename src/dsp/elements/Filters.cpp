@@ -2,7 +2,10 @@
 
 #include "Common.h"
 
+#include "Waveguide.h"
 #include "dsp/Random.h"
+
+#include <complex>
 
 namespace valis::elements {
 
@@ -284,6 +287,10 @@ private:
 ///
 /// Implementation: H_ap(z) = (a + z^-1) / (1 + a*z^-1), iterated 4 times in
 /// the comb feedback path. Per sample: y = -a*x + s; s = x + a*y.
+///
+/// The loop is tuned by its total delay, so the delay line is shortened by what
+/// the damping filter and the allpass chain add at the fundamental, and read at
+/// a fractional position (see Waveguide.h).
 class StiffString final : public DspElement
 {
 public:
@@ -294,17 +301,14 @@ public:
         feedbackIndex   = controlIndex(type, "feedback");
         dampingIndex    = controlIndex(type, "damping");
         dispersionIndex = controlIndex(type, "dispersion");
-        buffer.assign(static_cast<std::size_t>(rate / 10.0) + 2, 0.0f);
-        writePos    = 0;
-        filterState = 0.0f;
-        for (auto& s : apState) s = 0.0f;
+        line.prepare(static_cast<std::size_t>(rate / 10.0) + 4);
+        reset();
     }
 
     void reset() override
     {
-        std::fill(buffer.begin(), buffer.end(), 0.0f);
-        writePos    = 0;
-        filterState = 0.0f;
+        line.clear();
+        loss.clear();
         for (auto& s : apState) s = 0.0f;
     }
 
@@ -319,28 +323,24 @@ public:
         const float damping    = std::clamp(controlAt(args, dampingIndex,      0.1f), 0.0f, 1.0f);
         const float dispersion = std::clamp(controlAt(args, dispersionIndex,   0.1f), 0.0f, 1.0f);
 
-        const int delayN  = std::max(1, static_cast<int>(sampleRate / freq + 0.5));
-        const int bufSize = static_cast<int>(buffer.size());
-
-        const float a  = damping * 0.95f;       // LP coefficient
         const float ap = dispersion * 0.85f;    // allpass coefficient
+        loss.setPole(damping * 0.95f);
+
+        const float omega = static_cast<float>(2.0 * M_PI * freq / sampleRate);
+        line.setDelay(static_cast<float>(sampleRate / freq)
+                      - loss.phaseDelay(omega) - allpassPhaseDelay(ap, omega) * kApStages);
 
         const float* in  = args.audioIn[0];
         float*       out = args.audioOut[0];
 
         for (int i = 0; i < args.numSamples; ++i)
         {
-            int readPos = writePos - delayN;
-            if (readPos < 0)
-                readPos += bufSize;
-
-            const float delayed = buffer[static_cast<std::size_t>(readPos)];
+            const float delayed = line.last();
 
             // One-pole LP (brightness decay).
-            filterState = a * filterState + (1.0f - a) * delayed;
+            float v = loss.process(delayed);
 
             // Four allpass stages in the feedback path (dispersion).
-            float v = filterState;
             for (int s = 0; s < kApStages; ++s)
             {
                 const float y = -ap * v + apState[s];
@@ -348,20 +348,28 @@ public:
                 v             = y;
             }
 
-            buffer[static_cast<std::size_t>(writePos)] = in[i] + v * feedback;
+            line.tick(in[i] + v * feedback);
             out[i] = delayed;
-
-            if (++writePos >= bufSize)
-                writePos = 0;
         }
     }
 
 private:
     static constexpr int kApStages = 4;
-    std::vector<float> buffer;
+
+    /// Phase delay of one allpass stage at omega, in samples.
+    static float allpassPhaseDelay(float coefficient, float omega) noexcept
+    {
+        const std::complex<float> z1 = std::polar(1.0f, -omega);
+        const std::complex<float> h  = (-coefficient + z1) / (1.0f - coefficient * z1);
+        float lag = -std::arg(h);
+        if (lag < -1.0e-6f)
+            lag += 2.0f * static_cast<float>(M_PI);
+        return lag / omega;
+    }
+
+    waveguide::Delay line;
+    waveguide::Loss  loss;
     float apState[kApStages] = {};
-    int writePos    = 0;
-    float filterState = 0.0f;
     double sampleRate = 44100.0;
     int freqIndex = -1, feedbackIndex = -1, dampingIndex = -1, dispersionIndex = -1;
 };

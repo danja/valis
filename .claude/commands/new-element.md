@@ -121,3 +121,13 @@ After making changes:
 1. Run `./build.sh` — all 9 tests must pass.
 2. The `dsp_ElementRegistryTest` asserts ontology ↔ registry symmetry; it will catch any mismatch.
 3. Update `TODO.md` if this element was listed there.
+
+### 6. Also
+
+- Regenerate the manual: `scripts/generate-docs.sh` rewrites `docs/manual/elements.md` from the ontology.
+- Add a row to the element table in `docs/guide-for-agents.md`. `tests/docs/GuideTest.cpp` holds the guide to the
+  ontology and fails if an element is missing.
+- Run `dsp_ElementConformanceTest`, which exercises every registered element with every control jumping at once.
+  An element with state that outlives its input needs flush-to-zero or an entry in its excuse list, with a reason.
+- Control elements run once per 32-sample slice, so use `args.numSamples` for time, not 1.
+- A tone or physical-model element needs a measured test (pitch within a few cents across its range), not a smoke test.

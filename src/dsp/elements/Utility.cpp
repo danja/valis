@@ -8,6 +8,7 @@
 #include "dsp/Random.h"
 
 #include <cctype>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -194,6 +195,86 @@ public:
 
 private:
     int aIndex = -1, bIndex = -1;
+};
+
+/// Sum of three control signals. An input with no arc keeps its own value, which
+/// is how an offset (cents, Hz) is written into the element itself.
+class ControlAdd final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        aIndex = controlIndex(type, "a");
+        bIndex = controlIndex(type, "b");
+        cIndex = controlIndex(type, "c");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        args.controlOut[0] = controlAt(args, aIndex, 0.0f) + controlAt(args, bIndex, 0.0f)
+                           + controlAt(args, cIndex, 0.0f);
+    }
+
+private:
+    int aIndex = -1, bIndex = -1, cIndex = -1;
+};
+
+/// Moves a control toward its input over a chosen time, separately for a rise
+/// and a fall. The approach is exponential, so the time is how long the output
+/// takes to cover 90% of a step. The first slice after a reset takes the input
+/// as it is, so a circuit does not start by gliding up from zero.
+class Slew final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        inIndex    = controlIndex(type, "in");
+        riseIndex  = controlIndex(type, "rise");
+        fallIndex  = controlIndex(type, "fall");
+        reset();
+    }
+
+    void reset() override { primed = false; }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const float target = controlAt(args, inIndex, 0.0f);
+        if (!primed)
+        {
+            value  = target;
+            primed = true;
+        }
+        else
+        {
+            const float ms = std::max(controlAt(args, target > value ? riseIndex : fallIndex, 0.0f),
+                                      0.0f);
+            if (ms <= 0.0f)
+            {
+                value = target;
+            }
+            else
+            {
+                const double seconds = static_cast<double>(ms) * 0.001;
+                const double step    = std::log(10.0) * args.numSamples / (seconds * sampleRate);
+                value += (target - value) * static_cast<float>(1.0 - std::exp(-step));
+            }
+        }
+
+        args.controlOut[0] = value;
+    }
+
+private:
+    double sampleRate = 48000.0;
+    float  value  = 0.0f;
+    bool   primed = false;
+    int inIndex = -1, riseIndex = -1, fallIndex = -1;
 };
 
 /// Two-way control switch. `select` picks `a` when it is off and `b` when it is
@@ -974,6 +1055,8 @@ void registerUtility(ElementRegistry& registry)
     registry.add("VCA",             &make<elements::VCA>);
     registry.add("Scale",           &make<elements::Scale>);
     registry.add("ControlMultiply", &make<elements::ControlMultiply>);
+    registry.add("ControlAdd",      &make<elements::ControlAdd>);
+    registry.add("Slew",            &make<elements::Slew>);
     registry.add("Select",          &make<elements::Select>);
     registry.add("Delay",           &make<elements::Delay>);
     registry.add("Mixer",           &make<elements::Mixer>);

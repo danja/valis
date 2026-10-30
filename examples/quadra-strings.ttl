@@ -1,0 +1,216 @@
+# examples/quadra-strings.ttl
+#
+# A string-machine pad in the manner of the ARP Quadra
+# (https://en.wikipedia.org/wiki/ARP_Quadra), whose string section the engineer remembers on
+# New Order's 1983 single "Blue Monday". Each voice is three saws a little apart, softened by a
+# low-pass, with a slow attack. Two choruses at different rates and a slow phaser make the
+# ensemble that string machines are known for. Eight voices.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:quadrastrings#> .
+
+:Voice a val:Subcircuit ;
+    rdfs:label "Voice" ;
+
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ;
+               lv2:symbol "out" ; lv2:name "Out" ;
+               val:node :vca ; val:port "out" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "attack" ; lv2:name "Attack" ;
+               lv2:default 260.0 ; lv2:minimum 5 ; lv2:maximum 3000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "attack" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "release" ; lv2:name "Release" ;
+               lv2:default 520.0 ; lv2:minimum 20 ; lv2:maximum 4000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:ms ;
+               val:node :env ; val:port "release" ] ,
+
+             [ a lv2:InputPort , lv2:ControlPort ;
+               lv2:symbol "brightness" ; lv2:name "Brightness" ;
+               lv2:default 4200.0 ; lv2:minimum 600 ; lv2:maximum 12000 ;
+               lv2:portProperty lv2:logarithmic ;
+               units:unit units:hertz ;
+               val:node :tone ; val:port "cutoff" ] ;
+
+    val:element :pitch , :up , :down , :sawA , :sawB , :sawC , :sum , :tone , :thin , :env , :vca ;
+    val:arc :v_pitch_out__sawA_frequency ,
+        :v_pitch_out__up_a ,
+        :v_up_out__sawB_frequency ,
+        :v_pitch_out__down_a ,
+        :v_down_out__sawC_frequency ,
+        :v_sawA_out__sum_in ,
+        :v_sawB_out__sum_in ,
+        :v_sawC_out__sum_in ,
+        :v_sum_out__tone_in ,
+        :v_tone_out__thin_in ,
+        :v_thin_out__vca_in ,
+        :v_env_out__vca_cv .
+
+:pitch a val:MidiPitch .
+
+:up a val:ControlMultiply ;
+    val:b 1.0065 .
+
+:down a val:ControlMultiply ;
+    val:b 0.9935 .
+
+:sawA a val:Oscillator ;
+    val:shape 1 .
+
+:sawB a val:Oscillator ;
+    val:shape 1 .
+
+:sawC a val:Oscillator ;
+    val:shape 1 .
+
+:sum a val:Mixer .
+
+:tone a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 4200.0 .
+
+:thin a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 180.0 .
+
+:env a val:Envelope ;
+    val:attack 260.0 ;
+    val:decay 300.0 ;
+    val:sustain 1.0 ;
+    val:release 520.0 .
+
+:vca a val:VCA .
+
+:v_pitch_out__sawA_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :sawA ; val:port "frequency" ] .
+:v_pitch_out__up_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :up ; val:port "a" ] .
+:v_up_out__sawB_frequency a val:Arc ;
+    val:from [ val:node :up ; val:port "out" ] ;
+    val:to   [ val:node :sawB ; val:port "frequency" ] .
+:v_pitch_out__down_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :down ; val:port "a" ] .
+:v_down_out__sawC_frequency a val:Arc ;
+    val:from [ val:node :down ; val:port "out" ] ;
+    val:to   [ val:node :sawC ; val:port "frequency" ] .
+:v_sawA_out__sum_in a val:Arc ;
+    val:from [ val:node :sawA ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_sawB_out__sum_in a val:Arc ;
+    val:from [ val:node :sawB ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_sawC_out__sum_in a val:Arc ;
+    val:from [ val:node :sawC ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:v_sum_out__tone_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "in" ] .
+:v_tone_out__thin_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :thin ; val:port "in" ] .
+:v_thin_out__vca_in a val:Arc ;
+    val:from [ val:node :thin ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:v_env_out__vca_cv a val:Arc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+
+:quadrastrings a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Strings", "Pad", "Ensemble" ;
+    rdfs:label "Quadra strings" ;
+    val:element :poly , :ens1 , :ens2 , :swirl , :room , :trim , :limit , :out ;
+    val:arc :a_poly_out__ens1_in ,
+        :a_ens1_out__ens2_in ,
+        :a_ens2_out__swirl_in ,
+        :a_swirl_out__room_in ,
+        :a_room_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:poly a :Voice ; val:voices 8 .
+
+:ens1 a val:Chorus ;
+    val:rate 0.55 ;
+    val:depth 3.0 ;
+    val:mix 0.5 .
+
+:ens2 a val:Chorus ;
+    val:rate 0.83 ;
+    val:depth 2.2 ;
+    val:mix 0.5 .
+
+:swirl a val:Phaser ;
+    val:rate 0.18 ;
+    val:depth 0.7 ;
+    val:feedback 0.25 ;
+    val:mix 0.3 .
+
+:room a val:Reverb ;
+    val:size 1.1 ;
+    val:decay 2.2 ;
+    val:damping 0.5 ;
+    val:mix 0.2 .
+
+:trim a val:Gain ;
+    val:gain -10.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_poly_out__ens1_in a val:Arc ;
+    val:from [ val:node :poly ; val:port "out" ] ;
+    val:to   [ val:node :ens1 ; val:port "in" ] .
+:a_ens1_out__ens2_in a val:Arc ;
+    val:from [ val:node :ens1 ; val:port "out" ] ;
+    val:to   [ val:node :ens2 ; val:port "in" ] .
+:a_ens2_out__swirl_in a val:Arc ;
+    val:from [ val:node :ens2 ; val:port "out" ] ;
+    val:to   [ val:node :swirl ; val:port "in" ] .
+:a_swirl_out__room_in a val:Arc ;
+    val:from [ val:node :swirl ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__trim_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :poly ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 3000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :poly ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 20 ; lv2:maximum 4000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :poly ; val:property val:brightness ;
+    lv2:name "Brightness" ; lv2:symbol "brightness" ;
+    lv2:minimum 600 ; lv2:maximum 12000 ;
+    val:section "Tone" ;
+    units:unit units:hertz .

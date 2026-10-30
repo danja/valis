@@ -1,5 +1,5 @@
 from gen import build
-N=[("pitch","MidiPitch",{}),("tuneFix","ControlMultiply",{"b":1.025}),("dc","OnePole",{"mode":1,"cutoff":35.0}),("pluckEnv","Envelope",{"attack":0.1,"decay":6.0,"sustain":0.0,"release":2.0}),
+N=[("pitch","MidiPitch",{}),("dc","OnePole",{"mode":1,"cutoff":35.0}),("pluckEnv","Envelope",{"attack":0.1,"decay":6.0,"sustain":0.0,"release":2.0}),
  ("noise","Noise",{"colour":0.15}),("pluckVca","VCA",{}),("pick","StateVariable",{"cutoff":3800.0,"resonance":0.9}),
  ("string","StiffString",{"feedback":0.988,"damping":0.28,"dispersion":0.015}),
  ("ampEnv","Envelope",{"attack":0.5,"decay":2800.0,"sustain":0.0,"release":450.0}),("ampVca","VCA",{}),
@@ -9,7 +9,7 @@ N=[("pitch","MidiPitch",{}),("tuneFix","ControlMultiply",{"b":1.025}),("dc","One
  ("echo","BucketBrigade",{"time":375.0,"feedback":0.5,"bandwidth":0.28}),("wet","Mixer",{}),
  ("trem","Tape",{"drive":4.0,"bump":2.0,"wow":0.4,"flutter":0.3,"hf":9000.0}),
  ("trim","Gain",{"gain":6.0}),("limit","Limiter",{"ceiling":-1.0}),("out","Output",{})]
-A=[("pitch","out","tuneFix","a"),("tuneFix","out","string","frequency"),("pluckEnv","out","pluckVca","cv"),("noise","out","pluckVca","in"),
+A=[("pitch","out","string","frequency"),("pluckEnv","out","pluckVca","cv"),("noise","out","pluckVca","in"),
  ("pluckVca","out","pick","in"),("pick","lp","string","in"),
  ("string","out","ampVca","in"),("ampEnv","out","ampVca","cv"),
  ("ampVca","out","dc","in"),("dc","out","pickup","in"),("pickup","bp","body","in"),("dc","out","body","in"),
@@ -33,7 +33,6 @@ dispersion), a bandpass stands in for the pickup, a soft clip for the amp, a sma
 spring-style reverb, and a bucket-brigade echo set to a dotted eighth that darkens as
 it repeats. The tape stage adds a slow wobble.
 
-The string runs flat by an amount that grows with pitch (about 25 cents at E3 and 100 cents at E5),
-so the pitch is raised by 2.5 per cent to centre the middle of the range; it is in tune near
-G3 to G4. Play it there. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.""",
+The string is tuned across its range (see tests/dsp/StiffStringTest.cpp). It plays single notes only,
+as the riff does. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.""",
 ["Guitar","Surf","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-guitar.ttl")

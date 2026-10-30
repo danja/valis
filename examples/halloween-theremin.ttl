@@ -1,9 +1,9 @@
 # examples/halloween-theremin.ttl
 #
-# A theremin for the song's unearthly lead. There is no glide element yet, so the glide is
-# made another way: every note scoops up from about a semitone below, a wide vibrato rides on
-# the pitch, and a slow random drift stops it sounding like a sequencer. The pitch passes through
-# three ControlMultiply stages (scoop, vibrato, drift), each a ratio close to 1.
+# A theremin for the song's unearthly lead. The pitch travels between notes through a
+# val:Slew, and every note also scoops up from about a semitone below. A wide vibrato rides on
+# the pitch, and a slow random drift stops it sounding like a sequencer. The pitch then passes
+# through three ControlMultiply stages (scoop, vibrato, drift), each a ratio close to 1.
 #
 # The tone is a sine pushed slightly into a soft clipper and low-passed, then a slow phaser, a
 # long echo and a cavernous hall. Play long notes with legato touch for the best effect.
@@ -21,9 +21,10 @@
     trn:produces trn:Audio ;
     trn:genre "Theremin", "Lead", "Gothic" ;
     rdfs:label "Halloween: theremin" ;
-    val:element :pitch , :scoopEnv , :scoop , :scoopMul , :vib , :vibScale , :vibMul , :wander , :wanderMul , :osc , :edge , :tone , :ampEnv , :vca , :phase , :echo , :wet , :hall , :trim , :limit , :out ;
+    val:element :pitch , :glide , :scoopEnv , :scoop , :scoopMul , :vib , :vibScale , :vibMul , :wander , :wanderMul , :osc , :edge , :tone , :ampEnv , :vca , :phase , :echo , :wet , :hall , :trim , :limit , :out ;
     val:arc :a_scoopEnv_out__scoop_in ,
-        :a_pitch_out__scoopMul_a ,
+        :a_pitch_out__glide_in ,
+        :a_glide_out__scoopMul_a ,
         :a_scoop_out__scoopMul_b ,
         :a_vib_out__vibScale_in ,
         :a_scoopMul_out__vibMul_a ,
@@ -45,6 +46,10 @@
         :a_limit_out__out_in .
 
 :pitch a val:MidiPitch .
+
+:glide a val:Slew ;
+    val:rise 140.0 ;
+    val:fall 140.0 .
 
 :scoopEnv a val:Envelope ;
     val:attack 170.0 ;
@@ -124,8 +129,11 @@
 :a_scoopEnv_out__scoop_in a val:Arc ;
     val:from [ val:node :scoopEnv ; val:port "out" ] ;
     val:to   [ val:node :scoop ; val:port "in" ] .
-:a_pitch_out__scoopMul_a a val:Arc ;
+:a_pitch_out__glide_in a val:Arc ;
     val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :glide ; val:port "in" ] .
+:a_glide_out__scoopMul_a a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
     val:to   [ val:node :scoopMul ; val:port "a" ] .
 :a_scoop_out__scoopMul_b a val:Arc ;
     val:from [ val:node :scoop ; val:port "out" ] ;
@@ -185,6 +193,18 @@
     val:from [ val:node :limit ; val:port "out" ] ;
     val:to   [ val:node :out ; val:port "in" ] .
 
+:p11 a val:Param ; val:slot 11 ;
+    val:target :glide ; val:property val:rise ;
+    lv2:name "Glide up" ; lv2:symbol "glide_up" ;
+    lv2:minimum 0 ; lv2:maximum 1000 ;
+    val:section "Hand" ;
+    units:unit units:ms .
+:p12 a val:Param ; val:slot 12 ;
+    val:target :glide ; val:property val:fall ;
+    lv2:name "Glide down" ; lv2:symbol "glide_down" ;
+    lv2:minimum 0 ; lv2:maximum 1000 ;
+    val:section "Hand" ;
+    units:unit units:ms .
 :p0 a val:Param ; val:slot 0 ;
     val:target :scoop ; val:property val:min ;
     lv2:name "Scoop depth" ; lv2:symbol "scoop_depth" ;
