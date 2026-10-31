@@ -58,6 +58,8 @@ The [manual](manual/index.md) has case studies for some of them.
 - `metal-bash.ttl`: a hammer striking a sheet of metal, tuned to MIDI. Noise through a
   granulator makes the strike, two parallel modal banks (plate and bar tables) make the
   ring, and a distortion, filters, compressor and short delays follow. Four voices.
+- `metal-clang.ttl`: `metal-bash.ttl` with a short ring (about a third of a second) and a hotter drive, and the hammer's
+  noise burst sent straight to the output as well. It is a struck sheet where `metal-bash` rings like a bell. Play it from C2 to C4.
 - `808-bd.ttl`: a TR-808 bass drum, a bridged-T network with a pitch sweep.
 - `dmx.ttl`: the Oberheim DMX, a seventeen-sound kit that plays the captured
   samples in `samples/Oberheim DMX`, as the real machine played its ROM. One voice

@@ -165,6 +165,13 @@ struct TanhShape
 
     static double antiderivative2(double x) noexcept
     {
+        // exp(-2x) overflows below about -354, and the difference of infinities that follows is NaN,
+        // which then stays in every filter downstream. The function is odd (it is the integral of
+        // log cosh, which is even, and is zero at zero), so a large negative x is read from the
+        // positive side, where exp(-2x) underflows harmlessly to zero.
+        if (x < -300.0)
+            return -antiderivative2(-x);
+
         const double expVal = std::exp(-2.0 * x);
         return 0.5 * (dilogNegative(-expVal)
                       - x * (x + 2.0 * std::log1p(expVal) - 2.0 * antiderivative1(x)))

@@ -18,6 +18,7 @@ set(VALIS_TESTS
   dsp/SpectralExtrasTest.cpp
   dsp/FluteTest.cpp
   dsp/StiffStringTest.cpp
+  dsp/AdaaTest.cpp
   dsp/FreeModalBankTest.cpp
   dsp/ControlMathTest.cpp
   dsp/ClarinetTest.cpp

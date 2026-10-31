@@ -318,8 +318,13 @@ reported to the host.
 * **The 909 stem clips four samples** (true peak +1.16 dBTP). Lower its output trim in `909.ttl` or note that stems are
   levelled in the mix.
 * **Move the dub-metal brief** from `sources/dub-metal-prompt.md` to `sources/dub-metal/` as `docs/dir-layout.md` asks.
-* **Needs a listener:** dub-metal v1 to v3. Is the bass heavy, do the stabs bubble, is the metal present, does the breakdown
-  work? The report has the questions.
+* **Needs a listener:** dub-metal v4. v3 was heard as stabs that did not bubble and metal that sounded like bells; v4 changes
+  both (`metal-clang.ttl`, shorter and denser stabs) and the figures moved, but only a listener can say if it works.
+* **Rebuild the Release tools.** `build-release/valis_render` is older than the source, so `track.py` takes `VALIS_RENDER` to name
+  a binary. Rebuild `build-release` so the default is current, and have `track.py` refuse a binary older than `Adaa.h` and the
+  other DSP sources.
+* **Lint for NaN-prone stages.** A gain chain of 27 dB into a drive of 16 was legal in every range yet produced NaN before the
+  `Adaa.h` fix. A render that reports `nan` should fail `valis-render` with a non-zero exit, not just print it.
 
 ## Found while building the Halloween set
 

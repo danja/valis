@@ -366,3 +366,17 @@ the gains are written for, and the output gain was set without rendering.
 
 **Prevention.** Render a new example and read the peak before using it. `testFitModes` now asserts the peak is under 1.
 A lint for gain staging estimated from the element chain is still in `TODO.md`.
+
+## A tanh stage that turned a loud input into NaN, and a stem I reported before reading its log
+
+**What happened.** `examples/metal-clang.ttl` rendered one click and then silence. The render log said `rms nan`, and I
+started the mix without reading it. The NaN came from `val:Tanh` in `ADAA2` mode: `TanhShape::antiderivative2` computes
+`exp(-2x)`, which overflows for x below about -354, and the difference of infinities that follows is NaN. A dry click
+boosted by 27 dB, then a drive of 16, reached that size. The NaN then stayed in every filter after it.
+
+**Root cause.** The shape was written for audio-sized input and nothing bounded it. No test covered `Adaa.h` directly.
+
+**Prevention.** `antiderivative2` now reads large negative x from the positive side (the function is odd). `tests/dsp/AdaaTest.cpp`
+checks finiteness out to 1e6, the join at the switch-over, and a swing between -4000 and 4000. Read the render log before
+mixing: a `nan` or `exceeds full scale` there is a failed stem. Also, `track.py` picks the Release binary first, and that
+binary can be older than the source, so it now takes `VALIS_RENDER` to name one.
