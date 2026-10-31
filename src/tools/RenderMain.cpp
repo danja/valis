@@ -8,6 +8,7 @@
 #include "valis/CircuitCompiler.h"
 #include "valis/CircuitModel.h"
 #include "valis/DspElement.h"
+#include "valis/MidiScore.h"
 #include "valis/Ontology.h"
 #include "valis/TurtleStore.h"
 #include "valis/ValisEngine.h"
@@ -42,59 +43,6 @@ struct Options
     bool   rolling    = false; ///< whether the transport is running
     std::string midiPath;      ///< a standard MIDI file played into the circuit
 };
-
-/// One note event from a MIDI file, placed by stream position in samples.
-struct TimedNote
-{
-    long long sample = 0;
-    bool      on     = false;
-    int       note   = 0;
-    float     velocity = 0.0f;
-};
-
-/// Reads every note of a standard MIDI file onto a sample timeline at a fixed tempo.
-/// Times are ticks over the file's resolution in quarter notes, so the file is
-/// placed as it would be under a host playing at that tempo.
-bool readMidiNotes(const Options& options, std::vector<TimedNote>& notes)
-{
-    juce::MidiFile file;
-    juce::FileInputStream in{juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(options.midiPath))};
-    if (! in.openedOk() || ! file.readFrom(in))
-    {
-        std::fprintf(stderr, "cannot read MIDI file %s\n", options.midiPath.c_str());
-        return false;
-    }
-
-    const int division = file.getTimeFormat();
-    if (division <= 0)
-    {
-        std::fprintf(stderr, "%s: SMPTE time is not supported\n", options.midiPath.c_str());
-        return false;
-    }
-
-    for (int t = 0; t < file.getNumTracks(); ++t)
-    {
-        const auto* sequence = file.getTrack(t);
-        for (int i = 0; i < sequence->getNumEvents(); ++i)
-        {
-            const auto& message = sequence->getEventPointer(i)->message;
-            if (! message.isNoteOnOrOff())
-                continue;
-
-            const double quarters = message.getTimeStamp() / static_cast<double>(division);
-            TimedNote note;
-            note.sample   = static_cast<long long>(quarters * 60.0 / options.tempo * options.sampleRate);
-            note.on       = message.isNoteOn();
-            note.note     = message.getNoteNumber();
-            note.velocity = message.getFloatVelocity();
-            notes.push_back(note);
-        }
-    }
-
-    std::stable_sort(notes.begin(), notes.end(),
-                     [](const TimedNote& a, const TimedNote& b) { return a.sample < b.sample; });
-    return true;
-}
 
 /// Prints the element reference as markdown, straight from the ontology, so
 /// docs/manual/elements.md cannot drift from what the plugin actually offers.
@@ -330,9 +278,16 @@ int main(int argc, char** argv)
     if (input.empty())
         return 1;
 
-    std::vector<TimedNote> score;
-    if (! options.midiPath.empty() && ! readMidiNotes(options, score))
-        return 1;
+    std::vector<valis::TimedNote> score;
+    if (! options.midiPath.empty())
+    {
+        std::string midiError;
+        if (! valis::readMidiScore(options.midiPath, options.tempo, options.sampleRate, score, midiError))
+        {
+            std::fprintf(stderr, "%s\n", midiError.c_str());
+            return 1;
+        }
+    }
     std::size_t nextEvent = 0;
 
     std::vector<float> outputL(input.size(), 0.0f);

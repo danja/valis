@@ -8,6 +8,10 @@
 #include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
 #include "valis/Lint.h"
+#include "valis/MidiScore.h"
+#include "valis/ModalFit.h"
+#include "valis/ShotReport.h"
+#include "valis/SpectralDistance.h"
 #include "valis/Suggest.h"
 #include "valis/Ontology.h"
 #include "valis/TurtleStore.h"
@@ -1296,15 +1300,27 @@ OpResult buildFreshRig(const OpContext& ctx, double sampleRate, int block, Fresh
 }  // namespace
 
 OpResult OpDispatcher::render(const std::string& path, double seconds, double sampleRate,
-                              int note, double velocity) const
+                              int note, double velocity,
+                              const std::string& midiPath, double tempo, bool rolling) const
 {
     if (path.empty())
         return OpResult::failure("render needs an output path");
+
+    tempo = std::clamp(tempo, 20.0, 400.0);
 
     seconds    = std::clamp(seconds, 0.05, 60.0);
     sampleRate = std::clamp(sampleRate, 8000.0, 192000.0);
 
     constexpr int kBlock = 512;
+
+    std::vector<TimedNote> score;
+    if (! midiPath.empty())
+    {
+        std::string midiError;
+        if (! readMidiScore(midiPath, tempo, sampleRate, score, midiError))
+            return OpResult::failure(midiError);
+    }
+    std::size_t nextEvent = 0;
 
     // A fresh model, compiler and engine, so rendering neither reads nor
     // disturbs whatever the plugin is currently playing.
@@ -1327,7 +1343,22 @@ OpResult OpDispatcher::render(const std::string& path, double seconds, double sa
     {
         const int n = std::min(kBlock, total - at);
 
-        if (note >= 0 && note <= 127)
+        // A score event fires in the block that contains it, at its own offset.
+        while (nextEvent < score.size() && score[nextEvent].sample < at + n)
+        {
+            const auto& e = score[nextEvent++];
+            const int offset = static_cast<int>(std::max<long long>(0, e.sample - at));
+            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
+            else      engine.queueNoteOff(e.note, offset);
+        }
+
+        TransportInfo transport;
+        transport.playing     = rolling;
+        transport.tempoBpm    = tempo;
+        transport.ppqPosition = rolling ? static_cast<double>(at) / sampleRate * tempo / 60.0 : 0.0;
+        engine.setTransport(transport);
+
+        if (midiPath.empty() && note >= 0 && note <= 127)
         {
             if (at == 0)
                 engine.queueNoteOn(note, static_cast<float>(std::clamp(velocity, 0.0, 1.0)), 0);
@@ -1394,38 +1425,272 @@ OpResult OpDispatcher::lint() const
     return OpResult::success(lintToJson(lintCircuit(*model)));
 }
 
-OpResult OpDispatcher::analyze(const std::string& path) const
+namespace {
+OpResult fromShot(const ShotResult& r)
 {
-    if (path.empty())
-        return OpResult::failure("analyze needs the path of a wav file");
+    return r.ok ? OpResult::success(r.json) : OpResult::failure(r.error);
+}
+}  // namespace
 
+OpResult OpDispatcher::measure(const std::string& path) const
+{
+    return fromShot(shotMeasure(path));
+}
+
+OpResult OpDispatcher::compare(const std::string& pathA, const std::string& pathB) const
+{
+    return fromShot(shotCompare(pathA, pathB));
+}
+
+OpResult OpDispatcher::listen(const std::string& path, const std::vector<std::string>& queries) const
+{
+    return fromShot(shotListen(path, queries));
+}
+
+OpResult OpDispatcher::soundsLike(const std::string& path, const std::string& sentence) const
+{
+    return fromShot(shotIs(path, sentence));
+}
+
+/// A sound file mixed to mono, up to `maxSeconds` of it, at the file's own sample rate (held to 8 kHz to 192 kHz).
+bool readMonoFile(const std::string& path, double maxSeconds, double& rate, std::vector<float>& mono, std::string& error)
+{
     const juce::File file(juce::File::isAbsolutePath(juce::String(path))
                               ? juce::File(juce::String(path))
                               : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path)));
     if (! file.existsAsFile())
-        return OpResult::failure("no such file: " + file.getFullPathName().toStdString());
+    {
+        error = "no such file: " + file.getFullPathName().toStdString();
+        return false;
+    }
 
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
     if (reader == nullptr)
-        return OpResult::failure("not an audio file this build can read: " + file.getFullPathName().toStdString());
+    {
+        error = "not an audio file this build can read: " + file.getFullPathName().toStdString();
+        return false;
+    }
 
-    // Sixty seconds is plenty to say what a sound is, and bounds the work and the memory.
+    rate = std::clamp(reader->sampleRate, 8000.0, 192000.0);
     const auto frames = static_cast<int>(std::min<juce::int64>(reader->lengthInSamples,
-                                                               static_cast<juce::int64>(reader->sampleRate * 60.0)));
+                                                               static_cast<juce::int64>(maxSeconds * rate)));
     if (frames <= 0)
-        return OpResult::failure("the file holds no audio");
+    {
+        error = "the file holds no audio";
+        return false;
+    }
 
-    juce::AudioBuffer<float> buffer(static_cast<int>(std::min<unsigned>(reader->numChannels, 2u)), frames);
-    reader->read(&buffer, 0, frames, 0, true, buffer.getNumChannels() > 1);
+    juce::AudioBuffer<float> recorded(static_cast<int>(std::min<unsigned>(reader->numChannels, 2u)), frames);
+    reader->read(&recorded, 0, frames, 0, true, recorded.getNumChannels() > 1);
+    mono.assign(static_cast<std::size_t>(frames), 0.0f);
+    for (int i = 0; i < frames; ++i)
+    {
+        float sum = 0.0f;
+        for (int c = 0; c < recorded.getNumChannels(); ++c)
+            sum += recorded.getSample(c, i);
+        mono[static_cast<std::size_t>(i)] = sum / static_cast<float>(recorded.getNumChannels());
+    }
+    return true;
+}
 
-    const std::vector<float> left(buffer.getReadPointer(0), buffer.getReadPointer(0) + frames);
-    std::vector<float> right;
-    if (buffer.getNumChannels() > 1)
-        right.assign(buffer.getReadPointer(1), buffer.getReadPointer(1) + frames);
+OpResult OpDispatcher::fitParams(const std::string& targetPath, int note, double velocity, double seconds,
+                                 int evaluations, const std::vector<int>& slots) const
+{
+    if (targetPath.empty())
+        return OpResult::failure("fit needs the path of the recording to match");
+    if (note < 0 || note > 127)
+        return OpResult::failure("fit needs a MIDI note to play, 0 to 127");
 
-    return OpResult::success(reportToJson(analyseSignal(left, right, reader->sampleRate)));
+    seconds     = std::clamp(seconds, 0.25, 10.0);
+    evaluations = std::clamp(evaluations, 2, 400);
+
+    // The recording, mixed to mono, as much of it as will be rendered.
+    double rate = 0.0;
+    std::vector<float> target;
+    std::string readError;
+    if (! readMonoFile(targetPath, seconds, rate, target, readError))
+        return OpResult::failure(readError);
+    const auto total = static_cast<int>(target.size());
+    if (total < 2048)
+        return OpResult::failure("the recording is too short to match (under 2048 samples)");
+    const juce::File file(juce::File::isAbsolutePath(juce::String(targetPath))
+                              ? juce::File(juce::String(targetPath))
+                              : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(targetPath)));
+
+    const auto all = listParams();
+    if (all.empty())
+        return OpResult::failure("the circuit has no val:Param to search; bind the settings that matter first");
+
+    // Which parameters move. The search is over the unit interval for each, evenly in the logarithm where the
+    // range spans decades, as a person sweeps a frequency; a bound of plus or minus a million means \"unbounded\" and is
+    // held to a thousand.
+    struct Axis { ParamInfo param; double lo = 0.0, hi = 1.0; bool logScale = false; };
+    std::vector<Axis> axes;
+    for (const auto& p : all)
+    {
+        if (! slots.empty() && std::find(slots.begin(), slots.end(), p.slot) == slots.end())
+            continue;
+        Axis a{p, p.minimum <= -1.0e5 ? -1000.0 : p.minimum, p.maximum >= 1.0e5 ? 1000.0 : p.maximum, false};
+        if (! (a.hi > a.lo))
+            continue;
+        a.logScale = a.lo > 0.0 && a.hi / a.lo >= 50.0;
+        axes.push_back(a);
+    }
+    if (axes.empty())
+        return OpResult::failure("none of the requested slots is a parameter with a range to search");
+
+    const auto toValue = [](const Axis& a, double u)
+    {
+        return a.logScale ? a.lo * std::pow(a.hi / a.lo, u) : a.lo + (a.hi - a.lo) * u;
+    };
+    const auto toUnit = [](const Axis& a, double v)
+    {
+        v = std::clamp(v, a.lo, a.hi);
+        return a.logScale ? std::log(v / a.lo) / std::log(a.hi / a.lo) : (v - a.lo) / (a.hi - a.lo);
+    };
+
+    constexpr int kBlock = 512;
+    const std::vector<float> silence(kBlock, 0.0f);
+    const int noteOffAt = static_cast<int>(static_cast<double>(total) * 0.8);
+
+    // One render of the circuit with every searched parameter at the given unit position.
+    const auto distanceAt = [&](const std::vector<double>& unit, OpResult& failure) -> double
+    {
+        FreshRig rig;
+        if (auto built = buildFreshRig(ctx, rate, kBlock, rig); ! built.ok)
+        {
+            failure = built;
+            return -1.0;
+        }
+
+        for (std::size_t i = 0; i < axes.size(); ++i)
+        {
+            const auto value = static_cast<float>(toValue(axes[i], unit[i]));
+            rig.engine.setControl(axes[i].param.targetNode, axes[i].param.property, value);
+            for (const auto& binding : rig.model.params())
+                if (binding.slot == axes[i].param.slot)
+                    for (const auto& [node, port] : binding.alsoTargets)
+                        rig.engine.setControl(node, port, value);
+        }
+
+        std::vector<float> left(static_cast<std::size_t>(total), 0.0f), right(static_cast<std::size_t>(total), 0.0f);
+        for (int at = 0; at < total; at += kBlock)
+        {
+            const int n = std::min(kBlock, total - at);
+            if (at == 0)
+                rig.engine.queueNoteOn(note, static_cast<float>(std::clamp(velocity, 0.0, 1.0)), 0);
+            if (noteOffAt >= at && noteOffAt < at + n)
+                rig.engine.queueNoteOff(note, noteOffAt - at);
+            rig.engine.process(silence.data(), left.data() + at, right.data() + at, n);
+        }
+
+        std::vector<float> mono(static_cast<std::size_t>(total));
+        for (std::size_t i = 0; i < mono.size(); ++i)
+        {
+            mono[i] = 0.5f * (left[i] + right[i]);
+            if (! std::isfinite(mono[i]))
+                return 1.0e6;   // a diverged render is as far from the target as it gets
+        }
+        return spectralDistance(target, mono, rate).meanDb;
+    };
+
+    std::vector<double> parent;
+    for (const auto& a : axes)
+        parent.push_back(toUnit(a, a.param.value));
+
+    OpResult failure;
+    const double startDistance = distanceAt(parent, failure);
+    if (startDistance < 0.0)
+        return failure;
+
+    // (1 + 4) evolution strategy: four children per generation from the best so far, the step growing after a
+    // gain and shrinking after none. The seed is fixed, so the same call finds the same settings.
+    constexpr int kChildren = 4;
+    dsp::Random random(0x5EA2C4u);
+    const auto gaussian = [&random] { return random.bipolar() + random.bipolar() + random.bipolar(); };
+
+    double best = startDistance, step = 0.2;
+    int used = 1;
+    while (used < evaluations)
+    {
+        bool improved = false;
+        for (int child = 0; child < kChildren && used < evaluations; ++child, ++used)
+        {
+            auto trial = parent;
+            for (auto& u : trial)
+                u = std::clamp(u + step * static_cast<double>(gaussian()), 0.0, 1.0);
+
+            const double d = distanceAt(trial, failure);
+            if (d < 0.0)
+                return failure;
+            if (d < best)
+            {
+                best = d;
+                parent = std::move(trial);
+                improved = true;
+            }
+        }
+        step = improved ? std::min(0.5, step * 1.3) : std::max(0.003, step * 0.75);
+    }
+
+    std::string found = "[";
+    for (std::size_t i = 0; i < axes.size(); ++i)
+        found += std::string(i ? "," : "") + "{\"slot\":" + std::to_string(axes[i].param.slot)
+               + ",\"name\":" + jsonString(axes[i].param.name)
+               + ",\"node\":" + jsonString(axes[i].param.targetNode)
+               + ",\"property\":" + jsonString(axes[i].param.property)
+               + ",\"start\":" + number(axes[i].param.value)
+               + ",\"best\":" + number(toValue(axes[i], parent[i])) + "}";
+    found += "]";
+
+    return OpResult::success("{\"target\":" + jsonString(file.getFullPathName().toStdString())
+                             + ",\"note\":" + std::to_string(note)
+                             + ",\"seconds\":" + number(static_cast<double>(total) / rate)
+                             + ",\"evaluations\":" + std::to_string(used)
+                             + ",\"startDistanceDb\":" + number(startDistance)
+                             + ",\"bestDistanceDb\":" + number(best)
+                             + ",\"params\":" + found + "}");
+}
+
+OpResult OpDispatcher::fitModes(const std::string& path, int modes, double seconds) const
+{
+    if (path.empty())
+        return OpResult::failure("fit_modes needs the path of a recording of a struck sound");
+
+    modes   = std::clamp(modes, 1, 64);
+    seconds = std::clamp(seconds, 0.25, 10.0);
+
+    double rate = 0.0;
+    std::vector<float> mono;
+    std::string error;
+    if (! readMonoFile(path, seconds, rate, mono, error))
+        return OpResult::failure(error);
+
+    const auto fitted = valis::fitModes(mono, rate, modes);
+    if (fitted.empty())
+        return OpResult::failure("no modes found: the recording is silent, shorter than 4096 samples, or has no "
+                                 "tonal peaks. It should be a struck sound, a bell or a drum, not a held note or noise.");
+
+    // How near the fitted bank, struck by an impulse, is to the recording from its onset.
+    float loudest = 0.0f;
+    for (const float x : mono)
+        loudest = std::max(loudest, std::abs(x));
+    std::size_t onset = 0;
+    while (onset < mono.size() && std::abs(mono[onset]) < loudest * 0.1f)
+        ++onset;
+    const std::vector<float> heard(mono.begin() + static_cast<std::ptrdiff_t>(onset), mono.end());
+    const auto distance = spectralDistance(heard, renderModes(fitted, rate, heard.size()), rate).meanDb;
+
+    const auto text = modesToString(fitted);
+    return OpResult::success("{\"file\":" + jsonString(path)
+                             + ",\"sampleRate\":" + number(rate)
+                             + ",\"count\":" + std::to_string(fitted.size())
+                             + ",\"modes\":" + jsonString(text)
+                             + ",\"distanceDb\":" + number(distance)
+                             + ",\"turtle\":" + jsonString(":bank a val:FreeModalBank ; val:modes \"" + text + "\" .")
+                             + "}");
 }
 
 OpResult OpDispatcher::checkStability(int trials, double seconds, int note) const

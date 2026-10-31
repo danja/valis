@@ -96,6 +96,39 @@ std::vector<LintFinding> lintCircuit(const CircuitModel& model)
         }
     }
 
+    // 1a. A value outside the port's declared range. Many elements clamp to it, so the value is not what plays, and
+    // the knob view cannot show it. Info, not a warning: whether an element clamps is its own business, and a
+    // voiced subcircuit repeats the same finding once per voice, so each is reported once.
+    std::set<std::string> reportedRange;
+    const auto addRange = [&](const char* code, std::string node, std::string port, std::string message)
+    {
+        if (reportedRange.insert(std::string(code) + message).second)
+            add(Severity::info, code, std::move(node), std::move(port), std::move(message));
+    };
+
+    for (const auto& element : elements)
+    {
+        if (element.type == nullptr)
+            continue;
+
+        for (const auto& [symbol, value] : element.properties)
+        {
+            if (controlled.count({element.id, symbol}) != 0)
+                continue;   // reported above, and the arc replaces it anyway
+
+            const auto* port = element.type->findPort(symbol, true, true);
+            if (port == nullptr || port->enumeration || port->maximum <= port->minimum)
+                continue;
+            if (value >= port->minimum && value <= port->maximum)
+                continue;
+
+            addRange("value-out-of-range", element.id, symbol,
+                "val:" + symbol + " is " + number(value) + " on " + shortId(element.id) + ", outside the port's range of "
+                + number(port->minimum) + " to " + number(port->maximum) + ". The element may clamp it. Use a value inside "
+                "it, or widen the range in the ontology if the element really takes it.");
+        }
+    }
+
     // 1b. A val: property the element does not know. Any val: property that is not a control
     // port is taken as an option, so a misspelt port name sets nothing and says nothing.
     for (const auto& element : elements)
@@ -144,6 +177,20 @@ std::vector<LintFinding> lintCircuit(const CircuitModel& model)
                 "resting value instead.");
         }
 
+        // A knob range wider than the port's own turns past what the element takes.
+        const auto* target = model.findElement(binding.targetNode);
+        const auto* targetPort = target != nullptr && target->type != nullptr
+                                     ? target->type->findPort(binding.propertySymbol, true, true) : nullptr;
+        if (targetPort != nullptr && ! targetPort->enumeration && targetPort->maximum > targetPort->minimum
+            && ((binding.minimum && *binding.minimum < targetPort->minimum)
+                || (binding.maximum && *binding.maximum > targetPort->maximum)))
+            addRange("param-range-wider", binding.targetNode, binding.propertySymbol,
+                "Parameter slot " + std::to_string(binding.slot) + " (" + binding.name + ") runs from "
+                + number(binding.minimum.value_or(targetPort->minimum)) + " to "
+                + number(binding.maximum.value_or(targetPort->maximum)) + ", but " + binding.propertySymbol + " on "
+                + shortId(binding.targetNode) + " only takes " + number(targetPort->minimum) + " to "
+                + number(targetPort->maximum) + ". Narrow the knob, or widen the port's range in the ontology.");
+
         if (! binding.symbol.empty())
             ++symbolCount[binding.symbol];
     }
@@ -154,6 +201,37 @@ std::vector<LintFinding> lintCircuit(const CircuitModel& model)
             add(Severity::warning, "duplicate-param-symbol", "", symbol,
                 std::to_string(count) + " parameters share the symbol '" + symbol
                 + "'. A host identifies automation by it, so give each its own.");
+
+    // 3b. An arc between an audio port and a control port. The compiler drops it with a diagnostic that is
+    // easy to miss in a run of output, and what it was meant to do silently does not happen.
+    const auto portOf = [&](const std::string& node, const std::string& symbol, bool input) -> const PortDesc*
+    {
+        const auto* element = model.findElement(node);
+        if (element == nullptr || element->type == nullptr)
+            return nullptr;
+        for (const auto& port : element->type->ports)
+            if (port.input == input && port.symbol == symbol)
+                return &port;
+        return nullptr;
+    };
+
+    for (const auto& arc : arcs)
+    {
+        const auto* from = portOf(arc.fromNode, arc.fromPort, false);
+        const auto* to   = portOf(arc.toNode, arc.toPort, true);
+        if (from == nullptr || to == nullptr || from->event || to->event || from->buffer || to->buffer)
+            continue;
+        if (from->control == to->control)
+            continue;
+
+        add(Severity::warning, "mixed-rate-arc", arc.toNode, arc.toPort,
+            "The arc from " + shortId(arc.fromNode) + " '" + arc.fromPort + "' (" + from->rateName() + ") to "
+            + shortId(arc.toNode) + " '" + arc.toPort + "' (" + to->rateName() + ") joins a " + from->rateName()
+            + " output to a " + to->rateName() + " input, so the compiler drops it and it does nothing. "
+            + (from->control
+                   ? "To scale one control by another use val:ControlMultiply; val:VCA works on audio only."
+                   : "To turn audio into a control signal use val:EnvelopeFollower."));
+    }
 
     // The graph of everything that feeds something else, for what can be heard.
     std::map<std::string, std::vector<std::string>> feeds;   // source -> destinations

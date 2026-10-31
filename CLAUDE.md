@@ -124,7 +124,8 @@ to confirm a running instance before using MCP tools that require a host.
 - `tests/` mirrors `src/`. One bare `main()` + `<cassert>` per file, registered with CTest. No GoogleTest, no Catch2. Cover valid, invalid, and failure cases.
 - Every external dependency behind a CMake `option()`. `build.sh` is the one-command build; `./valis` launches the standalone.
 - `src/shot/` holds measurements ported from earshot (loudness, envelope timing, spectral distance) and the
-  `valis-shot` tool; see `docs/shot.md`. Use it in place of listening, and say that a result is measured, not heard.
+  `valis-shot` tool, also on MCP as `measure`, `compare`, `sounds_like` and `listen`; see `docs/shot.md` and the
+  `hear-a-sound` skill. Use it in place of listening, and say that a result is measured, not heard.
 - Prefer deterministic offline audio tests (`valis-render`) over device-based ones.
 - C++20. Match surrounding idiom and comment density. Every file starts with `// path/filename`.
 - Comments describe purpose only where intent is non-obvious. No effect descriptions.

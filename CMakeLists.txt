@@ -56,12 +56,15 @@ add_library(valis_core STATIC
   src/ops/OpDispatcher.cpp
   src/ops/Analysis.cpp
   src/shot/Loudness.cpp
+  src/shot/ShotReport.cpp
+  src/shot/ModalFit.cpp
   src/shot/EnvelopeTimes.cpp
   src/shot/SpectralDistance.cpp
   src/shot/ClapFrontend.cpp
   src/shot/AstFrontend.cpp
   src/shot/BpeTokenizer.cpp
   src/ops/Lint.cpp
+  src/ops/MidiScore.cpp
   src/ops/CircuitDiff.cpp
   src/ops/AgentResources.cpp
   src/console/Console.cpp

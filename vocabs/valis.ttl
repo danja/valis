@@ -1503,7 +1503,7 @@ pure comb (harmonic); 1 = heavily stretched (bell-like).""" ;
         lv2:minimum 10.0 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "feedback" ;
         lv2:name "Feedback" ; lv2:default 0.95 ;
-        lv2:minimum 0.0 ; lv2:maximum 0.99 ] ,
+        lv2:minimum 0.0 ; lv2:maximum 0.9999 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "damping" ;
         lv2:name "Damping" ; lv2:default 0.1 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
@@ -1511,6 +1511,43 @@ pure comb (harmonic); 1 = heavily stretched (bell-like).""" ;
         lv2:name "Dispersion" ; lv2:default 0.1 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "Allpass coefficient for inharmonic stretching. 0 = harmonic (string); 1 = heavily inharmonic (bar/bell)." ] .
+
+val:modes a rdf:Property ;
+    rdfs:label "modes" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The resonances of a val:FreeModalBank, separated by spaces, each written hertz:seconds:gain.
+Hertz is the frequency, 20 to 20000. Seconds is the time the mode takes to fall 60 dB (0.005 to 60). Gain is its
+starting level for a unit impulse, 0 to 100, and may be left out (it is then 1). At most 64. For example
+"523:1.8:1 1318:0.9:0.5 2410:0.4:0.2".""" .
+
+val:FreeModalBank a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "FreeModalBank" ;
+    rdfs:comment """A bank of damped resonators with every frequency, ring time and level set by the circuit, for a
+sound that is measured and does not follow a textbook shape: a bell, a cowbell, a conga fitted from a recording.
+val:ModalBank has six modes at fixed ratios; this one has up to 64 at any frequency.
+
+val:modes lists them, hertz:seconds:gain apiece. Strike the bank with an impulse or a short noise burst on the audio
+input. A unit impulse plays back exactly the numbers written: each mode starts at its gain and falls 60 dB in its
+seconds. val:tune multiplies every frequency, so a pitch-tracked control (val:MidiPitch divided by the pitch the modes
+were measured at) plays the same object at other notes; a mode tuned above the top of the band is dropped, not folded
+back. val:decay multiplies every ring time. See https://en.wikipedia.org/wiki/Modal_analysis and
+https://ccrma.stanford.edu/~jos/pasp/Modal_Synthesis.html.""" ;
+    val:implementation "FreeModalBank" ;
+    val:hasOption val:modes ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort   ; lv2:symbol "in"  ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort   ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "tune" ;
+        lv2:name "Tune" ; lv2:default 1.0 ;
+        lv2:minimum 0.25 ; lv2:maximum 4.0 ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Multiplies every mode's frequency." ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "decay" ;
+        lv2:name "Decay" ; lv2:default 1.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 10.0 ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Multiplies every mode's ring time." ] .
 
 val:ModalBank a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "ModalBank" ;

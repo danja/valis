@@ -138,7 +138,7 @@ PitchEstimate estimatePitch(const std::vector<float>& mono, double sampleRate)
 {
     PitchEstimate result;
 
-    // About 24 kHz is plenty for pitches up to 1.5 kHz and keeps the search cheap.
+    // About 24 kHz is plenty for pitches up to 4 kHz and keeps the search cheap.
     const int factor = std::max(1, static_cast<int>(std::lround(sampleRate / 24000.0)));
     const double rate = sampleRate / factor;
     std::vector<float> x(mono.size() / static_cast<std::size_t>(factor));
@@ -150,7 +150,7 @@ PitchEstimate estimatePitch(const std::vector<float>& mono, double sampleRate)
         x[i] = sum / static_cast<float>(factor);
     }
 
-    const int minLag = static_cast<int>(rate / 1500.0);
+    const int minLag = static_cast<int>(rate / 4000.0);   // a pitch above this cannot be found, and its half would be reported
     const int maxLag = static_cast<int>(rate / 50.0);
     const int window = static_cast<int>(rate * 0.04);   // 40 ms: two periods of 50 Hz
     const int hop = static_cast<int>(rate * 0.04);

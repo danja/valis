@@ -38,3 +38,8 @@ pluck that stops at note-off is a release shorter than the ring: see MISTAKES.md
 
 Print the rms of each bar of the stem and compare it with the score. A part that is silent where it has notes is a
 gate or envelope problem, and a stem that is the same loudness everywhere is a limiter problem. See MISTAKES.md.
+
+## Check it sounds like the instrument
+
+After tuning and release are right, ask the `hear-a-sound` skill's question: `valis_shot is note.wav "a harp"` says whether a neural
+model hears the instrument or something else (a piano, a synthesizer preset). Measured, not heard.

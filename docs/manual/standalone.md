@@ -83,6 +83,6 @@ valis_render examples/halloween-bass.ttl --midi bass.mid --tempo 140 --rolling \
 ```
 
 It gives the circuit a playing transport at the tempo you choose, so tempo-synced elements stay in
-time. See `valis_render --help` for the options, and the
+time. The [valis-render page](render.md) lists every option. See also the
 [Halloween notes](https://github.com/danja/valis/blob/main/docs/halloween-process.md) for a worked
 example that makes a whole song this way.

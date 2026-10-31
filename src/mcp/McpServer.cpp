@@ -506,14 +506,29 @@ const ToolSpec kTools[] = {
     {"read_outputs", "The live value of every control output in the circuit, or of one node's. This is what the Controls view shows for val:Oscilloscope and val:FreqAnalyzer, and it is how you measure what a circuit is doing.",
      R"({"type":"object","properties":{"node":{"type":"string","description":"optional; omit for every node that has control outputs"}}})"},
 
-    {"lint", "Static checks on the loaded circuit, for things that compile and still do not do what was meant: a fixed value on a port a control arc overwrites, a knob that moves nothing, an element with no path to the output, an effect with nothing connected to process, nothing wired to the output. Each finding has a severity, a code, the node and port, and what to do. Run it after building, before render.",
+    {"lint", "Static checks on the loaded circuit, for things that compile and still do not do what was meant: a fixed value on a port a control arc overwrites, a knob that moves nothing, an arc between an audio port and a control port (the compiler drops it), an element with no path to the output, an effect with nothing connected to process, nothing wired to the output. Each finding has a severity, a code, the node and port, and what to do. Run it after building, before render.",
      R"({"type":"object","properties":{}})"},
 
-    {"analyze", "Measure a wav file in place of listening: peak, RMS, clipping, DC, the pitch it sits on (note name and cents), the level of each octave in dBFS, brightness, where notes begin, how the level moves each quarter second, and plain notes on anything wrong. Use it on a file render wrote, or on a recording to compare against.",
-     R"({"type":"object","properties":{"path":{"type":"string","description":"a wav, aiff, flac, ogg or mp3 file; the first sixty seconds are read"}},"required":["path"]})"},
+    {"measure", "The full measurement of a sound file, in place of listening: the signal analysis (peak, RMS, clipping, DC, the pitch it sits on with note name and cents, the level of each octave, brightness, where notes begin, level over time, plain notes on anything wrong), plus loudness to BS.1770 (integrated LUFS, loudness range, short-term and momentary maxima, true peak in dBTP) and the envelope (when the attack starts and peaks, attack time, time to fall 30 dB, noise floor, dynamic range). Read signal.notes first, then signal.pitch, loudness and envelope. These are measured numbers, not a judgement that it sounds good.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"a wav, aiff, flac, ogg or mp3 file; the first ten minutes are read"}},"required":["path"]})"},
 
-    {"render", "Render the current circuit offline to a wav file and report its peak and RMS, and the same analysis analyze gives. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
-     R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 60, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"}},"required":["path"]})"},
+    {"compare", "How far apart two renders are: the spectral distance in dB (0 is the same sound, a few dB a small change, tens of dB a different sound), the distance at each of three resolutions, the difference in integrated loudness and in length. Use it after changing a circuit to see whether the change did anything. Both files must have the same sample rate.",
+     R"({"type":"object","properties":{"path_a":{"type":"string","description":"the reference, a wav, aiff, flac, ogg or mp3 file"},"path_b":{"type":"string","description":"the file to compare with it; the differences are b minus a"}},"required":["path_a","path_b"]})"},
+
+    {"listen", "Ask neural models what a sound is. tags are the most likely of 527 AudioSet labels (AST) for the loudest ten seconds; matches score each sentence in queries against the sound (CLAP): a cosine and a share, where the shares of the sentences given add up to 1. Read the share, and compare sentences with each other, since a single cosine means little. Give two or three competing descriptions, such as the instrument you want and the one it might be mistaken for. Needs a build with VALIS_WITH_ONNX and models fetched by scripts/shot/fetch-models.sh; otherwise it says so. The first call loads the models, which takes a few seconds. A neural model is a rough ear: this is measured, not heard.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"a wav, aiff, flac, ogg or mp3 file"},"queries":{"type":"array","items":{"type":"string"},"description":"sentences describing candidate sounds, e.g. 'a plucked nylon string guitar'; omit for tags only"}},"required":["path"]})"},
+
+    {"sounds_like", "The simple way to ask whether a sound is what you meant. Give a file and one sentence, such as 'a trumpet'; the answer is yes, maybe or no, the sentence's share, its rank among twenty common rivals (other instruments, a synthesizer preset, noise, a sine) and the three sentences the sound is closest to. 'no' with 'a synthesizer keyboard preset' closest is how a synthetic-sounding instrument shows up. Use listen instead to compare sentences of your own. Needs a build with VALIS_WITH_ONNX and models from scripts/shot/fetch-models.sh; otherwise it says so. A neural model is a rough ear: this is measured, not heard.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"a wav, aiff, flac, ogg or mp3 file"},"sentence":{"type":"string","description":"what it should sound like, e.g. 'a plucked nylon string guitar'"}},"required":["path","sentence"]})"},
+
+    {"fit_modes", "Turn a recording of a struck object (a bell, a cowbell, a conga, a wood block) into the modes of a val:FreeModalBank: up to 64 damped sines, each with a frequency, a ring time (the time to fall 60 dB) and a starting level. Returns them as a val:modes string and a Turtle line to paste into a circuit, with the distance in dB between the recording and the bank struck by an impulse. Wire a short noise burst or an impulse into the bank to play it, and val:tune to play it at other pitches. The recording should be one struck sound without a held tone; it matches the spectrum and ring times, not the attack. Measured, not heard.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the recording"},"modes":{"type":"integer","description":"most modes to find, 1 to 64, default 12"},"seconds":{"type":"number","description":"how much of the recording to read, 0.25 to 10, default 2"}},"required":["path"]})"},
+
+    {"fit_params", "Search the circuit's own parameters for the settings that sound nearest a recording. Plays one note on a fresh engine, scores each render against the recording by spectral distance in dB, and moves the parameters by a seeded search, so the same call gives the same answer. Reports the distance before and after and the value found for each parameter; it changes nothing, so apply the values with set_param or in the Turtle. Needs val:Param bindings. A render takes a fraction of a second, so 60 evaluations is a few seconds to a minute. The distance is measured, not heard: a small one means the spectra agree.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the recording to match"},"note":{"type":"integer","description":"MIDI note to play, 0-127"},"velocity":{"type":"number","description":"0-1, default 1"},"seconds":{"type":"number","description":"how much of the recording to match, 0.25 to 10, default 3"},"evaluations":{"type":"integer","description":"renders to spend, 2 to 400, default 60"},"slots":{"type":"array","items":{"type":"integer"},"description":"parameter slots to search; omit to search all"}},"required":["path","note"]})"},
+
+    {"render", "Render the current circuit offline to a wav file and report its peak and RMS, and the same analysis measure gives under `signal`. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 60, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"},"midi":{"type":"string","description":"a standard MIDI file whose notes are played in place of note"},"tempo":{"type":"number","description":"beats per minute for the MIDI file and the transport, 20 to 400, default 120; tempo events in the file are ignored"},"rolling":{"type":"boolean","description":"report the transport as playing from zero, for circuits that take timing from the host"}},"required":["path"]})"},
 };
 
 }  // namespace
@@ -704,8 +719,44 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
         if (name == "lint")
             return resultOf(ops.lint());
 
-        if (name == "analyze")
-            return resultOf(ops.analyze(stringArgument(arguments, "path")));
+        if (name == "measure")
+            return resultOf(ops.measure(stringArgument(arguments, "path")));
+
+        if (name == "compare")
+            return resultOf(ops.compare(stringArgument(arguments, "path_a"), stringArgument(arguments, "path_b")));
+
+        if (name == "sounds_like")
+            return resultOf(ops.soundsLike(stringArgument(arguments, "path"), stringArgument(arguments, "sentence")));
+
+        if (name == "listen")
+        {
+            std::vector<std::string> queries;
+            if (const auto* list = arguments["queries"].getArray())
+                for (const auto& q : *list)
+                    queries.push_back(q.toString().toStdString());
+            return resultOf(ops.listen(stringArgument(arguments, "path"), queries));
+        }
+
+        if (name == "fit_modes")
+            return resultOf(ops.fitModes(
+                stringArgument(arguments, "path"),
+                arguments.hasProperty("modes") ? static_cast<int>(arguments["modes"]) : 12,
+                arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 2.0));
+
+        if (name == "fit_params")
+        {
+            std::vector<int> slots;
+            if (const auto* list = arguments["slots"].getArray())
+                for (const auto& v : *list)
+                    slots.push_back(static_cast<int>(v));
+            return resultOf(ops.fitParams(
+                stringArgument(arguments, "path"),
+                static_cast<int>(arguments["note"]),
+                arguments.hasProperty("velocity") ? static_cast<double>(arguments["velocity"]) : 1.0,
+                arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 3.0,
+                arguments.hasProperty("evaluations") ? static_cast<int>(arguments["evaluations"]) : 60,
+                slots));
+        }
 
         if (name == "render")
         {
@@ -718,7 +769,13 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
             const double velocity = arguments.hasProperty("velocity")
                                   ? static_cast<double>(arguments["velocity"]) : 1.0;
 
-            return resultOf(ops.render(stringArgument(arguments, "path"), seconds, rate, note, velocity));
+            const double tempo = arguments.hasProperty("tempo")
+                               ? static_cast<double>(arguments["tempo"]) : 120.0;
+            const bool rolling = arguments.hasProperty("rolling") && static_cast<bool>(arguments["rolling"]);
+            const std::string midi = arguments.hasProperty("midi") ? stringArgument(arguments, "midi") : std::string();
+
+            return resultOf(ops.render(stringArgument(arguments, "path"), seconds, rate, note, velocity,
+                                       midi, tempo, rolling));
         }
 
         if (name == "load_file")

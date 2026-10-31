@@ -24,7 +24,10 @@ import midiw
 SHORT = "--short" in sys.argv
 NAME = "short-circuit" if SHORT else "tenement-lights"
 OUT = os.path.expanduser("~/Music/tenement-lights" + ("/short-circuit" if SHORT else ""))
-RENDER = os.path.join(ROOT, "build", "valis_render_artefacts", "Debug", "valis_render")
+# Release is several times faster and renders the same samples; fall back to Debug when only that is built.
+RENDER = next((p for p in (os.path.join(ROOT, d, "valis_render_artefacts", c, "valis_render")
+                           for d, c in (("build-release", "Release"), ("build", "Debug"))) if os.path.exists(p)),
+              os.path.join(ROOT, "build", "valis_render_artefacts", "Debug", "valis_render"))
 BPM = 130
 STEP = 0.25                       # a sixteenth, in beats
 SECTIONS = ([("intro", 8), ("groove", 16), ("lift", 16), ("break", 8), ("peak", 24), ("fx", 8), ("outro", 16)] if SHORT else

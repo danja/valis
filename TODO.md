@@ -3,37 +3,42 @@
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
   (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
-  `scripts/electro83/`, output in `~/Music/tenement-lights/`). Not listened to yet: listen, then fix balance,
-  the Source's envelope, the choir's formants and the arrangement by ear, in `track.py` and the circuits.
-  A three-minute arrangement with lyrics (`docs/short-circuit-lyrics.md`) and a sleeve
-  (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to build: `val:Vocoder` (a filter bank with a
-  carrier and a modulator input), the speech stutter (specified in `docs/new-order-track.md`), a Source patch with a third waveform per oscillator and octave
-  switches, and a release build of `valis_render` so a render takes seconds and not minutes.
+  `scripts/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
+  (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
+  build: `val:Vocoder` (a filter bank with a carrier and a modulator input), the speech stutter (specified in
+  `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
+  listening is under "Needs a listener" below.
+
+## Needs a listener
+
+Everything here is measured, not heard. Each wants a person with ears, then a change in the score or circuit.
+
+* **Tenement Lights:** balance, the Source's envelope, the choir's formants and the arrangement (`track.py`).
+* **Dead at Midnight** (`~/Music/dead-at-midnight/dead-at-midnight-reference-mix.wav`): balance, the wobble rate
+  against the drums, the guitar's pitch near the top of its range, the theremin scoop. Changes belong in
+  `scripts/halloween/song.py` and the circuits.
+* **Lights On, Nobody Home:** the user has the v3 FLAC and is adding vocals, mixing and mastering. The Latin
+  percussion was balanced by peak level only (listen, adjust decay times); the trumpets are the weak part (below).
+* **Time-stretch:** the tests measure pitch, duration, level and formant position, not how it sounds.
 
 ## From earshot (see `docs/shot.md`)
 
 * **Free-mode modal bank and a fitter.** `val:ModalBank` has six modes at fixed ratios. A bank whose modes are set
   one by one, plus an ESPRIT fit of a struck recording (earshot `fit/modal.py`), would turn a recording of a real
   conga or cowbell into a circuit.
-* **Parameter search against a target.** Render a circuit, score it against a wav with `spectralDistance`, move the
-  exposed `val:Param` values. Needs an optimiser and a headless engine loop, no new DSP.
 * **Calibrate `listen`.** Port earshot's vocabulary of 322 descriptions and its statistics, so a cosine becomes a z-score
   and a verdict; then a realness score (real recording or synthesised) on the same CLAP features.
-* **`valis-shot` as an MCP op.** `measure` and `compare` are command-line only; the operation surface (`src/ops/`)
-  should offer them too, so the MCP server and the UI do not need a second implementation.
-* **A loudness target in the mix scripts.** Scripts such as `scripts/lights-on-nobody-home/track.py` set the level by
-  peak and tanh; they could aim at a LUFS figure using `measureLoudness`.
+* **Make the harp, violins, trumpets and shakers sound like themselves.** `valis_shot is` hears the harp as a piano
+  (53%), the violins as an electric organ (47%), the trumpets as a synthesizer preset (60%) and the shakers as congas
+  (62%); the guitars and congas pass (`docs/shot.md`). Rerun `is` after each change.
 
 ## Acoustic instruments
 
-* **Lint for arc kinds.** `ops_LintTest` does not flag an arc from a control output to an audio input, or the
-  reverse; only the renderer warns. Add the check (MISTAKES.md, "Control and audio ports joined by an arc").
-* **Violins above G5.** `val:Bow` is out of tune above about 880 Hz (E6 is 51 cents flat) and the violins' voice
-  clips on the highest notes. A section that goes higher needs the bow-force work noted under "Bow" below.
-* **Trumpet and violin expression.** Vibrato starts after the note; still to do: a scoop into the note, breath
-  noise that follows pressure, and per-voice detune in the violin section (a `val:Drift` per voice).
-* **Percussion by ear.** The Latin percussion was balanced by peak level only; listen and adjust the decay times.
-* **Release build of `valis_render`.** The track renders in minutes with the Debug build.
+* **Out-of-range values the lint notes.** `metal-bash` granulator density 500 (port max 200), `violins` wood decay
+  0.04 (min 0.05), and knobs wider than their port: six-string-bass chorus depth to 6 (port 3.5), lofi wobble to 3000
+  (1000), and the ring time of harp and halloween-guitar (`ampEnv` decay to 8000 and 6000, port 5000). Check which of those
+  elements clamp. `val:StiffString` feedback now runs to 0.9999, so the harp, guitars and bass ring as written; the
+  stems made from them before that change are shorter than the circuits now play, so re-render them (`write-a-song`).
 
 ## New instruments
 
@@ -61,7 +66,7 @@ The instruments that are done are described in `docs/examples.md`. What is open:
   the only way to time its grains from outside (a grain pool still cannot itself be patched
   between elements); and no element other than `val:GrainCloud` reads a buffer yet, which is the
   next use for the port, such as a looper or a sample slicer reading a `val:GrainBuffer`.
-* **Bow above about 600 Hz.** Notes up to E5 (659 Hz) are in tune to within a cent and hold their
+* **Bow above about 600 Hz** (and the violins above G5: `val:Bow` is 51 cents flat at E6, 1318 Hz). Notes up to E5 (659 Hz) are in tune to within a cent and hold their
   fundamental at default pressure, since the loop filters now move with the note above 250 Hz
   (`kScaleAbove` in `src/dsp/elements/Sources.cpp`). At 659 Hz the string still settles an octave
   up at two bow positions (0.10 and 0.20), and at 880 Hz it needs more force than the default.
@@ -129,7 +134,7 @@ design apply). Roughly in order of how self-contained they are:
 Done: `check_stability`; `history`, `undo`, `redo` and `diff` (`include/valis/CircuitHistory.h`, `CircuitDiff.h`); `apply_edits`, several edits as one with the circuit installed once; the guide and every example as MCP resources (`valis://guide`, `valis://examples/NAME`;
 `include/valis/AgentResources.h`); "did you mean" for classes, ports and properties
 (`include/valis/Suggest.h`); `describe_element` (every element has a description of at least 200 characters, enforced by
-`OntologyTest`, and lists its options through `val:hasOption`); `get_diagnostics` reports `problems`; `analyze` and the analysis inside `render` measure a
+`OntologyTest`, and lists its options through `val:hasOption`); `get_diagnostics` reports `problems`; `measure` and the analysis inside `render` measure a
 sound (`include/valis/Analysis.h`); `lint` finds mistakes that compile (`include/valis/Lint.h`). Still
 to do, in order of use:
 
@@ -156,8 +161,8 @@ to do, in order of use:
   from the element chain without a render; and an `lint` option on `set_turtle` so a bad design is
   reported at the moment it is installed.
 * **Analysis follow-ups.** Pitch tracking is one pitch (a chord reads as none); onsets are by
-  energy and miss a legato change of note; a spectrogram summary and a similarity score between two
-  files would let an agent match a reference sound.
+  energy and miss a legato change of note. A similarity score between two files exists as `spectralDistance`
+  (`src/shot/`); a spectrogram summary does not, and the parameter search under "From earshot" would use both.
 
 ## From the Cathode review
 
@@ -213,11 +218,13 @@ copy code). Its `docs/03-testing-strategy.md`, `05-dsp-and-runtime-research.md` 
   * `val:Vibe`: the Uni-Vibe, four unequal first-order allpasses sharing one lamp, with the lamp's
     lopsided response; `val:Rotary`: a Leslie as two rotors, a crossover, Doppler and amplitude
     modulation with motor inertia; `val:Wah`: from the circuit, not a swept bandpass.
-  * `val:PitchTracker`: YIN (de Cheveigne and Kawahara, 2002) on a decimated copy, with a pitch output
+  * `val:PitchTracker`: YIN (de Cheveigne and Kawahara, 2002; `src/ops/Analysis.cpp` already has an offline one
+    that now rejects octave-up errors) on a decimated copy, with a pitch output
     and a voiced flag as controls. It would let an oscillator or a granulator follow a played note.
     `val:OctaveDivider` (Schmitt trigger and flip-flops) is a cheaper cousin.
   * `val:Ducker` (wet drops while the dry input is above a threshold; a sidechain for a delay or reverb),
-    a loudness meter to BS.1770 (K-weighting, LUFS) as a monitor element, program-dependent attack and
+    a loudness meter as a monitor element (the BS.1770 measurement exists offline as `measureLoudness` in `src/shot/`; this
+    needs a streaming version without allocation), program-dependent attack and
     release from the crest factor for `val:Compressor` (Giannoulis, Massberg and Reiss), and quantise and
     high-cut conditioning for `val:LFO`.
   * Reverb and delay variety: a Dattorro plate (JAES 1997), a multitap and a ten-tap delay with a
@@ -299,11 +306,6 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   "url": "http://localhost:7676/mcp"}}}`) so a checkout works without a manual `claude mcp add`.
 * **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone while `render` uses 48000. The
   live figure looks wrong, or the Standalone has no audio device open. Find out which.
-* **`analyze` reports the wrong octave** for a pure tone with a bright second partial: the wood block
-  at 1850 Hz was named as 925.6 Hz (A#5). Check the pitch tracker against a sine and a TwinTBridge ping.
-* **`render` cannot run a transport.** The tempo-synced wobble LFO in `halloween-bass.ttl` free-runs in
-  a `render`, so its musical timing cannot be checked through MCP. `valis-render --tempo --rolling` can.
-  Add `tempo` and `rolling` parameters to `render`.
 * **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.
@@ -312,32 +314,18 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   a path in the plug-in's saved state, so a project can be written without opening the GUI; and a check,
   in a real Reaper session with eight instances, that the track name is passed on (`updateTrackProperties`
   is only called by some hosts) and that the ports are what the Settings menu says.
-* **`valis-render --midi` is new** (a standard MIDI file played at `--tempo`; add `--rolling` for a tempo-synced
-  circuit). It reads only note events and a fixed tempo; tempo changes and controllers are ignored. The `render` MCP tool
-  still takes one note, so give it the same `midi`, `tempo` and `rolling` parameters.
+* **`valis-render --midi` limits.** It reads only note events and a fixed tempo; tempo changes and controllers are
+  ignored (`tests/console/RenderMidiTest.cpp` pins the tempo behaviour, so it will fail when the tool learns to read it).
 * **`reaper-mcp` bugs** are listed in `/chalet/github/reaper-mcp/TODO.md`. The project at
   `~/Music/dead-at-midnight/` is affected by two of them: the master has two ReaLimit plug-ins, and
   no mix could be rendered through `reaper-mcp` (a manual render from Reaper worked).
-* **Test `valis-render --midi`.** Nothing covers it. Add a console test that renders a MIDI file whose
-  notes fall at offsets that are not multiples of the block size, and asserts every note sounds (the
-  MISTAKES.md rule on events and block boundaries). Also: a file with a note-on and no note-off, tempo
-  meta events (ignored today), and a path that does not exist.
-* **List `--midi` in the manual.** `docs/manual` has no page for `valis-render` options; `usage()` is
-  the only description. Add one, with `--tempo --rolling --midi` as the way to render a part.
 * **Make `halloween-ornaments1.ttl` polyphonic** like the organ (a `val:Subcircuit` with `val:voices`),
   so the choir can hold a chord. It plays one note at a time now, and the song uses single notes.
 * **Make the Halloween guitar and bass polyphonic or document that they are not.** The guitar riff is
   single notes by design; say so in the header of each file.
-* **Listen to the song** (`~/Music/dead-at-midnight/dead-at-midnight-reference-mix.wav`) and write down what
-  is wrong: balance, the wobble rate against the drums, the guitar's pitch near the top of its range, the
-  theremin scoop. Everything so far is measured, not heard. Changes belong in `score/song.py` and the
-  circuits.
 * **Put the song into the plug-in once a circuit can be chosen per instance** (see the Reaper item
   above): replace the audio stems with eight Valis tracks driven by the MIDI files in `midi/`, so the
   project edits the instruments rather than recordings of them.
-* **Keep the song's generator scripts in the repository?** `score/song.py` and the circuit generators
-  (`gen.py`, the eight `*.py` files) are in the session scratchpad and `~/Music/dead-at-midnight/score/`
-  only. Decide whether a terse circuit writer belongs in `scripts/` (see "Authoring cost").
 
 ## Recurring - check periodically
 

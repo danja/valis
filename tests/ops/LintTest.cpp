@@ -124,6 +124,28 @@ void testAKnobUnderAnArcIsFound()
     assert(! has(lintText(fine), "knob-overridden"));
 }
 
+void testARangeThePortDoesNotTakeIsNoted()
+{
+    // StiffString feedback runs 0 to 0.9999. The string is added to kGood's circuit, unconnected.
+    const auto with = [](const char* feedback, const char* knobMax)
+    {
+        return lintText(std::string(kGood) + ":c val:element :string .\n:string a val:StiffString ; val:feedback "
+                        + feedback + " .\n:p0 a val:Param ; val:slot 0 ; val:target :string ; val:property val:feedback ;"
+                        "\n    lv2:name \"Sustain\" ; lv2:symbol \"sustain\" ; lv2:minimum 0.9 ; lv2:maximum "
+                        + knobMax + " .\n");
+    };
+
+    const auto findings = with("0.99999", "0.99999");
+    assert(has(findings, "value-out-of-range", "string"));
+    assert(has(findings, "param-range-wider", "string"));
+    assert(count(findings, "value-out-of-range") == 1);
+
+    // Inside the range, and a knob no wider than the port, are fine.
+    const auto fine = with("0.98", "0.9999");
+    assert(! has(fine, "value-out-of-range"));
+    assert(! has(fine, "param-range-wider"));
+}
+
 void testNothingConnectedToTheOutput()
 {
     const auto findings = lintText(R"(
@@ -164,6 +186,25 @@ void testMonitorsAreNotReportedAsUnheard()
 :a2 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ; val:to [ val:node :scope ; val:port "in" ] .
 )");
     assert(! has(findings, "not-heard"));
+}
+
+void testAnArcBetweenAudioAndControlIsFound()
+{
+    // The vibrato mistake: an LFO (control out) into a VCA's audio input.
+    const std::string body = R"(
+:c a val:Circuit ; rdfs:label "Mixed" ; val:element :in , :lfo , :vca , :out ; val:arc :a1 , :a2 , :a3 .
+:in a val:Input .
+:lfo a val:LFO .
+:vca a val:VCA .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :in ; val:port "out" ] ; val:to [ val:node :vca ; val:port "in" ] .
+:a2 a val:Arc ; val:from [ val:node :lfo ; val:port "out" ] ; val:to [ val:node :vca ; val:port "in" ] .
+:a3 a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ; val:to [ val:node :out ; val:port "in" ] .
+)";
+    const auto findings = lintText(body);
+    assert(has(findings, "mixed-rate-arc", "vca"));
+    assert(count(findings, "mixed-rate-arc") == 1);   // the audio arcs are fine
+    assert(! has(lintText(kGood), "mixed-rate-arc"));
 }
 
 void testAnEffectWithNothingToProcess()
@@ -255,7 +296,7 @@ void testTheJson()
 /// The shipped circuits are what an agent starts from. They have to pass their own lint.
 void testEveryShippedExampleIsClean()
 {
-    int checked = 0;
+    int checked = 0, dirty = 0;
     for (const auto& entry : std::filesystem::directory_iterator(VALIS_EXAMPLES_DIR))
     {
         if (entry.path().extension() != ".ttl")
@@ -280,9 +321,10 @@ void testEveryShippedExampleIsClean()
             if (f.severity == LintFinding::Severity::info)
                 continue;
             std::printf("  %s: %s: %s\n", entry.path().filename().string().c_str(), f.code.c_str(), f.message.c_str());
-            assert(false && "a shipped example has a lint finding");
+            ++dirty;
         }
     }
+    assert(dirty == 0 && "a shipped example has a lint finding");
     std::printf("  %d examples linted clean\n", checked);
     assert(checked > 30);
 }
@@ -294,9 +336,11 @@ int main()
     testACorrectCircuitHasNothingToSay();
     testAFixedValueUnderAnArcIsFound();
     testAKnobUnderAnArcIsFound();
+    testARangeThePortDoesNotTakeIsNoted();
     testNothingConnectedToTheOutput();
     testAPartThatCannotBeHeardIsFound();
     testMonitorsAreNotReportedAsUnheard();
+    testAnArcBetweenAudioAndControlIsFound();
     testAnEffectWithNothingToProcess();
     testAMisspeltPropertyIsFoundWithASuggestion();
     testDuplicateParameterSymbols();

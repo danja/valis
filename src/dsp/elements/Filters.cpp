@@ -5,7 +5,12 @@
 #include "Waveguide.h"
 #include "dsp/Random.h"
 
+#include <array>
+#include <cctype>
 #include <complex>
+#include <cstdlib>
+#include <string>
+#include <vector>
 
 namespace valis::elements {
 
@@ -319,7 +324,7 @@ public:
 
         const float freq       = std::clamp(controlAt(args, freqIndex,       220.0f),
                                             10.0f, static_cast<float>(sampleRate * 0.45));
-        const float feedback   = std::clamp(controlAt(args, feedbackIndex,    0.95f), 0.0f, 0.99f);
+        const float feedback   = std::clamp(controlAt(args, feedbackIndex,    0.95f), 0.0f, 0.9999f);
         const float damping    = std::clamp(controlAt(args, dampingIndex,      0.1f), 0.0f, 1.0f);
         const float dispersion = std::clamp(controlAt(args, dispersionIndex,   0.1f), 0.0f, 1.0f);
 
@@ -484,6 +489,153 @@ private:
     Resonator res[kResonators];
     double sampleRate = 44100.0;
     int freqIdx = -1, decayIdx = -1, brightnessIdx = -1, modeIdx = -1;
+};
+
+
+/// A bank of damped resonators whose frequency, ring time and level are each set by the circuit, for a
+/// sound that is measured and not a textbook shape: a bell, a cowbell, a conga fitted from a recording.
+/// The modes come from the val:modes option, one "hertz:seconds:gain" triple apiece. Each resonator is
+/// the impulse response gain * r^n * sin((n+1) w), so a unit impulse in plays back the numbers written.
+class FreeModalBank final : public DspElement
+{
+public:
+    static constexpr std::size_t kMaxModes = 64;
+
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate = rate;
+        tuneIdx    = controlIndex(type, "tune");
+        decayIdx   = controlIndex(type, "decay");
+        reset();
+    }
+
+    void reset() override
+    {
+        for (auto& m : modes)
+            m.y1 = m.y2 = 0.0f;
+    }
+
+    bool setOption(std::string_view key, std::string_view value, std::string& error) override
+    {
+        if (key != "modes")
+            return true;
+
+        std::vector<Mode> parsed;
+        const std::string text(value);
+        std::size_t at = 0;
+        while (at < text.size())
+        {
+            while (at < text.size() && std::isspace(static_cast<unsigned char>(text[at]))) ++at;
+            const std::size_t start = at;
+            while (at < text.size() && ! std::isspace(static_cast<unsigned char>(text[at]))) ++at;
+            if (start == at)
+                break;
+
+            const std::string token = text.substr(start, at - start);
+            double number[3] = { 0.0, 0.0, 1.0 };
+            int found = 0;
+            std::size_t from = 0;
+            bool good = true;
+            while (from <= token.size() && found < 4)
+            {
+                const auto colon = token.find(':', from);
+                const std::string part = token.substr(from, colon == std::string::npos ? std::string::npos : colon - from);
+                char* end = nullptr;
+                const double v = std::strtod(part.c_str(), &end);
+                if (part.empty() || end != part.c_str() + part.size() || ! std::isfinite(v) || found >= 3)
+                {
+                    good = false;
+                    break;
+                }
+                number[found++] = v;
+                if (colon == std::string::npos)
+                    break;
+                from = colon + 1;
+            }
+
+            if (! good || found < 2 || number[0] < 20.0 || number[0] > 20000.0
+                || number[1] < 0.005 || number[1] > 60.0 || number[2] < 0.0 || number[2] > 100.0)
+            {
+                error = "cannot read the mode '" + token + "': expected hertz:seconds or hertz:seconds:gain, with "
+                        "hertz 20 to 20000, seconds 0.005 to 60 (the time to fall 60 dB) and gain 0 to 100";
+                return false;
+            }
+            if (parsed.size() >= kMaxModes)
+            {
+                error = "a bank has at most " + std::to_string(kMaxModes) + " modes";
+                return false;
+            }
+            Mode m;
+            m.hertz   = static_cast<float>(number[0]);
+            m.seconds = static_cast<float>(number[1]);
+            m.gain    = static_cast<float>(number[2]);
+            parsed.push_back(m);
+        }
+
+        if (parsed.empty())
+        {
+            error = "val:modes needs at least one mode, written hertz:seconds:gain";
+            return false;
+        }
+
+        count = parsed.size();
+        for (std::size_t i = 0; i < kMaxModes; ++i)
+            modes[i] = i < count ? parsed[i] : Mode{};
+        return true;
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const float tune  = std::clamp(controlAt(args, tuneIdx,  1.0f), 0.25f, 4.0f);
+        const float decay = std::clamp(controlAt(args, decayIdx, 1.0f), 0.1f, 10.0f);
+        const float rate  = static_cast<float>(sampleRate);
+        const float nyquist = rate * 0.45f;
+
+        const float* in = args.audioIn[0];
+        float* out = args.audioOut[0];
+        for (int i = 0; i < args.numSamples; ++i)
+            out[i] = 0.0f;
+
+        for (std::size_t n = 0; n < count; ++n)
+        {
+            auto& m = modes[n];
+            const float f = m.hertz * tune;
+            if (f >= nyquist)
+                continue;   // a tuned-up mode past the top of the band is dropped, not folded back
+
+            const float omega = 6.28318530717959f * f / rate;
+            const float r     = std::pow(0.001f, 1.0f / (rate * m.seconds * decay));
+            const float coeff = 2.0f * r * std::cos(omega);
+            const float r2    = r * r;
+            const float b0    = m.gain * std::sin(omega);
+
+            float y1 = m.y1, y2 = m.y2;
+            for (int i = 0; i < args.numSamples; ++i)
+            {
+                const float y = coeff * y1 - r2 * y2 + b0 * in[i];
+                y2 = y1;
+                y1 = y;
+                out[i] += y;
+            }
+            m.y1 = std::isfinite(y1) ? y1 : 0.0f;
+            m.y2 = std::isfinite(y2) ? y2 : 0.0f;
+        }
+    }
+
+private:
+    struct Mode
+    {
+        float hertz = 0.0f, seconds = 1.0f, gain = 0.0f;
+        float y1 = 0.0f, y2 = 0.0f;
+    };
+
+    std::array<Mode, kMaxModes> modes{};
+    std::size_t count = 0;
+    double sampleRate = 44100.0;
+    int tuneIdx = -1, decayIdx = -1;
 };
 
 
@@ -1627,6 +1779,7 @@ void registerFilters(ElementRegistry& registry)
     registry.add("CombFilter",    &make<elements::CombFilter>);
     registry.add("StiffString",   &make<elements::StiffString>);
     registry.add("ModalBank",     &make<elements::ModalBank>);
+    registry.add("FreeModalBank", &make<elements::FreeModalBank>);
     registry.add("Chorus",        &make<elements::Chorus>);
     registry.add("Flanger",       &make<elements::Flanger>);
     registry.add("Phaser",        &make<elements::Phaser>);

@@ -18,6 +18,7 @@ set(VALIS_TESTS
   dsp/SpectralExtrasTest.cpp
   dsp/FluteTest.cpp
   dsp/StiffStringTest.cpp
+  dsp/FreeModalBankTest.cpp
   dsp/ControlMathTest.cpp
   dsp/ClarinetTest.cpp
   dsp/BrassTest.cpp
@@ -60,6 +61,8 @@ set(VALIS_TESTS
   shot/EnvelopeTimesTest.cpp
   shot/SpectralDistanceTest.cpp
   shot/FrontendTest.cpp
+  shot/ShotReportTest.cpp
+  shot/ModalFitTest.cpp
   ops/ContextWiringTest.cpp
   ops/CircuitHistoryTest.cpp
   ops/CircuitDiffTest.cpp
@@ -102,6 +105,13 @@ foreach(_src ${VALIS_TESTS})
   target_include_directories(${_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
   add_test(NAME ${_name} COMMAND ${_name})
 endforeach()
+
+# valis-render --midi, run as the real program. It needs the tool built first.
+add_executable(console_RenderMidiTest console/RenderMidiTest.cpp)
+target_compile_definitions(console_RenderMidiTest PRIVATE VALIS_RENDER_EXE="$<TARGET_FILE:valis_render>"
+                                                           VALIS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples")
+add_dependencies(console_RenderMidiTest valis_render)
+add_test(NAME console_RenderMidiTest COMMAND console_RenderMidiTest)
 
 # The chat client lives in the plugin's AI layer and uses juce_core JSON and
 # ChildProcess. It makes no network calls here: the transport is stubbed.

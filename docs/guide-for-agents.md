@@ -73,8 +73,13 @@ asking the running program:
 | `get_profile` | what the circuit says it is: its role, signals and cautions |
 | `note_on`, `note_off`, `all_notes_off` | play the circuit as a keyboard would |
 | `read_outputs` | the live value of every control output, or one node's |
+| `fit_modes` | turn a recording of a struck bell or drum into the modes of a `val:FreeModalBank`; returns a `val:modes` string and a line of Turtle |
+| `fit_params` | search the circuit's parameters for the settings that sound nearest a recording; reports the values, changes nothing |
 | `render` | render the circuit offline to a wav file; reports peak, RMS and a full analysis |
-| `analyze` | measure any wav file: pitch, octave levels, brightness, onsets, clipping |
+| `measure` | measure any wav file: pitch, octave levels, brightness, onsets, clipping, loudness (LUFS, true peak), attack and decay times |
+| `compare` | how far apart two wav files are, in dB, and how their loudness differs |
+| `sounds_like` | is this file "a trumpet"? yes, maybe or no, and what it is closest to (needs the neural models) |
+| `listen` | AudioSet labels for a file, and a score for each sentence you give (needs the neural models) |
 
 A failed edit leaves the previous circuit playing. Every edit goes through the
 same validation as a typed one.
@@ -269,6 +274,9 @@ Before calling a circuit finished, also run `check_stability`.
 | `control-overrides-value` | warning | a value is set on a port that a control arc replaces every block, so it is never used |
 | `knob-overridden` | warning | a parameter is bound to a port that a control arc replaces, so the knob does nothing |
 | `not-heard` | warning | an element has no path to the output, so it cannot be heard |
+| `mixed-rate-arc` | warning | an arc joins an audio port to a control port, so the compiler drops it |
+| `value-out-of-range` | info | a value is outside the range its port declares, and the element may clamp it |
+| `param-range-wider` | info | a parameter's range is wider than its port's, so the top of the knob may do nothing |
 | `reads-silence` | warning | an effect has nothing connected to any audio input |
 | `unknown-property` | warning | a `val:` property on an element is neither a port nor an option of it, usually a misspelt port name, which sets nothing; the finding offers the nearest real names |
 | `duplicate-param-symbol` | warning | two parameters share a symbol, which a host uses to identify automation |
@@ -288,7 +296,7 @@ compile and be silent, or clip.
   read a `val:Oscilloscope` or `val:FreqAnalyzer`, an envelope, or an LFO.
 - `render` writes a wav offline and reports peak and RMS, followed by an `analysis`
   of the sound. Use it after every structural change. Pass `note` for an instrument,
-  or leave it out for an effect.
+  or leave it out for an effect. Pass `midi` and `tempo` to play a whole MIDI file instead.
 - The `analysis` is what to read in place of listening. Start with its `notes`, which
   say in plain words what is wrong or what was found, then the numbers:
 
@@ -308,15 +316,18 @@ compile and be silent, or clip.
   envelope, and a control arc is not overwriting something it should not.
   A pitch of the wrong octave can be right: a circuit that mixes in a sub-oscillator
   repeats at the lower pitch, and that is the pitch the analysis names.
-- `analyze` does the same for a file you already have, such as a recording to
+- `measure` does the same for a file you already have, such as a recording to
   match or the render of an earlier version to compare with.
 - A circuit that processes audio needs an input to process. `render` has none, so
   an effect renders silence unless it generates sound itself. The `valis-render`
   tool takes `--tone HZ` for a sine, `-i FILE` for a recording, and `--tempo` and
   `--rolling` for a playing host. It also reads any Turtle file without the
   plugin running.
-- To compare two versions, render both and `analyze` each; compare pitch, `bandsDb`
-  and `centroidHz`.
+- To compare two versions, render both and use `compare`: one number says how far apart they are. For the
+  detail, `measure` each and compare pitch, `bandsDb` and `centroidHz`.
+- To check that an instrument sounds like what it should, use `sounds_like` with a file and a sentence ("a harp").
+  It needs the neural models (see `docs/shot.md`), says so if they are missing, and is a rough ear: a result is
+  measured, not heard. `listen` is the same with sentences you choose.
 - `check_stability` answers a different question from `render`: not "does it sound right at the
   settings it has" but "does anything a player can do to it make it fall over". It runs the circuit
   on a fresh engine several times, setting every **bound parameter** to a random value in its range

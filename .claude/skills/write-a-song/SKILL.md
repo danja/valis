@@ -26,10 +26,15 @@ newer and tidier pattern; copy it.
 6. **Build everything, then render.** `cmake --build build` with no target (CLAUDE.md, step 6), then per part:
    `valis_render <circuit> --midi midi/<part>.mid --tempo <bpm> --rolling --seconds <song + 8> -o <part>.wav`.
    Run from the repository root so sample paths resolve. Four renders in parallel is fine. A Debug build takes
-   about a quarter of the song's length per part for a polyphonic circuit.
+   about a quarter of the song's length per part for a polyphonic circuit; the Release build is about five times
+   faster and renders the same samples (checked with `cmp` on a violins note), so the song scripts prefer
+   `build-release/valis_render_artefacts/Release/valis_render`. Rebuild it with
+   `cmake --build build-release --target valis_render valis_shot` after any change to the code, or it is stale.
 7. **Effects on a stem** are circuits fed with `-i`: `speaker-room.ttl`, `reverb-return.ttl`. Mix the send at
    half level before writing the file, so the sum cannot clip.
 8. **Check every stem before mixing.** Print the rms of each bar and look for silence where the score has notes.
+   Then ask `valis_shot is stem.wav "a harp"` (the `hear-a-sound` skill) for each pitched or struck part: a stem that comes
+   out as a synthesizer preset, or as the wrong instrument, is worth fixing before the mix.
    Check tuning of any pitched part (see the `test-an-instrument` skill). Check `isnan`.
 9. **Mix in Python (numpy, scipy), not by ear.** Normalise each stem to a target rms measured over the stretches
    where it plays (windows above -60 dB), so a part that rarely plays sits as loud as one that always does.
@@ -43,6 +48,7 @@ newer and tidier pattern; copy it.
 - Do not stop a render with `pkill -f <script name>`: it matches the shell that runs the command. Use
   `pkill -x valis_render` or a process id.
 - Render in the background from a small shell script and poll its log, so the session is not blocked.
+- To aim a mix at a loudness, use `scripts/shot/lufs.py` (see `docs/shot.md`); it holds the true peak at -1 dBTP.
 - The mix is a reference. Vocals and mastering are done in Reaper (`reaper-from-stems`).
 - Report honestly that a song has been measured and not heard.
 - Save each mix under a new version number (`name-v3.flac`) and keep the previous one, so the listener can compare.

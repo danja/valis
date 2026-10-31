@@ -1,0 +1,87 @@
+# examples/free-bell.ttl
+#
+# A small bell, as a val:FreeModalBank: eight resonances written one by one, each with its own frequency, ring time
+# and level, in place of the six fixed ratios of val:ModalBank. A short noise burst strikes it on every note-on.
+# The numbers are a bell-like set (a hum, a prime, a tierce, a quint, a nominal and higher partials), chosen by hand.
+# To use a measured object, run fit_modes (or valis-shot) on a recording and paste the val:modes string it returns.
+# https://en.wikipedia.org/wiki/Bell_(instrument)
+#
+# This is a synthesizer: it requires MIDI note-on to produce sound.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:free-bell#> .
+
+:free_bell a val:Circuit , trn:PluginProfile ;
+    rdfs:label "Free-mode bell" ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Bell", "Percussion", "Acoustic" ;
+    val:element :noise , :tone , :env , :vca , :bank , :vol , :out ;
+    val:arc :aNoiseTone , :aToneVca , :aVcaBank , :aBankVol , :aVolOut , :aEnvVca .
+
+:noise a val:Noise ; val:colour 0.2 .
+
+# The strike: noise through a low-pass, a few milliseconds wide.
+:tone a val:OnePole ;
+    val:cutoff 5000.0 ;
+    val:mode   0.0 .
+
+:env a val:Envelope ;
+    val:attack  0.1 ;
+    val:decay   6.0 ;
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+:vca a val:VCA .
+
+# hertz:seconds:gain. Seconds is the time to fall 60 dB; gain is the level for a unit impulse.
+:bank a val:FreeModalBank ;
+    val:modes "523:3.2:1 1047:2.4:0.7 1318:1.6:0.5 1568:1.4:0.4 2093:1.1:0.45 2774:0.8:0.3 3520:0.5:0.2 4698:0.3:0.12" .
+
+:vol a val:Gain ; val:gain -6.0 .
+
+:out a val:Output .
+
+:aNoiseTone a val:Arc ;
+    val:from [ val:node :noise ; val:port "out" ] ;
+    val:to   [ val:node :tone  ; val:port "in"  ] .
+
+:aToneVca a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :vca  ; val:port "in"  ] .
+
+:aVcaBank a val:Arc ;
+    val:from [ val:node :vca  ; val:port "out" ] ;
+    val:to   [ val:node :bank ; val:port "in"  ] .
+
+:aBankVol a val:Arc ;
+    val:from [ val:node :bank ; val:port "out" ] ;
+    val:to   [ val:node :vol  ; val:port "in"  ] .
+
+:aVolOut a val:Arc ;
+    val:from [ val:node :vol ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in"  ] .
+
+:aEnvVca a val:ControlArc ;
+    val:from [ val:node :env ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :bank ; val:property val:tune ;
+    lv2:name "Tune" ; lv2:symbol "tune" ; val:section "Bell" ;
+    lv2:minimum 0.5 ; lv2:maximum 2.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :bank ; val:property val:decay ;
+    lv2:name "Ring" ; lv2:symbol "ring" ; val:section "Bell" ;
+    lv2:minimum 0.2 ; lv2:maximum 4.0 .
+
+:p2 a val:Param ; val:slot 2 ; val:target :tone ; val:property val:cutoff ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ; val:section "Strike" ; units:unit units:hz ;
+    lv2:minimum 500.0 ; lv2:maximum 16000.0 .
+
+:p3 a val:Param ; val:slot 3 ; val:target :vol ; val:property val:gain ;
+    lv2:name "Volume" ; lv2:symbol "volume" ; val:section "Output" ; units:unit units:db .

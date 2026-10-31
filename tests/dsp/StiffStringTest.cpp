@@ -91,12 +91,48 @@ void testInTuneAcrossDampingAndDispersion()
     assert(worst < 10.0);
 }
 
+/// The feedback port runs to 0.9999. Past that value the loop must still decay, stay finite, and ring
+/// longer than at the old limit of 0.99.
+void testALongRingStaysStable()
+{
+    const auto energyAfterSeconds = [](float feedback)
+    {
+        ElementTestFixture rig("StiffString", kRate);
+        rig.set("frequency", 196.0f);
+        rig.set("feedback", feedback);
+        rig.set("damping", 0.1f);
+        rig.set("dispersion", 0.1f);
+
+        std::vector<float> pluck(static_cast<std::size_t>(kRate), 0.0f);
+        pluck[0] = 1.0f;
+        rig.run(pluck);
+
+        double peak = 0.0;
+        for (int second = 1; second < 6; ++second)
+            for (const float v : rig.run(std::vector<float>(static_cast<std::size_t>(kRate), 0.0f)))
+            {
+                assert(std::isfinite(v));
+                assert(std::abs(v) < 2.0f);
+                if (second == 5)
+                    peak = std::max(peak, static_cast<double>(std::abs(v)));
+            }
+        return peak;
+    };
+
+    const double old = energyAfterSeconds(0.99f);
+    const double longRing = energyAfterSeconds(0.9999f);
+    std::printf("  stiff string: level five seconds in, %.2g at 0.99 and %.2g at 0.9999\n", old, longRing);
+    assert(longRing > old * 10.0);
+    assert(energyAfterSeconds(1.5f) <= longRing * 1.001);   // above the port's range it is held at 0.9999
+}
+
 }  // namespace
 
 int main()
 {
     testInTuneAcrossTheRange();
     testInTuneAcrossDampingAndDispersion();
+    testALongRingStaysStable();
     std::printf("StiffStringTest passed\n");
     return 0;
 }

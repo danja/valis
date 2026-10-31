@@ -91,6 +91,18 @@ void testAWeakFundamentalIsNotAnOctaveHigh()
     assert(noteName(r.pitch.midiNote) == "E3");
 }
 
+void testAHighPureToneIsNotAnOctaveLow()
+{
+    // A wood block rings as a nearly pure tone near 1.85 kHz. Above the search ceiling the dip at the true period
+    // was never looked at and the dip at twice the period, 925 Hz, was reported instead.
+    for (const double f0 : {1850.0, 2500.0, 3500.0})
+    {
+        const auto r = analyseSignal(sine(f0, 48000.0, 1.0), {}, 48000.0);
+        std::printf("  pure tone %.0f Hz: found %.2f Hz\n", f0, r.pitch.hz);
+        assert(r.pitch.found && std::abs(1200.0 * std::log2(r.pitch.hz / f0)) < 20.0);
+    }
+}
+
 void testBandsAreInDecibelsFullScale()
 {
     // A 1 kHz sine at 0.5 puts all of its power in the 1 kHz octave: -9 dBFS RMS.
@@ -228,6 +240,7 @@ int main()
     testASineIsMeasuredExactly();
     testPitchAcrossTheRange();
     testAWeakFundamentalIsNotAnOctaveHigh();
+    testAHighPureToneIsNotAnOctaveLow();
     testBandsAreInDecibelsFullScale();
     testSilenceIsSaidToBeSilence();
     testClippingDcAndBrokenValuesAreFlagged();

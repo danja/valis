@@ -289,10 +289,11 @@ the measurement window contains the event. Use a plain DFT for a burst at the st
 `ops_LintTest` passed. The renderer printed "arc joins a control output to a audio input" as warnings and the
 vibrato did nothing; the warnings were buried in a long run.
 
-**Root cause.** The lint does not check that an arc joins ports of the same kind.
+**Root cause.** The lint did not check that an arc joins ports of the same kind.
 
 **Prevention.** Use `val:ControlMultiply` for control-rate products and `val:VCA` only on audio. After regenerating a
-circuit, render it once and read the renderer's output for "arc joins".
+circuit, render it once and read the renderer's output for "arc joins". `lint` now reports it as `mixed-rate-arc`
+(`tests/ops/LintTest.cpp`).
 
 ## A background wait that matched itself
 
@@ -319,3 +320,37 @@ had said to avoid Python in this path. The script, environment and data were del
 name a 440 Hz sine `Sine wave` (it does, at 0.84) and hiss `White noise`, and CLAP to put an 80 Hz tone nearer "a low,
 deep rumble" and a 5 kHz tone nearer "a high pitched whistle". A wrong mel scale or normalisation fails these. They do
 not prove bit-exact features, so small shifts in a score are not ruled out.
+
+## A report that was valid JSON only for tidy file names
+
+**What happened.** `valis-shot` built its JSON with `printf` and put the file name inside quotes unescaped. A name with a
+quote, or a sentence given to `listen` with one, produced output no parser accepts. Moving the code behind MCP, where the
+names come from a caller, made that a real fault. Using `juce::JSON` instead printed `25.600000000000001`.
+
+**Root cause.** The format was written for one reader (a person at a terminal) and reused for another (a program).
+
+**Prevention.** One small builder with `quote()` and a fixed-places `num()` (`src/shot/ShotReport.cpp`), and a test that
+measures a file called `a"b.wav` (`tests/shot/ShotReportTest.cpp`).
+
+## A hand-written MIDI file with the wrong track length
+
+**What happened.** A test built a standard MIDI file from a byte array. The track header said 12 bytes and the events
+were 13, so the file was malformed, `render` refused it and the test aborted. It looked like a fault in the new render
+parameters.
+
+**Root cause.** The length was counted in my head and the file was never opened by anything else before the test ran.
+
+**Prevention.** Derive the track length from the array (`sizeof` of the events) or build the file with `juce::MidiFile`,
+and when a test fails on a file it wrote itself, check the file first.
+
+## A clamp copied from the wrong purpose
+
+**What happened.** `fitParams` reused the "hold the range to plus or minus a thousand" rule from `checkStability`. For the
+SH-101 filter peak (20 to 20000 Hz) that made the search range 20 to 1000, so the start value of 8000 was clamped to 1000
+and the search reported no improvement while looking as if it had run.
+
+**Root cause.** The rule exists for ranges of plus or minus a million (unbounded), but was written as a plain clamp on
+every range.
+
+**Prevention.** Cap a bound only when it is itself huge (`fitParams`), and state in the test the distance before and after,
+so a search that cannot move is a failure and not a quiet no-op.

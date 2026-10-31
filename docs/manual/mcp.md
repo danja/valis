@@ -103,8 +103,13 @@ a tool first.
 | `read_outputs` | every control output's live value, or one node's |
 | `check_stability` | run the circuit on a fresh engine with random settings of its bound parameters, all moving at once partway through, and report runs that blow up, go non-finite, clip or fall silent, with the settings that did it |
 | `lint` | static checks on the loaded circuit: values an arc overwrites, knobs that do nothing, parts that cannot be heard, effects with nothing connected, nothing wired to the output |
-| `analyze` | measure a wav file: level, clipping, DC, pitch with note name and cents, octave levels, brightness, onsets, level over time, and plain notes on anything wrong |
-| `render` | render the circuit offline to a wav and report peak and RMS, with the same analysis `analyze` gives |
+| `measure` | level, clipping, DC, pitch with note name and cents, octave levels, brightness, onsets, level over time and plain notes on anything wrong (under `signal`), plus loudness to BS.1770 (integrated LUFS, range, true peak) and the envelope (attack, decay, noise floor) |
+| `compare` | the spectral distance in dB between two files (0 is the same), and the differences in loudness and length |
+| `sounds_like` | yes, maybe or no to "is this file a trumpet?", the share, the rank among twenty rivals and the three closest sentences; needs a build with `VALIS_WITH_ONNX` and the models from `scripts/shot/fetch-models.sh` |
+| `listen` | AudioSet labels for a file and a share for each sentence given; the same requirements as `sounds_like` |
+| `fit_modes` | fit a recording of a struck object to `val:FreeModalBank` modes (frequency, ring time, level) and report how near the bank is |
+| `fit_params` | search the circuit's `val:Param` settings for the render nearest a recording, by spectral distance; reports the values and changes nothing |
+| `render` | render the circuit offline to a wav and report peak and RMS, with the same analysis `measure` gives |
 | `get_diagnostics` | whether the circuit loaded, its size, latency, voices, and `problems`: what an element recovered from, such as a missing sound file |
 
 Every tool is an adapter over the same `Op` the views use, so anything the UI
@@ -124,6 +129,10 @@ note, writes a wav file and reports the peak, the RMS and whether every sample
 was finite. The fresh engine means rendering neither hears nor disturbs what the
 plugin is playing. This is the quickest way to tell whether a circuit actually
 sounds.
+
+To render a whole part, pass `midi` (a standard MIDI file) and `tempo`: every note of the file plays at that
+tempo in place of `note`. Tempo changes in the file are ignored. `rolling` reports the transport as playing, for
+a circuit that takes its timing from the host.
 
 ## Guarantees
 

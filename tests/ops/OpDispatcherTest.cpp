@@ -1132,6 +1132,98 @@ void testReadOutputs()
     assert(! ops.readOutputs("urn:valis:t#nosuch").ok);
 }
 
+/// fitParams moves the circuit's parameters toward a recording. The recording is the SH-101 with its filter envelope
+/// opening to 1500 Hz; the circuit under test opens to 8000 Hz and has to find its way back by the Filter Peak knob.
+void testFitParams()
+{
+    const auto source = readFile(VALIS_EXAMPLES_DIR "/sh101.ttl");
+    const auto target = std::string(VALIS_ROOT_DIR) + "/build/op-fit-target.wav";
+    const std::string peak = "val:max 8000.0";
+
+    {
+        auto darker = source;
+        const auto at = darker.find(peak);
+        assert(at != std::string::npos);
+        darker.replace(at, peak.size(), "val:max 1500.0");
+
+        Host original(darker);
+        const auto rendered = original.ops().render(target, 1.0, 48000.0, 48, 1.0);
+        assert(rendered.ok);
+    }
+
+    Host host(source);
+    auto ops = host.ops();
+
+    const auto fit = ops.fitParams(target, 48, 1.0, 1.0, 40, {7});   // slot 7 is the filter peak
+    assert(fit.ok);
+    const auto number = [&](const char* key)
+    {
+        const auto where = fit.value.find(key);
+        assert(where != std::string::npos);
+        return std::stod(fit.value.substr(where + std::string(key).size()));
+    };
+    const double start = number("\"startDistanceDb\":"), best = number("\"bestDistanceDb\":");
+    std::printf("  fit: %.2f dB before, %.2f dB after\n", start, best);
+    assert(start > 1.0);
+    assert(best < start * 0.5);
+
+    // The same call finds the same answer.
+    assert(ops.fitParams(target, 48, 1.0, 1.0, 40, {7}).value == fit.value);
+
+    // It never ends up further than it began.
+    assert(best <= start);
+
+    // Failures are named.
+    assert(! ops.fitParams("", 48, 1.0, 1.0, 10).ok);
+    assert(! ops.fitParams("/no/such/file.wav", 48, 1.0, 1.0, 10).ok);
+    assert(! ops.fitParams(target, 200, 1.0, 1.0, 10).ok);          // not a MIDI note
+    assert(! ops.fitParams(target, 48, 1.0, 1.0, 10, {99}).ok);     // no such slot
+    std::remove(target.c_str());
+}
+
+/// A bell is rendered by the circuit, then fitted back: the modes written in the circuit must come out of the
+/// recording of it. The strike is a noise burst, so levels vary, but the frequencies and ring times are the bank's.
+void testFitModes()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/free-bell.ttl"));
+    auto ops = host.ops();
+    const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-fitmodes-test.wav";
+
+    const auto rendered = ops.render(path, 3.0, 48000.0, 60, 1.0);
+    assert(rendered.ok);
+
+    const auto fit = ops.fitModes(path, 12, 2.0);
+    assert(fit.ok);
+
+    const auto at = fit.value.find("\"modes\":\"");
+    assert(at != std::string::npos);
+    const auto start = at + std::string("\"modes\":\"").size();
+    const auto modes = fit.value.substr(start, fit.value.find('"', start) - start);
+    std::printf("  fit_modes: %s\n", modes.c_str());
+
+    // The three strongest modes of the circuit's bank, by frequency, within 0.3 percent.
+    int matched = 0;
+    for (const double wanted : {523.0, 1047.0, 1318.0})
+    {
+        std::istringstream words(modes);
+        std::string word;
+        while (words >> word)
+            if (std::abs(std::stod(word) - wanted) < wanted * 0.003)
+                ++matched;
+    }
+    assert(matched == 3);
+
+    const auto distance = fit.value.find("\"distanceDb\":");
+    assert(distance != std::string::npos);
+    assert(std::stod(fit.value.substr(distance + 13)) < 10.0);
+    assert(fit.value.find("val:FreeModalBank") != std::string::npos);
+
+    assert(! ops.fitModes("").ok);
+    assert(! ops.fitModes("/no/such/file.wav").ok);
+    assert(! ops.fitModes(std::string(VALIS_ROOT_DIR) + "/vocabs/valis.ttl").ok);   // not audio
+    std::remove(path.c_str());
+}
+
 /// Rendering is how a caller checks that what it built actually sounds. It uses
 /// a fresh engine, so it must not disturb what the host is playing.
 void testRender()
@@ -1161,12 +1253,12 @@ void testRender()
     assert(result.value.find("\"notes\":[") != std::string::npos);
 
     // And the same measurement of the file on disk.
-    const auto measured = ops.analyze(path);
+    const auto measured = ops.measure(path);
     assert(measured.ok);
     assert(measured.value.find("\"note\":\"C3\"") != std::string::npos);
-    assert(! ops.analyze("").ok);
-    assert(! ops.analyze("/no/such/file.wav").ok);
-    assert(! ops.analyze(std::string(VALIS_ROOT_DIR) + "/vocabs/valis.ttl").ok);   // not audio
+    assert(! ops.measure("").ok);
+    assert(! ops.measure("/no/such/file.wav").ok);
+    assert(! ops.measure(std::string(VALIS_ROOT_DIR) + "/vocabs/valis.ttl").ok);   // not audio
 
     std::FILE* written = std::fopen(path.c_str(), "rb");
     assert(written != nullptr);
@@ -1176,6 +1268,61 @@ void testRender()
     std::remove(path.c_str());
 
     assert(! ops.render("", 0.5, 48000.0, 60, 1.0).ok);
+
+    // A MIDI file plays in place of a note. One middle C at tick 0, held a quarter, division 480.
+    const unsigned char smf[] = {
+        'M','T','h','d', 0,0,0,6, 0,0, 0,1, 0x01,0xE0,
+        'M','T','r','k', 0,0,0,13,
+        0x00,0x90,60,100,   0x83,0x60,0x80,60,0,   0x00,0xFF,0x2F,0x00 };
+    const auto midiPath = std::string(VALIS_ROOT_DIR) + "/build/op-render-test.mid";
+    std::FILE* midi = std::fopen(midiPath.c_str(), "wb");
+    assert(midi != nullptr);
+    std::fwrite(smf, 1, sizeof(smf), midi);
+    std::fclose(midi);
+
+    const auto played = ops.render(path, 0.5, 48000.0, -1, 1.0, midiPath, 120.0, true);
+    assert(played.ok);
+    const auto playedAt = played.value.find("\"peak\":");
+    assert(playedAt != std::string::npos);
+    assert(std::stod(played.value.substr(playedAt + 7)) > 0.01);
+
+    assert(! ops.render(path, 0.5, 48000.0, -1, 1.0, "/no/such/file.mid").ok);
+    assert(! ops.render(path, 0.5, 48000.0, -1, 1.0, path).ok);   // audio, not MIDI
+    std::remove(midiPath.c_str());
+    std::remove(path.c_str());
+}
+
+void testShotOps()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+
+    // The valis-shot measurements are ops, so MCP and the UI call the code the command line tool runs.
+    const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-shot-test.wav";
+    assert(ops.render(path, 0.5, 48000.0, 60, 1.0).ok);
+
+    const auto measured = ops.measure(path);
+    assert(measured.ok);
+    assert(measured.value.find("\"loudness\"") != std::string::npos);
+    assert(measured.value.find("\"envelope\"") != std::string::npos);
+    assert(measured.value.find("\"signal\"") != std::string::npos);
+
+    const auto compared = ops.compare(path, path);
+    assert(compared.ok && compared.value.find("\"spectralDistanceDb\":0") != std::string::npos);
+
+    assert(! ops.measure("").ok);
+    assert(! ops.measure("/no/such/file.wav").ok);
+    assert(! ops.compare(path, "/no/such/file.wav").ok);
+
+    // Without models listen says why, and with them it answers: either way it is not a crash.
+    const auto heard = ops.listen(path, {"a synthesizer", "a violin"});
+    assert(heard.ok ? heard.value.find("\"matches\"") != std::string::npos : ! heard.diagnostics.empty());
+
+    const auto asked = ops.soundsLike(path, "a synthesizer");
+    assert(asked.ok ? asked.value.find("\"verdict\"") != std::string::npos : ! asked.diagnostics.empty());
+    assert(! ops.soundsLike(path, "").ok);
+
+    std::remove(path.c_str());
 }
 
 /// A polyphonic circuit tells a caller what it is: which elements the model
@@ -1423,6 +1570,9 @@ int main()
     testPlayingNotes();
     testReadOutputs();
     testRender();
+    testShotOps();
+    testFitParams();
+    testFitModes();
     testGraphReportsSubcircuitExpansion();
     testElementTypesReportEventPorts();
     testCircuitProfile();

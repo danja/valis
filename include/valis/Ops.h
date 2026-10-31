@@ -223,21 +223,45 @@ public:
     /// playing is not touched. For a run that is not ok the settings are returned.
     OpResult checkStability(int trials = 8, double seconds = 1.5, int note = 60) const;
 
+    /// Searches the circuit's own parameters for the settings whose render is nearest a recording. Plays `note`
+    /// on a fresh engine at the recording's sample rate for up to `seconds` of it, scores each render against the
+    /// recording with the spectral distance in dB (include/valis/SpectralDistance.h), and moves the parameters
+    /// by a seeded evolution strategy, so a result can be repeated. `evaluations` renders at most; `slots`
+    /// limits the search to those parameters, and empty searches all. Reports the distance before and after and
+    /// the value found for each parameter. It changes nothing: set the values with setParam or in the Turtle.
+    /// The distance is measured, not heard; a small one means the spectra agree, not that the sound is right.
+    OpResult fitParams(const std::string& targetPath, int note, double velocity, double seconds,
+                       int evaluations, const std::vector<int>& slots = {}) const;
+
+    /// Turns a recording of a struck object (a bell, a cowbell, a conga) into the modes of a val:FreeModalBank
+    /// (include/valis/ModalFit.h): up to `modes` damped sines, each with a frequency, a ring time and a level.
+    /// Reports them as a val:modes string and a Turtle line to paste, and how far the bank, struck by an
+    /// impulse, is from the recording in dB of spectral distance. Reads up to `seconds` of the file. Measured,
+    /// not heard: it matches the spectrum and ring times, not the attack or the way the sound is played.
+    OpResult fitModes(const std::string& path, int modes = 12, double seconds = 2.0) const;
+
     /// Static checks on the loaded circuit: values a control arc overwrites, knobs that move
     /// nothing, parts that cannot be heard, effects with nothing to process, nothing wired to
     /// the output. See include/valis/Lint.h. A circuit that compiles can still earn findings.
     OpResult lint() const;
 
-    /// Measures a wav file in place of listening: level, clipping, DC, the pitch it sits on,
-    /// the level of each octave, brightness, where notes begin, how the level moves, and plain
-    /// notes on anything wrong. The first sixty seconds. See include/valis/Analysis.h.
-    OpResult analyze(const std::string& path) const;
+    /// The valis-shot measurements (include/valis/ShotReport.h), the same code the command line tool runs.
+    /// `measure` is the signal analysis (level, clipping, DC, pitch, octave levels, brightness, onsets, plain notes) plus BS.1770 loudness and attack and decay times; `compare` is how far apart two
+    /// renders are in dB; `listen` names the sound with neural models and scores sentences against it, and fails
+    /// with the reason in a build without them or before scripts/shot/fetch-models.sh has been run.
+    OpResult measure(const std::string& path) const;
+    OpResult compare(const std::string& pathA, const std::string& pathB) const;
+    OpResult listen(const std::string& path, const std::vector<std::string>& queries) const;
+    /// The one-question form of listen: yes, maybe or no, and what the sound is closest to.
+    OpResult soundsLike(const std::string& path, const std::string& sentence) const;
 
     /// Renders the circuit offline into a wav file and reports what came out.
     /// A fresh engine, so it neither touches nor is touched by whatever the
-    /// plugin is playing. `note` below zero renders without a note event.
+    /// plugin is playing. `note` below zero renders without a note event. A `midiPath` plays every note of that MIDI
+    /// file at `tempo` in place of `note`; `rolling` reports the transport as playing from zero at that tempo.
     OpResult render(const std::string& path, double seconds, double sampleRate,
-                    int note, double velocity) const;
+                    int note, double velocity,
+                    const std::string& midiPath = {}, double tempo = 120.0, bool rolling = false) const;
 
     // -- files -------------------------------------------------------------
     /// Writes the current Turtle to a path. The editor's Save, for a caller
