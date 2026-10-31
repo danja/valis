@@ -20,6 +20,7 @@
 #include <fstream>
 #include <map>
 #include <sstream>
+#include <thread>
 #include <tuple>
 #include <string>
 #include <vector>
@@ -1231,6 +1232,74 @@ void testFitModes()
 
 /// Rendering is how a caller checks that what it built actually sounds. It uses
 /// a fresh engine, so it must not disturb what the host is playing.
+/// beginRender reads the circuit and run makes the audio, so the second half can go on another thread. Together they
+/// are render: the same circuit and note give the same sound whichever way it is asked for.
+void testRenderInTwoHalves()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+    const auto whole = std::string(VALIS_ROOT_DIR) + "/build/op-render-whole.wav";
+    const auto halves = std::string(VALIS_ROOT_DIR) + "/build/op-render-halves.wav";
+
+    const auto direct = ops.render(whole, 0.5, 48000.0, 60, 1.0);
+    assert(direct.ok);
+
+    OpResult failure;
+    auto job = ops.beginRender(halves, 0.5, 48000.0, 60, 1.0, {}, 120.0, false, failure);
+    assert(job != nullptr);
+
+    // The job holds its own engine: editing the live circuit before it runs changes nothing, and it can run elsewhere.
+    OpResult second;
+    std::thread worker([&] { second = job->run(); });
+    worker.join();
+    assert(second.ok);
+
+    const auto peakOf = [](const std::string& json)
+    {
+        const auto at = json.find("\"peak\":");
+        assert(at != std::string::npos);
+        return std::stod(json.substr(at + 7));
+    };
+    assert(std::abs(peakOf(direct.value) - peakOf(second.value)) < 1.0e-9);
+
+    // Refusals come back as a failure and no job.
+    OpResult refused;
+    assert(ops.beginRender("", 0.5, 48000.0, 60, 1.0, {}, 120.0, false, refused) == nullptr);
+    assert(! refused.ok);
+    assert(ops.beginRender(halves, 0.5, 48000.0, 60, 1.0, "/no/such/file.mid", 120.0, false, refused) == nullptr);
+    assert(! refused.ok);
+
+    std::remove(whole.c_str());
+    std::remove(halves.c_str());
+}
+
+/// A snapshot is the circuit as it was when taken: editing the live circuit afterwards changes nothing it holds, and
+/// the searches that take one run on any thread. Without a circuit there is nothing to snapshot.
+void testSnapshotSearchesRunElsewhere()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    auto ops = host.ops();
+
+    const auto snap = ops.snapshot();
+    assert(snap.loaded);
+    assert(! snap.turtle.empty());
+
+    // Replace the live circuit with a different one; the snapshot must still describe the first.
+    const auto other = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    assert(ops.setTurtle(other).ok);
+    assert(ops.snapshot().turtle != snap.turtle);
+
+    OpResult stable;
+    std::thread worker([&] { stable = ops.checkStability(snap, 2, 0.25, 60); });
+    worker.join();
+    assert(stable.ok);
+
+    // The same call on the live circuit now tests the other one, so the two reports differ in what they measured.
+    const auto live = ops.checkStability(2, 0.25, 60);
+    assert(live.ok);
+    assert(live.value != stable.value);
+}
+
 void testRender()
 {
     Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
@@ -1575,6 +1644,8 @@ int main()
     testPlayingNotes();
     testReadOutputs();
     testRender();
+    testRenderInTwoHalves();
+    testSnapshotSearchesRunElsewhere();
     testShotOps();
     testFitParams();
     testFitModes();

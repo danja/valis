@@ -2,13 +2,15 @@
 //
 // Several instances of the plug-in in one host each need an MCP server of their own. A server
 // asked for a port that is taken moves up to the next free one, says which it got, and reports
-// who it is on /health. No tool call is made, so the dispatcher is never used.
+// who it is on /health. The one tool call made is a file tool, which must answer without the message
+// thread (this process has none running), so a slow analysis of a sound file cannot block the editor.
 
 #include "mcp/McpServer.h"
 
 #include <httplib.h>
 
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <string>
 
@@ -108,6 +110,30 @@ void testRestartAnswersOnce()
     assert(! healthOf(server.boundPort()).empty());
 }
 
+/// measure reads a sound file and never the circuit, so it is served on the server's own thread. Nothing here
+/// pumps JUCE messages: a tool that still went through the message thread would wait out its 5 second window
+/// and fail with "did not service". A missing file is the cheapest request that reaches the tool itself.
+void testFileToolDoesNotNeedTheMessageThread()
+{
+    valis::McpServer server([]() -> valis::OpDispatcher { return valis::OpDispatcher(valis::OpContext{}); });
+    const bool ok = server.start(kBase + 60, {}, 4);
+    assert(ok);
+
+    httplib::Client client("127.0.0.1", server.boundPort());
+    client.set_read_timeout(4);
+    const auto begin = std::chrono::steady_clock::now();
+    const auto reply = client.Post("/mcp",
+        R"({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"measure","arguments":{"path":"/no/such/file.wav"}}})",
+        "application/json");
+    const auto seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
+
+    assert(reply && reply->status == 200);
+    assert(seconds < 3.0);
+    assert(reply->body.find("did not service") == std::string::npos);
+    assert(reply->body.find("no such file") != std::string::npos || reply->body.find("No such file") != std::string::npos
+           || reply->body.find("not found") != std::string::npos);
+}
+
 void testNoFreePortFails()
 {
     auto holder = makeServer();
@@ -130,6 +156,7 @@ int main()
     testPortIsFreedOnStop();
     testHealthReportsIdentity();
     testRestartAnswersOnce();
+    testFileToolDoesNotNeedTheMessageThread();
     testNoFreePortFails();
     std::puts("McpServerPortTest: ok");
     return 0;

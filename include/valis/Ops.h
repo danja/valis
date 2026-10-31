@@ -12,6 +12,7 @@
 #include "valis/CircuitModel.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -123,6 +124,37 @@ struct OpContext
 
 /// The operations. Each is deliberately small and total: it either does the
 /// thing or explains why it could not.
+/// A render that has been parsed, built, compiled and loaded into a private engine, and now only has audio to make.
+/// Preparing one belongs on the message thread; `run` touches no live state and may take as long as the audio does,
+/// so it can go on any other thread. Made by `OpDispatcher::beginRender`.
+class RenderJob
+{
+public:
+    ~RenderJob();
+    RenderJob(const RenderJob&) = delete;
+    RenderJob& operator=(const RenderJob&) = delete;
+
+    /// Renders, writes the wav and measures it. Once only.
+    OpResult run();
+
+private:
+    friend class OpDispatcher;
+    struct Impl;
+    explicit RenderJob(std::unique_ptr<Impl> impl);
+    std::unique_ptr<Impl> impl;
+};
+
+/// What a long operation needs from the live circuit, taken once so the operation can run on another thread: the
+/// Turtle source and the list of bound parameters, with the values they have now. Taken by `OpDispatcher::snapshot`
+/// on the message thread; the operations that accept one read nothing live. They do read the ontology and the
+/// element registry, which are never written once loaded, and the ontology's store takes a lock for every lookup.
+struct CircuitSnapshot
+{
+    bool loaded = false;
+    std::string turtle;
+    std::vector<ParamInfo> params;
+};
+
 class OpDispatcher
 {
 public:
@@ -222,6 +254,11 @@ public:
     /// held if `note` is not negative, and a noise-and-tone input for an effect to process. What is
     /// playing is not touched. For a run that is not ok the settings are returned.
     OpResult checkStability(int trials = 8, double seconds = 1.5, int note = 60) const;
+    /// The same on a snapshot, which touches nothing live and may run on any thread.
+    OpResult checkStability(const CircuitSnapshot& snapshot, int trials, double seconds, int note) const;
+
+    /// Reads the live circuit for the operations that take a snapshot. Message thread.
+    CircuitSnapshot snapshot() const;
 
     /// Searches the circuit's own parameters for the settings whose render is nearest a recording. Plays `note`
     /// on a fresh engine at the recording's sample rate for up to `seconds` of it, scores each render against the
@@ -232,6 +269,9 @@ public:
     /// The distance is measured, not heard; a small one means the spectra agree, not that the sound is right.
     OpResult fitParams(const std::string& targetPath, int note, double velocity, double seconds,
                        int evaluations, const std::vector<int>& slots = {}) const;
+    /// The same on a snapshot, which touches nothing live and may run on any thread.
+    OpResult fitParams(const CircuitSnapshot& snapshot, const std::string& targetPath, int note, double velocity,
+                       double seconds, int evaluations, const std::vector<int>& slots) const;
 
     /// Turns a recording of a struck object (a bell, a cowbell, a conga) into the modes of a val:FreeModalBank
     /// (include/valis/ModalFit.h): up to `modes` damped sines, each with a frequency, a ring time and a level.
@@ -262,6 +302,14 @@ public:
     OpResult render(const std::string& path, double seconds, double sampleRate,
                     int note, double velocity,
                     const std::string& midiPath = {}, double tempo = 120.0, bool rolling = false) const;
+
+    /// The first half of `render`, which is the part that reads the circuit: checks the arguments, then parses, builds
+    /// and compiles the circuit into a private engine. Null means it failed, and `failure` says why. Run the result
+    /// with `RenderJob::run`, on this thread or another: `render` is exactly the two in a row. `seconds` is held to
+    /// 0.05 to 300.
+    std::unique_ptr<RenderJob> beginRender(const std::string& path, double seconds, double sampleRate,
+                                           int note, double velocity, const std::string& midiPath,
+                                           double tempo, bool rolling, OpResult& failure) const;
 
     // -- files -------------------------------------------------------------
     /// Writes the current Turtle to a path. The editor's Save, for a caller

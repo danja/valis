@@ -28,8 +28,10 @@ constexpr const char* kDiagnosticsResourceUri = "valis://diagnostics";
 constexpr const char* kElementTypesResourceUri = "valis://element-types";
 constexpr const char* kParamsResourceUri = "valis://params";
 
-// A request that cannot be serviced within this window is a bug, not a
-// slow op: everything here is bounded work on in-memory structures.
+// A request that cannot be serviced within this window is a bug, not a slow op: what runs on the message thread
+// is bounded work on in-memory structures. What can take many seconds does not run there: tools on sound files
+// (isFileTool), render (it prepares its job there and runs it elsewhere) and the searches (runSearchTool, which work
+// from a snapshot).
 constexpr int kRequestTimeoutMs = 5000;
 
 /// Bounded admission for work marshalled onto the message thread.
@@ -528,7 +530,7 @@ const ToolSpec kTools[] = {
      R"({"type":"object","properties":{"path":{"type":"string","description":"the recording to match"},"note":{"type":"integer","description":"MIDI note to play, 0-127"},"velocity":{"type":"number","description":"0-1, default 1"},"seconds":{"type":"number","description":"how much of the recording to match, 0.25 to 10, default 3"},"evaluations":{"type":"integer","description":"renders to spend, 2 to 400, default 60"},"slots":{"type":"array","items":{"type":"integer"},"description":"parameter slots to search; omit to search all"}},"required":["path","note"]})"},
 
     {"render", "Render the current circuit offline to a wav file and report its peak and RMS, and the same analysis measure gives under `signal`. Uses a fresh engine, so it neither hears nor disturbs what the plugin is playing. This is how you check that a circuit you built actually sounds.",
-     R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 60, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"},"midi":{"type":"string","description":"a standard MIDI file whose notes are played in place of note"},"tempo":{"type":"number","description":"beats per minute for the MIDI file and the transport, 20 to 400, default 120; tempo events in the file are ignored"},"rolling":{"type":"boolean","description":"report the transport as playing from zero, for circuits that take timing from the host"}},"required":["path"]})"},
+     R"({"type":"object","properties":{"path":{"type":"string","description":"output wav path"},"seconds":{"type":"number","description":"0.05 to 300, default 2"},"sample_rate":{"type":"number","description":"default 48000"},"note":{"type":"integer","description":"MIDI note to play, 0-127; omit for no note"},"velocity":{"type":"number","description":"0-1, default 1"},"midi":{"type":"string","description":"a standard MIDI file whose notes are played in place of note"},"tempo":{"type":"number","description":"beats per minute for the MIDI file and the transport, 20 to 400, default 120; tempo events in the file are ignored"},"rolling":{"type":"boolean","description":"report the transport as playing from zero, for circuits that take timing from the host"}},"required":["path"]})"},
 };
 
 }  // namespace
@@ -569,10 +571,144 @@ juce::var McpServer::toolManifest()
     return tools;
 }
 
+namespace {
+
+/// Tools that read a sound file and never the circuit. They can take seconds (the neural models alone take longer
+/// than the message-thread window to load), so they run on the server's own thread: the editor and every other
+/// call stay responsive, and a slow one cannot starve them. They share one set of neural models, hence the lock.
+bool isFileTool(const juce::String& name)
+{
+    return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes";
+}
+
+juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
+{
+    if (name == "measure")
+        return resultOf(ops.measure(stringArgument(arguments, "path")));
+
+    if (name == "compare")
+        return resultOf(ops.compare(stringArgument(arguments, "path_a"), stringArgument(arguments, "path_b")));
+
+    if (name == "sounds_like")
+        return resultOf(ops.soundsLike(stringArgument(arguments, "path"), stringArgument(arguments, "sentence")));
+
+    if (name == "listen")
+    {
+        std::vector<std::string> queries;
+        if (const auto* list = arguments["queries"].getArray())
+            for (const auto& q : *list)
+                queries.push_back(q.toString().toStdString());
+        return resultOf(ops.listen(stringArgument(arguments, "path"), queries));
+    }
+
+    if (name == "fit_modes")
+        return resultOf(ops.fitModes(
+            stringArgument(arguments, "path"),
+            arguments.hasProperty("modes") ? static_cast<int>(arguments["modes"]) : 12,
+            arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 2.0));
+
+    return textContent("unknown file tool: " + name, true);
+}
+
+std::mutex fileToolMutex;
+
+/// The live circuit's Turtle and parameters, read on the message thread so the searches that follow can run elsewhere.
+std::optional<CircuitSnapshot> takeSnapshot(const std::shared_ptr<MessageThreadGate>& gate,
+                                            const std::function<OpDispatcher()>& factory, juce::String& error)
+{
+    const auto holder = std::make_shared<CircuitSnapshot>();
+    const auto done = onMessageThread(gate, [factory, holder](juce::String&) -> int
+    {
+        *holder = factory().snapshot();
+        return 0;
+    }, error);
+
+    if (! done.has_value())
+        return std::nullopt;
+    return *holder;
+}
+
+/// check_stability and fit_params build a fresh circuit for every trial or candidate, which can be hundreds of
+/// renders. They run on the server's own thread from a snapshot, so the editor stays alive and a slow one cannot
+/// block the next call. Everything they parse and compile is a private copy; see TurtleStore for why that is safe.
+juce::var runSearchTool(const OpDispatcher& ops, const CircuitSnapshot& snapshot, const juce::String& name,
+                        const juce::var& arguments)
+{
+    if (name == "check_stability")
+    {
+        const int trials = arguments.hasProperty("trials") ? static_cast<int>(arguments["trials"]) : 8;
+        const double seconds = arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 1.5;
+        const int note = arguments.hasProperty("note") ? static_cast<int>(arguments["note"]) : 60;
+        return resultOf(ops.checkStability(snapshot, trials, seconds, note));
+    }
+
+    std::vector<int> slots;
+    if (const auto* list = arguments["slots"].getArray())
+        for (const auto& v : *list)
+            slots.push_back(static_cast<int>(v));
+    return resultOf(ops.fitParams(
+        snapshot,
+        stringArgument(arguments, "path"),
+        static_cast<int>(arguments["note"]),
+        arguments.hasProperty("velocity") ? static_cast<double>(arguments["velocity"]) : 1.0,
+        arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 3.0,
+        arguments.hasProperty("evaluations") ? static_cast<int>(arguments["evaluations"]) : 60,
+        slots));
+}
+
+}  // namespace
+
 juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
                               const juce::String& name, const juce::var& arguments,
                               juce::String& error)
 {
+    if (name == "render")
+    {
+        const double seconds = arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 2.0;
+        const double rate = arguments.hasProperty("sample_rate") ? static_cast<double>(arguments["sample_rate"]) : 48000.0;
+        const int note = arguments.hasProperty("note") ? static_cast<int>(arguments["note"]) : -1;
+        const double velocity = arguments.hasProperty("velocity") ? static_cast<double>(arguments["velocity"]) : 1.0;
+        const double tempo = arguments.hasProperty("tempo") ? static_cast<double>(arguments["tempo"]) : 120.0;
+        const bool rolling = arguments.hasProperty("rolling") && static_cast<bool>(arguments["rolling"]);
+        const std::string path = stringArgument(arguments, "path");
+        const std::string midi = arguments.hasProperty("midi") ? stringArgument(arguments, "midi") : std::string();
+
+        // Reading the circuit (parse, build, compile, load) is the message thread's, as the rules say; the audio is
+        // not, and for a long piece it is most of the time. The job is shared with the queued task, which may outlive
+        // this frame if the message thread is late.
+        const auto job = std::make_shared<std::unique_ptr<RenderJob>>();
+        const auto factory = makeDispatcher;
+
+        const auto prepared = onMessageThread(gate, [factory, job, path, seconds, rate, note, velocity, midi, tempo,
+                                                     rolling](juce::String&) -> juce::var
+        {
+            OpResult failure;
+            *job = factory().beginRender(path, seconds, rate, note, velocity, midi, tempo, rolling, failure);
+            return *job == nullptr ? resultOf(failure) : juce::var();
+        }, error);
+
+        if (! prepared.has_value())
+            return {};                       // `error` says the message thread was late
+        if (*job == nullptr)
+            return *prepared;                // the circuit would not build, or an argument was refused
+        return resultOf((*job)->run());
+    }
+
+    if (name == "check_stability" || name == "fit_params")
+    {
+        const auto snapshot = takeSnapshot(gate, makeDispatcher, error);
+        if (! snapshot.has_value())
+            return {};                       // `error` says the message thread was late
+        return runSearchTool(makeDispatcher(), *snapshot, name, arguments);
+    }
+
+    if (isFileTool(name))
+    {
+        // ops() only gathers pointers and callbacks, so building one here touches no circuit state.
+        const std::lock_guard lock(fileToolMutex);
+        return runFileTool(makeDispatcher(), name, arguments);
+    }
+
     // Copied into the task rather than referenced: a task the message thread
     // has not reached yet can outlive this frame.
     const auto factory = makeDispatcher;
@@ -657,14 +793,6 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
         if (name == "read_outputs")
             return resultOf(ops.readOutputs(stringArgument(arguments, "node")));
 
-        if (name == "check_stability")
-        {
-            const int trials = arguments.hasProperty("trials") ? static_cast<int>(arguments["trials"]) : 8;
-            const double seconds = arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 1.5;
-            const int note = arguments.hasProperty("note") ? static_cast<int>(arguments["note"]) : 60;
-            return resultOf(ops.checkStability(trials, seconds, note));
-        }
-
         if (name == "history")
             return resultOf(ops.history());
 
@@ -718,65 +846,6 @@ juce::var McpServer::callTool(const std::shared_ptr<McpServer::Gate>& gate,
 
         if (name == "lint")
             return resultOf(ops.lint());
-
-        if (name == "measure")
-            return resultOf(ops.measure(stringArgument(arguments, "path")));
-
-        if (name == "compare")
-            return resultOf(ops.compare(stringArgument(arguments, "path_a"), stringArgument(arguments, "path_b")));
-
-        if (name == "sounds_like")
-            return resultOf(ops.soundsLike(stringArgument(arguments, "path"), stringArgument(arguments, "sentence")));
-
-        if (name == "listen")
-        {
-            std::vector<std::string> queries;
-            if (const auto* list = arguments["queries"].getArray())
-                for (const auto& q : *list)
-                    queries.push_back(q.toString().toStdString());
-            return resultOf(ops.listen(stringArgument(arguments, "path"), queries));
-        }
-
-        if (name == "fit_modes")
-            return resultOf(ops.fitModes(
-                stringArgument(arguments, "path"),
-                arguments.hasProperty("modes") ? static_cast<int>(arguments["modes"]) : 12,
-                arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 2.0));
-
-        if (name == "fit_params")
-        {
-            std::vector<int> slots;
-            if (const auto* list = arguments["slots"].getArray())
-                for (const auto& v : *list)
-                    slots.push_back(static_cast<int>(v));
-            return resultOf(ops.fitParams(
-                stringArgument(arguments, "path"),
-                static_cast<int>(arguments["note"]),
-                arguments.hasProperty("velocity") ? static_cast<double>(arguments["velocity"]) : 1.0,
-                arguments.hasProperty("seconds") ? static_cast<double>(arguments["seconds"]) : 3.0,
-                arguments.hasProperty("evaluations") ? static_cast<int>(arguments["evaluations"]) : 60,
-                slots));
-        }
-
-        if (name == "render")
-        {
-            const double seconds = arguments.hasProperty("seconds")
-                                 ? static_cast<double>(arguments["seconds"]) : 2.0;
-            const double rate = arguments.hasProperty("sample_rate")
-                              ? static_cast<double>(arguments["sample_rate"]) : 48000.0;
-            const int note = arguments.hasProperty("note")
-                           ? static_cast<int>(arguments["note"]) : -1;
-            const double velocity = arguments.hasProperty("velocity")
-                                  ? static_cast<double>(arguments["velocity"]) : 1.0;
-
-            const double tempo = arguments.hasProperty("tempo")
-                               ? static_cast<double>(arguments["tempo"]) : 120.0;
-            const bool rolling = arguments.hasProperty("rolling") && static_cast<bool>(arguments["rolling"]);
-            const std::string midi = arguments.hasProperty("midi") ? stringArgument(arguments, "midi") : std::string();
-
-            return resultOf(ops.render(stringArgument(arguments, "path"), seconds, rate, note, velocity,
-                                       midi, tempo, rolling));
-        }
 
         if (name == "load_file")
         {

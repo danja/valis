@@ -47,6 +47,7 @@ struct SignalReport
     std::vector<double> bandsDb;
     double centroidHz = 0.0;    ///< the spectrum's centre of mass: higher is brighter
     double rolloffHz = 0.0;     ///< below which lies 85% of the power
+    double highShare = 0.0;     ///< share of the power above 2 kHz, 0 to 1: how much of it can cut through
 
     std::vector<double> onsets;     ///< seconds at which a new sound begins (at most 64)
     std::vector<double> envelopeDb; ///< RMS in dBFS for each quarter second (at most 80)

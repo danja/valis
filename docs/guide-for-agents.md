@@ -306,6 +306,7 @@ compile and be silent, or clip.
   | `pitch` | whether it has a pitch, and its `hz`, `note` name and `cents` from that note; `stability` is how steady it is |
   | `bandsDb` | the level of each octave from 63 Hz to 16 kHz, in dBFS; `bandCentresHz` names them |
   | `centroidHz`, `rolloffHz` | brightness: higher means brighter |
+  | `highShare` | the share of the power above 2 kHz, 0 to 1. Under 0.03 on something that is not a bass or a pad (a hat, a lead, metal) means it will be buried in a mix; `notes` says "Dark" |
   | `onsets` | the seconds at which each new sound begins; count them to check a rhythm |
   | `envelopeDbPerQuarterSecond` | how the level moves: a pluck falls, a pad holds |
   | `firstSoundAt`, `silentFraction` | whether it starts late or is mostly silent |

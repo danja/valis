@@ -162,6 +162,28 @@ void testNoiseHasNoPitchAndIsBright()
     assert(r.centroidHz > 5000.0);
 }
 
+/// How much of the power lies above 2 kHz, and when a sound is called dark for it.
+void testHighShareAndTheDarkNote()
+{
+    constexpr double rate = 48000.0;
+
+    const auto bass = analyseSignal(sine(80.0, rate, 2.0), {}, rate);
+    assert(bass.highShare < 0.001);
+    assert(! said(bass, "Dark"));                 // a low sound is meant to be dark
+
+    const auto bright = analyseSignal(sine(5000.0, rate, 2.0), {}, rate);
+    assert(bright.highShare > 0.99);
+    assert(! said(bright, "Dark"));
+
+    // A 1 kHz tone: pitched, not low, and nothing above 2 kHz.
+    const auto dull = analyseSignal(sine(1000.0, rate, 2.0), {}, rate);
+    assert(dull.highShare < 0.01);
+    assert(said(dull, "Dark"));
+
+    const auto json = reportToJson(dull);
+    assert(json.find("\"highShare\":") != std::string::npos);
+}
+
 void testOnsetsAreFoundAtTheirTimes()
 {
     std::vector<float> clicks(static_cast<std::size_t>(48000 * 3), 0.0f);
@@ -245,6 +267,7 @@ int main()
     testSilenceIsSaidToBeSilence();
     testClippingDcAndBrokenValuesAreFlagged();
     testNoiseHasNoPitchAndIsBright();
+    testHighShareAndTheDarkNote();
     testOnsetsAreFoundAtTheirTimes();
     testALateStartIsNoted();
     testStereo();

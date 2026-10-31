@@ -212,6 +212,7 @@ bool TurtleStore::parse(std::string_view turtle,
                         std::string_view baseUri,
                         std::vector<ParseError>& errors)
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     currentErrors = &errors;
     struct Scope
     {
@@ -238,6 +239,7 @@ bool TurtleStore::parse(std::string_view turtle,
 
 bool TurtleStore::parseFile(const std::string& path, std::vector<ParseError>& errors)
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     std::FILE* f = std::fopen(path.c_str(), "rb");
     if (f == nullptr)
     {
@@ -256,6 +258,7 @@ bool TurtleStore::parseFile(const std::string& path, std::vector<ParseError>& er
 
 void TurtleStore::registerPrefix(std::string_view prefix, std::string_view uri)
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string p(prefix);
     auto it = std::find_if(prefixes.begin(), prefixes.end(),
                            [&](const auto& e) { return e.first == p; });
@@ -268,6 +271,7 @@ void TurtleStore::registerPrefix(std::string_view prefix, std::string_view uri)
 
 std::string TurtleStore::serialise() const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     SerdEnv* env = serd_env_new(nullptr);
 
     SerdChunk chunk = {nullptr, 0};
@@ -306,18 +310,21 @@ std::string TurtleStore::serialise() const
 
 Node TurtleStore::uri(std::string_view iri) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string s(iri);
     return Node{reinterpret_cast<const SordNodeImpl*>(sord_new_uri(sw(worldPtr), u8(s)))};
 }
 
 Node TurtleStore::blank(std::string_view id) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string s(id);
     return Node{reinterpret_cast<const SordNodeImpl*>(sord_new_blank(sw(worldPtr), u8(s)))};
 }
 
 Node TurtleStore::literal(std::string_view text, std::string_view datatypeIri) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string s(text);
     SordNode* dt = nullptr;
     std::string dts;
@@ -336,6 +343,7 @@ Node TurtleStore::literal(std::string_view text, std::string_view datatypeIri) c
 
 Node TurtleStore::object(const Node& subject, std::string_view predicate) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     if (! subject)
         return {};
 
@@ -355,6 +363,7 @@ Node TurtleStore::object(const Node& subject, std::string_view predicate) const
 
 std::vector<Node> TurtleStore::objects(const Node& subject, std::string_view predicate) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     std::vector<Node> result;
     if (! subject)
         return result;
@@ -377,6 +386,7 @@ std::vector<Node> TurtleStore::objects(const Node& subject, std::string_view pre
 
 std::vector<Node> TurtleStore::subjects(std::string_view predicate, const Node& object) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     std::vector<Node> result;
     if (! object)
         return result;
@@ -399,6 +409,7 @@ std::vector<Node> TurtleStore::subjects(std::string_view predicate, const Node& 
 
 std::vector<Node> TurtleStore::subjectsOfType(std::string_view typeIri) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     const std::string t(typeIri);
     auto* type = sord_new_uri(sw(worldPtr), u8(t));
 
@@ -413,6 +424,7 @@ bool TurtleStore::contains(const Node& subject,
                            std::string_view predicate,
                            const Node& object) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     if (! subject || ! object)
         return false;
 
@@ -428,6 +440,7 @@ void TurtleStore::forEachProperty(
     const Node& subject,
     const std::function<void(const Node&, const Node&)>& fn) const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     if (! subject)
         return;
 
@@ -443,6 +456,7 @@ void TurtleStore::forEachProperty(
 
 void TurtleStore::add(const Node& subject, const Node& predicate, const Node& object)
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     if (! subject || ! predicate || ! object)
         return;
 
@@ -452,6 +466,7 @@ void TurtleStore::add(const Node& subject, const Node& predicate, const Node& ob
 
 void TurtleStore::remove(const Node& subject, const Node& predicate, const Node& object)
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     if (! subject || ! predicate || ! object)
         return;
 
@@ -461,6 +476,7 @@ void TurtleStore::remove(const Node& subject, const Node& predicate, const Node&
 
 std::size_t TurtleStore::size() const
 {
+    const std::lock_guard<std::recursive_mutex> guard(lock);
     return static_cast<std::size_t>(sord_num_quads(sm(modelPtr)));
 }
 

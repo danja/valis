@@ -204,14 +204,22 @@ and the [examples](docs/examples.md).
 
 ## Development
 
-Build everything, run the tests, then build the release plugin:
+Build the release plugin and tools:
 
 ```sh
 ./build.sh
 ```
 
-`build.sh` configures `build/` as Debug with tests, runs CTest, then configures
-`build-release/` as Release without tests. Set `JOBS` to override the parallelism.
+`build.sh` configures `build-release/` as Release without tests, with the neural ears of `valis-shot` on (the first configure
+downloads ONNX Runtime; the models are fetched separately, see [`docs/shot.md`](docs/shot.md)). Set `VALIS_WITH_ONNX=0` to
+leave them out, and `JOBS` to override the parallelism.
+
+The tests are opt-in, because the full Debug suite takes about five minutes:
+
+```sh
+VALIS_TESTS=quick ./build.sh   # Debug build and tests without the slow one (about 90 s of tests), then Release
+VALIS_TESTS=1 ./build.sh       # every test, then Release
+```
 
 Run the unit tests alone:
 

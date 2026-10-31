@@ -349,7 +349,7 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
                 meanSquare += static_cast<double>(s) * s;
             meanSquare /= static_cast<double>(mono.size());
 
-            double weighted = 0.0, running = 0.0;
+            double weighted = 0.0, running = 0.0, high = 0.0;
             bool rolled = false;
             for (int b = 1; b < size / 2; ++b)
             {
@@ -357,6 +357,8 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
                 const double p = power[static_cast<std::size_t>(b)];
                 weighted += hz * p;
                 running += p;
+                if (hz >= 2000.0)
+                    high += p;
                 if (! rolled && running >= 0.85 * totalPower)
                 {
                     report.rolloffHz = hz;
@@ -375,6 +377,7 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
                 }
             }
             report.centroidHz = weighted / totalPower;
+            report.highShare = high / totalPower;
         }
     }
 
@@ -400,6 +403,11 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
             notes.push_back("Silent for most of the render (" + number(100.0 * report.silentFraction) + "%).");
         if (report.channels == 2 && report.stereoCorrelation < -0.5)
             notes.push_back("The channels are close to opposite in phase and will cancel in mono.");
+        // A bass or a pad is meant to be dark; anything else with so little up here will not cut through a mix.
+        const bool lowSound = report.pitch.found && report.pitch.hz < 300.0;
+        if (report.highShare < 0.03 && report.rms > 1.0e-4 && ! lowSound)
+            notes.push_back("Dark: only " + number(100.0 * report.highShare) + "% of the power is above 2 kHz. Fine for a bass or a pad; "
+                            "a hat, a snare, a lead or metal that should be heard will be buried.");
         if (report.pitch.found)
             notes.push_back("Pitched: " + number(report.pitch.hz) + " Hz, " + noteName(report.pitch.midiNote)
                             + (report.pitch.cents >= 0 ? " +" : " ") + number(report.pitch.cents) + " cents.");
@@ -433,7 +441,8 @@ std::string reportToJson(const SignalReport& r)
 
     json += ",\"bandCentresHz\":[63,126,252,504,1008,2016,4032,8064,16128]";
     json += ",\"bandsDb\":" + array(r.bandsDb);
-    json += ",\"centroidHz\":" + number(r.centroidHz) + ",\"rolloffHz\":" + number(r.rolloffHz);
+    json += ",\"centroidHz\":" + number(r.centroidHz) + ",\"rolloffHz\":" + number(r.rolloffHz)
+          + ",\"highShare\":" + number(r.highShare);
     json += ",\"onsets\":" + array(r.onsets);
     json += ",\"envelopeDbPerQuarterSecond\":" + array(r.envelopeDb);
     if (r.channels == 2)

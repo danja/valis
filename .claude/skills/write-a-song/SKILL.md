@@ -48,6 +48,9 @@ newer and tidier pattern; copy it.
 - Do not stop a render with `pkill -f <script name>`: it matches the shell that runs the command. Use
   `pkill -x valis_render` or a process id.
 - Render in the background from a small shell script and poll its log, so the session is not blocked.
+- Levelling every stem by its own playing rms makes every section about as loud as the others. Give the mix a gain per
+  section (`scripts/dub-metal/track.py mix --arc`, `ARC_DB`) and print each section's level, so a breakdown is quieter and a
+  peak louder by a number you can read.
 - To aim a mix at a loudness, use `scripts/shot/lufs.py` (see `docs/shot.md`); it holds the true peak at -1 dBTP.
 - The mix is a reference. Vocals and mastering are done in Reaper (`reaper-from-stems`).
 - Report honestly that a song has been measured and not heard.

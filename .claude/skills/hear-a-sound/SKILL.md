@@ -11,7 +11,7 @@ Say in the answer that a result is **measured, not heard**. A model is a rough e
 
 - Build everything first (`cmake --build build`, no target), or you measure old code. Render with the Release build when it exists
   (`build-release/valis_render_artefacts/Release/valis_render`).
-- `valis_shot measure x.wav` (MCP: `measure`). Read `signal.notes` before the numbers: silence, clipping, DC offset, NaN.
+- `valis_shot measure x.wav` (MCP: `measure`). Read `signal.notes` before the numbers: silence, clipping, DC offset, NaN, and "Dark" (under 3% of the power above 2 kHz, so a hat, lead or metal layer will be buried; `signal.highShare` has the figure).
   Then `signal.pitch` against the note you asked for, `loudness.integratedLufs` (very loud above -9), `loudness.truePeakDbtp`
   (above -1 may distort after MP3), `envelope.attackMs` and `decayMs` (a pluck is fast to start, a note that dies early is cut off).
 - Fix anything in `notes` before going further.

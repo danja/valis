@@ -1255,16 +1255,18 @@ struct FreshRig
     ValisEngine engine;
 };
 
-OpResult buildFreshRig(const OpContext& ctx, double sampleRate, int block, FreshRig& rig)
+/// Builds a private model, compiler and engine from `turtle`. Nothing live is read, so it is the message thread's
+/// only because it parses and compiles; on a worker it works from a snapshot's text (see CircuitSnapshot).
+OpResult buildFreshRig(const OpContext& ctx, const std::string& turtle, double sampleRate, int block, FreshRig& rig)
 {
     if (ctx.ontology == nullptr || ctx.registry == nullptr)
         return OpResult::failure("no ontology or registry");
-    if (! ctx.readTurtle)
+    if (turtle.empty())
         return OpResult::failure("no circuit is loaded");
 
     rdf::TurtleStore store;
     std::vector<rdf::ParseError> parseErrors;
-    if (! store.parse(ctx.readTurtle(), "urn:valis:render", parseErrors))
+    if (! store.parse(turtle, "urn:valis:render", parseErrors))
     {
         OpResult result = OpResult::failure("the circuit will not parse");
         for (const auto& e : parseErrors)
@@ -1299,36 +1301,81 @@ OpResult buildFreshRig(const OpContext& ctx, double sampleRate, int block, Fresh
 
 }  // namespace
 
-OpResult OpDispatcher::render(const std::string& path, double seconds, double sampleRate,
-                              int note, double velocity,
-                              const std::string& midiPath, double tempo, bool rolling) const
+struct RenderJob::Impl
+{
+    std::string path;
+    double seconds = 0.0, sampleRate = 0.0, velocity = 1.0, tempo = 120.0;
+    int note = -1;
+    bool rolling = false, hasMidi = false;
+    std::vector<TimedNote> score;
+    FreshRig rig;
+};
+
+RenderJob::RenderJob(std::unique_ptr<Impl> i) : impl(std::move(i)) {}
+RenderJob::~RenderJob() = default;
+
+std::unique_ptr<RenderJob> OpDispatcher::beginRender(const std::string& path, double seconds, double sampleRate,
+                                                     int note, double velocity,
+                                                     const std::string& midiPath, double tempo, bool rolling,
+                                                     OpResult& failure) const
 {
     if (path.empty())
-        return OpResult::failure("render needs an output path");
-
-    tempo = std::clamp(tempo, 20.0, 400.0);
-
-    seconds    = std::clamp(seconds, 0.05, 60.0);
-    sampleRate = std::clamp(sampleRate, 8000.0, 192000.0);
+    {
+        failure = OpResult::failure("render needs an output path");
+        return nullptr;
+    }
 
     constexpr int kBlock = 512;
 
-    std::vector<TimedNote> score;
-    if (! midiPath.empty())
+    auto impl = std::make_unique<RenderJob::Impl>();
+    impl->path       = path;
+    impl->tempo      = std::clamp(tempo, 20.0, 400.0);
+    impl->seconds    = std::clamp(seconds, 0.05, 300.0);
+    impl->sampleRate = std::clamp(sampleRate, 8000.0, 192000.0);
+    impl->note       = note;
+    impl->velocity   = velocity;
+    impl->rolling    = rolling;
+    impl->hasMidi    = ! midiPath.empty();
+
+    if (impl->hasMidi)
     {
         std::string midiError;
-        if (! readMidiScore(midiPath, tempo, sampleRate, score, midiError))
-            return OpResult::failure(midiError);
+        if (! readMidiScore(midiPath, impl->tempo, impl->sampleRate, impl->score, midiError))
+        {
+            failure = OpResult::failure(midiError);
+            return nullptr;
+        }
     }
-    std::size_t nextEvent = 0;
 
     // A fresh model, compiler and engine, so rendering neither reads nor
     // disturbs whatever the plugin is currently playing.
-    FreshRig rig;
-    if (auto built = buildFreshRig(ctx, sampleRate, kBlock, rig); ! built.ok)
-        return built;
-    auto& engine   = rig.engine;
-    auto& compiled = rig.compiled;
+    if (! ctx.readTurtle)
+    {
+        failure = OpResult::failure("no circuit is loaded");
+        return nullptr;
+    }
+    if (auto built = buildFreshRig(ctx, ctx.readTurtle(), impl->sampleRate, kBlock, impl->rig); ! built.ok)
+    {
+        failure = std::move(built);
+        return nullptr;
+    }
+
+    return std::unique_ptr<RenderJob>(new RenderJob(std::move(impl)));
+}
+
+OpResult RenderJob::run()
+{
+    constexpr int kBlock = 512;
+
+    const auto& path       = impl->path;
+    const double seconds    = impl->seconds;
+    const double sampleRate = impl->sampleRate;
+    const double tempo      = impl->tempo;
+    const bool rolling      = impl->rolling;
+    const auto& score       = impl->score;
+    std::size_t nextEvent = 0;
+    auto& engine   = impl->rig.engine;
+    auto& compiled = impl->rig.compiled;
 
     const auto total = static_cast<int>(seconds * sampleRate);
     std::vector<float> left(static_cast<std::size_t>(total), 0.0f);
@@ -1358,14 +1405,14 @@ OpResult OpDispatcher::render(const std::string& path, double seconds, double sa
         transport.ppqPosition = rolling ? static_cast<double>(at) / sampleRate * tempo / 60.0 : 0.0;
         engine.setTransport(transport);
 
-        if (midiPath.empty() && note >= 0 && note <= 127)
+        if (! impl->hasMidi && impl->note >= 0 && impl->note <= 127)
         {
             if (at == 0)
-                engine.queueNoteOn(note, static_cast<float>(std::clamp(velocity, 0.0, 1.0)), 0);
+                engine.queueNoteOn(impl->note, static_cast<float>(std::clamp(impl->velocity, 0.0, 1.0)), 0);
 
             // Fires in the block that contains it, at its own offset.
             if (noteOffAt >= at && noteOffAt < at + n)
-                engine.queueNoteOff(note, noteOffAt - at);
+                engine.queueNoteOff(impl->note, noteOffAt - at);
         }
 
         engine.process(silence.data(), left.data() + at, right.data() + at, n);
@@ -1414,6 +1461,16 @@ OpResult OpDispatcher::render(const std::string& path, double seconds, double sa
                      + "}";
 
     return OpResult::success(std::move(json));
+}
+
+
+OpResult OpDispatcher::render(const std::string& path, double seconds, double sampleRate,
+                              int note, double velocity,
+                              const std::string& midiPath, double tempo, bool rolling) const
+{
+    OpResult failure;
+    auto job = beginRender(path, seconds, sampleRate, note, velocity, midiPath, tempo, rolling, failure);
+    return job != nullptr ? job->run() : failure;
 }
 
 OpResult OpDispatcher::lint() const
@@ -1495,8 +1552,26 @@ bool readMonoFile(const std::string& path, double maxSeconds, double& rate, std:
     return true;
 }
 
+CircuitSnapshot OpDispatcher::snapshot() const
+{
+    CircuitSnapshot snap;
+    snap.loaded = ctx.readModel && ctx.readModel() != nullptr && ctx.readTurtle;
+    if (snap.loaded)
+    {
+        snap.turtle = ctx.readTurtle();
+        snap.params = listParams();
+    }
+    return snap;
+}
+
 OpResult OpDispatcher::fitParams(const std::string& targetPath, int note, double velocity, double seconds,
                                  int evaluations, const std::vector<int>& slots) const
+{
+    return fitParams(snapshot(), targetPath, note, velocity, seconds, evaluations, slots);
+}
+
+OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string& targetPath, int note, double velocity,
+                                 double seconds, int evaluations, const std::vector<int>& slots) const
 {
     if (targetPath.empty())
         return OpResult::failure("fit needs the path of the recording to match");
@@ -1519,7 +1594,7 @@ OpResult OpDispatcher::fitParams(const std::string& targetPath, int note, double
                               ? juce::File(juce::String(targetPath))
                               : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(targetPath)));
 
-    const auto all = listParams();
+    const auto& all = snap.params;
     if (all.empty())
         return OpResult::failure("the circuit has no val:Param to search; bind the settings that matter first");
 
@@ -1559,7 +1634,7 @@ OpResult OpDispatcher::fitParams(const std::string& targetPath, int note, double
     const auto distanceAt = [&](const std::vector<double>& unit, OpResult& failure) -> double
     {
         FreshRig rig;
-        if (auto built = buildFreshRig(ctx, rate, kBlock, rig); ! built.ok)
+        if (auto built = buildFreshRig(ctx, snap.turtle, rate, kBlock, rig); ! built.ok)
         {
             failure = built;
             return -1.0;
@@ -1695,15 +1770,19 @@ OpResult OpDispatcher::fitModes(const std::string& path, int modes, double secon
 
 OpResult OpDispatcher::checkStability(int trials, double seconds, int note) const
 {
+    return checkStability(snapshot(), trials, seconds, note);
+}
+
+OpResult OpDispatcher::checkStability(const CircuitSnapshot& snap, int trials, double seconds, int note) const
+{
     trials  = std::clamp(trials, 1, 32);
     seconds = std::clamp(seconds, 0.25, 10.0);
 
     constexpr double kRate = 48000.0;
     constexpr int    kBlock = 512;
 
-    const auto params = listParams();
-    const auto* model = ctx.readModel ? ctx.readModel() : nullptr;
-    if (model == nullptr)
+    const auto& params = snap.params;
+    if (! snap.loaded)
         return OpResult::failure("no circuit is loaded");
 
     // One input for every trial: noise and a tone, quiet enough that gain is what is being tested.
@@ -1748,7 +1827,7 @@ OpResult OpDispatcher::checkStability(int trials, double seconds, int note) cons
         trial.seed = t;   // 0 is the declared settings
 
         FreshRig rig;
-        if (auto built = buildFreshRig(ctx, kRate, kBlock, rig); ! built.ok)
+        if (auto built = buildFreshRig(ctx, snap.turtle, kRate, kBlock, rig); ! built.ok)
             return built;
 
         dsp::Random random(static_cast<std::uint32_t>(t) * 2654435761u + 0x9E3779B9u);

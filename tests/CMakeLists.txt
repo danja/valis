@@ -107,6 +107,9 @@ foreach(_src ${VALIS_TESTS})
   add_test(NAME ${_name} COMMAND ${_name})
 endforeach()
 
+# About 230 s of the roughly 320 s suite in a Debug build. `ctest -LE slow` skips it.
+set_tests_properties(ops_OpDispatcherTest PROPERTIES LABELS slow)
+
 # valis-render --midi, run as the real program. It needs the tool built first.
 add_executable(console_RenderMidiTest console/RenderMidiTest.cpp)
 target_compile_definitions(console_RenderMidiTest PRIVATE VALIS_RENDER_EXE="$<TARGET_FILE:valis_render>"

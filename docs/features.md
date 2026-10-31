@@ -164,7 +164,7 @@ limits and moves to another provider when one will not serve a request.
 ## Running it
 
 **Standalone, VST3 and LV2 build by default**, with CLAP behind a CMake option.
-One command, `./build.sh`, builds everything and runs the tests. The
+One command, `./build.sh`, builds the release plugin and tools; `VALIS_TESTS=1 ./build.sh` also builds and runs the tests. The
 [standalone app](manual/standalone.md) runs a circuit with no DAW, with its own audio and MIDI
 settings, and is the easiest way to drive Valis from an agent.
 
@@ -187,4 +187,4 @@ Without that, no audio test would mean anything.
 
 **Drift is a test failure.** The ontology against the DSP registry, each
 element against its own port declarations, and the shipped examples against the
-compiler are all checked by the 21 test binaries that `./build.sh` runs.
+compiler are all checked by the test binaries that `VALIS_TESTS=1 ./build.sh` runs.

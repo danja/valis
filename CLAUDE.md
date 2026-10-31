@@ -36,7 +36,11 @@ to confirm a running instance before using MCP tools that require a host.
 ## Real-time rules (non-negotiable)
 
 - No allocation, filesystem, network, unbounded logging, or unpredictable locks in `processBlock` or any element's `process`.
-- RDF parsing, model building, and compilation happen on the message thread only.
+- RDF parsing, model building, and compilation of the *live* circuit happen on the message thread only. A long operation
+  (`render`, `fit_params`, `check_stability`) may parse, build and compile a *private* copy on another thread, from a
+  `CircuitSnapshot` or a prepared `RenderJob` taken on the message thread; it must read nothing live. This is safe because
+  `TurtleStore` locks every lookup: a lookup builds a query node in the store's sord world, so two threads reading one
+  store (the shared ontology) would otherwise race. Add a method to `TurtleStore` only with the lock.
 - `CompiledCircuit` is fully preallocated on the message thread and handed to the engine by atomic pointer swap; the retired one is freed on the message thread.
 - Surface failures (bad Turtle, unknown element, cycle) as located, recoverable errors. Never silence, never crash.
 - Anything that happens at a point in time is located by stream position, never by the index
@@ -170,7 +174,7 @@ to confirm a running instance before using MCP tools that require a host.
 2. Identify thread affinity and ownership before writing anything.
 3. Keep the change in the smallest affected subsystem.
 4. Update the public interface first, then add focused tests.
-5. Run the narrowest relevant tests, then `./build.sh` if anything native changed.
+5. Run the narrowest relevant tests, then `VALIS_TESTS=quick ./build.sh` if anything native changed (`VALIS_TESTS=1` also runs the slow `ops_OpDispatcherTest`; run it when ops change).
 6. **Build everything (`cmake --build build`, no target) before measuring through
    `valis-render` or any other tool.** A targeted test build leaves the tool linked
    against the previous `libvalis_core.a`, so it measures the old code. This has cost

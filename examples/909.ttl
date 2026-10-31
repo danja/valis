@@ -155,7 +155,7 @@
 
 :bdVca a val:VCA .
 
-:bdLevel a val:Gain ; val:gain 0.0 .
+:bdLevel a val:Gain ; val:gain -2 .
 :bdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
@@ -208,7 +208,7 @@
 
 :sdMix a val:Mixer .          # sums tone + noise outputs
 
-:sdLevel a val:Gain ; val:gain -6.0 .
+:sdLevel a val:Gain ; val:gain -8 .
 :sdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
@@ -236,7 +236,7 @@
 
 :rsVca a val:VCA .
 
-:rsLevel a val:Gain ; val:gain -6.0 .
+:rsLevel a val:Gain ; val:gain -8 .
 :rsPan a val:Pan ; val:pan -0.3 .
 
 ################################################################
@@ -264,7 +264,7 @@
 
 :cpVca a val:VCA .
 
-:cpLevel a val:Gain ; val:gain -6.0 .
+:cpLevel a val:Gain ; val:gain -8 .
 :cpPan a val:Pan ; val:pan 0.3 .
 
 ################################################################
@@ -297,7 +297,7 @@
 
 :ltVca a val:VCA .
 
-:ltLevel a val:Gain ; val:gain -3.0 .
+:ltLevel a val:Gain ; val:gain -5 .
 :ltPan a val:Pan ; val:pan -0.5 .
 
 ################################################################
@@ -327,7 +327,7 @@
 
 :mtVca a val:VCA .
 
-:mtLevel a val:Gain ; val:gain -3.0 .
+:mtLevel a val:Gain ; val:gain -5 .
 :mtPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
@@ -357,7 +357,7 @@
 
 :htVca a val:VCA .
 
-:htLevel a val:Gain ; val:gain -3.0 .
+:htLevel a val:Gain ; val:gain -5 .
 :htPan a val:Pan ; val:pan 0.5 .
 
 ################################################################
@@ -393,16 +393,15 @@
 
 :chVca a val:VCA .
 
-:chLevel a val:Gain ; val:gain -9.0 .
+:chLevel a val:Gain ; val:gain -11 .
 :chPan a val:Pan ; val:pan -0.2 .
 
 ################################################################
 # Open Hi-Hat  (MIDI note 46)                                  #
 #                                                              #
 # Identical spectral source to the closed hat. Longer decay.   #
-# The original circuit includes a choke that mutes the open    #
-# hat when the closed hat triggers; this needs a control gate  #
-# combiner element before it can be modelled correctly.        #
+# As on the original, the closed hat chokes the open hat       #
+# (val:Choke, below).                                          #
 ################################################################
 
 :ohGate a val:NoteGate ; val:note 46 .
@@ -428,7 +427,7 @@
 
 :ohVca a val:VCA .
 
-:ohLevel a val:Gain ; val:gain -9.0 .
+:ohLevel a val:Gain ; val:gain -11 .
 :ohPan a val:Pan ; val:pan 0.2 .
 :ohChoke a val:Choke .
 

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -121,6 +122,12 @@ public:
     SordModelImpl* model() const { return modelPtr; }
 
 private:
+    /// Held by every public method but the constructors, destructor and moves. A lookup is not read-only to sord: it
+    /// builds a query node in the world's node table and frees it, so two threads reading one store would race on
+    /// that table. Recursive because forEachProperty calls back into the store while it holds the lock. Moving a
+    /// store while another thread uses it is not supported, and the moved-to store starts with a lock of its own.
+    mutable std::recursive_mutex lock;
+
     SordWorldImpl* worldPtr = nullptr;
     SordModelImpl* modelPtr = nullptr;
     std::vector<std::pair<std::string, std::string>> prefixes;

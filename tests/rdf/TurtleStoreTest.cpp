@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <atomic>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace valis;
@@ -238,6 +240,62 @@ void testOntologyShape()
 /// examples/skream.ttl is the project's proof of concept (docs/skream.md). Its
 /// shape is asserted here so a careless edit to the circuit or the ontology is
 /// caught before it reaches the engine.
+/// A lookup is not read-only to sord: it builds a query node in the world and frees it. Several threads reading one
+/// store (the ontology, read by a render on a worker while the editor builds a model) must therefore not race, and
+/// a writer adding statements at the same time must not corrupt what they read.
+void testConcurrentUse()
+{
+    constexpr int kSubjects = 200;
+    std::string turtle = "@prefix val: <http://purl.org/stuff/valis/> .\n@prefix : <urn:t#> .\n";
+    for (int i = 0; i < kSubjects; ++i)
+        turtle += ":s" + std::to_string(i) + " a val:Oscillator ; val:frequency " + std::to_string(100 + i) + ".0 .\n";
+
+    TurtleStore store;
+    std::vector<ParseError> errors;
+    const bool parsed = store.parse(turtle, "urn:t", errors);
+    assert(parsed);
+
+    std::atomic<int> wrong{0};
+    std::atomic<bool> stop{false};
+
+    auto reader = [&]
+    {
+        for (int round = 0; round < 400; ++round)
+            for (int i = 0; i < kSubjects; i += 7)
+            {
+                const auto subject = store.uri("urn:t#s" + std::to_string(i));
+                const auto value = store.object(subject, vocab::valTerm("frequency"));
+                if (! value || value.asDouble().value_or(-1.0) != 100.0 + i)
+                    ++wrong;
+                if (store.objects(subject, vocab::valTerm("frequency")).size() != 1)
+                    ++wrong;
+                if (store.subjectsOfType(vocab::valTerm("Oscillator")).size() < static_cast<std::size_t>(kSubjects))
+                    ++wrong;
+            }
+    };
+
+    // A writer on the side adds unrelated statements while the readers run.
+    std::thread writer([&]
+    {
+        int n = 0;
+        while (! stop.load())
+        {
+            const auto s = store.uri("urn:t#extra" + std::to_string(n++));
+            store.add(s, store.uri(vocab::valTerm("note")), store.literal("x"));
+        }
+    });
+
+    std::vector<std::thread> readers;
+    for (int t = 0; t < 6; ++t)
+        readers.emplace_back(reader);
+    for (auto& t : readers)
+        t.join();
+    stop = true;
+    writer.join();
+
+    assert(wrong.load() == 0);
+}
+
 void testSkreamCircuit()
 {
     TurtleStore store;
@@ -316,6 +374,7 @@ int main()
     testVocabulariesParse();
     testOntologyShape();
     testSkreamCircuit();
+    testConcurrentUse();
 
     std::puts("TurtleStoreTest PASSED");
     return 0;

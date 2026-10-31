@@ -9,6 +9,12 @@
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
   listening is under "Needs a listener" below.
 
+* **Check how `build.sh` finds the VST3 validator.** It tests `[[ -x "$VALIDATOR" ]]` at `$HOME/VST_SDK/build/bin/Release/validator`
+  and skips the conformance check, with only a heading to say so, when that fails. The user thinks it is missed because the SDK
+  is on a separate drive and symlinked. `-x` follows a symlink, so a link that is broken (drive not mounted) or a path inside
+  the SDK that differs would both read as "not found". Find out which, print the path it tried, and say why it was skipped.
+  Not yet looked at.
+
 * **UI appearance.** Give the controls a more visual appeal than JUCE's defaults, and add a light theme.
 
 ## Needs a listener
@@ -130,6 +136,20 @@ design apply). Roughly in order of how self-contained they are:
   draw every parameter from its range by seed. Still to do: a button for it in the Controls
   view, bounding it by a declared scale or genre, and randomising modulation and structure
   rather than only the knobs.
+
+## RDF handling (from the inbox)
+
+* **Factoidal (`~/github/factoidal`) as a substitute for the RDF handling: not as it stands.** Looked at, October 2026. The Valis side is
+  small and tidy (654 lines, every serd and sord call in `TurtleStore.cpp`), so there is little piecemeal handling to
+  replace. Factoidal has a formally verified graph, extracted to 1,710 lines of C (`formal/fstar/c-output/`), and its graph is an
+  immutable `list triple`, which would not need a lock; but lookups are linear scans (`find_by_subject`), the extraction has
+  no Turtle parser (that is Rust, for WebAssembly, in `rdf-wasm/`), so serd would stay, and it needs the KaRaMeL runtime. The ontology
+  holds thousands of triples and a model build makes thousands of lookups, so the linear scans would be the cost. Worth
+  revisiting if factoidal grows an indexed graph and a C Turtle parser; what to borrow now is the property (reads that do not
+  mutate), which the lock above gives.
+* **Check `~/github/songstress`** for anything to port that complements the measuring (`valis-shot`, `measure`). Not yet looked at.
+* **Check the build for warnings in our code and fix them.** Touch the sources and rebuild to see them all (the one left is in
+  the third-party `httplib.h`). Not yet done this session; `Reverb.cpp:89` (`-Wfloat-equal`) was seen in the Release build.
 
 ## Helping agents use Valis
 
@@ -299,32 +319,28 @@ reported to the host.
 
 ## From the dub-metal piece (see `valis-artifacts/artifacts/dub-metal/docs/report.md`)
 
-* **MCP `render`, `compare` and `measure` time out on heavy work.** The tools wait 5 seconds for the message thread. The
-  tonewheel organ (342 nodes) timed out at 6 to 40 seconds of audio and `compare` of two 213-second files timed out, and
-  the thread then stayed busy so the next calls failed too. Run the long operations off the message thread (a fresh engine
-  needs none of it), or make them report progress, and lift `render`'s 60-second limit or let it write in chunks.
-* **`sounds_like` and `listen` are missing from the app build.** `VALIS_WITH_ONNX` is off in `build/`, so the MCP tools say
-  so. `build-release/valis_shot` is stale and has no neural models either, and the older Debug binary takes about ten
-  minutes on a 3-minute file. Configure and build the Release tools with `-DVALIS_WITH_ONNX=ON`, and make `listen` cap the
-  audio it reads (it hears about ten seconds at a time anyway).
-* **Dynamic arc of a mix.** The mix script levels every stem by its own playing rms, so sections differ by only 3 to 4 dB.
-  Add a per-section gain table to the mix, so a breakdown is quieter and a peak louder, and report the section levels.
-* **A bright-enough check.** The dub-metal mix has under 2% of its energy above 2 kHz. Have `measure` (or the mix script)
-  report the share above 2 kHz, and `hear-a-sound` say what a low figure means for an "upper layer".
+* **MCP long operations: what is left.** `measure`, `compare`, `sounds_like`, `listen` and `fit_modes` run on the server's own
+  thread; `render` prepares a job on the message thread and renders on the server thread; `fit_params` and `check_stability`
+  run on the server thread from a snapshot (`CircuitSnapshot`, `RenderJob`). Not done: the first call still waits for the
+  neural models to load, and an operation cannot be cancelled or report progress. A caller that disconnects leaves the work
+  running to its end.
+* **`sounds_like` and `listen` in the app.** Both work now that `build.sh` builds ONNX in by default (checked in the relaunched
+  Standalone), but the first call timed out at the 5-second message-thread limit while the models loaded and the second succeeded. That call
+  now runs off the message thread (see above), which should end it: check after the next relaunch. Still worth loading the
+  models at startup so the first call is not 12 seconds. `build/` (Debug)
+  is also configured with ONNX by `build.sh` now. `listen` should still cap the audio it reads.
+* **Dynamic arc in other mix scripts.** `scripts/dub-metal/track.py mix --arc` (`ARC_DB`, `arc_curve`, `section_levels`) applies a
+  gain per section and prints each section's level. The `write-a-song` skill and the older mix scripts (`scripts/electro83/`,
+  `scripts/halloween/`) still level every stem flat. Move the arc into a shared helper once a second piece wants it.
 * **A lighter stab voice.** `tonewheel-organ.ttl` has eight voices of nine drawbars and is slower than real time in Debug, for
   three-note chords a few times a bar. A four-voice organ or an electric-piano stab (`dx7-epiano.ttl`) may do.
 * **More industrial sources.** Only `metal-bash.ttl` was used. Try a gated noise loop, a clanking step sequence, a metal
   `val:FreeModalBank` fitted with `fit_modes` from a real recording of struck metal.
-* **The 909 stem clips four samples** (true peak +1.16 dBTP). Lower its output trim in `909.ttl` or note that stems are
-  levelled in the mix.
-* **Move the dub-metal brief** from `sources/dub-metal-prompt.md` to `sources/dub-metal/` as `docs/dir-layout.md` asks.
 * **Needs a listener:** dub-metal v4. v3 was heard as stabs that did not bubble and metal that sounded like bells; v4 changes
   both (`metal-clang.ttl`, shorter and denser stabs) and the figures moved, but only a listener can say if it works.
-* **Rebuild the Release tools.** `build-release/valis_render` is older than the source, so `track.py` takes `VALIS_RENDER` to name
-  a binary. Rebuild `build-release` so the default is current, and have `track.py` refuse a binary older than `Adaa.h` and the
-  other DSP sources.
 * **Lint for NaN-prone stages.** A gain chain of 27 dB into a drive of 16 was legal in every range yet produced NaN before the
-  `Adaa.h` fix. A render that reports `nan` should fail `valis-render` with a non-zero exit, not just print it.
+  `Adaa.h` fix. `valis-render` now exits 1 when any sample is not finite, but that check has no test: no shipped element
+  produces NaN on purpose. Add a deliberately faulty test element, or a lint for a large gain chain into a drive.
 
 ## Found while building the Halloween set
 

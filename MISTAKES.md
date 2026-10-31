@@ -380,3 +380,19 @@ boosted by 27 dB, then a drive of 16, reached that size. The NaN then stayed in 
 checks finiteness out to 1e6, the join at the switch-over, and a swing between -4000 and 4000. Read the render log before
 mixing: a `nan` or `exceeds full scale` there is a failed stem. Also, `track.py` picks the Release binary first, and that
 binary can be older than the source, so it now takes `VALIS_RENDER` to name one.
+
+## Blamed a missing hat choke for a clip, without reading the circuit
+
+**What happened.** The dub-metal kit stem clipped. I muted voices one at a time, saw the peak fall from 1.035 to 0.83 when
+either hat was muted, and concluded that the 909 has no hat choke and that the score played both hats together. I wrote that
+into `TODO.md`, changed the score, and told the user so. `examples/909.ttl` already had a working `val:Choke`; only its header
+comment said otherwise, and a test with both hats at the same instant peaked no higher than the closed hat alone.
+
+**Root cause.** Muting a voice shows that the voice is part of a peak, not why. The peak was in fact a matter of chance: each
+hat is six free-running square oscillators, so how their phases line up with a tom at the moment of a hit changes with how much
+audio came before it (rendering the same bar from five start points gave peaks of 0.84 to 1.006). I did not open the circuit or
+the element before writing a cause down.
+
+**Prevention.** Read the circuit and the element before naming a cause, and reproduce the clip from the notes alone before
+changing the score. A peak that moves when only the start point of the render moves is a headroom problem: lower the levels.
+The 909 voices are now each 2 dB lower (whole-file peak 1.035 to 0.822) and its stale header comment is corrected.
