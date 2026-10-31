@@ -1510,7 +1510,8 @@ OpResult OpDispatcher::soundsLike(const std::string& path, const std::string& se
 }
 
 /// A sound file mixed to mono, up to `maxSeconds` of it, at the file's own sample rate (held to 8 kHz to 192 kHz).
-bool readMonoFile(const std::string& path, double maxSeconds, double& rate, std::vector<float>& mono, std::string& error)
+bool readMonoFile(const std::string& path, double maxSeconds, double& rate, std::vector<float>& mono, std::string& error,
+                  double* fileSeconds = nullptr)
 {
     const juce::File file(juce::File::isAbsolutePath(juce::String(path))
                               ? juce::File(juce::String(path))
@@ -1531,6 +1532,8 @@ bool readMonoFile(const std::string& path, double maxSeconds, double& rate, std:
     }
 
     rate = std::clamp(reader->sampleRate, 8000.0, 192000.0);
+    if (fileSeconds != nullptr)
+        *fileSeconds = static_cast<double>(reader->lengthInSamples) / std::max(1.0, reader->sampleRate);
     const auto frames = static_cast<int>(std::min<juce::int64>(reader->lengthInSamples,
                                                                static_cast<juce::int64>(maxSeconds * rate)));
     if (frames <= 0)
@@ -1565,13 +1568,14 @@ CircuitSnapshot OpDispatcher::snapshot() const
 }
 
 OpResult OpDispatcher::fitParams(const std::string& targetPath, int note, double velocity, double seconds,
-                                 int evaluations, const std::vector<int>& slots) const
+                                 int evaluations, const std::vector<int>& slots, double holdSeconds) const
 {
-    return fitParams(snapshot(), targetPath, note, velocity, seconds, evaluations, slots);
+    return fitParams(snapshot(), targetPath, note, velocity, seconds, evaluations, slots, holdSeconds);
 }
 
 OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string& targetPath, int note, double velocity,
-                                 double seconds, int evaluations, const std::vector<int>& slots) const
+                                 double seconds, int evaluations, const std::vector<int>& slots,
+                                 double holdSeconds) const
 {
     if (targetPath.empty())
         return OpResult::failure("fit needs the path of the recording to match");
@@ -1585,7 +1589,8 @@ OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string&
     double rate = 0.0;
     std::vector<float> target;
     std::string readError;
-    if (! readMonoFile(targetPath, seconds, rate, target, readError))
+    double fileSeconds = 0.0;
+    if (! readMonoFile(targetPath, seconds, rate, target, readError, &fileSeconds))
         return OpResult::failure(readError);
     const auto total = static_cast<int>(target.size());
     if (total < 2048)
@@ -1628,7 +1633,13 @@ OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string&
 
     constexpr int kBlock = 512;
     const std::vector<float> silence(kBlock, 0.0f);
-    const int noteOffAt = static_cast<int>(static_cast<double>(total) * 0.8);
+    // When the recording's note was released. Named by the caller; else at 80% of a whole recording, as render does;
+    // else not at all inside the window, because only the start of a longer recording is being matched and its
+    // release came after that.
+    const bool partOfLonger = fileSeconds > static_cast<double>(total) / rate + 0.05;
+    const int noteOffAt = holdSeconds >= 0.0 ? static_cast<int>(holdSeconds * rate)
+                        : partOfLonger       ? total + 2 * kBlock
+                                             : static_cast<int>(static_cast<double>(total) * 0.8);
 
     // One render of the circuit with every searched parameter at the given unit position.
     const auto distanceAt = [&](const std::vector<double>& unit, OpResult& failure) -> double
@@ -1671,44 +1682,92 @@ OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string&
         return spectralDistance(target, mono, rate).meanDb;
     };
 
-    std::vector<double> parent;
+    std::vector<double> startPoint;
     for (const auto& a : axes)
-        parent.push_back(toUnit(a, a.param.value));
+        startPoint.push_back(toUnit(a, a.param.value));
 
     OpResult failure;
-    const double startDistance = distanceAt(parent, failure);
+    const double startDistance = distanceAt(startPoint, failure);
     if (startDistance < 0.0)
         return failure;
 
-    // (1 + 4) evolution strategy: four children per generation from the best so far, the step growing after a
-    // gain and shrinking after none. The seed is fixed, so the same call finds the same settings.
-    constexpr int kChildren = 4;
-    dsp::Random random(0x5EA2C4u);
+    dsp::Random random(0x5EA2C4u);   // fixed, so the same call finds the same settings
     const auto gaussian = [&random] { return random.bipolar() + random.bipolar() + random.bipolar(); };
+    const auto uniform = [&random] { return 0.5 * (static_cast<double>(random.bipolar()) + 1.0); };
 
-    double best = startDistance, step = 0.2;
+    struct Candidate { std::vector<double> point; double distance = 0.0; };
     int used = 1;
-    while (used < evaluations)
-    {
-        bool improved = false;
-        for (int child = 0; child < kChildren && used < evaluations; ++child, ++used)
-        {
-            auto trial = parent;
-            for (auto& u : trial)
-                u = std::clamp(u + step * static_cast<double>(gaussian()), 0.0, 1.0);
+    bool failed = false;
 
-            const double d = distanceAt(trial, failure);
-            if (d < 0.0)
-                return failure;
-            if (d < best)
+    // (1 + 4) evolution strategy from one candidate: four children per generation, the step growing after a gain and
+    // shrinking after none. Spends at most `budget` renders.
+    constexpr int kChildren = 4;
+    const auto climb = [&](Candidate from, int budget) -> Candidate
+    {
+        double step = 0.2;
+        int spent = 0;
+        while (spent < budget && ! failed)
+        {
+            bool improved = false;
+            for (int child = 0; child < kChildren && spent < budget; ++child, ++spent, ++used)
             {
-                best = d;
-                parent = std::move(trial);
-                improved = true;
+                auto trial = from.point;
+                for (auto& u : trial)
+                    u = std::clamp(u + step * static_cast<double>(gaussian()), 0.0, 1.0);
+
+                const double d = distanceAt(trial, failure);
+                if (d < 0.0)
+                {
+                    failed = true;
+                    break;
+                }
+                if (d < from.distance)
+                {
+                    from.distance = d;
+                    from.point = std::move(trial);
+                    improved = true;
+                }
             }
+            step = improved ? std::min(0.5, step * 1.3) : std::max(0.003, step * 0.75);
         }
-        step = improved ? std::min(0.5, step * 1.3) : std::max(0.003, step * 0.75);
+        return from;
+    };
+
+    // One climb from where the circuit is now cannot get out of a poor basin, so with enough renders a fifth of them
+    // try a seeded spread of points over the whole range first, and the search climbs from the best of those and the
+    // start. With fewer, the single climb is all there is room for.
+    std::vector<Candidate> starts{{startPoint, startDistance}};
+    if (evaluations >= 24)
+    {
+        const int samples = evaluations / 5;
+        for (int i = 0; i < samples && ! failed; ++i, ++used)
+        {
+            Candidate c;
+            for (std::size_t k = 0; k < axes.size(); ++k)
+                c.point.push_back(uniform());
+            c.distance = distanceAt(c.point, failure);
+            if (c.distance < 0.0)
+                return failure;
+            starts.push_back(std::move(c));
+        }
+        std::sort(starts.begin(), starts.end(), [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
+        starts.resize(std::min<std::size_t>(starts.size(), evaluations >= 100 ? 3 : 2));
     }
+
+    Candidate bestFound = starts.front();
+    const int climbBudget = evaluations - used;
+    for (std::size_t i = 0; i < starts.size() && ! failed; ++i)
+    {
+        const int share = climbBudget / static_cast<int>(starts.size()) + (i == 0 ? climbBudget % static_cast<int>(starts.size()) : 0);
+        const auto result = climb(starts[i], share);
+        if (result.distance < bestFound.distance)
+            bestFound = result;
+    }
+    if (failed)
+        return failure;
+
+    const double best = bestFound.distance;
+    const auto& parent = bestFound.point;
 
     std::string found = "[";
     for (std::size_t i = 0; i < axes.size(); ++i)
@@ -1720,13 +1779,22 @@ OpResult OpDispatcher::fitParams(const CircuitSnapshot& snap, const std::string&
                + ",\"best\":" + number(toValue(axes[i], parent[i])) + "}";
     found += "]";
 
+    // A match that is still far off may be a poor search, or a circuit that cannot make this sound with these knobs.
+    std::string notes;
+    if (best > 1.0)
+        notes = ",\"notes\":[" + jsonString("The best match is still " + number(best) + " dB from the recording. The search may be stuck "
+                                             "(try more evaluations or fewer slots), the note may have been held for a different time "
+                                             "(try hold), or these parameters may not be able to make this sound.") + "]";
+
     return OpResult::success("{\"target\":" + jsonString(file.getFullPathName().toStdString())
                              + ",\"note\":" + std::to_string(note)
                              + ",\"seconds\":" + number(static_cast<double>(total) / rate)
                              + ",\"evaluations\":" + std::to_string(used)
                              + ",\"startDistanceDb\":" + number(startDistance)
                              + ",\"bestDistanceDb\":" + number(best)
-                             + ",\"params\":" + found + "}");
+                             + ",\"startsClimbed\":" + std::to_string(starts.size())
+                             + ",\"releaseAtSeconds\":" + (noteOffAt >= total ? std::string("null") : number(static_cast<double>(noteOffAt) / rate))
+                             + ",\"params\":" + found + notes + "}");
 }
 
 OpResult OpDispatcher::fitModes(const std::string& path, int modes, double seconds) const

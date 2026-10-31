@@ -1184,6 +1184,59 @@ void testFitParams()
 
 /// A bell is rendered by the circuit, then fitted back: the modes written in the circuit must come out of the
 /// recording of it. The strike is a noise burst, so levels vary, but the frequencies and ring times are the bank's.
+/// Two limits the search had. A recording whose note was released late scored a floor of about 1.9 dB when only its
+/// start was matched, because the search released its own note inside the window. And one climb from a poor starting
+/// point stopped at the top of a knob's range while the true settings scored 0. The recording here is the dub bass at
+/// its declared settings; the live circuit is then moved far from them.
+void testFitParamsReleaseAndEscape()
+{
+    Host host(readFile(VALIS_EXAMPLES_DIR "/dub-bass.ttl"));
+    auto ops = host.ops();
+    const auto target = std::string(VALIS_ROOT_DIR) + "/build/op-fit-bass.wav";
+    assert(ops.render(target, 2.0, 48000.0, 40, 1.0).ok);   // released at 1.6 s
+
+    const auto number = [](const std::string& json, const char* key)
+    {
+        const auto where = json.find(key);
+        assert(where != std::string::npos);
+        return std::stod(json.substr(where + std::string(key).size()));
+    };
+
+    // At the true settings the first 1 s of that recording match to nothing, because the note is not released
+    // inside the window. With the old 80% rule the distance here was about 1.9 dB.
+    const auto exact = ops.fitParams(target, 40, 1.0, 1.0, 2, {4, 5});
+    assert(exact.ok);
+    std::printf("  fit_params at the true settings, 1 s of 2: %.4f dB\n", number(exact.value, "\"startDistanceDb\":"));
+    assert(number(exact.value, "\"startDistanceDb\":") < 0.05);
+
+    // Naming the hold explicitly is honoured: releasing at 0.5 s is a different sound.
+    const auto early = ops.fitParams(target, 40, 1.0, 1.0, 2, {4, 5}, 0.5);
+    assert(early.ok);
+    assert(number(early.value, "\"startDistanceDb\":") > 0.5);
+
+    // Move the pickup centre and the drive far away, and search the whole 2 s.
+    assert(ops.setParam(4, 3200.0).ok);
+    assert(ops.setParam(5, 8.0).ok);
+    const auto fit = ops.fitParams(target, 40, 1.0, 2.0, 120, {4, 5});
+    assert(fit.ok);
+    const double start = number(fit.value, "\"startDistanceDb\":"), best = number(fit.value, "\"bestDistanceDb\":");
+    std::printf("  fit_params from a poor start: %.2f dB before, %.2f dB after (%s)\n", start, best,
+                fit.value.substr(fit.value.find("\"startsClimbed\"")).substr(0, 30).c_str());
+    assert(start > 3.0);
+    assert(best < 0.5);                                    // it stopped at 1.8 dB before
+    assert(number(fit.value, "\"startsClimbed\":") >= 2);
+    assert(fit.value.find("\"notes\"") == std::string::npos);   // nothing to warn about
+
+    // A search that cannot get close says so.
+    const auto hopeless = ops.fitParams(target, 40, 1.0, 2.0, 4, {5});
+    assert(hopeless.ok);
+    assert(hopeless.value.find("\"notes\"") != std::string::npos);
+
+    // The same call finds the same answer (a short search: the one above has already shown the long one works).
+    assert(ops.fitParams(target, 40, 1.0, 1.0, 30, {4, 5}).value == ops.fitParams(target, 40, 1.0, 1.0, 30, {4, 5}).value);
+    std::remove(target.c_str());
+}
+
 void testFitModes()
 {
     Host host(readFile(VALIS_EXAMPLES_DIR "/free-bell.ttl"));
@@ -1648,6 +1701,7 @@ int main()
     testSnapshotSearchesRunElsewhere();
     testShotOps();
     testFitParams();
+    testFitParamsReleaseAndEscape();
     testFitModes();
     testGraphReportsSubcircuitExpansion();
     testElementTypesReportEventPorts();

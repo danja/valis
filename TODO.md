@@ -35,6 +35,12 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
   (frequencies exact, ring times within 1% and levels within 2 to 3%). A real conga, cowbell or bell has close modes, noise
   and a drumhead that is not purely modal; try a few real recordings and see what comes out. The analysis window is 85 ms,
   so a ring under about 0.1 s is read coarsely, and the fit ignores the attack and the phase of each mode.
+* **`fit_params`: what is left.** Both limits found on `dub-bass` are fixed (the note is released where the recording's was, or
+  not at all inside a window that is only the start of it; and the search tries a seeded spread of starting points before it
+  climbs). From a start that scored 6.4 dB it now reaches 0.45 dB in 120 renders, where one climb stopped at 1.8 dB; the
+  true settings score 0. Not done: the climb still uses a fixed step schedule and could use the recording's own spectral
+  shape to choose which parameters to move first; it searches only the knobs already bound as `val:Param`; and it matches a
+  single held note, not a phrase.
 * **Calibrate `listen`.** Port earshot's vocabulary of 322 descriptions and its statistics, so a cosine becomes a z-score
   and a verdict; then a realness score (real recording or synthesised) on the same CLAP features.
 * **Make the harp, violins, trumpets and shakers sound like themselves.** `valis_shot is` hears the harp as a piano

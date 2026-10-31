@@ -267,11 +267,17 @@ public:
     /// limits the search to those parameters, and empty searches all. Reports the distance before and after and
     /// the value found for each parameter. It changes nothing: set the values with setParam or in the Turtle.
     /// The distance is measured, not heard; a small one means the spectra agree, not that the sound is right.
+    ///
+    /// `holdSeconds` is how long the note was held in the recording. Below zero (the default) the note is released
+    /// at 80% of the recording when all of it is matched, and not at all inside the window when only the start of a
+    /// longer recording is, since its release came later. With 24 renders or more the search first tries a seeded
+    /// spread of starting points and climbs from the best two or three, so one poor start does not trap it; the
+    /// result says how many it climbed from and, if the best match is still far off, why that may be.
     OpResult fitParams(const std::string& targetPath, int note, double velocity, double seconds,
-                       int evaluations, const std::vector<int>& slots = {}) const;
+                       int evaluations, const std::vector<int>& slots = {}, double holdSeconds = -1.0) const;
     /// The same on a snapshot, which touches nothing live and may run on any thread.
     OpResult fitParams(const CircuitSnapshot& snapshot, const std::string& targetPath, int note, double velocity,
-                       double seconds, int evaluations, const std::vector<int>& slots) const;
+                       double seconds, int evaluations, const std::vector<int>& slots, double holdSeconds = -1.0) const;
 
     /// Turns a recording of a struck object (a bell, a cowbell, a conga) into the modes of a val:FreeModalBank
     /// (include/valis/ModalFit.h): up to `modes` damped sines, each with a frequency, a ring time and a level.

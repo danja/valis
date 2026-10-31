@@ -63,6 +63,12 @@ SH-101 whose filter peak is wrong by 6500 Hz from 19.6 dB away to 0.2 dB and fin
 Give it `slots` to search a few knobs; searching all of them needs more evaluations. A small distance means the spectra
 agree, not that the sound is right.
 
+With 24 evaluations or more it first tries a seeded spread of starting points over the whole range and climbs from the
+best two or three, because one climb from a poor start can stop at the edge of a knob's range (tried on the dub bass, it
+stopped at 1.8 dB where the true settings score 0; the spread reaches 0.45 dB in 120 renders). It releases the note at 80% of
+a whole recording, and not at all inside the window when only the start of a longer recording is matched; `hold` names
+the time in seconds if you know it. If the best match is still over 1 dB away the result says so in `notes`.
+
 ### Aiming a mix at a loudness
 
 `scripts/shot/lufs.py` asks `valis-shot measure` for a mix's loudness and returns the gain that reaches a target in
