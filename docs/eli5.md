@@ -2,17 +2,10 @@
 
 Valis turns a short text file into a sound. The file says what an instrument is made of, and Valis plays it.
 
-## 1. Build it
+The commands below use two tools, `valis_render` and `valis_shot`. If you do not have them yet, build them first
+([Build the tools](#build-the-tools), at the end).
 
-```sh
-cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DVALIS_BUILD_TESTS=OFF
-cmake --build build-release --target valis_render valis_shot
-```
-
-That makes two tools: `valis_render` makes a sound and `valis_shot` checks one. You need a C++ compiler and
-[JUCE](https://juce.com); the [README](../README.md) says where JUCE goes.
-
-## 2. Make a sound
+## 1. Make a sound
 
 ```sh
 R=build-release/valis_render_artefacts/Release/valis_render
@@ -25,7 +18,7 @@ from `examples/`; [`examples.md`](examples.md) says what each one is.
 An effect, such as the filter in `examples/basic.ttl`, needs a sound to work on. Give it a tone with `--tone 110`
 instead of `--note`.
 
-## 3. Change it and check
+## 2. Change it and check
 
 Open `examples/basic.ttl` and change `val:cutoff 800.0` to `200.0`. Render again to `dark.wav`, then:
 
@@ -54,3 +47,13 @@ To check one file, run `$S measure guitar.wav`. Read `signal.notes` first; it li
 * **Silent:** an instrument needs `--note`, an effect needs `--tone`.
 * **It measures an old sound:** you built one target only. Run `cmake --build` with no target.
 * **A note stops when the key lifts:** a plucked or struck sound needs a release as long as its ring.
+
+## Build the tools
+
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DVALIS_BUILD_TESTS=OFF
+cmake --build build-release --target valis_render valis_shot
+```
+
+That makes two tools: `valis_render` makes a sound and `valis_shot` checks one. You need a C++ compiler and
+[JUCE](https://juce.com); the [README](../README.md) says where JUCE goes.

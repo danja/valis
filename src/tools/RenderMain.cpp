@@ -375,9 +375,15 @@ int main(int argc, char** argv)
 
     float peak = 0.0f;
     double sum = 0.0;
+    std::size_t nonFinite = 0;
     for (std::size_t i = 0; i < input.size(); ++i)
     {
         const float s = 0.5f * (outputL[i] + outputR[i]);
+        if (! std::isfinite(s))
+        {
+            ++nonFinite;   // std::max would drop a NaN and report a healthy peak
+            continue;
+        }
         peak = std::max(peak, std::abs(s));
         sum += static_cast<double>(s) * s;
     }
@@ -394,9 +400,9 @@ int main(int argc, char** argv)
                      "warning: peak %.2f exceeds full scale; the wav is clipped. "
                      "The circuit needs gain staging.\n", peak);
 
-    if (! std::isfinite(peak))
+    if (nonFinite > 0 || ! std::isfinite(peak))
     {
-        std::fprintf(stderr, "error: output is not finite; the circuit diverged\n");
+        std::fprintf(stderr, "error: %zu samples are not finite; the circuit diverged\n", nonFinite);
         return 1;
     }
 

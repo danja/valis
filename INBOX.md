@@ -1,1 +1,0 @@
-* flip docs/eli5.md so theparts that are easiest for the user are described first, leave the arcane pieces about writing code until later
