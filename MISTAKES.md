@@ -354,3 +354,15 @@ every range.
 
 **Prevention.** Cap a bound only when it is itself huge (`fitParams`), and state in the test the distance before and after,
 so a search that cannot move is a failure and not a quiet no-op.
+
+## A new example that clipped, and a fit that found tones that were not there
+
+**What happened.** `examples/free-bell.ttl` peaked at 8.5 (+18 dBFS). The fitter run on its render reported twelve modes
+for a bank of eight: the extra ones were the sum and difference tones that clipping makes (252, 793, 1842, 2364 Hz).
+`valis-render` had printed "peak 8.52 exceeds full scale" and I did not read it before writing a test around the file.
+
+**Root cause.** A noise burst sets every mode of a bank ringing at once, so the sum is far above the unit-impulse level
+the gains are written for, and the output gain was set without rendering.
+
+**Prevention.** Render a new example and read the peak before using it. `testFitModes` now asserts the peak is under 1.
+A lint for gain staging estimated from the element chain is still in `TODO.md`.

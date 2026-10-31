@@ -518,6 +518,21 @@ Nonlinear.
 |---|---|---|---|---|
 | `gain` | Gain | 1 | 0.1 to 20 |  |
 
+## val:FreeModalBank
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `tune` | Tune | 1 | 0.25 to 4 |  |
+| `decay` | Decay | 1 | 0.1 to 10 |  |
+
 ## val:FreqAnalyzer
 
 Linear.
@@ -1216,7 +1231,7 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `frequency` | Frequency | 220 | 10 to 20000 | Hz |
-| `feedback` | Feedback | 0.95 | 0 to 0.99 |  |
+| `feedback` | Feedback | 0.95 | 0 to 0.9999 |  |
 | `damping` | Damping | 0.1 | 0 to 1 |  |
 | `dispersion` | Dispersion | 0.1 | 0 to 1 |  |
 

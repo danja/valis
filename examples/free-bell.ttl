@@ -43,7 +43,7 @@
 :bank a val:FreeModalBank ;
     val:modes "523:3.2:1 1047:2.4:0.7 1318:1.6:0.5 1568:1.4:0.4 2093:1.1:0.45 2774:0.8:0.3 3520:0.5:0.2 4698:0.3:0.12" .
 
-:vol a val:Gain ; val:gain -6.0 .
+:vol a val:Gain ; val:gain -30.0 .   # a noise burst sets every mode ringing at once, so the sum is far above a unit impulse
 
 :out a val:Output .
 

@@ -1,2 +1,1 @@
-* give the UI controls a more visual appeal than JUCE's defaults
-* create a light theme
+* flip docs/eli5.md so theparts that are easiest for the user are described first, leave the arcane pieces about writing code until later

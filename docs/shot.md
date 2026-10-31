@@ -149,7 +149,7 @@ The original models carry the licences shown. The ONNX repositories state none o
 
 | Idea | Why it is useful | Cost |
 |---|---|---|
-| **Modal fit** (`fit/modal.py`): a struck recording becomes damped sinusoids found by ESPRIT, then a model that re-renders it | Would turn a recording of a real conga or cowbell into a circuit. `val:ModalBank` has six modes at fixed ratios, so a free-mode bank would be needed first. | Large. The best of these ideas. |
+| **Modal fit** (`fit/modal.py`): a struck recording becomes damped sinusoids, then a model that re-renders it | Done in a small form: `val:FreeModalBank` plays the modes and `fit_modes` finds them (spectral peaks and a decay fit per mode, in `src/shot/ModalFit.cpp`, in place of ESPRIT, which needs an eigen-solver). Tested on known modes; real recordings are untried. | |
 | **Search by listening** (`forge/critic.py`, `search.py`): vary a recipe's knobs and keep what scores nearest a target | Done in a small form: `fit_params` (see below). Still missing: searching the structure of a circuit, and scoring by more than spectral distance. | |
 | **Sound bank as recipes** (`forge/recipes`, 252 UI and film sounds) | Short sounds (clicks, whooshes, risers) described as code; a useful example set. | Medium, mostly circuit writing. |
 | **Realness** (`realness.py`): real recording or code-synthesised | Would score how acoustic a circuit sounds. | A classifier on CLAP features; could be ported now that CLAP runs. |

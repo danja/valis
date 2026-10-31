@@ -1,0 +1,52 @@
+# examples/dub-delay.ttl
+#
+# A dub echo return: only the repeats come out, for a send. A bucket-brigade delay (val:BucketBrigade) set to a dotted
+# eighth note at 85 bpm (529 ms), with enough feedback that an echo is still audible after four trips round, and a
+# low cut so the repeats do not pile up in the bass. The chip darkens each trip, which is the point: the echoes
+# sink into the mix as they fade, as they did on a spring or tape unit.
+# https://en.wikipedia.org/wiki/Dub_music#Dub_techniques
+#
+# Feed it audio with valis-render -i. It has no input of its own when nothing is connected.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:dubdelay#> .
+
+:dubdelay a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Dub", "Reggae" ;
+    rdfs:label "Dub echo return" ;
+    val:element :in , :cut , :bbd , :level , :out ;
+    val:arc :aInCut , :aCutBbd , :aBbdLevel , :aLevelOut .
+
+:in    a val:Input .
+:cut   a val:OnePole ; val:cutoff 220.0 ; val:mode 1.0 .
+:bbd   a val:BucketBrigade ; val:time 529.0 ; val:feedback 0.62 ; val:bandwidth 0.3 ;
+                             val:noise -75.0 ; val:compander 1 ; val:seed 5 .
+:level a val:Gain ; val:gain -3.0 .
+:out   a val:Output .
+
+:aInCut    a val:Arc ; val:from [ val:node :in    ; val:port "out" ] ;
+                       val:to   [ val:node :cut   ; val:port "in"  ] .
+:aCutBbd   a val:Arc ; val:from [ val:node :cut   ; val:port "out" ] ;
+                       val:to   [ val:node :bbd   ; val:port "in"  ] .
+:aBbdLevel a val:Arc ; val:from [ val:node :bbd   ; val:port "out" ] ;
+                       val:to   [ val:node :level ; val:port "in"  ] .
+:aLevelOut a val:Arc ; val:from [ val:node :level ; val:port "out" ] ;
+                       val:to   [ val:node :out   ; val:port "in"  ] .
+
+:p0 a val:Param ; val:slot 0 ; val:target :bbd ; val:property val:time ;
+    lv2:name "Delay Time" ; lv2:symbol "time" ; units:unit units:ms ;
+    lv2:minimum 12.5 ; lv2:maximum 800.0 .
+
+:p1 a val:Param ; val:slot 1 ; val:target :bbd ; val:property val:feedback ;
+    lv2:name "Feedback" ; lv2:symbol "feedback" .
+
+:p2 a val:Param ; val:slot 2 ; val:target :level ; val:property val:gain ;
+    lv2:name "Return level" ; lv2:symbol "level" ; units:unit units:db ;
+    lv2:minimum -40.0 ; lv2:maximum 6.0 .

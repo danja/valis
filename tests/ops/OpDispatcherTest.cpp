@@ -1192,6 +1192,11 @@ void testFitModes()
     const auto rendered = ops.render(path, 3.0, 48000.0, 60, 1.0);
     assert(rendered.ok);
 
+    // The bell must not clip: a clipped recording has sum and difference tones that are not in the bank.
+    const auto peakAt = rendered.value.find("\"peak\":");
+    assert(peakAt != std::string::npos);
+    assert(std::stod(rendered.value.substr(peakAt + 7)) < 1.0);
+
     const auto fit = ops.fitModes(path, 12, 2.0);
     assert(fit.ok);
 

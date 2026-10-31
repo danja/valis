@@ -9,6 +9,8 @@
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
   listening is under "Needs a listener" below.
 
+* **UI appearance.** Give the controls a more visual appeal than JUCE's defaults, and add a light theme.
+
 ## Needs a listener
 
 Everything here is measured, not heard. Each wants a person with ears, then a change in the score or circuit.
@@ -23,9 +25,10 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
 
 ## From earshot (see `docs/shot.md`)
 
-* **Free-mode modal bank and a fitter.** `val:ModalBank` has six modes at fixed ratios. A bank whose modes are set
-  one by one, plus an ESPRIT fit of a struck recording (earshot `fit/modal.py`), would turn a recording of a real
-  conga or cowbell into a circuit.
+* **Real recordings through `fit_modes`.** `val:FreeModalBank` and `fit_modes` are tested on sounds made from known modes
+  (frequencies exact, ring times within 1% and levels within 2 to 3%). A real conga, cowbell or bell has close modes, noise
+  and a drumhead that is not purely modal; try a few real recordings and see what comes out. The analysis window is 85 ms,
+  so a ring under about 0.1 s is read coarsely, and the fit ignores the attack and the phase of each mode.
 * **Calibrate `listen`.** Port earshot's vocabulary of 322 descriptions and its statistics, so a cosine becomes a z-score
   and a verdict; then a realness score (real recording or synthesised) on the same CLAP features.
 * **Make the harp, violins, trumpets and shakers sound like themselves.** `valis_shot is` hears the harp as a piano
@@ -293,6 +296,30 @@ reported to the host.
   the compiler to keep a region rather than flattening it, and the engine to run
   a node range with N times the buffers. Worth doing only if the per-element form
   turns out to cost too much in a real pedal chain.
+
+## From the dub-metal piece (see `valis-artifacts/artifacts/dub-metal/docs/report.md`)
+
+* **MCP `render`, `compare` and `measure` time out on heavy work.** The tools wait 5 seconds for the message thread. The
+  tonewheel organ (342 nodes) timed out at 6 to 40 seconds of audio and `compare` of two 213-second files timed out, and
+  the thread then stayed busy so the next calls failed too. Run the long operations off the message thread (a fresh engine
+  needs none of it), or make them report progress, and lift `render`'s 60-second limit or let it write in chunks.
+* **`sounds_like` and `listen` are missing from the app build.** `VALIS_WITH_ONNX` is off in `build/`, so the MCP tools say
+  so. `build-release/valis_shot` is stale and has no neural models either, and the older Debug binary takes about ten
+  minutes on a 3-minute file. Configure and build the Release tools with `-DVALIS_WITH_ONNX=ON`, and make `listen` cap the
+  audio it reads (it hears about ten seconds at a time anyway).
+* **Dynamic arc of a mix.** The mix script levels every stem by its own playing rms, so sections differ by only 3 to 4 dB.
+  Add a per-section gain table to the mix, so a breakdown is quieter and a peak louder, and report the section levels.
+* **A bright-enough check.** The dub-metal mix has under 2% of its energy above 2 kHz. Have `measure` (or the mix script)
+  report the share above 2 kHz, and `hear-a-sound` say what a low figure means for an "upper layer".
+* **A lighter stab voice.** `tonewheel-organ.ttl` has eight voices of nine drawbars and is slower than real time in Debug, for
+  three-note chords a few times a bar. A four-voice organ or an electric-piano stab (`dx7-epiano.ttl`) may do.
+* **More industrial sources.** Only `metal-bash.ttl` was used. Try a gated noise loop, a clanking step sequence, a metal
+  `val:FreeModalBank` fitted with `fit_modes` from a real recording of struck metal.
+* **The 909 stem clips four samples** (true peak +1.16 dBTP). Lower its output trim in `909.ttl` or note that stems are
+  levelled in the mix.
+* **Move the dub-metal brief** from `sources/dub-metal-prompt.md` to `sources/dub-metal/` as `docs/dir-layout.md` asks.
+* **Needs a listener:** dub-metal v1 to v3. Is the bass heavy, do the stabs bubble, is the metal present, does the breakdown
+  work? The report has the questions.
 
 ## Found while building the Halloween set
 

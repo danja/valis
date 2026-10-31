@@ -137,6 +137,11 @@ instruments that read as played, not synthesised, so each is a physical model ra
   56 cowbell, 60 and 61 bongos, 62 conga slap, 63 and 64 congas, 69 cabasa, 70 maracas, 73 and 74 guiro, 75 claves).
   Struck sounds are a short noise burst into a `val:ModalBank` (a circular membrane, wooden bars or a plate); shaken
   sounds are `val:Shaker`.
+- `dub-bass.ttl`: a heavy bass guitar for dub, from `six-string-bass.ttl` with a dark soft pick, a low pickup, more drive and no chorus.
+  Play it from C1 to C3. Measured only; the neural check of it did not finish (see the dub-metal report).
+- `dub-delay.ttl`: an echo return for a send: a dotted eighth at 85 bpm (529 ms) on a bucket-brigade delay, with a low cut, wet only.
+- `free-bell.ttl`: eight resonances written one by one in a `val:FreeModalBank` (`val:modes`, hertz:seconds:gain), struck
+  by a noise burst. The pattern for a measured object: run `fit_modes` on a recording and paste the string it returns.
 - `vocal-guide.ttl`: a plain "ah" voice for a guide track. Deliberately synthetic; keep it out of the final mix.
 
 ## Not examples
