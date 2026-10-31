@@ -34,6 +34,13 @@ numbers. Then `signal.pitch` (the note and how many cents off), `loudness` and `
 `spectralDistanceDb` is 0 for the same sound, a few dB for a small change, tens of dB for a different sound. A
 sound 6 dB louder reads about 5.6. `loudnessDifferenceLu` is the loudness change, second file minus first.
 
+When the first file is 20 s or longer, `sections` says where the difference lies. The first file is cut at its own section
+boundaries (the `sections` of `measure`) and the same stretch of each file is compared: `spectralDistanceDb`,
+`levelDifferenceDb` (second minus first, RMS) and, for two stereo files, `widthDifferenceDb` (see `stereoImage` in
+`measure`). `mostChangedSection` is the index of the largest spectral distance. Both files are cut at the same times, so
+renders that are not the same length or whose parts have moved compare unlike music; a section that starts after the
+second file ends is left out.
+
 ### is
 
 Give it a file and one sentence. It scores the sentence against twenty common rivals (other instruments, a

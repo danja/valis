@@ -5,6 +5,7 @@
 #include "Waveguide.h"
 #include "dsp/Random.h"
 
+#include <functional>
 #include <array>
 #include <cctype>
 #include <complex>
@@ -1217,7 +1218,7 @@ public:
             // A head that has just jumped is silent under its window, which makes this the
             // moment to choose where it lands. Head one wraps with the phase; head two when
             // the phase crosses a half.
-            if (align && step != 0.0)
+            if (align && !std::equal_to<>{}(step, 0.0))
             {
                 if (wrapped)
                     offset[0] = bestOffset(phase, offset[1], size, 0);
@@ -1472,7 +1473,7 @@ public:
         }
 
         const float  driveDb = std::clamp(controlAt(args, driveIndex, 6.0f), 0.0f, 30.0f);
-        const float  bumpDb  = std::clamp(controlAt(args, bumpIndex, 3.0f), 0.0f, 12.0f);
+        const float  bumpNow = std::clamp(controlAt(args, bumpIndex, 3.0f), 0.0f, 12.0f);
         const double wow     = std::clamp(static_cast<double>(controlAt(args, wowIndex, 0.3f)), 0.0, 1.0);
         const double flutter = std::clamp(static_cast<double>(controlAt(args, flutterIndex, 0.2f)), 0.0, 1.0);
         const double hf      = std::clamp(static_cast<double>(controlAt(args, hfIndex, 14000.0f)), 1000.0, 20000.0);
@@ -1481,7 +1482,7 @@ public:
         // 0.3 puts a signal of 0.5 well inside the linear part of the curve at zero drive.
         const double gain     = 0.3 * std::pow(10.0, static_cast<double>(driveDb) / 20.0);
         const double hissGain = std::pow(10.0, static_cast<double>(hissDb) / 20.0);
-        setBump(bumpDb);
+        setBump(bumpNow);
 
         // Speed variation as a depth in samples: a fractional speed error e at
         // frequency f moves the delay by e / (2 pi f).
@@ -1540,7 +1541,7 @@ private:
     /// https://www.w3.org/TR/audio-eq-cookbook/
     void setBump(float gainDb) noexcept
     {
-        if (gainDb == bumpDb)
+        if (std::equal_to<>{}(gainDb, bumpDb))
             return;
         bumpDb = gainDb;
 
@@ -1743,7 +1744,7 @@ private:
     /// Fourth-order Butterworth before the chain, second order after it.
     void setFilters(double corner) noexcept
     {
-        if (corner == lastCorner)
+        if (std::equal_to<>{}(corner, lastCorner))
             return;
         lastCorner = corner;
         pre[0].lowpass(corner, 0.5412, sampleRate);

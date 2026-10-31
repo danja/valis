@@ -2,6 +2,7 @@
 
 #include "valis/Analysis.h"
 
+#include <functional>
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -130,7 +131,7 @@ Frame yinFrame(const float* x, int window, int minLag, int maxLag, std::vector<d
     const double b = normalised[static_cast<std::size_t>(best)];
     const double c = normalised[static_cast<std::size_t>(best + 1)];
     const double denominator = a - 2.0 * b + c;
-    const double offset = denominator != 0.0 ? 0.5 * (a - c) / denominator : 0.0;
+    const double offset = !std::equal_to<>{}(denominator, 0.0) ? 0.5 * (a - c) / denominator : 0.0;
     return { best + std::clamp(offset, -1.0, 1.0), b };
 }
 
@@ -258,7 +259,11 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
         }
         report.stereoCorrelation = ll > 0.0 && rr > 0.0 ? lr / std::sqrt(ll * rr) : 1.0;
         report.balanceDb = toDb(std::sqrt(rr)) - toDb(std::sqrt(ll));
+        report.stereoImage = analyseStereoImage(left, right, sampleRate);
     }
+
+    report.tempo = estimateTempo(mono, sampleRate);
+    report.sectionMap = findSections(mono, sampleRate, report.stereoImage.seconds.empty() ? nullptr : &report.stereoImage);
 
     // Windows of 10 ms for the level over time, onsets and silence.
     const auto frame = std::max<std::size_t>(1, static_cast<std::size_t>(sampleRate * 0.010));
@@ -403,6 +408,8 @@ SignalReport analyseSignal(const std::vector<float>& left, const std::vector<flo
             notes.push_back("Silent for most of the render (" + number(100.0 * report.silentFraction) + "%).");
         if (report.channels == 2 && report.stereoCorrelation < -0.5)
             notes.push_back("The channels are close to opposite in phase and will cancel in mono.");
+        for (const auto& a : report.stereoImage.anomalies)
+            notes.push_back("Stereo image changes from " + number(a.startSeconds) + " s to " + number(a.endSeconds) + " s: " + a.reason + ".");
         // A bass or a pad is meant to be dark; anything else with so little up here will not cut through a mix.
         const bool lowSound = report.pitch.found && report.pitch.hz < 300.0;
         if (report.highShare < 0.03 && report.rms > 1.0e-4 && ! lowSound)
@@ -446,7 +453,58 @@ std::string reportToJson(const SignalReport& r)
     json += ",\"onsets\":" + array(r.onsets);
     json += ",\"envelopeDbPerQuarterSecond\":" + array(r.envelopeDb);
     if (r.channels == 2)
+    {
         json += ",\"stereoCorrelation\":" + number(r.stereoCorrelation) + ",\"balanceDb\":" + number(r.balanceDb);
+        const auto& image = r.stereoImage;
+        if (image.validSeconds > 0)
+        {
+            // A second too quiet to measure is null. The arrays stop at 300 seconds.
+            std::vector<double> widths, correlations;
+            for (std::size_t s = 0; s < image.seconds.size() && s < 300; ++s)
+            {
+                const double none = std::nan("");
+                widths.push_back(image.seconds[s].valid ? image.seconds[s].widthDb : none);
+                correlations.push_back(image.seconds[s].valid ? image.seconds[s].correlation : none);
+            }
+            json += ",\"stereoImage\":{\"medianWidthDb\":" + number(image.medianWidthDb)
+                  + ",\"medianCorrelation\":" + number(image.medianCorrelation)
+                  + ",\"bandWidthDb\":{\"low\":" + number(image.lowDb) + ",\"mid\":" + number(image.midDb)
+                  + ",\"high\":" + number(image.highDb) + "}"
+                  + ",\"widthDbPerSecond\":" + array(widths) + ",\"correlationPerSecond\":" + array(correlations)
+                  + ",\"anomalies\":[";
+            for (std::size_t i = 0; i < image.anomalies.size(); ++i)
+                json += std::string(i ? "," : "") + "{\"startS\":" + number(image.anomalies[i].startSeconds)
+                      + ",\"endS\":" + number(image.anomalies[i].endSeconds)
+                      + ",\"reason\":" + quote(image.anomalies[i].reason) + "}";
+            json += "]}";
+        }
+    }
+
+    if (r.tempo.found)
+    {
+        json += ",\"tempo\":{\"bpm\":" + number(r.tempo.bpm()) + ",\"candidates\":[";
+        for (std::size_t i = 0; i < r.tempo.candidates.size(); ++i)
+            json += std::string(i ? "," : "") + "{\"bpm\":" + number(r.tempo.candidates[i].bpm)
+                  + ",\"strength\":" + number(r.tempo.candidates[i].strength) + "}";
+        json += "]}";
+    }
+
+    if (! r.sectionMap.sections.empty())
+    {
+        json += ",\"sections\":[";
+        for (std::size_t i = 0; i < r.sectionMap.sections.size(); ++i)
+        {
+            const auto& s = r.sectionMap.sections[i];
+            json += std::string(i ? "," : "") + "{\"startS\":" + number(s.startSeconds) + ",\"endS\":" + number(s.endSeconds)
+                  + ",\"energyDb\":" + number(s.energyDb) + ",\"dominantNote\":" + quote(pitchClassName(s.dominantPitchClass))
+                  + ",\"key\":" + quote(keyName(s.key)) + ",\"keyCorrelation\":" + number(s.key.correlation);
+            if (s.hasStereo)
+                json += ",\"widthDb\":" + number(s.widthDb) + ",\"correlation\":" + number(s.correlation);
+            json += "}";
+        }
+        json += "]";
+        json += ",\"key\":" + quote(keyName(r.sectionMap.key)) + ",\"keyCorrelation\":" + number(r.sectionMap.key.correlation);
+    }
 
     json += ",\"notes\":[";
     for (std::size_t i = 0; i < r.notes.size(); ++i)

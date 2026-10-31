@@ -5,6 +5,7 @@
 #include "valis/Analysis.h"
 #include "valis/EnvelopeTimes.h"
 #include "valis/Loudness.h"
+#include "valis/SectionCompare.h"
 #include "valis/SpectralDistance.h"
 
 #ifdef VALIS_WITH_ONNX
@@ -176,10 +177,28 @@ ShotResult shotCompare(const std::string& pathA, const std::string& pathB)
     const auto d = spectralDistance(mono(a), mono(b), a.rate);
     const auto la = measureLoudness(a.left, a.right, a.rate);
     const auto lb = measureLoudness(b.left, b.right, b.rate);
-    return success("{\"spectralDistanceDb\":" + num(d.meanDb, 2) + ",\"perResolution\":[" + num(d.perResolution[0], 2) + ","
-                   + num(d.perResolution[1], 2) + "," + num(d.perResolution[2], 2) + "],\"loudnessDifferenceLu\":"
-                   + num(lb.integratedLufs - la.integratedLufs, 2) + ",\"lengthDifferenceSeconds\":"
-                   + num((static_cast<double>(b.left.size()) - static_cast<double>(a.left.size())) / a.rate, 3) + "}");
+    std::string json = "{\"spectralDistanceDb\":" + num(d.meanDb, 2) + ",\"perResolution\":[" + num(d.perResolution[0], 2) + ","
+                     + num(d.perResolution[1], 2) + "," + num(d.perResolution[2], 2) + "],\"loudnessDifferenceLu\":"
+                     + num(lb.integratedLufs - la.integratedLufs, 2) + ",\"lengthDifferenceSeconds\":"
+                     + num((static_cast<double>(b.left.size()) - static_cast<double>(a.left.size())) / a.rate, 3);
+
+    // Where the difference lies, for a first file long enough to have sections.
+    const auto where = compareSections(a.left, a.right, b.left, b.right, a.rate);
+    if (! where.sections.empty())
+    {
+        json += ",\"sections\":[";
+        for (std::size_t i = 0; i < where.sections.size(); ++i)
+        {
+            const auto& s = where.sections[i];
+            json += std::string(i ? "," : "") + "{\"startS\":" + num(s.startSeconds, 0) + ",\"endS\":" + num(s.endSeconds, 0)
+                  + ",\"spectralDistanceDb\":" + num(s.spectralDistanceDb, 2) + ",\"levelDifferenceDb\":" + num(s.levelDifferenceDb, 2);
+            if (s.hasWidth)
+                json += ",\"widthDifferenceDb\":" + num(s.widthDifferenceDb, 2);
+            json += "}";
+        }
+        json += "],\"mostChangedSection\":" + std::to_string(where.mostChanged);
+    }
+    return success(json + "}");
 }
 
 bool shotCanListen(std::string& reason)

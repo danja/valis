@@ -54,7 +54,17 @@ if [[ -x "$VALIDATOR" ]]; then
   "$VALIDATOR" build-release/valis_plugin_artefacts/Release/VST3/Valis.vst3
 else
   echo
-  echo "==> VST3 conformance check (skipped: validator not found at $VALIDATOR)"
+  if [[ -L "$VALIDATOR" && ! -e "$VALIDATOR" ]]; then
+    why="a symlink that is broken (is the drive mounted?)"
+  elif [[ -e "$VALIDATOR" ]]; then
+    why="the file exists but is not executable"
+  elif [[ ! -d "$(dirname "$VALIDATOR")" ]]; then
+    why="directory $(dirname "$VALIDATOR") does not exist: the SDK is not built there"
+  else
+    why="no such file"
+  fi
+  echo "==> VST3 conformance check (skipped: tried $VALIDATOR, $why)"
+  echo "    Build the SDK's validator and set VALIDATOR=/path/to/validator to enable it."
 fi
 
 if [[ "${VALIS_WITH_CLAP:-0}" == "1" ]]; then

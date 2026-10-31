@@ -10,6 +10,7 @@
 #include "Common.h"
 
 #include <array>
+#include <cmath>
 #include <vector>
 
 namespace valis::elements {
@@ -86,7 +87,7 @@ public:
         // interpolates, and linear interpolation is a lowpass, so the tail would fall a
         // little faster than asked at every size that is not a whole number of samples.
         // Only a line that is moving needs the fraction.
-        const bool steady = sizeTarget == smoothedSize;
+        const bool steady = std::abs(sizeTarget - smoothedSize) <= 0.0f;
 
         const float sizeStep = (sizeTarget - smoothedSize) / static_cast<float>(std::max(args.numSamples, 1));
 

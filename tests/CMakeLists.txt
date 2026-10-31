@@ -58,11 +58,15 @@ set(VALIS_TESTS
   engine/FileSlotTest.cpp
   engine/GrainSplitTest.cpp
   ops/AnalysisTest.cpp
+  ops/StereoImageTest.cpp
+  ops/SectionMapTest.cpp
+  ops/TempoEstimateTest.cpp
   shot/LoudnessTest.cpp
   shot/EnvelopeTimesTest.cpp
   shot/SpectralDistanceTest.cpp
   shot/FrontendTest.cpp
   shot/ShotReportTest.cpp
+  shot/SectionCompareTest.cpp
   shot/ModalFitTest.cpp
   ops/ContextWiringTest.cpp
   ops/CircuitHistoryTest.cpp

@@ -96,6 +96,28 @@ int main()
     const auto mismatch = shotCompare(quiet, other);
     assert(! mismatch.ok && mismatch.error.find("sample rates differ") != std::string::npos);
 
+    // compare on a long file says which section changed (and says nothing about sections for a short one).
+    assert(squeezed(louder.json).find("\"sections\"") == std::string::npos);
+    {
+        std::vector<float> original, edited;
+        for (int part = 0; part < 3; ++part)
+        {
+            const auto tone = sine(part == 1 ? 392.0 : 261.6, part == 1 ? 0.4 : 0.2, 24000, 20.0);
+            original.insert(original.end(), tone.begin(), tone.end());
+            auto changed = tone;
+            if (part == 1)
+                for (auto& s : changed) s *= 0.5f;
+            edited.insert(edited.end(), changed.begin(), changed.end());
+        }
+        const auto before = (dir / "song-before.wav").string(), after = (dir / "song-after.wav").string();
+        writeWav(before, original, 24000);
+        writeWav(after, edited, 24000);
+        const auto where = shotCompare(before, after);
+        assert(where.ok);
+        assert(squeezed(where.json).find("\"sections\":[{\"startS\":0,") != std::string::npos);
+        assert(number(where.json, "mostChangedSection") == 1.0);
+    }
+
     assert(! shotIs(quiet, "").ok);
 
     // Failures are located and say what to do, never a crash.

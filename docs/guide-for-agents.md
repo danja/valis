@@ -312,6 +312,9 @@ compile and be silent, or clip.
   | `firstSoundAt`, `silentFraction` | whether it starts late or is mostly silent |
   | `dc`, `nonFinite` | an offset, or values that are not numbers (an unstable circuit) |
   | `stereoCorrelation`, `balanceDb` | how alike the channels are, and which is louder |
+  | `tempo` | for a signal of 8 s or more with onsets: `bpm` and up to four `candidates`, each with a `strength` from 0 to 1. A pulse also repeats at half and double speed, so read the candidates: 130 and 65 are the same pulse. If the candidates all have nearly the same strength (a pad, strings) there is no clear pulse and the figure means little |
+  | `sections` | for a signal of 20 s or more: where the sound changes most (found from the mel-band and pitch-class content of each second), each with `startS`, `endS`, `energyDb`, `dominantNote` (the commonest pitch class, whatever the octave), `key` with `keyCorrelation` (a Krumhansl-Schmuckler key estimate; the correlation is the confidence: about 0.9 is a claim, about 0.6 a guess, and "none" means no pitch to go on) and, for stereo, `widthDb` and `correlation`. The whole track's `key` and `keyCorrelation` sit beside the list. Relative keys (C major and A minor) are easily confused. Compare two renders section by section to find which part changed |
+  | `stereoImage` | stereo files of a second or more: `widthDbPerSecond` (side level against mid level; far below 0 is near mono, about 0 is wide) and `correlationPerSecond`, null where a second is too quiet to say; `bandWidthDb` for below 250 Hz, 250 Hz to 4 kHz and above 4 kHz; and `anomalies`, ten-second stretches that differ from the track's median (also in `notes`). The arrays stop at 300 seconds |
 
   A peak of 0 means silence: check the output is wired, a gate is reaching the
   envelope, and a control arc is not overwriting something it should not.

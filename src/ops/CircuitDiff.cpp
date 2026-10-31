@@ -6,6 +6,7 @@
 #include "valis/Ontology.h"
 #include "valis/Vocabulary.h"
 
+#include <functional>
 #include <algorithm>
 #include <cstdio>
 #include <map>
@@ -73,7 +74,7 @@ std::vector<std::string> diffCircuits(const CircuitModel& before, const CircuitM
             const auto b = updated.properties.find(port);
             if (a != old->properties.end() && b != updated.properties.end())
             {
-                if (a->second != b->second)
+                if (!std::equal_to<>{}(a->second, b->second))
                     changes.push_back(name(id) + "." + port + " changed from " + number(a->second) + " to " + number(b->second));
             }
             else if (b != updated.properties.end())
@@ -117,7 +118,7 @@ std::vector<std::string> diffCircuits(const CircuitModel& before, const CircuitM
     for (const auto& [key, arc] : arcsAfter)
     {
         const auto found = arcsBefore.find(key);
-        if (found != arcsBefore.end() && found->second->depth != arc->depth)
+        if (found != arcsBefore.end() && !std::equal_to<>{}(found->second->depth, arc->depth))
             changes.push_back("depth of " + arcText(*arc) + " changed from " + number(found->second->depth) + " to " + number(arc->depth));
     }
 

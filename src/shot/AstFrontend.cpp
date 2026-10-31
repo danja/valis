@@ -2,6 +2,7 @@
 
 #include "valis/AstFrontend.h"
 
+#include <functional>
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -39,7 +40,7 @@ std::vector<std::vector<double>> kaldiBank()
 
 std::vector<float> resampleLinear(const std::vector<float>& x, double fromRate, double toRate)
 {
-    if (x.empty() || fromRate == toRate)
+    if (x.empty() || std::equal_to<>{}(fromRate, toRate))
         return x;
     const std::size_t n = static_cast<std::size_t>(static_cast<double>(x.size()) * toRate / fromRate);
     std::vector<float> out(n);

@@ -8,6 +8,7 @@
 #include "valis/BpeTokenizer.h"
 #include "valis/ClapFrontend.h"
 
+#include <functional>
 #include <onnxruntime_cxx_api.h>
 #include <juce_core/juce_core.h>
 
@@ -41,7 +42,7 @@ std::vector<std::string> names(Ort::Session& session, bool inputs)
 
 std::vector<float> mono48k(const std::vector<float>& mono, double rate)
 {
-    return rate == kClapRate ? mono : resampleLinear(mono, rate, kClapRate);
+    return std::equal_to<>{}(rate, kClapRate) ? mono : resampleLinear(mono, rate, kClapRate);
 }
 
 }  // namespace

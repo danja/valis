@@ -11,6 +11,10 @@
 
 #pragma once
 
+#include "valis/SectionMap.h"
+#include "valis/StereoImage.h"
+#include "valis/TempoEstimate.h"
+
 #include <string>
 #include <vector>
 
@@ -54,6 +58,9 @@ struct SignalReport
 
     double stereoCorrelation = 1.0; ///< 1 identical, 0 unrelated, -1 opposed; 2-channel only
     double balanceDb = 0.0;         ///< right level minus left level; 2-channel only
+    StereoImage stereoImage;        ///< width and correlation for each second; 2-channel only, whole seconds
+    SectionMap sectionMap;          ///< where the sound changes; empty under 20 s
+    TempoEstimate tempo;            ///< the pulse and its alternatives; not found under 8 s
 
     /// Plain-language findings, worth reading before the numbers.
     std::vector<std::string> notes;

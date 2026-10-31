@@ -1043,7 +1043,7 @@ OpResult OpDispatcher::morph(double position)
         return OpResult::failure("no parameter declares both val:valueA and val:valueB");
 
     OpResult result = OpResult::success(moved + "]");
-    if (t != position)
+    if (!std::equal_to<>{}(t, position))
         result.diagnostics.push_back({"position clamped to [0, 1]", {}});
     return result;
 }

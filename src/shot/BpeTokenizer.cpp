@@ -119,8 +119,8 @@ bool BpeTokenizer::load(const std::string& vocabJsonPath, const std::string& mer
 std::vector<std::string> BpeTokenizer::bpe(const std::string& word) const
 {
     std::vector<std::string> parts;
-    for (const unsigned char c : word)
-        parts.push_back(byteToUnicode[c]);
+    for (const char c : word)
+        parts.push_back(byteToUnicode[static_cast<unsigned char>(c)]);
     while (parts.size() > 1)
     {
         int best = std::numeric_limits<int>::max();

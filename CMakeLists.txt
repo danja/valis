@@ -55,11 +55,15 @@ add_library(valis_core STATIC
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp
   src/ops/Analysis.cpp
+  src/ops/StereoImage.cpp
+  src/ops/SectionMap.cpp
+  src/ops/TempoEstimate.cpp
   src/shot/Loudness.cpp
   src/shot/ShotReport.cpp
   src/shot/ModalFit.cpp
   src/shot/EnvelopeTimes.cpp
   src/shot/SpectralDistance.cpp
+  src/shot/SectionCompare.cpp
   src/shot/ClapFrontend.cpp
   src/shot/AstFrontend.cpp
   src/shot/BpeTokenizer.cpp

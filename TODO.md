@@ -9,11 +9,9 @@
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
   listening is under "Needs a listener" below.
 
-* **Check how `build.sh` finds the VST3 validator.** It tests `[[ -x "$VALIDATOR" ]]` at `$HOME/VST_SDK/build/bin/Release/validator`
-  and skips the conformance check, with only a heading to say so, when that fails. The user thinks it is missed because the SDK
-  is on a separate drive and symlinked. `-x` follows a symlink, so a link that is broken (drive not mounted) or a path inside
-  the SDK that differs would both read as "not found". Find out which, print the path it tried, and say why it was skipped.
-  Not yet looked at.
+* **Build the VST3 validator.** `build.sh` now says which path it tried and why it skipped the check. The symlink
+  `~/VST_SDK` is fine and the drive is mounted; the SDK is at `/chalet/VST_SDK/vst3sdk` and its validator was never built, so
+  `$HOME/VST_SDK/build/bin/Release/validator` does not exist. Build it from `vst3sdk` and set `VALIDATOR` to the result.
 
 * **UI appearance.** Give the controls a more visual appeal than JUCE's defaults, and add a light theme.
 
@@ -153,9 +151,35 @@ design apply). Roughly in order of how self-contained they are:
   holds thousands of triples and a model build makes thousands of lookups, so the linear scans would be the cost. Worth
   revisiting if factoidal grows an indexed graph and a C Turtle parser; what to borrow now is the property (reads that do not
   mutate), which the lock above gives.
-* **Check `~/github/songstress`** for anything to port that complements the measuring (`valis-shot`, `measure`). Not yet looked at.
-* **Check the build for warnings in our code and fix them.** Touch the sources and rebuild to see them all (the one left is in
-  the third-party `httplib.h`). Not yet done this session; `Reverb.cpp:89` (`-Wfloat-equal`) was seen in the Release build.
+* **Songstress follow-ups** (`~/github/songstress`, MIT; one 290-line Python script, `listen.py`, that writes a "listening card" for a
+  stereo WAV). Looked at, October 2026. Valis already has loudness, centroid, rolloff, onsets, pitch and one whole-file stereo
+  correlation (`include/valis/Analysis.h`). What it adds, as C++ from the algorithm with a test, in order of use:
+  * **Stereo over time: done** (`include/valis/StereoImage.h`, in `measure` and `render` as `stereoImage`). It flags ten-second windows,
+    not sections (the section map below now exists; the per-section width is in `sections`). As first specified: Mid/Side width in dB (`20 log10(rms(S)/rms(M))`) and L/R correlation per second, plus width in three bands
+    (below 250 Hz, 250 to 4000 Hz, above 4000 Hz) from the Mid and Side spectra. Seconds below about -80 dBFS carry no value rather
+    than a number. This catches a chorus that is wide and decorrelated where the rest is centred, which a single correlation hides.
+    Fits `measure` and the mix scripts, whose stems are stereo.
+  * **Section map: first version done** (`include/valis/SectionMap.h`, `sections` in `measure` and `render`). Tested on synthetic
+    sections, then tried on `tenement-lights.wav` (7:01): 10 sections, with the mono intro, the verses, the breakdown and the quiet
+    outro separate. Chroma uses an 8192-sample frame and reads 130 Hz to 5 kHz only. `dominantNote` is the commonest pitch class of
+    whatever is loudest, not the key: the mix reads C# and so does the `source` stem, while `prophet` and `strings` read A. Why `source`
+    sits on C# has not been looked at. A key estimate (below) is what answers "what key is this in". `compare` now reports a
+    difference per section (`SectionCompare.h`). Not done: section-level anomaly flags (the stereo flags fire on every ten-second
+    window of a long, gradually widening intro, six for one change). As first specified: per-second vectors of 64 log-mel bands and 12 chroma values, standardised, then novelty as one minus
+    the cosine between the mean of the 5 seconds before and the 5 after; boundaries at peaks above mean plus half a standard deviation,
+    at least 10 s apart. Each section reports energy, width and correlation. Would let `compare` say which section of a mix changed.
+  * **Key estimate: done** (`estimateKey` in `include/valis/SectionMap.h`; `key` and `keyCorrelation` per section and for the track).
+    On `tenement-lights.wav` (score: A minor) the mix reads G major at 0.60, a guess; the `strings` stem reads A minor (0.64), `hook` E minor
+    (0.74), `prophet` G major (0.70) and `source` D minor at 0.29, which is close to no key. The progression A, G, F, E (bass roots) is
+    ambiguous for the templates and the mix is mostly percussive, so this is the method's limit more than a fault, but it has not been
+    checked against a recording whose key is known. Not done: songstress's tuning-drift correction (it notes it lands a half-step low on
+    detuned material).
+  * **Tempo candidates: done** (`include/valis/TempoEstimate.h`, `tempo` in `measure` and `render`). On Tenement Lights (score: 130) the mix reads
+    130.0, `drums` 130.0, `kick` 129.9 and `prophet` 129.9. Candidates are ranked by strength times a preference for tempos near 120, so a
+    pulse that also repeats at half speed is not reported as slow; at 174 the half (87) and the tempo are close to a tie. Not done: the
+    `strings` stem (no pulse) returns four candidates of equal strength and `found` true; it should say there is no clear pulse. A tempo that
+    changes within a track gets one answer (no per-section tempo).
+  * Not worth porting: the 64-band mel feature matrix as a stored "memory" (`valis-shot listen` has CLAP features already).
 
 ## Helping agents use Valis
 

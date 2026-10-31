@@ -2,6 +2,7 @@
 
 #include "valis/ModalFit.h"
 
+#include <functional>
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
@@ -55,7 +56,7 @@ std::vector<double> spectralPeaks(const std::vector<float>& x, double rate, int 
         const double m = std::log(std::max(data[b],     1.0e-20f));
         const double c = std::log(std::max(data[b + 1], 1.0e-20f));
         const double d = a - 2.0 * m + c;
-        const double offset = d != 0.0 ? std::clamp(0.5 * (a - c) / d, -0.5, 0.5) : 0.0;
+        const double offset = !std::equal_to<>{}(d, 0.0) ? std::clamp(0.5 * (a - c) / d, -0.5, 0.5) : 0.0;
         peaks.push_back({(static_cast<double>(b) + offset) * binHz, data[b]});
     }
 
