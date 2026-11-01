@@ -15,12 +15,21 @@ option(VALIS_BUILD_PLUGIN "Build the JUCE plugin targets"    ON)
 option(VALIS_WITH_MCP     "Build the in-process MCP server"  ON)
 option(VALIS_WITH_CLAP    "Also build the CLAP format"       OFF)
 option(VALIS_WITH_NAM     "Build val:NamModel against NeuralAmpModelerCore" ON)
+option(VALIS_WITH_FREESOUND "Search and fetch sounds from freesound.org (needs OpenSSL)" ON)
 option(VALIS_WITH_ONNX    "Build the neural ears (CLAP, AST) of valis-shot against ONNX Runtime" OFF)
 set(VALIS_JUCE_DIR "/home/danny/github/JUCE" CACHE PATH "Path to the JUCE checkout")
 
 include(FindOrFetchSerd)
 
-if(VALIS_WITH_MCP)
+if(VALIS_WITH_FREESOUND)
+  find_package(OpenSSL)
+  if(NOT OpenSSL_FOUND)
+    message(WARNING "OpenSSL not found: building without Freesound")
+    set(VALIS_WITH_FREESOUND OFF)
+  endif()
+endif()
+
+if(VALIS_WITH_MCP OR VALIS_WITH_FREESOUND)
   include(FindOrFetchHttplib)
 endif()
 
@@ -40,6 +49,7 @@ add_library(valis_core STATIC
   src/model/Subcircuit.cpp
   src/compiler/CircuitCompiler.cpp
   src/dsp/ElementRegistry.cpp
+  src/net/Freesound.cpp
   src/dsp/elements/Sources.cpp
   src/dsp/elements/Filters.cpp
   src/dsp/elements/Transfers.cpp
@@ -108,6 +118,12 @@ target_compile_definitions(valis_core PUBLIC
   VALIS_VOCABS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vocabs"
   VALIS_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples"
   VALIS_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(VALIS_WITH_FREESOUND)
+  target_sources(valis_core PRIVATE src/net/HttpsFetch.cpp)
+  target_link_libraries(valis_core PRIVATE valis_httplib)
+  target_compile_definitions(valis_core PUBLIC VALIS_WITH_FREESOUND=1)
+endif()
 
 if(VALIS_WITH_NAM)
   include(FindOrFetchNam)

@@ -73,6 +73,7 @@ set(VALIS_TESTS
   shot/SectionCompareTest.cpp
   shot/ModalFitTest.cpp
   ops/ContextWiringTest.cpp
+  net/FreesoundTest.cpp
   ops/CircuitHistoryTest.cpp
   ops/CircuitDiffTest.cpp
   ops/AgentResourcesTest.cpp

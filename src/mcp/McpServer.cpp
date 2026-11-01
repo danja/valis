@@ -487,6 +487,12 @@ const ToolSpec kTools[] = {
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, its latency, and any problems an element recovered from (a missing sound file, say) as `problems`.",
      R"({"type":"object","properties":{}})"},
 
+    {"freesound_search", "Search freesound.org for sounds, using the API key in .env. Returns id, name, author, licence, duration, tags and page for each. licence is cc0 (default, free to use with no credit), cc-by (credit the author), or any. Sorted by rating unless sort says otherwise (e.g. downloads_desc, score, duration_asc). Network access; the key is never returned.",
+     R"({"type":"object","properties":{"query":{"type":"string","description":"words, e.g. \"kick drum 808\"; + and - mark required and excluded words"},"license":{"type":"string","enum":["cc0","cc-by","any"]},"min_seconds":{"type":"number"},"max_seconds":{"type":"number"},"page_size":{"type":"integer","description":"1 to 50, default 15"},"sort":{"type":"string"}},"required":["query"]})"},
+
+    {"freesound_download", "Download a Freesound sound by id into audio/freesound/ (or directory) as a 192 kbps Ogg preview (the original needs an OAuth2 login a key cannot give), with a .json beside it naming the author, licence and page. Returns the path to give to a val:Sampler or val:SampleLoad. The licence travels with the file: keep it, and credit the author for cc-by sounds.",
+     R"({"type":"object","properties":{"id":{"type":"integer"},"name":{"type":"string","description":"file name stem, e.g. kick; the id is appended"},"directory":{"type":"string","description":"default audio/freesound"}},"required":["id"]})"},
+
     {"load_file", "Load a Turtle circuit from a file path on the server machine.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"absolute path to a .ttl file"}},"required":["path"]})"},
 
@@ -578,7 +584,8 @@ namespace {
 /// call stay responsive, and a slow one cannot starve them. They share one set of neural models, hence the lock.
 bool isFileTool(const juce::String& name)
 {
-    return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes";
+    return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes"
+        || name == "freesound_search" || name == "freesound_download";
 }
 
 juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
@@ -600,6 +607,18 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
                 queries.push_back(q.toString().toStdString());
         return resultOf(ops.listen(stringArgument(arguments, "path"), queries));
     }
+
+    if (name == "freesound_search")
+        return resultOf(ops.freesoundSearch(
+            stringArgument(arguments, "query"), stringArgument(arguments, "license"),
+            arguments.hasProperty("min_seconds") ? static_cast<double>(arguments["min_seconds"]) : 0.0,
+            arguments.hasProperty("max_seconds") ? static_cast<double>(arguments["max_seconds"]) : 0.0,
+            arguments.hasProperty("page_size") ? static_cast<int>(arguments["page_size"]) : 15,
+            stringArgument(arguments, "sort")));
+
+    if (name == "freesound_download")
+        return resultOf(ops.freesoundDownload(static_cast<int>(arguments["id"]), stringArgument(arguments, "directory"),
+                                              stringArgument(arguments, "name")));
 
     if (name == "fit_modes")
         return resultOf(ops.fitModes(

@@ -7,6 +7,7 @@
 #include "valis/CircuitDiff.h"
 #include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
+#include "valis/Freesound.h"
 #include "valis/Lint.h"
 #include "valis/MidiScore.h"
 #include "valis/ModalFit.h"
@@ -1507,6 +1508,86 @@ OpResult OpDispatcher::listen(const std::string& path, const std::vector<std::st
 OpResult OpDispatcher::soundsLike(const std::string& path, const std::string& sentence) const
 {
     return fromShot(shotIs(path, sentence));
+}
+
+namespace {
+
+/// The API key: the environment first, then .env in the working directory, then in the source root.
+std::string freesoundKey()
+{
+    if (const auto fromEnvironment = juce::SystemStats::getEnvironmentVariable("FREESOUND_API_KEY", {}); fromEnvironment.isNotEmpty())
+        return fromEnvironment.toStdString();
+
+    for (const auto& dir : {juce::File::getCurrentWorkingDirectory(), juce::File(VALIS_ROOT_DIR)})
+        if (const auto file = dir.getChildFile(".env"); file.existsAsFile())
+            if (const auto key = Freesound::keyFromEnv(file.loadFileAsString().toStdString()); ! key.empty())
+                return key;
+    return {};
+}
+
+Freesound makeFreesound()
+{
+#if VALIS_WITH_FREESOUND
+    return Freesound(freesoundKey(), httpsFetch);
+#else
+    return Freesound({}, [](const std::string&, const std::string&, std::string&, std::string& error)
+    {
+        error = "this build has no Freesound support (configure with VALIS_WITH_FREESOUND=ON and OpenSSL)";
+        return false;
+    });
+#endif
+}
+
+juce::var soundVar(const FreesoundSound& s)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty("id", s.id);
+    o->setProperty("name", juce::String(s.name));
+    o->setProperty("author", juce::String(s.username));
+    o->setProperty("license", juce::String(s.license));
+    o->setProperty("seconds", s.seconds);
+    o->setProperty("tags", juce::String(s.tags));
+    o->setProperty("page", juce::String(s.pageUrl));
+    return juce::var(o);
+}
+
+} // namespace
+
+OpResult OpDispatcher::freesoundSearch(const std::string& text, const std::string& license, double minSeconds,
+                                       double maxSeconds, int pageSize, const std::string& sort) const
+{
+    FreesoundQuery query;
+    query.text = text;
+    if (! license.empty()) query.license = license;
+    query.minSeconds = minSeconds;
+    query.maxSeconds = maxSeconds;
+    query.pageSize = pageSize;
+    if (! sort.empty()) query.sort = sort;
+
+    std::vector<FreesoundSound> sounds;
+    std::string error;
+    if (! makeFreesound().search(query, sounds, error))
+        return OpResult::failure(error);
+
+    juce::Array<juce::var> list;
+    for (const auto& s : sounds)
+        list.add(soundVar(s));
+    auto* o = new juce::DynamicObject();
+    o->setProperty("count", static_cast<int>(sounds.size()));
+    o->setProperty("sounds", list);
+    return OpResult::success(juce::JSON::toString(juce::var(o)).toStdString());
+}
+
+OpResult OpDispatcher::freesoundDownload(int id, const std::string& directory, const std::string& name) const
+{
+    std::string path, error;
+    FreesoundSound sound;
+    if (! makeFreesound().download(id, directory.empty() ? "audio/freesound" : directory, name, path, sound, error))
+        return OpResult::failure(error);
+
+    auto var = soundVar(sound);
+    var.getDynamicObject()->setProperty("path", juce::String(path));
+    return OpResult::success(juce::JSON::toString(var).toStdString());
 }
 
 /// A sound file mixed to mono, up to `maxSeconds` of it, at the file's own sample rate (held to 8 kHz to 192 kHz).

@@ -301,6 +301,13 @@ public:
     /// The one-question form of listen: yes, maybe or no, and what the sound is closest to.
     OpResult soundsLike(const std::string& path, const std::string& sentence) const;
 
+    /// Freesound (https://freesound.org/docs/api/) with the API key in FREESOUND_API_KEY, from the environment or a
+    /// .env file in the working directory or the source root. Search returns JSON; download saves the Ogg preview and
+    /// a .json with author, licence and page beside it, and returns their paths. Network I/O: not for the message thread.
+    OpResult freesoundSearch(const std::string& text, const std::string& license, double minSeconds, double maxSeconds,
+                             int pageSize, const std::string& sort) const;
+    OpResult freesoundDownload(int id, const std::string& directory, const std::string& name) const;
+
     /// Renders the circuit offline into a wav file and reports what came out.
     /// A fresh engine, so it neither touches nor is touched by whatever the
     /// plugin is playing. `note` below zero renders without a note event. A `midiPath` plays every note of that MIDI

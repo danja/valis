@@ -15,3 +15,11 @@ if(NOT TARGET valis_httplib)
   add_library(valis_httplib INTERFACE)
   target_include_directories(valis_httplib INTERFACE ${httplib_SOURCE_DIR})
 endif()
+
+# Every translation unit that includes httplib.h must see the same macro, because
+# the header's classes change layout with it. HTTPS (for Freesound) is therefore on
+# for all of them when OpenSSL is present.
+if(TARGET OpenSSL::SSL)
+  target_compile_definitions(valis_httplib INTERFACE CPPHTTPLIB_OPENSSL_SUPPORT)
+  target_link_libraries(valis_httplib INTERFACE OpenSSL::SSL OpenSSL::Crypto)
+endif()
