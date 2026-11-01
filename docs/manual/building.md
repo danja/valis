@@ -68,6 +68,29 @@ read the generated manifest:
 grep -A5 'plug:p00' build/valis_plugin_artefacts/Debug/LV2/Valis.lv2/dsp.ttl
 ```
 
+### VST3 conformance check
+
+`build.sh` runs the Steinberg [VST3 SDK](https://github.com/steinberg/vst3sdk) validator on the
+Release plugin when it finds one. If it cannot, it prints the path it tried and skips the check.
+To build the validator once:
+
+```sh
+cmake -S ~/VST_SDK/vst3sdk -B ~/VST_SDK/build -DCMAKE_BUILD_TYPE=Release \
+      -DSMTG_ENABLE_VSTGUI_SUPPORT=OFF -DSMTG_ENABLE_VST3_PLUGIN_EXAMPLES=OFF \
+      -DSMTG_ENABLE_VST3_HOSTING_EXAMPLES=OFF -DSMTG_RUN_VST_VALIDATOR=OFF
+cmake --build ~/VST_SDK/build --target validator
+```
+
+`build.sh` looks for `~/VST_SDK/build/bin/Release/validator`; set `VALIDATOR=/path/to/validator`
+to use another copy. To run it by hand:
+
+```sh
+~/VST_SDK/build/bin/Release/validator build-release/valis_plugin_artefacts/Release/VST3/Valis.vst3
+```
+
+The plugin passes all 47 tests. The "64bit Audio Processing not supported" lines are
+informational: Valis processes 32-bit audio only.
+
 ## Regenerating the docs
 
 `docs/manual/elements.md` is generated from `vocabs/valis.ttl`, so it cannot

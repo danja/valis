@@ -10,10 +10,6 @@
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
   listening is under "Needs a listener" below.
 
-* **Build the VST3 validator.** `build.sh` now says which path it tried and why it skipped the check. The symlink
-  `~/VST_SDK` is fine and the drive is mounted; the SDK is at `/chalet/VST_SDK/vst3sdk` and its validator was never built, so
-  `$HOME/VST_SDK/build/bin/Release/validator` does not exist. Build it from `vst3sdk` and set `VALIDATOR` to the result.
-
 * **UI appearance.** Give the controls a more visual appeal than JUCE's defaults, and add a light theme.
 
 ## Needs a listener
