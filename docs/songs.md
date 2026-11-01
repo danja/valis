@@ -69,13 +69,14 @@ value outside its range, each with the name of the thing at fault.
 
 ## Rendering and mixing
 
-Three operations work on a song file. Each is an op in `src/ops/`, so the MCP tools and the command line tool are the same
+Four operations work on a song file. Each is an op in `src/ops/`, so the MCP tools and the command line tool are the same
 code:
 
 | MCP tool | `valis-song` | What it does |
 | --- | --- | --- |
 | `read_song` | `valis-song check song.ttl` | Reads the file, lists the layout and any circuit or MIDI file it names that is missing |
 | `render_song` | `valis-song render song.ttl [--only a,b]` | Writes `wavs/<stem>.wav` for each stem |
+| `check_stems` | `valis-song stems song.ttl` | Compares each stem with its MIDI file bar by bar and reports silence where there are notes (a note counts as heard if the stem sounds from its onset to 100 ms past the end of its bar), clipping and non-finite samples |
 | `mix_song` | `valis-song mix song.ttl --version v1 [--arc] [--lufs N]` | Writes `mixes/<title>-<version>.wav` and reports the loudness and each section's level |
 
 **Render.** A part is its circuit played by its MIDI file at the song's tempo with the transport rolling, for the length of

@@ -12,6 +12,7 @@
 #include "valis/Song.h"
 #include "valis/SongCheck.h"
 #include "valis/SongMix.h"
+#include "valis/SongReaper.h"
 #include "valis/SongRender.h"
 #include "valis/Lint.h"
 #include "valis/MidiScore.h"
@@ -1728,6 +1729,42 @@ OpResult OpDispatcher::checkSongStems(const std::string& path, const std::string
     if (! result.ok)
         return OpResult::failure("the stems have problems:" + failures + "\n" + json);
     return OpResult::success(json);
+}
+
+OpResult OpDispatcher::reaperProject(const std::string& path, const std::string& wavDirectory,
+                                     const std::string& outputPath, bool overwrite) const
+{
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
+
+    const auto output = outputPath.empty()
+        ? file.getParentDirectory().getChildFile(juce::String(song.slug()) + ".rpp").getFullPathName()
+        : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(outputPath)).getFullPathName();
+    const auto result = writeReaperProject(song, inSongDirectory(file, wavDirectory, "wavs").toStdString(),
+                                           output.toStdString(), overwrite);
+    if (! result.ok)
+        return OpResult::failure(result.error);
+
+    juce::Array<juce::var> tracks, missing;
+    for (const auto& t : result.tracks)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(t.name));
+        o->setProperty("volumeDb", t.volumeDb);
+        o->setProperty("pan", t.pan);
+        o->setProperty("muted", t.muted);
+        o->setProperty("seconds", t.seconds);
+        tracks.add(juce::var(o));
+    }
+    for (const auto& m : result.missing)
+        missing.add(juce::String(m));
+    auto* root = new juce::DynamicObject();
+    root->setProperty("path", juce::String(result.outputPath));
+    root->setProperty("tracks", tracks);
+    root->setProperty("missing", missing);
+    return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
 }
 
 OpResult OpDispatcher::mixSong(const std::string& path, const std::string& version, bool arc,

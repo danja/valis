@@ -83,6 +83,7 @@ set(VALIS_TESTS
   ops/LintTest.cpp
   ops/SongMixTest.cpp
   ops/SongCheckTest.cpp
+  ops/SongReaperTest.cpp
   ops/SongRenderTest.cpp
   ops/OpDispatcherTest.cpp
   docs/GuideTest.cpp

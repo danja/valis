@@ -87,6 +87,12 @@ std::vector<float> fftConvolve(const std::vector<float>& signal, const std::vect
 /// Second-order Butterworth high-pass, run once forward from zero state.
 void highpass(std::vector<float>& x, double cornerHz, double sampleRate);
 
+/// The gain in dB that levels each stem: its `levelDb` less its measured playing RMS after its high-pass (which is applied
+/// to `stems` here), or, for a stem that follows another, the leader's gain plus its own `levelDb`. Also fills `levels`
+/// with each stem's measurement. False, with the reason, if a leader is not among the stems.
+bool stemGains(std::vector<MixStem>& stems, double sampleRate, std::vector<double>& gains,
+               std::vector<MixStemReport>& levels, std::string& error);
+
 /// Gain curve (linear) that steps between the sections' levels and is smoothed over about two seconds.
 std::vector<float> arcCurve(const Song& song, double sampleRate, std::size_t length);
 

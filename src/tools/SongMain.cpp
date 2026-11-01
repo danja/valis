@@ -24,6 +24,7 @@ void usage()
         "  valis-song check  <song.ttl>\n"
         "  valis-song render <song.ttl> [--only a,b] [--workers N]\n"
         "  valis-song stems  <song.ttl>\n"
+        "  valis-song reaper <song.ttl> [--output file.rpp] [--overwrite]\n"
         "  valis-song mix    <song.ttl> [--version vN] [--arc] [--lufs N] [--overwrite]\n"
         "\n"
         "check prints the layout and any file the song names that is missing. stems compares each rendered wav with its\n"
@@ -92,6 +93,7 @@ int main(int argc, char** argv)
     valis::OpResult result;
     if (command == "check")        result = ops.readSong(song);
     else if (command == "render")  result = ops.renderSong(song, only, workers, wavs);
+    else if (command == "reaper")  result = ops.reaperProject(song, wavs, output, overwrite);
     else if (command == "stems")   result = ops.checkSongStems(song, wavs);
     else if (command == "mix")     result = ops.mixSong(song, version, arc, lufs, overwrite, wavs, output);
     else

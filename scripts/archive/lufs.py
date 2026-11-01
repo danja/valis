@@ -1,4 +1,4 @@
-# scripts/shot/lufs.py
+# scripts/archive/lufs.py
 #
 # Aim a mix at a loudness in LUFS, using valis-shot for the measurement (Python has no BS.1770 meter here).
 #

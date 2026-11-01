@@ -82,6 +82,7 @@ asking the running program:
 | `freesound_search` | search freesound.org (CC0 by default) for sounds: id, name, author, licence, length, tags. Needs `FREESOUND_API_KEY` in `.env` |
 | `read_song` | read a `val:Song` file (tempo, sections, parts, returns, mix table) and list problems such as a missing circuit or MIDI file; see `docs/songs.md` |
 | `render_song` | render the stems of a song file: each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit; writes `wavs/<stem>.wav`. Private copies of the circuits, so the live one is untouched |
+| `check_stems` | compare a song's rendered stems with its MIDI files bar by bar: silence where there are notes, clipping, non-finite samples, an empty MIDI file; run it before `mix_song` |
 | `mix_song` | mix a song's stems to `mixes/<title>-<version>.wav`: levelled, panned, optional per-section levels, fade, room, soft clip, and the song's loudness target. Never replaces an existing version |
 | `freesound_download` | fetch a sound by id into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence; returns the path for a `val:Sampler` |
 | `listen` | AudioSet labels for a file, and a score for each sentence you give (needs the neural models) |

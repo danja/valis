@@ -113,6 +113,7 @@ a tool first.
 | `get_diagnostics` | whether the circuit loaded, its size, latency, voices, and `problems`: what an element recovered from, such as a missing sound file |
 | `read_song` | read a `val:Song` file (tempo, sections, parts, returns and the mix settings) and list problems such as a missing circuit or MIDI file |
 | `render_song` | render a song's stems to `wavs/`: each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit. A failing stem is named and the others are still written |
+| `check_stems` | compare the rendered stems with their MIDI files bar by bar and name any that are silent where the score has notes, clipped, non-finite, or have an empty MIDI file |
 | `mix_song` | mix the stems to `mixes/<title>-<version>.wav`: levelled, panned, with optional per-section levels, a fade, a room, a soft clip and a loudness target. It never replaces an existing version unless asked |
 | `freesound_search` / `freesound_download` | search [freesound.org](https://freesound.org) (CC0 by default) and fetch a result into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence. Needs `FREESOUND_API_KEY` in `.env` |
 

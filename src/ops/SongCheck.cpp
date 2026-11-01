@@ -93,13 +93,28 @@ SongCheckResult checkSongStems(const Song& song, const std::string& songDirector
 
         const double barSamples = song.barSeconds() * audio.sampleRate;
         std::vector<int> noteCount(static_cast<std::size_t>(totalBars), 0);
+        // A note is heard if the stem has sound from its onset to 100 ms past the end of its bar, which allows for a
+        // note late in the bar and for a slow attack. The loudest note's level in each bar is kept, so a bar is silent
+        // only if every note in it made no sound.
+        std::vector<double> loudestNote(static_cast<std::size_t>(totalBars), -120.0);
+        const auto window = static_cast<std::size_t>(0.1 * audio.sampleRate);
         for (const auto& n : notes)
             if (n.on && n.velocity > 0.0f)
             {
                 ++report.notes;
                 const auto bar = static_cast<long long>(std::floor(static_cast<double>(n.sample) / barSamples));
-                if (bar >= 0 && bar < totalBars)
-                    ++noteCount[static_cast<std::size_t>(bar)];
+                if (bar < 0 || bar >= totalBars)
+                    continue;
+                ++noteCount[static_cast<std::size_t>(bar)];
+                const auto from = static_cast<std::size_t>(std::max<long long>(0, n.sample));
+                const auto to = std::min(audio.frames(), static_cast<std::size_t>(std::llround((static_cast<double>(bar) + 1.0) * barSamples)) + window);
+                double sum = 0.0;
+                for (std::size_t i = from; i < to; ++i)
+                    if (std::isfinite(audio.left[i]) && std::isfinite(audio.right[i]))
+                        sum += static_cast<double>(audio.left[i]) * audio.left[i] + static_cast<double>(audio.right[i]) * audio.right[i];
+                if (to > from)
+                    loudestNote[static_cast<std::size_t>(bar)] =
+                        std::max(loudestNote[static_cast<std::size_t>(bar)], toDb(sum / static_cast<double>((to - from) * 2)));
             }
 
         for (int bar = 0; bar < totalBars; ++bar)
@@ -117,7 +132,7 @@ SongCheckResult checkSongStems(const Song& song, const std::string& songDirector
                 b.section = song.sections[static_cast<std::size_t>(place->section)].name;
             b.notes = noteCount[static_cast<std::size_t>(bar)];
             b.rmsDb = to > from ? toDb(sum / static_cast<double>((to - from) * 2)) : -120.0;
-            if (b.notes > 0 && b.rmsDb < silenceDb)
+            if (b.notes > 0 && loudestNote[static_cast<std::size_t>(bar)] < silenceDb)
                 report.silentBars.push_back(b.bar);
             report.bars.push_back(std::move(b));
         }

@@ -38,7 +38,7 @@ written to a new version each time and never replaces one.
    `cmake --build build-release --target valis_render valis_shot` after any change to the code, or it is stale.
 7. **Effects on a stem** are circuits fed with `-i`: `speaker-room.ttl`, `reverb-return.ttl`. Mix the send at
    half level before writing the file, so the sum cannot clip.
-8. **Check every stem before mixing.** Print the rms of each bar and look for silence where the score has notes.
+8. **Check every stem before mixing.** Run `check_stems` (`valis-song stems`), which reports silence where the score has notes, clipping and NaN, bar by bar.
    Then ask `valis_shot is stem.wav "a harp"` (the `hear-a-sound` skill) for each pitched or struck part: a stem that comes
    out as a synthesizer preset, or as the wrong instrument, is worth fixing before the mix.
    Check tuning of any pitched part (see the `test-an-instrument` skill). Check `isnan`.
@@ -58,7 +58,7 @@ written to a new version each time and never replaces one.
 - Levelling every stem by its own playing rms makes every section about as loud as the others. Give the mix a gain per
   section (`scripts/dub-metal/track.py mix --arc`, `ARC_DB`) and print each section's level, so a breakdown is quieter and a
   peak louder by a number you can read.
-- To aim a mix at a loudness, use `scripts/shot/lufs.py` (see `docs/shot.md`); it holds the true peak at -1 dBTP.
+- To aim a mix at a loudness, give the song `val:loudness` or pass `--lufs N` to `valis-song mix`; it holds the true peak at -1 dBTP.
 - The mix is a reference. Vocals and mastering are done in Reaper (`reaper-from-stems`).
 - Report honestly that a song has been measured and not heard.
 - Save each mix under a new version number (`name-v3.flac`) and keep the previous one, so the listener can compare.

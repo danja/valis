@@ -194,6 +194,46 @@ std::vector<float> arcCurve(const Song& song, double sampleRate, std::size_t len
     return curve;
 }
 
+bool stemGains(std::vector<MixStem>& stems, double rate, std::vector<double>& gains, std::vector<MixStemReport>& levels,
+               std::string& error)
+{
+    levels.assign(stems.size(), MixStemReport{});
+    gains.assign(stems.size(), 0.0);
+    std::vector<bool> known(stems.size(), false);
+
+    // Each stem is filtered and measured; a stem that follows another takes that one's gain, so those wait for a second pass.
+    for (std::size_t k = 0; k < stems.size(); ++k)
+    {
+        auto& stem = stems[k];
+        songmix::highpass(stem.audio.left, stem.highpassHz, rate);
+        songmix::highpass(stem.audio.right, stem.highpassHz, rate);
+
+        std::vector<float> mono(stem.audio.frames());
+        for (std::size_t i = 0; i < mono.size(); ++i)
+            mono[i] = 0.5f * (stem.audio.left[i] + stem.audio.right[i]);
+        const double measured = songmix::playingRmsDb(mono, rate);
+        levels[k] = {stem.name, measured, 0.0};
+        if (stem.follows.empty())
+        {
+            gains[k] = stem.levelDb - measured;
+            known[k] = true;
+        }
+    }
+    for (std::size_t k = 0; k < stems.size(); ++k)
+        if (! stems[k].follows.empty())
+        {
+            const auto leader = std::find_if(stems.begin(), stems.end(), [&](const MixStem& m) { return m.name == stems[k].follows; });
+            const auto at = static_cast<std::size_t>(leader - stems.begin());
+            if (leader == stems.end() || ! known[at])
+            {
+                error = "stem " + stems[k].name + " follows " + stems[k].follows + ", which is not a levelled stem in this mix";
+                return false;
+            }
+            gains[k] = gains[at] + stems[k].levelDb;
+        }
+    return true;
+}
+
 } // namespace songmix
 
 bool mixStems(const Song& song, std::vector<MixStem>& stems, const MixOptions& options, MixReport& report,
@@ -222,40 +262,10 @@ bool mixStems(const Song& song, std::vector<MixStem>& stems, const MixOptions& o
     std::vector<float> left(std::max(rendered, kept), 0.0f), right(left.size(), 0.0f);
 
     report = MixReport{};
-    report.stems.resize(stems.size());
-    std::vector<double> gains(stems.size(), 0.0);
-    std::vector<bool> known(stems.size(), false);
 
-    // Each stem is filtered and measured; a stem that follows another takes that one's gain, so those wait for a second pass.
-    for (std::size_t k = 0; k < stems.size(); ++k)
-    {
-        auto& stem = stems[k];
-        songmix::highpass(stem.audio.left, stem.highpassHz, rate);
-        songmix::highpass(stem.audio.right, stem.highpassHz, rate);
-
-        std::vector<float> mono(stem.audio.frames());
-        for (std::size_t i = 0; i < mono.size(); ++i)
-            mono[i] = 0.5f * (stem.audio.left[i] + stem.audio.right[i]);
-        const double measured = songmix::playingRmsDb(mono, rate);
-        report.stems[k] = {stem.name, measured, 0.0};
-        if (stem.follows.empty())
-        {
-            gains[k] = stem.levelDb - measured;
-            known[k] = true;
-        }
-    }
-    for (std::size_t k = 0; k < stems.size(); ++k)
-        if (! stems[k].follows.empty())
-        {
-            const auto leader = std::find_if(stems.begin(), stems.end(), [&](const MixStem& m) { return m.name == stems[k].follows; });
-            const auto at = static_cast<std::size_t>(leader - stems.begin());
-            if (leader == stems.end() || ! known[at])
-            {
-                error = "stem " + stems[k].name + " follows " + stems[k].follows + ", which is not a levelled stem in this mix";
-                return false;
-            }
-            gains[k] = gains[at] + stems[k].levelDb;
-        }
+    std::vector<double> gains;
+    if (! songmix::stemGains(stems, rate, gains, report.stems, error))
+        return false;
 
     for (std::size_t k = 0; k < stems.size(); ++k)
     {

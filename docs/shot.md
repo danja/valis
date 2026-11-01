@@ -78,11 +78,10 @@ the time in seconds if you know it. If the best match is still over 1 dB away th
 
 ### Aiming a mix at a loudness
 
-`scripts/shot/lufs.py` asks `valis-shot measure` for a mix's loudness and returns the gain that reaches a target in
-LUFS, held back so the true peak stays at or under -1 dBTP. A mix script writes the mix, calls
-`lufs.gain_to_target(path, -14.0)`, scales by the result and writes again. `lights-on-nobody-home/track.py mix
---lufs=-14` does this; on the v3 mix it takes -12.3 LUFS to -14.0 LUFS with a true peak of -2.67 dBTP. Without the flag
-the mix is as before.
+A song's mix aims at a loudness itself. Give the song `val:loudness`, or pass `--lufs N` to `valis-song mix` (or `lufs` to
+the `mix_song` tool): the last gain brings the mix to that integrated loudness, held back so the true peak stays at or under
+-1 dBTP, and the reply says when the ceiling, not the target, set the gain. It uses the same `measureLoudness` as
+`valis-shot measure`. See [songs](songs.md). The Python helper that did this before is kept in `scripts/archive/lufs.py`.
 
 ## Setting up the neural questions (`is` and `listen`)
 
