@@ -5,9 +5,10 @@ description: Write, render and mix a song from Valis circuits. Use when asked to
 
 # Write a song from Valis circuits
 
-Two songs were made this way: `scripts/halloween/` ("Dead at Midnight", see `docs/halloween-process.md`) and
-`scripts/electro83/` ("Tenement Lights", see `docs/new-order-track.md`). `scripts/electro83/track.py` is the
-newer and tidier pattern; copy it.
+A song is a `song.ttl` (see `docs/songs.md`) plus a score script that writes the MIDI. Copy
+`scripts/dub-metal/track.py` and its `song.ttl` in the artifacts repo. The first two songs, `scripts/archive/halloween/`
+("Dead at Midnight", `docs/halloween-process.md`) and `scripts/archive/electro83/` ("Tenement Lights",
+`docs/new-order-track.md`), mixed in Python and are kept only as a record.
 
 ## Method
 
@@ -20,7 +21,7 @@ written to a new version each time and never replaces one.
    which section. A section table in the script (`SECTIONS`) and one function that answers "what plays in this
    bar" keep an alternate arrangement a change of table, not a rewrite. `track.py --short` is the example.
 2. **One part, one circuit, one MIDI file.** The score script writes `midi/<part>.mid` for each part with
-   `scripts/halloween/midiw.py`. Put sparse or very different sounds in their own part (the wood block and the
+   `scripts/song/midiw.py`. Put sparse or very different sounds in their own part (the wood block and the
    tambourine are not in the kit's file) so each can be levelled and sent to effects alone.
 3. **Seed every random choice** (`random.Random(seed)`), so a run gives the same MIDI.
 4. **Gates.** A note shorter than its slot, by about a fifth, so the gate drops before the next note. Notes that

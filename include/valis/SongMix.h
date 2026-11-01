@@ -27,6 +27,7 @@ struct MixStem
     double levelDb = -20.0;     ///< target playing RMS
     double pan = 0.0;
     double highpassHz = 0.0;
+    std::string follows;        ///< another stem's name: take its gain, and `levelDb` is an offset from it
 };
 
 struct MixOptions

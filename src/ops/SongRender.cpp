@@ -71,7 +71,14 @@ SongRenderResult renderSongStems(const Ontology& ontology, const ElementRegistry
         request.sampleRate = options.sampleRate;
         request.tempo = song.tempo;
         if (stem.isReturn)
+        {
             request.inputPath = wavDirectory + "/" + stem.source + ".wav";
+            if (! stem.midi.empty())            // an effect that is played, such as a rotating speaker's speed
+            {
+                request.midiPath = under(songDirectory, stem.midi);
+                request.rolling = true;
+            }
+        }
         else
         {
             request.midiPath = under(songDirectory, stem.midi);

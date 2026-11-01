@@ -13,6 +13,38 @@
 
 namespace valis {
 
+void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const std::vector<TimedNote>& score,
+                  const BlockRun& run, StereoAudio& out)
+{
+    out.sampleRate = run.sampleRate;
+    out.left.assign(input.size(), 0.0f);
+    out.right.assign(input.size(), 0.0f);
+
+    std::size_t nextEvent = 0;
+    for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(run.blockSize))
+    {
+        const auto n = static_cast<int>(std::min(static_cast<std::size_t>(run.blockSize), input.size() - at));
+        const auto sample = static_cast<long long>(at);
+
+        // The first block after an event also takes any that an earlier block skipped; never equality with a block start.
+        while (nextEvent < score.size() && score[nextEvent].sample < sample + n)
+        {
+            const auto& e = score[nextEvent++];
+            const int offset = static_cast<int>(std::max<long long>(0, e.sample - sample));
+            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
+            else      engine.queueNoteOff(e.note, offset);
+        }
+
+        TransportInfo transport;
+        transport.playing = run.rolling;
+        transport.tempoBpm = run.tempo;
+        transport.ppqPosition = run.rolling ? static_cast<double>(at) / run.sampleRate * run.tempo / 60.0 : 0.0;
+        engine.setTransport(transport);
+
+        engine.process(input.data() + at, out.left.data() + at, out.right.data() + at, n);
+    }
+}
+
 OfflineRenderResult renderCircuitFile(const Ontology& ontology, const ElementRegistry& registry,
                                       const OfflineRenderRequest& request)
 {
@@ -77,33 +109,12 @@ OfflineRenderResult renderCircuitFile(const Ontology& ontology, const ElementReg
     if (! request.midiPath.empty() && ! readMidiScore(request.midiPath, tempo, rate, score, error))
         return fail(error);
 
-    result.audio.sampleRate = rate;
-    result.audio.left.assign(input.size(), 0.0f);
-    result.audio.right.assign(input.size(), 0.0f);
-
-    // -- the blocks. An event fires in the block that contains it, at its own offset.
-    std::size_t nextEvent = 0;
-    for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(block))
-    {
-        const auto n = static_cast<int>(std::min(static_cast<std::size_t>(block), input.size() - at));
-        const auto sample = static_cast<long long>(at);
-
-        while (nextEvent < score.size() && score[nextEvent].sample < sample + n)
-        {
-            const auto& e = score[nextEvent++];
-            const int offset = static_cast<int>(std::max<long long>(0, e.sample - sample));
-            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
-            else      engine.queueNoteOff(e.note, offset);
-        }
-
-        TransportInfo transport;
-        transport.playing = request.rolling;
-        transport.tempoBpm = tempo;
-        transport.ppqPosition = request.rolling ? static_cast<double>(at) / rate * tempo / 60.0 : 0.0;
-        engine.setTransport(transport);
-
-        engine.process(input.data() + at, result.audio.left.data() + at, result.audio.right.data() + at, n);
-    }
+    BlockRun run;
+    run.sampleRate = rate;
+    run.tempo = tempo;
+    run.rolling = request.rolling;
+    run.blockSize = block;
+    renderBlocks(engine, input, score, run, result.audio);
 
     double sum = 0.0;
     for (std::size_t i = 0; i < input.size(); ++i)

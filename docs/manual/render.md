@@ -2,7 +2,8 @@
 
 `valis-render` plays a circuit offline and writes a wav file. It needs no window, audio device or host, so it is the
 tool for batch work, tests and rendering one part of a song. The same render is available to an agent as the `render`
-tool on the [MCP surface](mcp.md).
+tool on the [MCP surface](mcp.md). To render every part of a song and mix the stems, use `valis-song` instead; see
+[songs as data](../songs.md).
 
 ```sh
 valis_render examples/nylon-guitar.ttl --note 52 --seconds 3 -o guitar.wav

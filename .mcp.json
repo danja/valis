@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "valis": { "type": "http", "url": "http://localhost:7676/mcp" }
+  }
+}

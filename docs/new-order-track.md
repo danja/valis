@@ -102,7 +102,7 @@ Built: the track "Tenement Lights" (A minor, 130 beats per minute, 224 bars, abo
 | Strings | `examples/quadra-strings.ttl` | Eight voices with two choruses and a phaser. |
 | Speaker and room | `examples/speaker-room.ttl` | An effect. |
 
-The score and mix are `scripts/electro83/track.py`. The Prophet arpeggio is deliberately a sixteenth late
+The score and mix are `scripts/archive/electro83/track.py`. The Prophet arpeggio is deliberately a sixteenth late
 from the start of the peak section, which is the extra rest in this track. `tests/engine/ElectroInstrumentsTest.cpp`
 checks every instrument for silence before a note, pitch, release and a second note after a gap.
 

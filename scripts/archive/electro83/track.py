@@ -17,8 +17,8 @@ import os, sys, subprocess, random
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "scripts", "halloween"))
+ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
+sys.path.insert(0, os.path.join(ROOT, "scripts", "song"))
 import midiw
 
 SHORT = "--short" in sys.argv

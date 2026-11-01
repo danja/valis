@@ -39,6 +39,8 @@ the command line tool `valis-song` all use. A score script reads it from Python 
 | `val:tailSeconds` | Song | Seconds rendered after the last bar, so reverb and release can ring out | 10 |
 | `val:fadeSeconds` | Song | Length of the fade at the end of the mix | 4 |
 | `val:roomAmount` | Song | A synthetic room added to the mix, as a fraction of it, 0 to 1 | 0.10 |
+| `val:roomDecay` | Song | Seconds the room takes to fall by 60 dB, 0.02 to 5 | 0.4 |
+| `val:roomLowpass` | Song | Corner in Hz of the low-pass that darkens the room's tail, 200 to 20000 | 4500 |
 | `val:drive` | Song | Gain into the final soft clip (a hyperbolic tangent): 1 is nearly clean, higher is harder | 1.3 |
 | `val:index` | Section, Part, Return | Position in order. Sections must be numbered 1, 2, 3 and so on | order of the name |
 | `val:bars` | Section | Length in bars | required |
@@ -46,6 +48,8 @@ the command line tool `valis-song` all use. A score script reads it from Python 
 | `val:level` | Part, Return | Level in dB of the stem's playing RMS (RMS over the tenth-second windows that are not silent) | -20 |
 | `val:circuit` | Part, Return | Circuit file, relative to the song file | required |
 | `val:midi` | Part | MIDI file, relative to the song file | `midi/<name>.mid` |
+| `val:midi` | Return | MIDI file played into the return's circuit as well as the source stem (for a Leslie speed switch, say) | none |
+| `val:follows` | Part | Another part. This part takes that part's gain plus the difference between the two `val:level` values, instead of being levelled by its own rms. For sparse percussion that should keep its balance with the kit | none |
 | `val:source` | Return | The part whose stem is the return's input | required |
 | `val:pan` | Part, Return | -1 left, 0 centre, 1 right. A stereo stem keeps its image and takes the pan as a balance | 0 |
 | `val:highpass` | Part, Return | Second-order high-pass corner in Hz, 0 for none | 0 |
@@ -89,9 +93,22 @@ says when the ceiling, not the target, set the gain. The room is noise shaped by
 A mix is never replaced: asking for a version that exists fails unless `--overwrite` is given, so every version is kept. The mix is
 a reference to judge the arrangement by. It is measured, not heard, and vocals and mastering are done in a DAW.
 
+**Followers and played returns.** A sparse part such as percussion is levelled by its own playing RMS, which would make a
+few hits as loud as a full kit. Give it `val:follows` and the name of another part: it then takes that part's gain, adjusted by
+the difference between the two `val:level` values, so it keeps the balance it was played at. Only a part that is not itself a
+follower can be followed, and a return cannot follow. A return may also name a `val:midi` file, which is played into its
+circuit as well as the source stem; a rotating speaker whose speed is a MIDI note is the example.
+A part that exists only to feed a return can be set to -80 dB so it is not heard in the mix.
+
+**The room.** `val:roomAmount` is how much of it is added, `val:roomDecay` how long it takes to fall by 60 dB, and
+`val:roomLowpass` darkens its tail. The impulse is four decays long, noise from a fixed seed, so the mix is repeatable.
+
 A track script keeps only its score and calls these through `songlib.render(song)` and `songlib.mix(song, version, arc=True)`.
-`scripts/interstate-rain/track.py` and `scripts/dub-metal/track.py` are the examples. The C++ mix matches the Python one it
-replaced to within -74 dB of the signal when the room is switched off; the room differs only in its noise.
+`scripts/interstate-rain/track.py`, `scripts/dub-metal/track.py`, `scripts/lights-on-nobody-home/track.py` (a mariachi
+band, no arc) and `scripts/autumn-leaves/track.py` (a follower and a played return) are the examples. The two
+older scripts that mixed in Python, `electro83` and `halloween`, are kept unconverted in `scripts/archive/`. The C++ mix matches the Python one it
+replaced to within -74 dB of the signal when the room is switched off; the room differs only in its noise. Converting `lights-on-nobody-home` and `autumn-leaves` gave mixes within 0.2 LU of the
+Python ones (measured, not heard); the C++ mix keeps stereo stems stereo, where the scripts folded them to mono.
 
 ## What stays in code
 

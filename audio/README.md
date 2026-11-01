@@ -27,3 +27,8 @@ Measured, not heard: the conga named D#4 has a fundamental of 82.4 Hz (E2, MIDI 
 
 `val:Sampler` (`examples/sampler-percussion.ttl`) plays these from MIDI notes. A trial
 of `fit_modes` on them is recorded in `TODO.md`.
+
+## Oberheim DMX
+
+`oberheim-dmx/` holds captures of the Oberheim DMX drum machine, used by `examples/dmx.ttl` and
+`examples/blue-monday-sketch.ttl`. They moved here from `samples/Oberheim DMX/`.

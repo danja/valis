@@ -9,6 +9,7 @@
 #include "valis/CircuitModel.h"
 #include "valis/DspElement.h"
 #include "valis/MidiScore.h"
+#include "valis/OfflineRender.h"
 #include "valis/Ontology.h"
 #include "valis/TurtleStore.h"
 #include "valis/ValisEngine.h"
@@ -16,6 +17,7 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -288,61 +290,28 @@ int main(int argc, char** argv)
             return 1;
         }
     }
-    std::size_t nextEvent = 0;
-
-    std::vector<float> outputL(input.size(), 0.0f);
-    std::vector<float> outputR(input.size(), 0.0f);
-
-    const int noteOnSample = options.midiNote >= 0
-        ? static_cast<int>(options.gateOnSec * options.sampleRate)
-        : -1;
-    const double gateOff = options.gateOffSec >= 0.0
-        ? options.gateOffSec
-        : options.seconds * 0.8;
-    const int noteOffSample = options.midiNote >= 0
-        ? static_cast<int>(gateOff * options.sampleRate)
-        : -1;
-
-    for (std::size_t at = 0; at < input.size(); at += static_cast<std::size_t>(options.blockSize))
+    // --note is a note-on and a note-off placed in the score, like any other event
+    if (options.midiNote >= 0)
     {
-        const auto sample = static_cast<int>(at);
-        const auto n = static_cast<int>(std::min(static_cast<std::size_t>(options.blockSize),
-                                                 input.size() - at));
-
-        // The event fires in the block that contains it, at its own offset
-        // within that block, which is what a host reports. Comparing the block
-        // start for equality would silently drop every note whose time is not
-        // a multiple of the block size.
-        if (options.midiNote >= 0)
-        {
-            if (noteOnSample >= sample && noteOnSample < sample + n)
-                engine.queueNoteOn(options.midiNote, options.velocity, noteOnSample - sample);
-            if (noteOffSample > noteOnSample && noteOffSample >= sample && noteOffSample < sample + n)
-                engine.queueNoteOff(options.midiNote, noteOffSample - sample);
-        }
-
-        // A score event fires in the block that contains it, or the first block after
-        // it if an earlier one was skipped; never by equality with a block start.
-        while (nextEvent < score.size() && score[nextEvent].sample < sample + n)
-        {
-            const auto& e = score[nextEvent++];
-            const int offset = static_cast<int>(std::max<long long>(0, e.sample - sample));
-            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
-            else      engine.queueNoteOff(e.note, offset);
-        }
-
-        // A host reports one timeline position per block; this reproduces that
-        // so a transport-driven circuit renders here exactly as it plays.
-        valis::TransportInfo transport;
-        transport.playing     = options.rolling;
-        transport.tempoBpm    = options.tempo;
-        transport.ppqPosition = options.rolling
-            ? static_cast<double>(at) / options.sampleRate * options.tempo / 60.0
-            : 0.0;
-        engine.setTransport(transport);
-
-        engine.process(input.data() + at, outputL.data() + at, outputR.data() + at, n);
+        const double gateOff = options.gateOffSec >= 0.0 ? options.gateOffSec : options.seconds * 0.8;
+        const auto on = static_cast<long long>(options.gateOnSec * options.sampleRate);
+        const auto off = static_cast<long long>(gateOff * options.sampleRate);
+        score.push_back({on, true, options.midiNote, options.velocity});
+        if (off > on)
+            score.push_back({off, false, options.midiNote, 0.0f});
+        std::stable_sort(score.begin(), score.end(),
+                         [](const valis::TimedNote& a, const valis::TimedNote& b) { return a.sample < b.sample; });
     }
+
+    valis::BlockRun run;
+    run.sampleRate = options.sampleRate;
+    run.tempo = options.tempo;
+    run.rolling = options.rolling;
+    run.blockSize = options.blockSize;
+    valis::StereoAudio audio;
+    valis::renderBlocks(engine, input, score, run, audio);
+    auto& outputL = audio.left;
+    auto& outputR = audio.right;
 
     // -- write -------------------------------------------------------------
     juce::File outputFile(juce::File::getCurrentWorkingDirectory()

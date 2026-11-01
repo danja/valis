@@ -157,6 +157,18 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
         if (*room < 0.0 || *room > 1.0)
             r.fail("val:roomAmount must be between 0 and 1", song.id);
     }
+    if (const auto decay = r.number(node, vocab::song::roomDecay, "val:roomDecay"))
+    {
+        song.roomDecay = *decay;
+        if (*decay < 0.02 || *decay > 5.0)
+            r.fail("val:roomDecay must be between 0.02 and 5 seconds", song.id);
+    }
+    if (const auto lowpass = r.number(node, vocab::song::roomLowpass, "val:roomLowpass"))
+    {
+        song.roomLowpass = *lowpass;
+        if (*lowpass < 200.0 || *lowpass > 20000.0)
+            r.fail("val:roomLowpass must be between 200 and 20000 Hz", song.id);
+    }
     if (const auto drive = r.number(node, vocab::song::drive, "val:drive"))
     {
         song.drive = *drive;
@@ -237,6 +249,23 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
                 stem.midi = r.text(p, vocab::song::midi);
                 if (stem.midi.empty()) stem.midi = "midi/" + stem.name + ".mid";
             }
+            if (isReturn)
+                stem.midi = r.text(p, vocab::song::midi);       // only if it names one
+            if (const auto follows = store.object(p, vocab::song::follows))
+            {
+                stem.follows = localName(std::string(follows.string()));
+                if (isReturn)
+                    r.fail("return " + stem.name + " cannot follow a part; only a part can", stem.id);
+            }
+            if (const auto silent = store.object(p, vocab::song::silent))
+            {
+                const std::string v(silent.string());
+                if (v != "true" && v != "false" && v != "1" && v != "0")
+                    r.fail(kind + stem.name + " has val:silent '" + v + "'; it must be true or false", stem.id);
+                stem.silent = (v == "true" || v == "1");
+                if (isReturn && stem.silent)
+                    r.fail("return " + stem.name + " cannot be val:silent; it would not be heard at all", stem.id);
+            }
             stem.level = r.number(p, vocab::song::level, "val:level").value_or(stem.level);
             if (stem.level < -80.0 || stem.level > 0.0)
                 r.fail(kind + stem.name + " has a level of " + std::to_string(stem.level) + " dB; it must be between -80 and 0", stem.id);
@@ -268,6 +297,21 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
             const auto* source = song.findStem(s.source);
             if (source == nullptr || source->isReturn)
                 r.fail("return " + s.name + " takes its sound from '" + s.source + "', which is not a part of this song", s.id);
+        }
+
+    for (const auto& s : song.stems)
+        if (! s.follows.empty())
+        {
+            const auto* followed = song.findStem(s.follows);
+            if (followed == nullptr || followed->isReturn)
+                r.fail("part " + s.name + " follows '" + s.follows + "', which is not a part of this song", s.id);
+            else if (followed->name == s.name)
+                r.fail("part " + s.name + " follows itself", s.id);
+            else if (! followed->follows.empty())
+                r.fail("part " + s.name + " follows " + followed->name + ", which itself follows " + followed->follows
+                           + "; a part can only follow one that is levelled by its own rms", s.id);
+            else if (followed->silent)
+                r.fail("part " + s.name + " follows " + followed->name + ", which is val:silent and so not in the mix", s.id);
         }
 
     if (! r.ok)

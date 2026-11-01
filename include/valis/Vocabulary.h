@@ -135,6 +135,10 @@ namespace song {
   inline const std::string fadeSeconds = std::string(VAL) + "fadeSeconds";
   inline const std::string roomAmount  = std::string(VAL) + "roomAmount";
   inline const std::string drive       = std::string(VAL) + "drive";
+  inline const std::string roomDecay   = std::string(VAL) + "roomDecay";
+  inline const std::string roomLowpass = std::string(VAL) + "roomLowpass";
+  inline const std::string follows     = std::string(VAL) + "follows";
+  inline const std::string silent      = std::string(VAL) + "silent";
   inline const std::string index       = std::string(VAL) + "index";
   inline const std::string bars        = std::string(VAL) + "bars";
   inline const std::string circuit     = std::string(VAL) + "circuit";

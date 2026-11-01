@@ -62,7 +62,7 @@ The [manual](manual/index.md) has case studies for some of them.
   noise burst sent straight to the output as well. It is a struck sheet where `metal-bash` rings like a bell. Play it from C2 to C4.
 - `808-bd.ttl`: a TR-808 bass drum, a bridged-T network with a pitch sweep.
 - `dmx.ttl`: the Oberheim DMX, a seventeen-sound kit that plays the captured
-  samples in `samples/Oberheim DMX`, as the real machine played its ROM. One voice
+  samples in `audio/oberheim-dmx`, as the real machine played its ROM. One voice
   card is defined once and stamped out for each sound with `val:option`.
 
 ## Effects and processors

@@ -40,15 +40,15 @@ struct Noise
 
 double toDb(double x) { return 20.0 * std::log10(x + 1.0e-12); }
 
-/// A synthetic room: exponentially decaying noise, different in each ear, rolled off above 4.5 kHz, 12 ms late.
-void roomImpulse(double rate, std::vector<float>& left, std::vector<float>& right)
+/// A synthetic room: exponentially decaying noise, different in each ear, rolled off above a corner, 12 ms late, four decay times long.
+void roomImpulse(double rate, double decay, double lowpass, std::vector<float>& left, std::vector<float>& right)
 {
     Noise noise(7);
-    const auto n = static_cast<std::size_t>(1.6 * rate);
+    const auto n = static_cast<std::size_t>(4.0 * decay * rate);
     const auto delay = static_cast<std::size_t>(0.012 * rate);
 
     // one-pole low-pass by the bilinear transform
-    const double k = std::tan(kPi * 4500.0 / rate);
+    const double k = std::tan(kPi * std::min(lowpass, 0.45 * rate) / rate);
     const double b = k / (1.0 + k);
     const double a = (k - 1.0) / (k + 1.0);
 
@@ -58,7 +58,7 @@ void roomImpulse(double rate, std::vector<float>& left, std::vector<float>& righ
         for (std::size_t i = 0; i < n; ++i)
         {
             const double t = static_cast<double>(i) / rate;
-            h[i] = noise.gaussian() * std::exp(-t / 0.4) * (1.0 - std::exp(-t / 0.004));
+            h[i] = noise.gaussian() * std::exp(-t / decay) * (1.0 - std::exp(-t / 0.004));
         }
         double x1 = 0.0, y1 = 0.0, energy = 0.0;
         for (auto& v : h)
@@ -222,8 +222,14 @@ bool mixStems(const Song& song, std::vector<MixStem>& stems, const MixOptions& o
     std::vector<float> left(std::max(rendered, kept), 0.0f), right(left.size(), 0.0f);
 
     report = MixReport{};
-    for (auto& stem : stems)
+    report.stems.resize(stems.size());
+    std::vector<double> gains(stems.size(), 0.0);
+    std::vector<bool> known(stems.size(), false);
+
+    // Each stem is filtered and measured; a stem that follows another takes that one's gain, so those wait for a second pass.
+    for (std::size_t k = 0; k < stems.size(); ++k)
     {
+        auto& stem = stems[k];
         songmix::highpass(stem.audio.left, stem.highpassHz, rate);
         songmix::highpass(stem.audio.right, stem.highpassHz, rate);
 
@@ -231,14 +237,36 @@ bool mixStems(const Song& song, std::vector<MixStem>& stems, const MixOptions& o
         for (std::size_t i = 0; i < mono.size(); ++i)
             mono[i] = 0.5f * (stem.audio.left[i] + stem.audio.right[i]);
         const double measured = songmix::playingRmsDb(mono, rate);
-        const double gainDb = stem.levelDb - measured;
-        report.stems.push_back({stem.name, measured, gainDb});
+        report.stems[k] = {stem.name, measured, 0.0};
+        if (stem.follows.empty())
+        {
+            gains[k] = stem.levelDb - measured;
+            known[k] = true;
+        }
+    }
+    for (std::size_t k = 0; k < stems.size(); ++k)
+        if (! stems[k].follows.empty())
+        {
+            const auto leader = std::find_if(stems.begin(), stems.end(), [&](const MixStem& m) { return m.name == stems[k].follows; });
+            const auto at = static_cast<std::size_t>(leader - stems.begin());
+            if (leader == stems.end() || ! known[at])
+            {
+                error = "stem " + stems[k].name + " follows " + stems[k].follows + ", which is not a levelled stem in this mix";
+                return false;
+            }
+            gains[k] = gains[at] + stems[k].levelDb;
+        }
+
+    for (std::size_t k = 0; k < stems.size(); ++k)
+    {
+        const auto& stem = stems[k];
+        report.stems[k].gainDb = gains[k];
 
         // constant power, with a stereo stem keeping its image and taking the pan as a balance
-        const double g = std::pow(10.0, gainDb / 20.0) * std::sqrt(2.0);
+        const double g = std::pow(10.0, gains[k] / 20.0) * std::sqrt(2.0);
         const double theta = (std::clamp(stem.pan, -1.0, 1.0) + 1.0) * kPi / 4.0;
         const auto gl = static_cast<float>(g * std::cos(theta)), gr = static_cast<float>(g * std::sin(theta));
-        for (std::size_t i = 0; i < mono.size() && i < left.size(); ++i)
+        for (std::size_t i = 0; i < stem.audio.frames() && i < left.size(); ++i)
         {
             left[i] += stem.audio.left[i] * gl;
             right[i] += stem.audio.right[i] * gr;
@@ -268,7 +296,7 @@ bool mixStems(const Song& song, std::vector<MixStem>& stems, const MixOptions& o
     if (song.roomAmount > 0.0)
     {
         std::vector<float> irLeft, irRight;
-        roomImpulse(rate, irLeft, irRight);
+        roomImpulse(rate, song.roomDecay, song.roomLowpass, irLeft, irRight);
         const auto wetLeft = songmix::fftConvolve(left, irLeft);
         const auto wetRight = songmix::fftConvolve(right, irRight);
         const auto amount = static_cast<float>(song.roomAmount);
@@ -338,6 +366,8 @@ MixFilesResult mixSongFiles(const Song& song, const std::string& wavDirectory, c
     std::vector<MixStem> stems;
     for (const auto& s : song.stems)
     {
+        if (s.silent)
+            continue;
         const auto path = wavDirectory + "/" + s.name + ".wav";
         MixStem stem;
         std::string error;
@@ -350,6 +380,7 @@ MixFilesResult mixSongFiles(const Song& song, const std::string& wavDirectory, c
         stem.levelDb = s.level;
         stem.pan = s.pan;
         stem.highpassHz = s.highpass;
+        stem.follows = s.follows;
         stems.push_back(std::move(stem));
     }
     if (stems.empty())

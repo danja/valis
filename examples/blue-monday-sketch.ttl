@@ -8,7 +8,7 @@
 # (the New Order record used a home-built Powertran sequencer driving a Moog Source). A
 # saw oscillator goes through a resonant ladder filter whose cutoff a fast envelope
 # opens on every note, then an amplifier. Four more sequencers fire the drum sounds,
-# which are captures of the Oberheim DMX in samples/Oberheim DMX, as in dmx.ttl.
+# which are captures of the Oberheim DMX in audio/oberheim-dmx, as in dmx.ttl.
 #
 # Play it with the host rolling. In valis-render:
 #   valis-render examples/blue-monday-sketch.ttl --tempo 130 --rolling --seconds 16
@@ -60,10 +60,10 @@
 :hatSeq  a val:StepSequencer ; val:pattern ". . C1 . . . C1 . . . C1 . . . C1 ." ; val:gatelength 0.3 .
 :openhatSeq a val:StepSequencer ; val:pattern ". . . . . . . C1 . . . . . . . C1" ; val:gatelength 0.3 .
 
-:kickPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Kick01.wav" ; val:loop 0.0 .
-:clapPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Clap.wav" ; val:loop 0.0 .
-:hatPlay  a val:SampleLoad ; val:file "samples/Oberheim DMX/Hat_C.wav" ; val:loop 0.0 .
-:openhatPlay a val:SampleLoad ; val:file "samples/Oberheim DMX/Hat_O.wav" ; val:loop 0.0 .
+:kickPlay a val:SampleLoad ; val:file "audio/oberheim-dmx/Kick01.wav" ; val:loop 0.0 .
+:clapPlay a val:SampleLoad ; val:file "audio/oberheim-dmx/Clap.wav" ; val:loop 0.0 .
+:hatPlay  a val:SampleLoad ; val:file "audio/oberheim-dmx/Hat_C.wav" ; val:loop 0.0 .
+:openhatPlay a val:SampleLoad ; val:file "audio/oberheim-dmx/Hat_O.wav" ; val:loop 0.0 .
 
 :kickGain a val:Gain ; val:gain 0.0 .
 :clapGain a val:Gain ; val:gain -4.0 .

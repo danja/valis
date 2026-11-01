@@ -458,12 +458,29 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
   element's `left` and `right` outputs carry the panned kit and `out` is the mono sum. The Controls view shows a
   pad panel for it: per sound level, pan, key, name, file, audition, add and remove. Those edits are the session's
   table (`get_sample` and `set_sample` read and write the same text over MCP), not a change to the circuit.
+- A zone is a list of `key=value` words: `file` (needed), `root` (the MIDI note it was recorded at), `keys=36-48` or
+  `key=38`, `vel=1-127`, `gain` (dB), `pan`, `tune` (semitones), `name`, `choke` (a group number), `start`, `end`,
+  `loopStart`, `loopEnd` and `fade` (seconds of the file), `reverse=1` and `sha256`. Zones that share a key and velocity
+  take turns, which is round robin or layering. With `loop` on, a zone with loop points loops between them while the key is
+  held, crossfading over `fade`; with `oneshot` on a hit plays out whatever the key does; with `keytrack` off every key plays
+  at the recorded pitch, for a kit. A key no zone answers plays the nearest zone.
+- `examples/sampled-strings.ttl` is a multisample: violins, violas and cellos (VSCO 2, CC0) as three samplers chosen by one
+  Voice control through `val:AudioSelect`, each recording looped so a note can be held past the length of the file.
+  Its tuning, loudness and sustain are pinned by `tests/engine/SampledStringsTest.cpp`.
 - `val:SampleLoad` plays a file; `val:TimeStretch` plays one at a different speed
   or pitch; `val:GrainBuffer` holds one for grains. The file is an option
   (`val:file`), and `set_sample` swaps it in a session without editing the document.
 - One `val:GrainBuffer` can feed several `val:GrainCloud` elements through buffer
   arcs. `examples/grain-clouds.ttl` has three.
 - A relative path is resolved as described under Options.
+
+### Songs
+
+A song is a Turtle file of type `val:Song` beside its MIDI files: tempo, sections, one part per circuit, returns that send a
+part through an effect, and the mix (level, pan and high-pass per stem, the room, the fade, a target loudness). `read_song`
+checks it, `render_song` writes a stem per part and `mix_song` writes a versioned reference mix, all measured, not heard.
+The notes stay in a script that writes MIDI. See [songs.md](songs.md) for the vocabulary and the `write-a-song` skill for the
+method.
 
 ### Sectioned knob panel
 

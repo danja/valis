@@ -113,6 +113,34 @@ int main()
     assert(fails(without("val:tempo 120", "val:tempo 120 ; val:roomAmount 2"), "val:roomAmount"));
     assert(fails(without("val:tempo 120", "val:tempo 120 ; val:drive 0"), "val:drive"));
 
+    // The room's shape, a part that follows another's gain, and a return that is played.
+    assert(song.roomDecay == 0.4 && song.roomLowpass == 4500.0);
+    Song roomy;
+    assert(read(without("val:tempo 120", "val:tempo 120 ; val:roomDecay 0.28 ; val:roomLowpass 5500"), roomy, diagnostics));
+    assert(roomy.roomDecay == 0.28 && roomy.roomLowpass == 5500.0);
+    assert(fails(without("val:tempo 120", "val:tempo 120 ; val:roomDecay 0"), "val:roomDecay"));
+    assert(fails(without("val:tempo 120", "val:tempo 120 ; val:roomLowpass 50"), "val:roomLowpass"));
+
+    Song following;
+    assert(read(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :bass ;"), following, diagnostics));
+    assert(following.findStem("kit")->follows == "bass" && following.findStem("bass")->follows.empty());
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :kit ;"), "follows itself"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :nothing ;"), "not a part of this song"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :kit-echo ;"), "not a part of this song"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :bass ;") + ":bass val:follows :kit .", "itself follows"));
+    assert(fails(without("val:source :kit ;", "val:source :kit ; val:follows :bass ;"), "cannot follow"));
+
+    Song quiet;
+    assert(read(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent true ;"), quiet, diagnostics));
+    assert(quiet.findStem("kit")->silent && ! quiet.findStem("bass")->silent);
+    assert(fails(without("val:source :kit ;", "val:source :kit ; val:silent true ;"), "cannot be val:silent"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent maybe ;"), "true or false"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :bass ;") + ":bass val:silent true .", "not in the mix"));
+
+    Song played;
+    assert(read(without("val:source :kit ;", "val:source :kit ; val:midi \"midi/speed.mid\" ;"), played, diagnostics));
+    assert(played.findStem("kit-echo")->midi == "midi/speed.mid" && song.findStem("kit-echo")->midi.empty());
+
     // A different meter changes the length of a bar.
     Song waltz;
     assert(read(without("val:tempo 120", "val:tempo 90 ; val:beatsPerBar 3"), waltz, diagnostics));

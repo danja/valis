@@ -203,7 +203,7 @@ In this repository:
 - `docs/dead-at-midnight-sleeve.svg` and `.png`: the sleeve, in the style of a medieval woodcut.
 - `docs/dead-at-midnight-lyrics.md`: the lyrics, laid out against the bars above.
 - `src/tools/RenderMain.cpp`: the `--midi` option.
-- `scripts/halloween/`: the Python that wrote the notes (`song.py`, `midiw.py`) and generated the circuit
+- `scripts/archive/halloween/song.py` and `scripts/song/midiw.py`: the Python that wrote the notes and generated the circuit
   Turtle files (`circuits/`). See its `README.md`. The files in `examples/` are the product and can be
   edited directly; the scripts are kept for reference and are not needed to build or test anything.
 

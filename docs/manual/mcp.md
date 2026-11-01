@@ -111,6 +111,12 @@ a tool first.
 | `fit_params` | search the circuit's `val:Param` settings for the render nearest a recording, by spectral distance; reports the values and changes nothing |
 | `render` | render the circuit offline to a wav and report peak and RMS, with the same analysis `measure` gives |
 | `get_diagnostics` | whether the circuit loaded, its size, latency, voices, and `problems`: what an element recovered from, such as a missing sound file |
+| `read_song` | read a `val:Song` file (tempo, sections, parts, returns and the mix settings) and list problems such as a missing circuit or MIDI file |
+| `render_song` | render a song's stems to `wavs/`: each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit. A failing stem is named and the others are still written |
+| `mix_song` | mix the stems to `mixes/<title>-<version>.wav`: levelled, panned, with optional per-section levels, a fade, a room, a soft clip and a loudness target. It never replaces an existing version unless asked |
+| `freesound_search` / `freesound_download` | search [freesound.org](https://freesound.org) (CC0 by default) and fetch a result into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence. Needs `FREESOUND_API_KEY` in `.env` |
+
+The song tools read and write files on the server machine, with relative paths resolved against the server's working directory. See [songs as data](../songs.md).
 
 Every tool is an adapter over the same `Op` the views use, so anything the UI
 can do is reachable here. Three of them are worth knowing about when building a

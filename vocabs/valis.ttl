@@ -254,6 +254,8 @@ longer than the last bar the stems are rendered, so a ring or a reverb is not cu
 Three more settings shape the mixdown (see docs/songs.md). val:fadeSeconds is the length of the fade at the end (4 if not
 given). val:roomAmount is how much of a synthetic room, as a fraction of the dry mix, is added (0.10 if not given).
 val:drive is the gain into the final soft clip, a hyperbolic tangent: 1 is nearly clean and higher is harder (1.3 if not
+given). The room is noise that dies away exponentially: val:roomDecay is its time constant in seconds, so it rings for about
+four times that (0.4 if not given), and val:roomLowpass is the frequency in hertz above which it is rolled off (4500 if not
 given).""" .
 
 val:Section a rdfs:Class ;
@@ -268,13 +270,23 @@ val:Part a rdfs:Class ;
 is the local name of its IRI. val:midi defaults to midi/NAME.mid. val:level is the level in dB of the stem's playing
 rms (the stretches where it sounds, so a part that rarely plays sits as loud as one that always does), val:pan runs from
 -1 (left) to 1 (right) and val:highpass is a corner in Hz, 0 for none. val:index orders the parts; without it they are
-ordered by name.""" .
+ordered by name.
+
+A part that follows another (val:follows) is not levelled by its own rms. It takes the gain of the part it follows,
+and val:level is an offset in dB from that part's level. This keeps the balance sparse percussion was played at against
+the kit, where its own rms would raise it to the level of a part that plays all the time. It must follow a part that does
+not itself follow one.
+
+A part with val:silent true is rendered but not mixed. Use it for a part that exists only to feed a return, such as a dry
+organ whose sound is heard through a rotating speaker. A return cannot be silent, and a part that others follow
+cannot be.""" .
 
 val:Return a rdfs:Class ;
     rdfs:subClassOf val:Part ;
     rdfs:label "Return" ;
     rdfs:comment """An effect return: the stem of another part, val:source, sent through an effect circuit
-(val:circuit) and mixed as a stem of its own. It has no MIDI file.""" .
+(val:circuit) and mixed as a stem of its own. It has no MIDI file unless it names one with val:midi, for an effect that
+is played, such as a rotating speaker whose speed is a note.""" .
 
 val:hasSection a rdf:Property ; rdfs:domain val:Song ; rdfs:range val:Section .
 val:hasPart    a rdf:Property ; rdfs:domain val:Song ; rdfs:range val:Part .
@@ -287,6 +299,10 @@ val:tailSeconds a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:fadeSeconds a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:roomAmount  a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:drive       a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:roomDecay   a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:roomLowpass a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:follows     a rdf:Property ; rdfs:domain val:Part ; rdfs:range val:Part .
+val:silent      a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:boolean .
 val:bars        a rdf:Property ; rdfs:domain val:Section ; rdfs:range xsd:integer .
 val:index       a rdf:Property ; rdfs:range xsd:integer .
 val:circuit     a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:string .

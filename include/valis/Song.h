@@ -30,8 +30,10 @@ struct SongStem
     std::string id, name;
     bool        isReturn = false;
     std::string circuit;        ///< relative to the song file's directory, or absolute
-    std::string midi;           ///< a part's MIDI file; empty for a return
+    std::string midi;           ///< a part's MIDI file (midi/NAME.mid if none given); a return's only if it names one
     std::string source;         ///< a return's source part, by name
+    std::string follows;        ///< a part whose gain this takes; `level` is then an offset from it, in dB
+    bool        silent = false; ///< rendered, but left out of the mix: a part that only feeds a return
     double level = -20.0;       ///< dB of the stem's playing rms
     double pan = 0.0;           ///< -1 to 1
     double highpass = 0.0;      ///< Hz, 0 for none
@@ -47,6 +49,8 @@ struct Song
     double fadeSeconds = 4.0;           ///< fade out at the end of the mix
     double roomAmount = 0.10;           ///< synthetic room added to the mix, as a fraction of it
     double drive = 1.3;                 ///< gain into the final tanh soft clip
+    double roomDecay = 0.4;             ///< time constant of the synthetic room, seconds
+    double roomLowpass = 4500.0;        ///< Hz above which the room is rolled off
     std::vector<SongSection> sections;  ///< in order
     std::vector<SongStem> stems;        ///< parts first, then returns; each group in index order, then by name
 

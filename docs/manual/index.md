@@ -23,6 +23,8 @@ can read, edit and hand to a language model.
 - [The MCP surface](mcp.md) : driving the plugin over HTTP
 - [The standalone app](standalone.md) : running Valis without a DAW, and driving it from an agent
 - [valis-render](render.md) : rendering a circuit or a MIDI part to a wav, with every option
+- [Songs as data](../songs.md) : a `val:Song` file, and rendering and mixing it with `valis-song`
+- [Measuring a sound](../shot.md) : `valis-shot`, loudness, comparison and neural listening in place of listening
 - [Building](building.md) : prerequisites and the build
 - [Guide for agents](guide-for-agents.md) : how to build instruments and processors via MCP
 

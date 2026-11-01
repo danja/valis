@@ -8,6 +8,7 @@
 #include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
 #include "valis/Freesound.h"
+#include "valis/OfflineRender.h"
 #include "valis/Song.h"
 #include "valis/SongMix.h"
 #include "valis/SongRender.h"
@@ -1377,50 +1378,29 @@ OpResult RenderJob::run()
     const double tempo      = impl->tempo;
     const bool rolling      = impl->rolling;
     const auto& score       = impl->score;
-    std::size_t nextEvent = 0;
     auto& engine   = impl->rig.engine;
     auto& compiled = impl->rig.compiled;
 
     const auto total = static_cast<int>(seconds * sampleRate);
-    std::vector<float> left(static_cast<std::size_t>(total), 0.0f);
-    std::vector<float> right(static_cast<std::size_t>(total), 0.0f);
-    const std::vector<float> silence(kBlock, 0.0f);
 
-    // The note fires at the start and is released with a fifth of the render
-    // left, so an envelope's release is part of what is measured.
-    const int noteOffAt = static_cast<int>(static_cast<double>(total) * 0.8);
-
-    for (int at = 0; at < total; at += kBlock)
+    // A single note is placed in the score like any other event: it fires at the start and is released with a fifth of
+    // the render left, so an envelope's release is part of what is measured.
+    std::vector<TimedNote> events = score;
+    if (! impl->hasMidi && impl->note >= 0 && impl->note <= 127)
     {
-        const int n = std::min(kBlock, total - at);
-
-        // A score event fires in the block that contains it, at its own offset.
-        while (nextEvent < score.size() && score[nextEvent].sample < at + n)
-        {
-            const auto& e = score[nextEvent++];
-            const int offset = static_cast<int>(std::max<long long>(0, e.sample - at));
-            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
-            else      engine.queueNoteOff(e.note, offset);
-        }
-
-        TransportInfo transport;
-        transport.playing     = rolling;
-        transport.tempoBpm    = tempo;
-        transport.ppqPosition = rolling ? static_cast<double>(at) / sampleRate * tempo / 60.0 : 0.0;
-        engine.setTransport(transport);
-
-        if (! impl->hasMidi && impl->note >= 0 && impl->note <= 127)
-        {
-            if (at == 0)
-                engine.queueNoteOn(impl->note, static_cast<float>(std::clamp(impl->velocity, 0.0, 1.0)), 0);
-
-            // Fires in the block that contains it, at its own offset.
-            if (noteOffAt >= at && noteOffAt < at + n)
-                engine.queueNoteOff(impl->note, noteOffAt - at);
-        }
-
-        engine.process(silence.data(), left.data() + at, right.data() + at, n);
+        events.push_back({0, true, impl->note, static_cast<float>(std::clamp(impl->velocity, 0.0, 1.0))});
+        events.push_back({static_cast<long long>(static_cast<double>(total) * 0.8), false, impl->note, 0.0f});
     }
+
+    BlockRun run;
+    run.sampleRate = sampleRate;
+    run.tempo = tempo;
+    run.rolling = rolling;
+    run.blockSize = kBlock;
+    StereoAudio audio;
+    renderBlocks(engine, std::vector<float>(static_cast<std::size_t>(total), 0.0f), events, run, audio);
+    auto& left = audio.left;
+    auto& right = audio.right;
 
     juce::File outputFile(juce::File::isAbsolutePath(juce::String(path))
                               ? juce::File(juce::String(path))
@@ -1579,6 +1559,8 @@ OpResult OpDispatcher::readSong(const std::string& path) const
     root->setProperty("fadeSeconds", song.fadeSeconds);
     root->setProperty("roomAmount", song.roomAmount);
     root->setProperty("drive", song.drive);
+    root->setProperty("roomDecay", song.roomDecay);
+    root->setProperty("roomLowpass", song.roomLowpass);
     root->setProperty("slug", juce::String(song.slug()));
 
     juce::Array<juce::var> sections;
@@ -1606,8 +1588,21 @@ OpResult OpDispatcher::readSong(const std::string& path) const
         o->setProperty("circuit", circuit.getFullPathName());
         if (! circuit.existsAsFile())
             problems.add(juce::String(s.name) + ": no circuit at " + circuit.getFullPathName());
+        if (! s.follows.empty())
+            o->setProperty("follows", juce::String(s.follows));
+        if (s.silent)
+            o->setProperty("silent", true);
         if (s.isReturn)
+        {
             o->setProperty("source", juce::String(s.source));
+            if (! s.midi.empty())
+            {
+                const auto midi = resolve(s.midi);
+                o->setProperty("midi", midi.getFullPathName());
+                if (! midi.existsAsFile())
+                    problems.add(juce::String(s.name) + ": no MIDI file at " + midi.getFullPathName());
+            }
+        }
         else
         {
             const auto midi = resolve(s.midi);

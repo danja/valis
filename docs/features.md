@@ -157,6 +157,10 @@ samples and diagnostics. Inserting an element over MCP redraws the graph view
 while the audio keeps running. See the
 [guide for agents](guide-for-agents.md).
 
+**A song is a document too.** A `val:Song` file holds the tempo, the sections, which circuit plays each part and how each
+stem sits in the mix. `render_song` and `mix_song` (and the `valis-song` command) turn it into stems and a levelled,
+panned, roomed reference mix, with a target loudness and a gain per section. See [songs](songs.md).
+
 **A built-in console** runs commands and talks to a language model, which can
 design and edit circuits in place. It trims what it sends to fit a provider's
 limits and moves to another provider when one will not serve a request.

@@ -5,7 +5,7 @@
 # The DMX was not an analogue drum machine. It played 8-bit samples out of ROM,
 # which is why it sounds the way it does and why modelling it means playing the
 # samples rather than synthesising an imitation of them. The recordings in
-# samples/Oberheim DMX are captures of the real machine, so its converters, its
+# audio/oberheim-dmx are captures of the real machine, so its converters, its
 # companding and its output stage are already in them.
 #
 # The machine is eight voices, not eighteen sounds. Each voice is a plug-in card
@@ -162,62 +162,62 @@
 # Bass
 :bass a :Voice ; val:level 0.0 ; val:pan 0.0 ;
     val:noteA 36.0 ;
-    val:fileA "samples/Oberheim DMX/Kick01.wav" ;   # Bass drum
+    val:fileA "audio/oberheim-dmx/Kick01.wav" ;   # Bass drum
     val:noteB 35.0 ;
-    val:fileB "samples/Oberheim DMX/Kick02.wav" .   # Bass drum, softer
+    val:fileB "audio/oberheim-dmx/Kick02.wav" .   # Bass drum, softer
 
 # Snare
 :snare a :Voice ; val:level 0.0 ; val:pan -0.05 ;
     val:noteA 38.0 ;
-    val:fileA "samples/Oberheim DMX/Snare01.wav" ;   # Snare
+    val:fileA "audio/oberheim-dmx/Snare01.wav" ;   # Snare
     val:noteB 40.0 ;
-    val:fileB "samples/Oberheim DMX/Snare02.wav" ;   # Snare, softer
+    val:fileB "audio/oberheim-dmx/Snare02.wav" ;   # Snare, softer
     val:noteC 31.0 ;
-    val:fileC "samples/Oberheim DMX/Snare03.wav" .   # Snare, softest
+    val:fileC "audio/oberheim-dmx/Snare03.wav" .   # Snare, softest
 
 # Hi-hat
 :hihat a :Voice ; val:level -3.0 ; val:pan -0.35 ;
     val:noteA 42.0 ;
-    val:fileA "samples/Oberheim DMX/Hat_C.wav" ;   # Closed
+    val:fileA "audio/oberheim-dmx/Hat_C.wav" ;   # Closed
     val:noteB 46.0 ;
-    val:fileB "samples/Oberheim DMX/Hat_O.wav" .   # Open
+    val:fileB "audio/oberheim-dmx/Hat_O.wav" .   # Open
 
 # Tom 1
 :tom1 a :Voice ; val:level -1.0 ; val:pan 0.2 ;
     val:noteA 48.0 ;
-    val:fileA "samples/Oberheim DMX/TomHi.wav" ;   # High
+    val:fileA "audio/oberheim-dmx/TomHi.wav" ;   # High
     val:noteB 47.0 ;
-    val:fileB "samples/Oberheim DMX/TomMid.wav" ;   # Mid
+    val:fileB "audio/oberheim-dmx/TomMid.wav" ;   # Mid
     val:noteC 45.0 ;
-    val:fileC "samples/Oberheim DMX/TomLo.wav" .   # Low
+    val:fileC "audio/oberheim-dmx/TomLo.wav" .   # Low
 
 # Tom 2
 :tom2 a :Voice ; val:level -2.0 ; val:pan -0.3 ;
     val:noteA 65.0 ;
-    val:fileA "samples/Oberheim DMX/TimbaleHi.wav" ;   # High timbale
+    val:fileA "audio/oberheim-dmx/TimbaleHi.wav" ;   # High timbale
     val:noteB 66.0 ;
-    val:fileB "samples/Oberheim DMX/TimbaleLo.wav" .   # Low timbale
+    val:fileB "audio/oberheim-dmx/TimbaleLo.wav" .   # Low timbale
 
 # Cymbal
 :cymbal a :Voice ; val:level -4.0 ; val:pan 0.5 ;
     val:noteA 51.0 ;
-    val:fileA "samples/Oberheim DMX/Ride.wav" ;   # Ride
+    val:fileA "audio/oberheim-dmx/Ride.wav" ;   # Ride
     val:noteB 49.0 ;
-    val:fileB "samples/Oberheim DMX/Crash.wav" .   # Crash
+    val:fileB "audio/oberheim-dmx/Crash.wav" .   # Crash
 
 # Perc 1
 :perc1 a :Voice ; val:level -2.0 ; val:pan 0.35 ;
     val:noteA 54.0 ;
-    val:fileA "samples/Oberheim DMX/Tamborine.wav" ;   # Tambourine
+    val:fileA "audio/oberheim-dmx/Tamborine.wav" ;   # Tambourine
     val:noteB 37.0 ;
-    val:fileB "samples/Oberheim DMX/Rim.wav" .   # Rimshot
+    val:fileB "audio/oberheim-dmx/Rim.wav" .   # Rimshot
 
 # Perc 2
 :perc2 a :Voice ; val:level -3.0 ; val:pan 0.6 ;
     val:noteA 69.0 ;
-    val:fileA "samples/Oberheim DMX/Cabasa.wav" ;   # Shaker
+    val:fileA "audio/oberheim-dmx/Cabasa.wav" ;   # Shaker
     val:noteB 39.0 ;
-    val:fileB "samples/Oberheim DMX/Clap.wav" .   # Hand clap
+    val:fileB "audio/oberheim-dmx/Clap.wav" .   # Hand clap
 
 :bassL a val:Arc ; val:from [ val:node :bass ; val:port "left" ] ;
                 val:to   [ val:node :mix ; val:port "left" ] .

@@ -4,7 +4,7 @@ The Python that made "Dead at Midnight". Kept for reference. Nothing here is nee
 test Valis; the circuits in `examples/halloween-*.ttl` are the product and can be edited directly.
 The process is described in `docs/halloween-process.md`.
 
-- `song.py` writes the song's notes as one MIDI file per instrument, using `midiw.py`. It writes to
+- `song.py` (now in `scripts/archive/halloween/`) writes the song's notes as one MIDI file per instrument, using `midiw.py` (now in `scripts/song/`). It writes to
   `~/Music/dead-at-midnight/midi/` (the `OUT` path at the top). Run `python3 song.py`.
 - `mkrpp.py` writes `~/Music/dead-at-midnight/dead-at-midnight-midi.rpp`, a Reaper project with one
   track per MIDI file, each item reading its file from `midi/`. Run `song.py` first. Track levels and

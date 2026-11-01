@@ -1,4 +1,6 @@
-import os, random, midiw
+import os, random, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "song"))
+import midiw
 random.seed(666)
 BPM=140; OUT=os.path.expanduser("~/Music/dead-at-midnight")
 os.makedirs(OUT+"/midi",exist_ok=True)

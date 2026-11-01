@@ -40,6 +40,7 @@ class Song:
         self.title = self.name = ""
         self.tempo, self.beats_per_bar, self.loudness, self.tail = 120.0, 4, None, 10.0
         self.fade, self.room, self.drive = 4.0, 0.10, 1.3
+        self.room_decay, self.room_lowpass = 0.4, 4500.0
         self.sections, self.stems = [], []
 
     # -- the clock, for a score that wants the length in bars
@@ -82,6 +83,8 @@ def load(path):
     song.fade = one(node, "fadeSeconds", 4.0)
     song.room = one(node, "roomAmount", 0.10)
     song.drive = one(node, "drive", 1.3)
+    song.room_decay = one(node, "roomDecay", 0.4)
+    song.room_lowpass = one(node, "roomLowpass", 4500.0)
 
     found = sorted(((int(one(s, "index")), s) for s in g.objects(node, v("hasSection"))), key=lambda t: t[0])
     first = 0
@@ -97,10 +100,13 @@ def load(path):
         for p in g.objects(node, v(predicate)):
             name = _local(p)
             source = g.value(p, v("source"))
-            midi = None if is_return else str(g.value(p, v("midi")) or "midi/%s.mid" % name)
+            named = g.value(p, v("midi"))
+            midi = (str(named) if named is not None else None) if is_return else str(named or "midi/%s.mid" % name)
+            follows = g.value(p, v("follows"))
             out.append((one(p, "index", 1.0e9), name, Stem(name, is_return, str(g.value(p, v("circuit"))), midi,
                                                            _local(source) if source is not None else None,
                                                            one(p, "level", -20.0), one(p, "pan", 0.0), one(p, "highpass", 0.0))))
+            out[-1][2].follows = _local(follows) if follows is not None else None
         return [t[2] for t in sorted(out, key=lambda t: (t[0], t[1]))]
 
     song.stems = stems("hasPart", False) + stems("hasReturn", True)

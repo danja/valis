@@ -8,6 +8,7 @@
 
 #include "valis/AudioFile.h"
 #include "valis/CircuitModel.h"
+#include "valis/MidiScore.h"
 
 #include <string>
 #include <vector>
@@ -16,6 +17,23 @@ namespace valis {
 
 class Ontology;
 class ElementRegistry;
+class ValisEngine;
+
+/// The block loop every offline render shares (valis-render, the render operation, a song's stems): plays `score` into
+/// an engine that is already loaded and prepared at `sampleRate`, with `input` as its audio input, and fills `out` with
+/// as many frames as `input` has. An event fires in the block that contains it, at its own offset inside the block, and a
+/// host timeline is reported one position per block, so a transport-driven circuit renders as it plays. `score` must be
+/// sorted by sample. The engine, not this function, owns what the circuit does with them.
+struct BlockRun
+{
+    double sampleRate = 48000.0;
+    double tempo = 120.0;
+    bool   rolling = false;     ///< report the transport as playing from zero
+    int    blockSize = 512;
+};
+
+void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const std::vector<TimedNote>& score,
+                  const BlockRun& run, StereoAudio& out);
 
 struct OfflineRenderRequest
 {

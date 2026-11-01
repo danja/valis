@@ -1,13 +1,11 @@
 ## Misc
 
-* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle; convert the
-  older song scripts (`autumn-leaves`, `lights-on-nobody-home`, `electro83`, `halloween`) to `song.ttl`. Rendering and mixing are
-  C++ ops now (`render_song`, `mix_song`, `valis-song`). Still in Python: the score (`midiw.py` writes the MIDI), and the stem
-  checks the skill asks for (per-bar rms, `isnan`). `valis-render` and `RenderJob::run` each still carry their own copy of the
-  block loop in `OfflineRender.cpp`; make both call it. The mix takes about 70 s for a 3-minute song in a Debug build (the FFT room
-  and the loudness meter); a Release build is several times faster.
+* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle. Add a
+  `val:silent` flag for a part that only feeds a return (the dry organ in `autumn-leaves` is set to -80 dB now). The stem checks
+  the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
+  block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
-  `scripts/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
+  `scripts/archive/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
   build: the speech stutter (specified in
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
@@ -26,7 +24,7 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
 * **Tenement Lights:** balance, the Source's envelope, the choir's formants and the arrangement (`track.py`).
 * **Dead at Midnight** (`~/Music/dead-at-midnight/dead-at-midnight-reference-mix.wav`): balance, the wobble rate
   against the drums, the guitar's pitch near the top of its range, the theremin scoop. Changes belong in
-  `scripts/halloween/song.py` and the circuits.
+  `scripts/archive/halloween/song.py` and the circuits.
 * **Lights On, Nobody Home:** the user has the v3 FLAC and is adding vocals, mixing and mastering. The Latin
   percussion was balanced by peak level only (listen, adjust decay times); the trumpets are the weak part (below).
 * **Time-stretch:** the tests measure pitch, duration, level and formant position, not how it sounds.
@@ -77,22 +75,10 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
   (53%), the violins as an electric organ (47%), the trumpets as a synthesizer preset (60%) and the shakers as congas
   (62%); the guitars and congas pass (`docs/shot.md`). Rerun `is` after each change.
 
-## Acoustic instruments
-
-* **Out-of-range values the lint notes: fixed.** Where an element clamped, the example now stays in range (granulator density 200,
-  violins wood decay 0.05, bass chorus depth knob 3.5). Where it did not, the port was widened (`val:Drift` amount to 3000,
-  `val:Envelope` decay to 10000 ms).
-  `val:StiffString` feedback now runs to 0.9999, so the harp, guitars and bass ring as written; the
-  stems made from them before that change are shorter than the circuits now play, so re-render them (`write-a-song`).
-
 ## New instruments
 
 The instruments that are done are described in `docs/examples.md`. What is open:
 
-* **Unify `audio/` and `samples/`.** Two directories hold sound files (`audio/` for the CC0 hits and `audio/freesound/`,
-  `samples/Oberheim DMX/` for the drum machine recordings). Pick one, move the files, and update every path in
-  `examples/`, the docs, `audio/README.md`, `samples/` readme if any, and the tests that name them (`grep -rn "audio/\|samples/"`).
-  Run the whole suite afterwards, since tests pin counts of shipped files. (From INBOX.md.)
 * **Sampler panel: what is left.** `src/ui/SamplerBox.cpp` edits the table (level, pan, key, name, file, add and
   remove) as a session override, saved with the project but not in the circuit's Turtle: "Copy table" puts it on
   the clipboard to paste into `val:samples`. Not done: writing the table back into the document, a waveform with
@@ -113,7 +99,7 @@ The instruments that are done are described in `docs/examples.md`. What is open:
   * A filter with its own envelope inside the element (use `val:Ladder` and `val:Envelope` after it).
   * A monophonic legato mode; voice stealing takes the oldest voice with a 1 ms minimum attack, which can still tick.
   * A note held across the same key being hit again does not retrigger (the engine sees one held note).
-  * Output per pad: one mono output only; no pan. `examples/drum-machine.ttl` gets its stereo from the room reverb only.
+  * `examples/drum-machine.ttl` has per-sound pan on the `left` and `right` outputs; there is no separate output per pad.
   * `examples/drum-machine.ttl` has one recording per drum: its soft and hard layers are the same file at a different
     gain and tune, and the closed hat's two takes differ by 0.4 semitone. Real layers need several hits per drum
     (a kit with several velocities recorded). Its kit has no side stick, cowbell or tambourine yet.
@@ -351,16 +337,12 @@ off the real-time thread, a distinct control rate, and declared latency reported
   now runs off the message thread (see above), which should end it: check after the next relaunch. Still worth loading the
   models at startup so the first call is not 12 seconds. `build/` (Debug)
   is also configured with ONNX by `build.sh` now. `listen` should still cap the audio it reads.
-* **Dynamic arc in other mix scripts.** `scripts/dub-metal/track.py mix --arc` (`ARC_DB`, `arc_curve`, `section_levels`) applies a
-  gain per section and prints each section's level. The `write-a-song` skill and the older mix scripts (`scripts/electro83/`,
-  `scripts/halloween/`) still level every stem flat. The arc is now in `scripts/song/songlib.py` and read from `val:level` on each section; move the
-  older scripts onto it with their `song.ttl`.
 * **A lighter stab voice.** `tonewheel-organ.ttl` has eight voices of nine drawbars and is slower than real time in Debug, for
   three-note chords a few times a bar. A four-voice organ or an electric-piano stab (`dx7-epiano.ttl`) may do.
 * **More industrial sources.** Only `metal-bash.ttl` was used. Try a gated noise loop, a clanking step sequence, a metal
   `val:FreeModalBank` fitted with `fit_modes` from a real recording of struck metal.
-* **Needs a listener:** dub-metal v4. v3 was heard as stabs that did not bubble and metal that sounded like bells; v4 changes
-  both (`metal-clang.ttl`, shorter and denser stabs) and the figures moved, but only a listener can say if it works.
+* **Needs a listener:** dub-metal v6 (mixed by `valis-song`; v4 changed the stabs and the metal after v3 was heard as stabs that did not
+  bubble and metal that sounded like bells). The figures moved, but only a listener can say if it works.
 * **Lint for NaN-prone stages.** A gain chain of 27 dB into a drive of 16 was legal in every range yet produced NaN before the
   `Adaa.h` fix. `valis-render` now exits 1 when any sample is not finite, but that check has no test: no shipped element
   produces NaN on purpose. Add a deliberately faulty test element, or a lint for a large gain chain into a drive.
@@ -372,11 +354,10 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
 * **MCP server is off after launch.** The Standalone starts with the server disabled, and an agent sees
   only a refused connection. Either start it with the app when a token or port is configured, or have
   the Standalone say in its window that the server is off and how to turn it on.
-* **MCP tools were not visible to the session.** Neither the Valis nor the Reaper server was registered
-  with Claude Code for this project. Ship a `.mcp.json` (`{"mcpServers": {"valis": {"type": "http",
-  "url": "http://localhost:7676/mcp"}}}`) so a checkout works without a manual `claude mcp add`.
-* **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone while `render` uses 48000. The
-  live figure looks wrong, or the Standalone has no audio device open. Find out which.
+* **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone (checked again over MCP) while `render` uses 48000. The
+  engine's own default is 44100 and `ValisProcessor::prepareToPlay` passes the host's rate straight through, so 8000 is the rate the
+  Standalone's audio device was opened at: the live app is running at telephone bandwidth. Not looked at: why the device setup
+  chose it (JUCE's default for the device, or a saved setting). A fix is to ask the device for 48000 when the Standalone starts.
 * **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.

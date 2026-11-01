@@ -193,6 +193,53 @@ void testEachStemIsLevelledAndPanned()
     assert(rmsOf(hardReport.mix.left, 24000, 240000) > 0.1);
 }
 
+void testAFollowingStemTakesTheGainOfItsLeader()
+{
+    const auto song = makeSong();
+    // The leader is levelled to -20 dB; the follower is a quarter as loud in itself, and takes the leader's gain less
+    // 6 dB, so it ends 6 dB under the leader plus however much quieter it already was.
+    std::vector<MixStem> stems;
+    stems.push_back(stem("lead", sine(300.0, 10.0, 0.4), sine(300.0, 10.0, 0.4), -20.0, -1.0));
+    stems.push_back(stem("tag", sine(1100.0, 10.0, 0.1), sine(1100.0, 10.0, 0.1), -6.0, 1.0));
+    stems.back().follows = "lead";
+    MixReport report;
+    std::string error;
+    assert(mixStems(song, stems, MixOptions{}, report, error));
+
+    assert(std::abs(report.stems[1].gainDb - (report.stems[0].gainDb - 6.0)) < 1.0e-9);
+    // 0.4 against 0.1 is 12 dB, and the offset another 6
+    const double lead = rmsOf(report.mix.left, 24000, 240000), tag = rmsOf(report.mix.right, 24000, 240000);
+    assert(std::abs(db(lead) - db(tag) - 18.0) < 0.3);
+
+    // A leader that is not in the mix, or that follows, is refused.
+    std::vector<MixStem> orphan;
+    orphan.push_back(stem("tag", sine(300.0, 1.0, 0.1), sine(300.0, 1.0, 0.1), -6.0));
+    orphan.back().follows = "absent";
+    assert(! mixStems(song, orphan, MixOptions{}, report, error) && error.find("absent") != std::string::npos);
+}
+
+void testTheRoomsDecayAndLengthFollowTheSong()
+{
+    auto song = makeSong();
+    song.roomAmount = 1.0;
+    const auto tailAfterClick = [&](double decay)
+    {
+        song.roomDecay = decay;
+        std::vector<float> click(static_cast<std::size_t>(20 * kRate), 0.0f);
+        click[24000] = 0.9f;
+        click[24001] = -0.9f;
+        std::vector<MixStem> stems;
+        stems.push_back(stem("s", click, click, -20.0));
+        MixReport report;
+        std::string error;
+        assert(mixStems(song, stems, MixOptions{}, report, error));
+        const std::size_t late = 24000 + static_cast<std::size_t>(0.6 * kRate);
+        return rmsOf(report.mix.left, late, late + 4800);
+    };
+    // 0.6 s after a click a room with a 0.1 s decay has died away (60 dB in about 0.7 s) and one with 0.5 s has not
+    assert(tailAfterClick(0.5) > 10.0 * tailAfterClick(0.1));
+}
+
 void testASparseStemIsLevelledByWhenItPlays()
 {
     const auto song = makeSong();
@@ -343,9 +390,10 @@ void testFilesAMissingStemIsNamedAndTheMixGoesAhead()
 @prefix val: <http://purl.org/stuff/valis/> .
 @prefix : <urn:test:files#> .
 :s a val:Song ; val:title "Files" ; val:tempo 120 ; val:tailSeconds 1 ; val:roomAmount 0 ;
-    val:hasSection :a ; val:hasPart :here , :gone .
+    val:hasSection :a ; val:hasPart :here , :gone , :quiet .
 :a a val:Section ; val:index 1 ; val:bars 2 .
 :here a val:Part ; val:index 1 ; val:circuit "x.ttl" ; val:level -18 .
+:quiet a val:Part ; val:index 3 ; val:circuit "z.ttl" ; val:silent true .
 :gone a val:Part ; val:index 2 ; val:circuit "y.ttl" .
 )";
     rdf::TurtleStore store;
@@ -392,6 +440,8 @@ int main()
     testHighpassRemovesLowAndKeepsHigh();
     testArcStepsBetweenSectionLevelsAndIsSmooth();
     testEachStemIsLevelledAndPanned();
+    testAFollowingStemTakesTheGainOfItsLeader();
+    testTheRoomsDecayAndLengthFollowTheSong();
     testASparseStemIsLevelledByWhenItPlays();
     testTheSectionsLevelsShapeTheMixOnlyWithArc();
     testTheMixEndsInAFadeAndIsTrimmed();
