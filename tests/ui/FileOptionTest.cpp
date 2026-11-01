@@ -23,6 +23,9 @@ int main()
     assert(fileOptionKey("NamModel") == "model");
     assert(fileOptionKey("SampleLoad") == "file");
     assert(fileOptionKey("TimeStretch") == "file");
+    assert(fileOptionKey("Sampler") == "samples");
+    assert(hasSampleTable("Sampler") && ! hasSampleTable("SampleLoad"));
+    assert(! hasFileSlot("Sampler"));   // it has a pad panel, not a file slot
 
     std::puts("FileOptionTest PASSED");
     return 0;

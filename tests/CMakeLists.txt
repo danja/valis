@@ -40,6 +40,7 @@ set(VALIS_TESTS
   dsp/VocoderTest.cpp
   dsp/ToneStackTest.cpp
   dsp/SamplerTest.cpp
+  dsp/SampleTableTest.cpp
   dsp/TuningTest.cpp
   dsp/VaryTest.cpp
   dsp/TapeTest.cpp

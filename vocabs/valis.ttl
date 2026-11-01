@@ -3500,7 +3500,7 @@ val:samples a rdf:Property ;
     rdfs:range xsd:string ;
     rdfs:comment """The sample table of a val:Sampler: one zone per line (or separated by ;), each a list of key=value words.
 file is the sound (resolved as val:file is, and needed), root the MIDI note it was recorded at, keys the range of keys it answers
-(keys=36-48, or key=38 for one), vel the range of velocities from 1 to 127, gain in decibels, tune in semitones, and choke a group
+(keys=36-48, or key=38 for one), vel the range of velocities from 1 to 127, gain in decibels, pan from -1 (left) to 1 (right), tune in semitones, name the label a panel shows, and choke a group
 number: a hit cuts any other sounding hit with the same non-zero group. start, end, loopStart, loopEnd and fade are in seconds of
 the file, reverse is 1 to play it backwards, and sha256 checks the file against a hash. A value with a space is in double quotes.
 Zones that share a key and a velocity take turns, which is how round robin and layered hits are written. Lines starting with #
@@ -3522,7 +3522,9 @@ With val:keytrack off every key plays the sound at its recorded pitch, for a kit
 hard the key was hit. A key that no zone answers plays the nearest zone, so the ends of the keyboard are stretched rather than
 silent.
 
-The sound is mono, summed from a stereo file. There is no filter: send the output to val:Ladder or val:StateVariable, and shape
+Each sound is mono, summed from a stereo file, and has its own pan. val:out is the mono sum; val:left and val:right are the
+panned pair, a balance in which a centred sound is at full level on both sides. Wire left and right to the output's left and
+right for a stereo kit. There is no filter: send the output to val:Ladder or val:StateVariable, and shape
 it with val:Envelope, as the other instruments do. Reading a file happens when the circuit loads, not while it plays. For
 other ways to play a file see val:SampleLoad, val:Granulator and val:TimeStretch
 (https://en.wikipedia.org/wiki/Sampler_(musical_instrument)).""" ;
@@ -3531,6 +3533,8 @@ other ways to play a file see val:SampleLoad, val:Granulator and val:TimeStretch
     val:linear false ;
     lv2:port
       [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "left" ; lv2:name "Left" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "right" ; lv2:name "Right" ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
         lv2:name "Gain" ; lv2:default 0.0 ;
         lv2:minimum -60.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,

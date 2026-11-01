@@ -20,9 +20,18 @@ inline bool hasFileSlot(std::string_view implementation)
         || implementation == "TimeStretch";
 }
 
-/// The option key naming the file an element reads, by registry key.
+/// A val:Sampler is chosen by a table of sounds, not by one file. The session's table sits on top of the
+/// document's, exactly as a chosen file does, and the Controls view gives it a pad panel of its own.
+inline bool hasSampleTable(std::string_view implementation)
+{
+    return implementation == "Sampler";
+}
+
+/// The option key naming the file (or, for a sampler, the table of files) an element reads, by registry key.
 inline std::string_view fileOptionKey(std::string_view implementation)
 {
+    if (implementation == "Sampler")
+        return "samples";
     return implementation == "NamModel" ? "model" : "file";
 }
 

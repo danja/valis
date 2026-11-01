@@ -3,6 +3,7 @@
 #include "ui/ControlsView.h"
 
 #include "ui/SampleBox.h"
+#include "ui/SamplerBox.h"
 #include "ui/ScopeBox.h"
 #include "ui/SpectrumBox.h"
 #include "plugin/ValisProcessor.h"
@@ -143,6 +144,8 @@ void ControlsView::timerCallback()
         spectrum->refresh();
     for (auto& sample : samples)
         sample->refresh();
+    for (auto& sampler : samplers)
+        sampler->refresh();
 }
 
 void ControlsView::rebuild()
@@ -152,6 +155,7 @@ void ControlsView::rebuild()
     scopes.clear();
     spectrums.clear();
     samples.clear();
+    samplers.clear();
 
     const auto& model = processor.circuit();
     lastElementIds.clear();
@@ -266,6 +270,13 @@ void ControlsView::rebuild()
             addAndMakeVisible(*box);
             spectrums.push_back(std::move(box));
         }
+        else if (hasSampleTable(elem.type->implementation))
+        {
+            auto box = std::make_unique<SamplerBox>(processor, elem.id, label);
+            box->setTheme(theme);
+            addAndMakeVisible(*box);
+            samplers.push_back(std::move(box));
+        }
         else if (hasFileSlot(elem.type->implementation))
         {
             auto box = std::make_unique<SampleBox>(
@@ -279,7 +290,7 @@ void ControlsView::rebuild()
     }
 
     emptyMessage.setVisible(knobs.empty() && scopes.empty() && spectrums.empty()
-                            && samples.empty());
+                            && samples.empty() && samplers.empty());
     resized();
     repaint();
 }
@@ -483,7 +494,7 @@ void ControlsView::resized()
         }
 
         // Flush the last partial row, or reserve space for the empty message.
-        if (col > 0 || (groups.empty() && scopes.empty() && spectrums.empty() && samples.empty()))
+        if (col > 0 || (groups.empty() && scopes.empty() && spectrums.empty() && samples.empty() && samplers.empty()))
             curY += kRowHeight;
 
         // Monitor boxes flow left to right, each two knob cells wide.
@@ -516,6 +527,21 @@ void ControlsView::resized()
                 place(*sample);
             if (boxCol > 0)
                 curY += ScopeBox::kHeight;
+        }
+
+        // A sampler's pads take the full width, one panel under another.
+        if (! samplers.empty())
+        {
+            if (apply)
+                sectionHeaders.push_back({ kMargin, curY, w - 2 * kMargin, "Sampler" });
+            curY += kSectionLabelHeight;
+            for (auto& sampler : samplers)
+            {
+                const int height = sampler->preferredHeight();
+                if (apply)
+                    sampler->setBounds(kMargin, curY, w - 2 * kMargin, height);
+                curY += height;
+            }
         }
 
         return curY + kMargin;

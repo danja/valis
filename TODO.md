@@ -85,6 +85,21 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
 
 The instruments that are done are described in `docs/examples.md`. What is open:
 
+* **Unify `audio/` and `samples/`.** Two directories hold sound files (`audio/` for the CC0 hits and `audio/freesound/`,
+  `samples/Oberheim DMX/` for the drum machine recordings). Pick one, move the files, and update every path in
+  `examples/`, the docs, `audio/README.md`, `samples/` readme if any, and the tests that name them (`grep -rn "audio/\|samples/"`).
+  Run the whole suite afterwards, since tests pin counts of shipped files. (From INBOX.md.)
+* **Sampler panel: what is left.** `src/ui/SamplerBox.cpp` edits the table (level, pan, key, name, file, add and
+  remove) as a session override, saved with the project but not in the circuit's Turtle: "Copy table" puts it on
+  the clipboard to paste into `val:samples`. Not done: writing the table back into the document, a waveform with
+  start, end and loop handles, dragging a file onto the panel, velocity layers and round robin takes shown as
+  separate rows (they are grouped under one instrument), a choke group control, and a screenshot test (the panel
+  has been built but not looked at; check it in the standalone).
+* **Freesound over MCP: what is left.** `freesound_search` and `freesound_download` (`src/net/Freesound.cpp`, test
+  `tests/net/FreesoundTest.cpp`) use token authentication, so a download is the 192 kbps Ogg preview, not the original.
+  The original needs OAuth2 (the client id and redirect URL are in `.env`; the flow is a browser login and a code
+  exchange, not yet written). The fetch is HTTPS through cpp-httplib and OpenSSL, behind `VALIS_WITH_FREESOUND`; the plugin
+  now depends on libssl at run time when it is on. Search results are not paged (first page of up to 50).
 * **`val:Sampler`: what is left.** The first version is in (`src/dsp/elements/Sampler.cpp`, `src/dsp/SampleMap.h`,
   `examples/sampler-percussion.ttl`): a table in the circuit (`val:samples`) of zones with key and velocity ranges, root, gain,
   tune, start and end, sustain loop with crossfade, reverse, choke groups and round robin; sixteen voices of its own; pitched by
@@ -94,7 +109,10 @@ The instruments that are done are described in `docs/examples.md`. What is open:
   * A filter with its own envelope inside the element (use `val:Ladder` and `val:Envelope` after it).
   * A monophonic legato mode; voice stealing takes the oldest voice with a 1 ms minimum attack, which can still tick.
   * A note held across the same key being hit again does not retrigger (the engine sees one held note).
-  * Output per pad: one mono output only; no pan.
+  * Output per pad: one mono output only; no pan. `examples/drum-machine.ttl` gets its stereo from the room reverb only.
+  * `examples/drum-machine.ttl` has one recording per drum: its soft and hard layers are the same file at a different
+    gain and tune, and the closed hat's two takes differ by 0.4 semitone. Real layers need several hits per drum
+    (a kit with several velocities recorded). Its kit has no side stick, cowbell or tambourine yet.
   * Reading `.sfz` or `.sf2` files, and a General MIDI kit loader; slicing a long file at its onsets
     (`src/ops/Analysis.cpp` has the onset finder).
   * A session override for a zone's file, as `set_sample` does for `val:SampleLoad`, and a key map in the Controls view

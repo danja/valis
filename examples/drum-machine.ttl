@@ -1,0 +1,142 @@
+# examples/drum-machine.ttl
+#
+# An acoustic drum kit played from MIDI with the General MIDI drum map, built from CC0 recordings fetched from
+# freesound.org over MCP (freesound_search, freesound_download). Sources, authors and licences are in
+# audio/freesound/*.json beside each file. The files are 192 kbps Ogg previews, which is what an API key can fetch;
+# the originals need an OAuth2 login.
+#
+#   36 kick        38 snare       39 clap
+#   42 closed hat  44 pedal hat   46 open hat   (one choke group: a closed or pedal hit cuts an open one)
+#   41 43          floor toms     45 47  mid toms     48 50  high toms   (three recorded toms, pitched across six keys)
+#   49 crash       51 ride
+#
+# To keep it from sounding like a machine: the kick, snare and closed hat have a soft and a hard layer (the layer is
+# chosen by velocity, so a soft hit is a different level and a slightly lower tune, not just quieter), and the
+# closed hat has two takes that alternate. Hits play to their end (oneshot) and ignore the key being let go.
+# Each drum has its own level and pan in the table (the sampler's panel edits them). The sampler's left and right
+# outputs carry the panned kit; its mono output feeds a reverb send, and the room's two tails join the stereo pair.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:drummachine#> .
+
+:circuit a val:Circuit , trn:PluginProfile ;
+    trn:role trn:DrumInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Rock", "Pop", "Drum machine" ;
+    rdfs:label "Sampled drum kit" ;
+    val:element :kit , :send , :room , :bus , :limL , :limR , :out ;
+    val:arc :aKitLeft , :aKitRight , :aKitSend , :aSendRoom , :aRoomLeft , :aRoomRight , :aBusLimL , :aBusLimR , :aLimL , :aLimR .
+
+:kit a val:Sampler ;
+    val:gain -3.0 ;
+    val:oneshot 1.0 ;
+    val:keytrack 1.0 ;
+    val:release 40.0 ;
+    val:samples """
+        # kick: soft and hard
+        file=audio/freesound/kick-488459.ogg key=36 vel=1-79   gain=-4 tune=-0.2 name="Kick"
+        file=audio/freesound/kick-488459.ogg key=36 vel=80-127 name="Kick"
+        # snare: soft and hard
+        file=audio/freesound/snare-488466.ogg key=38 vel=1-79   gain=-5 tune=-0.3 pan=0.05 name="Snare"
+        file=audio/freesound/snare-488466.ogg key=38 vel=80-127 pan=0.05 name="Snare"
+        file=audio/freesound/clap-493712.ogg key=39 gain=-3 pan=-0.1 name="Clap"
+        # hats share choke group 1, and the closed hat alternates two takes
+        file=audio/freesound/hat-closed-529538.ogg key=42 choke=1 pan=0.35 name="Closed hat"
+        file=audio/freesound/hat-closed-529538.ogg key=42 choke=1 tune=0.4 gain=-1.5 pan=0.35 name="Closed hat"
+        file=audio/freesound/hat-pedal-488465.ogg  key=44 choke=1 pan=0.35 name="Pedal hat"
+        file=audio/freesound/hat-open-488462.ogg   key=46 choke=1 pan=0.35 name="Open hat"
+        # toms: three recordings, pitched to fill six keys
+        file=audio/freesound/tom-floor-488463.ogg key=41 tune=-1.5 pan=0.5 name="Floor tom low"
+        file=audio/freesound/tom-floor-488463.ogg key=43 tune=2 pan=0.4 name="Floor tom high"
+        file=audio/freesound/tom-mid-488460.ogg   key=45 tune=-2 pan=0.1 name="Tom low"
+        file=audio/freesound/tom-mid-488460.ogg   key=47 tune=1 pan=-0.05 name="Tom mid"
+        file=audio/freesound/tom-high-488461.ogg  key=48 tune=-1.5 pan=-0.3 name="Tom high"
+        file=audio/freesound/tom-high-488461.ogg  key=50 tune=1.5 pan=-0.45 name="Tom top"
+        # cymbals
+        file=audio/freesound/crash-488458.ogg key=49 gain=-3 pan=-0.5 name="Crash"
+        file=audio/freesound/ride-488464.ogg  key=51 gain=-3 pan=0.55 name="Ride"
+    """ .
+
+:room a val:Reverb ;
+    val:size 0.45 ;
+    val:decay 0.7 ;
+    val:damping 0.55 ;
+    val:mix 1.0 .
+
+:send a val:Gain ;
+    val:gain -17.0 .
+
+:bus a val:Mixer .
+
+:limL a val:Limiter ;
+    val:ceiling -1.0 .
+
+:limR a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:aKitLeft a val:Arc ;
+    val:from [ val:node :kit ; val:port "left" ] ;
+    val:to   [ val:node :bus ; val:port "left" ] .
+:aKitRight a val:Arc ;
+    val:from [ val:node :kit ; val:port "right" ] ;
+    val:to   [ val:node :bus ; val:port "right" ] .
+:aKitSend a val:Arc ;
+    val:from [ val:node :kit  ; val:port "out" ] ;
+    val:to   [ val:node :send ; val:port "in"  ] .
+:aSendRoom a val:Arc ;
+    val:from [ val:node :send ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in"  ] .
+:aRoomLeft a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :bus  ; val:port "left" ] .
+:aRoomRight a val:Arc ;
+    val:from [ val:node :room ; val:port "right" ] ;
+    val:to   [ val:node :bus  ; val:port "right" ] .
+:aBusLimL a val:Arc ;
+    val:from [ val:node :bus  ; val:port "left" ] ;
+    val:to   [ val:node :limL ; val:port "in"   ] .
+:aBusLimR a val:Arc ;
+    val:from [ val:node :bus  ; val:port "right" ] ;
+    val:to   [ val:node :limR ; val:port "in"    ] .
+:aLimL a val:Arc ;
+    val:from [ val:node :limL ; val:port "out"  ] ;
+    val:to   [ val:node :out  ; val:port "left" ] .
+:aLimR a val:Arc ;
+    val:from [ val:node :limR ; val:port "out"   ] ;
+    val:to   [ val:node :out  ; val:port "right" ] .
+
+:pLevel a val:Param ; val:slot 0 ;
+    val:target :kit ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 12 ;
+    val:section "Kit" ;
+    units:unit units:db .
+:pTune a val:Param ; val:slot 1 ;
+    val:target :kit ; val:property val:tune ;
+    lv2:name "Tune" ; lv2:symbol "tune" ;
+    lv2:minimum -12 ; lv2:maximum 12 ;
+    val:section "Kit" .
+:pVelocity a val:Param ; val:slot 2 ;
+    val:target :kit ; val:property val:velocity ;
+    lv2:name "Touch" ; lv2:symbol "touch" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Kit" .
+:pRoomSend a val:Param ; val:slot 3 ;
+    val:target :send ; val:property val:gain ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum -40 ; lv2:maximum -3 ;
+    val:section "Room" ;
+    units:unit units:db .
+:pRoomDecay a val:Param ; val:slot 4 ;
+    val:target :room ; val:property val:decay ;
+    lv2:name "Room decay" ; lv2:symbol "room_decay" ;
+    lv2:minimum 0.2 ; lv2:maximum 3 ;
+    val:section "Room" ;
+    units:unit units:s .

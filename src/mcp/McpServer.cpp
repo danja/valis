@@ -478,11 +478,11 @@ const ToolSpec kTools[] = {
     {"randomize", "Give every parameter a new random value within its range, from a seed: the same seed on the same circuit gives the same patch. amount (0 to 1, default 1) is how far each moves toward its random value. keep lists slots to leave alone.",
      R"({"type":"object","properties":{"seed":{"type":"integer"},"amount":{"type":"number"},"keep":{"type":"array","items":{"type":"integer"}}},"required":["seed"]})"},
 
-    {"get_sample", "The file a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node is using.",
+    {"get_sample", "The file a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node is using. For a val:Sampler, the whole sample table (one zone per line: file, key, gain, pan, name and so on) that is playing.",
      R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
 
-    {"set_sample", "Load a different file into a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load.",
-     R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/"}},"required":["node","path"]})"},
+    {"set_sample", "Load a different file into a val:SampleLoad or val:TimeStretch (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load. For a val:Sampler, path is the whole sample table text, which replaces the kit for the session and shows in the Controls panel.",
+     R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/; for a val:Sampler, the table text"}},"required":["node","path"]})"},
 
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, its latency, and any problems an element recovered from (a missing sound file, say) as `problems`.",
      R"({"type":"object","properties":{}})"},

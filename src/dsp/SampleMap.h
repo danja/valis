@@ -14,25 +14,32 @@
 
 #include "dsp/SampleFile.h"
 
+#include "valis/SampleTable.h"
+
 #include <algorithm>
 #include <cmath>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 namespace valis::dsp {
 
+using valis::SampleTable;
+
 /// One sound and the part of the keyboard and the velocity range it answers.
 struct SampleZone
 {
     std::shared_ptr<const std::vector<float>> samples;   ///< mono, at the engine's rate
-    std::string name;
+    std::string name;                  ///< the file's name
+    std::string label;                 ///< name=, what a panel calls this sound; empty if none was given
 
     int    keyLow = 0, keyHigh = 127;
     int    root = 60;                  ///< the key at which the sound plays at its own pitch
     int    velocityLow = 1, velocityHigh = 127;
     float  gainDb = 0.0f;
+    float  pan = 0.0f;                 ///< -1 left, 0 centre, 1 right; a balance, so the centre is full level in both
     float  tune = 0.0f;                ///< semitones
     int    chokeGroup = 0;             ///< a hit cuts the other sounding hits of the same non-zero group
     bool   reverse = false;
@@ -61,27 +68,37 @@ public:
         std::vector<SampleZone> built;
         int lineNumber = 0;
 
-        std::string text = table;
-        std::replace(text.begin(), text.end(), ';', '\n');
-
+        // A line is a comment or a list of zones separated by ';'. The comment test comes first, so a ';' inside
+        // a comment does not start a zone.
         std::size_t from = 0;
-        while (from <= text.size())
+        while (from <= table.size())
         {
-            auto to = text.find('\n', from);
-            if (to == std::string::npos) to = text.size();
-            const auto line = trim(text.substr(from, to - from));
+            auto to = table.find('\n', from);
+            if (to == std::string::npos) to = table.size();
+            const auto physical = trim(table.substr(from, to - from));
             from = to + 1;
             ++lineNumber;
-            if (line.empty() || line[0] == '#')
+            if (physical.empty() || physical[0] == '#')
                 continue;
 
-            SampleZone zone;
-            if (! readZone(line, rate, cache, zone, error))
+            std::size_t start = 0;
+            while (start <= physical.size())
             {
-                error = "sample map line " + std::to_string(lineNumber) + ": " + error;
-                return false;
+                auto end = physical.find(';', start);
+                if (end == std::string::npos) end = physical.size();
+                const auto line = trim(physical.substr(start, end - start));
+                start = end + 1;
+                if (line.empty())
+                    continue;
+
+                SampleZone zone;
+                if (! readZone(line, rate, cache, zone, error))
+                {
+                    error = "sample map line " + std::to_string(lineNumber) + ": " + error;
+                    return false;
+                }
+                built.push_back(std::move(zone));
             }
-            built.push_back(std::move(zone));
         }
 
         zones = std::move(built);
@@ -133,44 +150,10 @@ private:
         return s.substr(a, s.find_last_not_of(" \t\r") - a + 1);
     }
 
-    /// Splits a line into key=value words, honouring double quotes around a value.
     static bool words(const std::string& line, std::vector<std::pair<std::string, std::string>>& out,
                       std::string& error)
     {
-        std::size_t i = 0;
-        while (i < line.size())
-        {
-            while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) ++i;
-            if (i >= line.size()) break;
-            const auto eq = line.find('=', i);
-            if (eq == std::string::npos)
-            {
-                error = "expected key=value, found '" + line.substr(i) + "'";
-                return false;
-            }
-            const auto key = line.substr(i, eq - i);
-            i = eq + 1;
-            std::string value;
-            if (i < line.size() && line[i] == '"')
-            {
-                const auto close = line.find('"', i + 1);
-                if (close == std::string::npos)
-                {
-                    error = "unterminated quote after " + key + "=";
-                    return false;
-                }
-                value = line.substr(i + 1, close - i - 1);
-                i = close + 1;
-            }
-            else
-            {
-                const auto end = line.find_first_of(" \t", i);
-                value = line.substr(i, end == std::string::npos ? std::string::npos : end - i);
-                i = end == std::string::npos ? line.size() : end;
-            }
-            out.emplace_back(key, value);
-        }
-        return true;
+        return SampleTable::words(line, out, error);
     }
 
     static bool number(const std::string& key, const std::string& value, double& result, std::string& error)
@@ -212,6 +195,41 @@ private:
         return true;
     }
 
+    /// A file read and resampled, shared with any other table that holds it. Changing one pad of a kit builds a
+    /// new table, and this keeps that from decoding every other file again: an entry lives as long as some
+    /// table uses it, and is replaced if the file's size or date changes. Message thread only.
+    static std::shared_ptr<const std::vector<float>> decoded(const std::string& path, double rate,
+                                                             const std::string& expectedHash, std::string& error)
+    {
+        struct Entry { std::weak_ptr<const std::vector<float>> samples; std::string sha256; };
+        static std::map<std::string, Entry> shared;
+        static std::mutex lock;
+
+        const juce::File resolved(SampleFile::resolve(path));
+        const auto key = resolved.getFullPathName().toStdString() + "|" + std::to_string(rate) + "|"
+                       + std::to_string(resolved.getSize()) + "|" + std::to_string(resolved.getLastModificationTime().toMilliseconds());
+
+        const std::lock_guard guard(lock);
+        if (const auto known = shared.find(key); known != shared.end())
+            if (auto samples = known->second.samples.lock())
+            {
+                if (expectedHash.empty() || juce::String(expectedHash).toLowerCase().toStdString() == known->second.sha256)
+                    return samples;
+            }
+
+        SampleFile file;
+        if (! file.load(path, rate, error))
+            return nullptr;
+        if (! expectedHash.empty() && juce::String(expectedHash).toLowerCase().toStdString() != file.sha256)
+        {
+            error = file.name + ": declared sha256 " + expectedHash + " but the file is " + file.sha256;
+            return nullptr;
+        }
+        auto samples = std::make_shared<const std::vector<float>>(std::move(file.samples));
+        shared[key] = Entry{samples, file.sha256};
+        return samples;
+    }
+
     bool readZone(const std::string& line, double rate,
                   std::map<std::string, std::shared_ptr<const std::vector<float>>>& cache,
                   SampleZone& zone, std::string& error)
@@ -232,9 +250,10 @@ private:
             else if (key == "keys")   { if (! range(key, text, 0, 127, zone.keyLow, zone.keyHigh, error)) return false; }
             else if (key == "key")    { if (! range(key, text, 0, 127, zone.keyLow, zone.keyHigh, error)) return false; }
             else if (key == "vel")    { if (! range(key, text, 1, 127, zone.velocityLow, zone.velocityHigh, error)) return false; }
+            else if (key == "name")   zone.label = text;
             else
             {
-                static const char* const kNumeric[] = {"root", "gain", "tune", "choke", "reverse", "start", "end",
+                static const char* const kNumeric[] = {"root", "gain", "pan", "tune", "choke", "reverse", "start", "end",
                                                        "loopStart", "loopEnd", "fade"};
                 if (std::find(std::begin(kNumeric), std::end(kNumeric), key) == std::end(kNumeric))
                 {
@@ -251,6 +270,7 @@ private:
                     rootGiven = true;
                 }
                 else if (key == "gain")       zone.gainDb = static_cast<float>(value);
+                else if (key == "pan")        zone.pan = std::clamp(static_cast<float>(value), -1.0f, 1.0f);
                 else if (key == "tune")       zone.tune = static_cast<float>(value);
                 else if (key == "choke")      zone.chokeGroup = static_cast<int>(value);
                 else if (key == "reverse")    zone.reverse = value > 0.5;
@@ -275,15 +295,10 @@ private:
         auto found = cache.find(path);
         if (found == cache.end())
         {
-            SampleFile file;
-            if (! file.load(path, rate, error))
+            const auto samples = decoded(path, rate, expectedHash, error);
+            if (samples == nullptr)
                 return false;
-            if (! expectedHash.empty() && juce::String(expectedHash).toLowerCase().toStdString() != file.sha256)
-            {
-                error = file.name + ": declared sha256 " + expectedHash + " but the file is " + file.sha256;
-                return false;
-            }
-            found = cache.emplace(path, std::make_shared<const std::vector<float>>(std::move(file.samples))).first;
+            found = cache.emplace(path, samples).first;
         }
         zone.samples = found->second;
         zone.name = juce::File(SampleFile::resolve(path)).getFileName().toStdString();

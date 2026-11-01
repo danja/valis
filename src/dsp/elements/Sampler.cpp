@@ -32,6 +32,7 @@ class Sampler final : public DspElement
         int    zone = 0, note = 0;
         double position = 0.0, speed = 1.0;
         float  level = 0.0f;            ///< velocity and zone gain
+        float  panLeft = 1.0f, panRight = 1.0f;
         float  envelope = 0.0f;
         float  attackStep = 1.0f, releaseStep = 0.0f;
         bool   looping = false, oneShot = false;
@@ -51,6 +52,8 @@ public:
         oneShotIndex   = controlIndex(type, "oneshot");
         sensitivityIndex = controlIndex(type, "velocity");
         chokeIndex     = controlIndex(type, "choke");
+        leftOut        = audioOutIndex(type, "left");
+        rightOut       = audioOutIndex(type, "right");
         reset();
     }
 
@@ -84,9 +87,14 @@ public:
         if (args.numAudioOut < 1)
             return;
 
+        // out is the mono sum; left and right are the panned pair, written only where something is wired to them.
         float* out = args.audioOut[0];
         const int n = args.numSamples;
         std::fill(out, out + n, 0.0f);
+        float* left  = leftOut  >= 0 && leftOut  < args.numAudioOut ? args.audioOut[leftOut]  : nullptr;
+        float* right = rightOut >= 0 && rightOut < args.numAudioOut ? args.audioOut[rightOut] : nullptr;
+        if (left  != nullptr) std::fill(left,  left + n, 0.0f);
+        if (right != nullptr) std::fill(right, right + n, 0.0f);
 
         const float tune     = controlAt(args, tuneIndex, 0.0f);
         const float attackMs = std::max(controlAt(args, attackIndex, 0.0f), 0.0f);
@@ -131,7 +139,7 @@ public:
         const float gain = gainGlide.step(gainTarget, std::pow(timeToCoeff(10.0f, sampleRate), static_cast<float>(n)));
         for (auto& v : voices)
             if (v.stage != Stage::idle)
-                render(v, out, n, gain);
+                render(v, out, left, right, n, gain);
     }
 
 private:
@@ -225,6 +233,8 @@ private:
         v.position = zone.reverse ? zone.end - 1.0 : zone.start;
         if (zone.reverse) v.speed = -v.speed;
 
+        v.panLeft  = zone.pan > 0.0f ? 1.0f - zone.pan : 1.0f;
+        v.panRight = zone.pan < 0.0f ? 1.0f + zone.pan : 1.0f;
         v.level = ((1.0f - sensitivity) + sensitivity * velocity) * dbToGain(zone.gainDb);
         v.attackStep = 1.0f / std::max(attackMs, 1.0f) / static_cast<float>(sampleRate * 0.001);
         v.envelope = 0.0f;
@@ -253,7 +263,7 @@ private:
         return ((c3 * f + c2) * f + c1) * f + y1;
     }
 
-    void render(Voice& v, float* out, int n, float gain) noexcept
+    void render(Voice& v, float* out, float* left, float* right, int n, float gain) noexcept
     {
         const auto& zone = map.zones[static_cast<std::size_t>(v.zone)];
         const auto& samples = *zone.samples;
@@ -292,7 +302,10 @@ private:
             const double remaining = v.speed > 0.0 ? zone.end - 1.0 - v.position : v.position - zone.start;
             const float tail = remaining < kEndFade ? static_cast<float>(remaining / kEndFade) : 1.0f;
 
-            out[i] += s * v.level * v.envelope * tail * gain;
+            const float heard = s * v.level * v.envelope * tail * gain;
+            out[i] += heard * 0.5f * (v.panLeft + v.panRight);
+            if (left  != nullptr) left[i]  += heard * v.panLeft;
+            if (right != nullptr) right[i] += heard * v.panRight;
             v.position += v.speed;
 
             // Wrapped here, not at the top of the next sample, so a note released between samples
@@ -315,6 +328,7 @@ private:
     Smoothed gainGlide;
     int gainIndex = -1, tuneIndex = -1, attackIndex = -1, releaseIndex = -1, loopIndex = -1;
     int keytrackIndex = -1, oneShotIndex = -1, sensitivityIndex = -1, chokeIndex = -1;
+    int leftOut = -1, rightOut = -1;
 };
 
 }  // namespace valis::elements

@@ -10,6 +10,8 @@
 #include "valis/DspElement.h"
 #include "valis/ElementTestFixture.h"
 
+#include "dsp/SampleMap.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -263,11 +265,63 @@ void testABadTableFailsTheLoadWithTheLine()
     assert(! rig.fixture.element->setOption("samples", "file=" + sineFile("ok.wav", 100.0, 0.1) + " sha256=" + std::string(64, '0'), error));
     assert(error.find("sha256") != std::string::npos);
 
+    // A ';' inside a comment is part of the comment, not a zone break; one outside separates two zones.
+    assert(rig.fixture.element->setOption("samples", "# soft; hard, then more\nfile=" + sineFile("ok.wav", 100.0, 0.1)
+                                          + " key=36; file=" + sineFile("ok.wav", 100.0, 0.1) + " key=38", error));
+
     // A failed table leaves what was there playing.
     rig.option("file", sineFile("kept.wav", 440.0, 0.5));
     assert(! rig.fixture.element->setOption("samples", "key=36", error));
     rig.fixture.setNote(60, 1.0f, true);
     assert(rms(rig.play(0.2), 2400, 9000) > 0.05f);
+}
+
+void testEachSoundHasItsOwnPan()
+{
+    const auto left  = sineFile("pan-l.wav", 300.0, 0.4);
+    const auto mid   = sineFile("pan-m.wav", 500.0, 0.4);
+    const auto right = sineFile("pan-r.wav", 700.0, 0.4);
+
+    const auto level = [&](int key, std::string_view port)
+    {
+        Rig rig;
+        rig.option("oneshot", "1");
+        rig.option("samples", "file=" + left + " key=36 pan=-1 name=\"Left\"\nfile=" + mid + " key=37\nfile=" + right + " key=38 pan=1\n"
+                              "file=" + mid + " key=39 pan=0.5");
+        rig.fixture.setNote(key, 1.0f, true);
+        const auto out = rig.fixture.run(std::vector<float>(9600, 0.0f), port);
+        return rms(out, 2400, 9000);
+    };
+
+    // Hard left is heard on the left only, hard right on the right only, the middle at full level on both.
+    assert(level(36, "left") > 0.1f && level(36, "right") < 1e-6f);
+    assert(level(38, "right") > 0.1f && level(38, "left") < 1e-6f);
+    const float centreL = level(37, "left"), centreR = level(37, "right");
+    assert(centreL > 0.1f && std::fabs(centreL - centreR) < 1e-6f);
+
+    // A balance: half right leaves the right at full level and takes the left to half.
+    assert(std::fabs(level(39, "right") - centreR) < 1e-5f);
+    assert(std::fabs(level(39, "left") / centreL - 0.5f) < 1e-3f);
+
+    // out is the mono sum, so a circuit that never heard of pan sounds as it did: centre is unchanged,
+    // and a hard-panned sound is half level there.
+    assert(std::fabs(level(37, "out") - centreL) < 1e-6f);
+    assert(std::fabs(level(36, "out") / centreL - 0.5f) < 1e-3f);
+}
+
+void testAFileIsDecodedOnceForTablesThatShareIt()
+{
+    const auto file = sineFile("shared.wav", 440.0, 0.2);
+    std::string error;
+    dsp::SampleMap first, second;
+    assert(first.parse("file=" + file + " key=36", 48000.0, error));
+    assert(second.parse("file=" + file + " key=36 gain=-3", 48000.0, error));
+    assert(first.zones[0].samples == second.zones[0].samples);
+
+    // A different rate is a different decoding.
+    dsp::SampleMap other;
+    assert(other.parse("file=" + file + " key=36", 44100.0, error));
+    assert(other.zones[0].samples != first.zones[0].samples);
 }
 
 void testNothingLoadedIsSilent()
@@ -304,6 +358,8 @@ int main()
     testAHitCutsOthersInItsChokeGroup();
     testALoopWithPointsHoldsThenReleases();
     testABadTableFailsTheLoadWithTheLine();
+    testEachSoundHasItsOwnPan();
+    testAFileIsDecodedOnceForTablesThatShareIt();
     testNothingLoadedIsSilent();
     testManyNotesAtOnceStayBounded();
     std::puts("SamplerTest passed");

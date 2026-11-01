@@ -471,11 +471,26 @@ bool ValisProcessor::setTurtle(const juce::String& turtle, std::vector<Diagnosti
     return false;
 }
 
+namespace {
+
+// A sampler's table has line breaks, and the saved form is one override to a line.
+juce::String escapeLine(const juce::String& text)
+{
+    return text.replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D");
+}
+
+juce::String unescapeLine(const juce::String& text)
+{
+    return text.replace("%0D", "\r").replace("%0A", "\n").replace("%25", "%");
+}
+
+}  // namespace
+
 juce::String ValisProcessor::samplesAsString() const
 {
     juce::String out;
     for (const auto& [nodeId, path] : sampleOverrides)
-        out << juce::String(nodeId) << "\t" << juce::String(path) << "\n";
+        out << juce::String(nodeId) << "\t" << escapeLine(juce::String(path)) << "\n";
     return out;
 }
 
@@ -487,8 +502,16 @@ void ValisProcessor::samplesFromString(const juce::String& text)
         const auto tab = line.indexOfChar('\t');
         if (tab > 0)
             sampleOverrides[line.substring(0, tab).toStdString()] =
-                line.substring(tab + 1).toStdString();
+                unescapeLine(line.substring(tab + 1)).toStdString();
     }
+}
+
+void ValisProcessor::clearSample(const std::string& nodeId)
+{
+    if (sampleOverrides.erase(nodeId) == 0)
+        return;
+    std::vector<Diagnostic> ignored;
+    setTurtle(getTurtle(), ignored);
 }
 
 std::string ValisProcessor::sampleFor(const std::string& nodeId) const

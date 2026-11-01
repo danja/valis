@@ -20,6 +20,7 @@ class ValisParameter;
 class ScopeBox;
 class SpectrumBox;
 class SampleBox;
+class SamplerBox;
 
 /// Knobs for the circuit's bound parameter slots, a graphic oscilloscope per
 /// val:Oscilloscope element and a spectrum analyzer per val:FreqAnalyzer
@@ -84,6 +85,7 @@ private:
     std::vector<std::unique_ptr<ScopeBox>> scopes;
     std::vector<std::unique_ptr<SpectrumBox>> spectrums;
     std::vector<std::unique_ptr<SampleBox>> samples;
+    std::vector<std::unique_ptr<SamplerBox>> samplers;
     std::vector<SectionHeader> sectionHeaders;
     std::vector<VertDiv> vertDivs;
     juce::Label emptyMessage;

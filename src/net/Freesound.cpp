@@ -14,8 +14,9 @@ std::string urlEncode(const std::string& s)
 {
     static const char* hex = "0123456789ABCDEF";
     std::string out;
-    for (const unsigned char c : s)
+    for (const char raw : s)
     {
+        const auto c = static_cast<unsigned char>(raw);
         if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
             out += static_cast<char>(c);
         else
@@ -154,8 +155,9 @@ std::string Freesound::slug(const std::string& name)
 {
     std::string out;
     bool pendingDash = false;
-    for (const unsigned char c : name)
+    for (const char raw : name)
     {
+        const auto c = static_cast<unsigned char>(raw);
         if (std::isalnum(c))
         {
             if (pendingDash && ! out.empty())

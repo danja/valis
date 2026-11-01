@@ -1072,7 +1072,7 @@ Nonlinear.
 
 Nonlinear.
 
-**Audio out**: `out`
+**Audio out**: `out`, `left`, `right`
 
 **Controls**
 

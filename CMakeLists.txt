@@ -62,6 +62,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Vocoder.cpp
   src/dsp/elements/ToneStack.cpp
   src/dsp/elements/Sampler.cpp
+  src/dsp/SampleTable.cpp
   src/dsp/elements/Wavetable.cpp
   src/dsp/elements/TimeStretch.cpp
   src/dsp/elements/Utility.cpp
@@ -208,6 +209,8 @@ if(VALIS_BUILD_PLUGIN)
     src/ui/TurtleView.cpp
     src/ui/ControlsView.cpp
     src/ui/SampleBox.cpp
+    src/ui/PadStrip.cpp
+    src/ui/SamplerBox.cpp
     src/ui/ScopeBox.cpp
     src/ui/SelectorStrip.cpp
     src/ui/SpectrumBox.cpp

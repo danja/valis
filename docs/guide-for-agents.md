@@ -79,6 +79,8 @@ asking the running program:
 | `measure` | measure any wav file: pitch, octave levels, brightness, onsets, clipping, loudness (LUFS, true peak), attack and decay times |
 | `compare` | how far apart two wav files are, in dB, and how their loudness differs |
 | `sounds_like` | is this file "a trumpet"? yes, maybe or no, and what it is closest to (needs the neural models) |
+| `freesound_search` | search freesound.org (CC0 by default) for sounds: id, name, author, licence, length, tags. Needs `FREESOUND_API_KEY` in `.env` |
+| `freesound_download` | fetch a sound by id into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence; returns the path for a `val:Sampler` |
 | `listen` | AudioSet labels for a file, and a score for each sentence you give (needs the neural models) |
 
 A failed edit leaves the previous circuit playing. Every edit goes through the
@@ -447,7 +449,12 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
 
 - `val:Sampler` plays sounds from MIDI notes: one `val:file` pitched across the keys, or a `val:samples` table
   of zones with key and velocity ranges, loops, choke groups and round robin, sixteen voices of its own.
-  `examples/sampler-percussion.ttl` plays the recordings in `audio/`.
+  `examples/sampler-percussion.ttl` plays the recordings in `audio/`; `examples/drum-machine.ttl` is a General MIDI
+  kit built entirely over MCP from `freesound_search` and `freesound_download`. A `;` or newline separates zones and
+  a line starting with `#` is a comment. Each zone can have `pan` (-1 to 1) and `name` (what the panel shows); the
+  element's `left` and `right` outputs carry the panned kit and `out` is the mono sum. The Controls view shows a
+  pad panel for it: per sound level, pan, key, name, file, audition, add and remove. Those edits are the session's
+  table (`get_sample` and `set_sample` read and write the same text over MCP), not a change to the circuit.
 - `val:SampleLoad` plays a file; `val:TimeStretch` plays one at a different speed
   or pitch; `val:GrainBuffer` holds one for grains. The file is an option
   (`val:file`), and `set_sample` swaps it in a session without editing the document.

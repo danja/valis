@@ -168,6 +168,9 @@ public:
     /// load; `error` then says why.
     bool setSample(const std::string& nodeId, const std::string& path, std::string& error);
 
+    /// Drops the session's choice for a node, so the kit or file the document declares plays again.
+    void clearSample(const std::string& nodeId);
+
     /// Why the node cannot use its file, if it cannot, though the circuit loaded.
     std::string problemWith(const std::string& nodeId) const { return engine.noteFor(nodeId); }
 
