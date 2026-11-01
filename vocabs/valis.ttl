@@ -306,14 +306,14 @@ val:Lane a rdfs:Class ;
     rdfs:label "Lane" ;
     rdfs:comment """One row of a pattern. val:steps is a string with one character a step: x a hit, X an accented hit (val:accent more
 velocity, 20 if not given), and . or - a rest; spaces and | are ignored so a bar can be marked. The lane plays either one val:key (a
-MIDI key, as in a drum kit) or a val:voice taken from the chord of the bar: chord (every tone), root, top (the highest tone) or low
+MIDI key, as in a drum kit) or a val:voice taken from the chord of the bar: chord (every tone), root, pickup (the chord's val:pickup), top (the highest tone) or low
 (the lowest). val:octave and val:transpose move a voice. A hit has val:velocity (90 if not given) and lasts val:length steps (1 if not
 given) times val:gate (0.8 if not given), so the note ends before the next step starts.""" .
 
 val:Chord a rdfs:Class ;
     rdfs:label "Chord" ;
     rdfs:comment """A chord as it is voiced, named by the local name of its IRI. val:root is the key a bass plays and val:tones are the
-keys of the voicing, separated by spaces. The progression names chords; the voicing stays under the score's control.""" .
+keys of the voicing, separated by spaces. val:pickup is a second bass key, the approach into the next chord (the root if not given). The progression names chords; the voicing stays under the score's control.""" .
 
 val:Feel a rdfs:Class ;
     rdfs:label "Feel" ;
@@ -337,6 +337,7 @@ val:hasPlay      a rdf:Property ; rdfs:domain val:Score ; rdfs:range val:Play .
 val:progression  a rdf:Property ; rdfs:range xsd:string .
 val:barsPerChord a rdf:Property ; rdfs:domain val:Score ; rdfs:range xsd:integer .
 val:root         a rdf:Property ; rdfs:domain val:Chord ; rdfs:range xsd:integer .
+val:pickup       a rdf:Property ; rdfs:domain val:Chord ; rdfs:range xsd:integer .
 val:tones        a rdf:Property ; rdfs:domain val:Chord ; rdfs:range xsd:string .
 val:stepsPerBeat a rdf:Property ; rdfs:domain val:Pattern ; rdfs:range xsd:integer .
 val:key          a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:integer .

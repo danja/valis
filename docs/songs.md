@@ -95,10 +95,10 @@ generator that builds a bass line or a solo can still be a script.
 | `val:seed` | Score | Seed for the humanising. The same score and seed always give the same notes, on every platform | 1 |
 | `val:progression` | Score, Play | Chord names separated by spaces, one for each `val:barsPerChord` bars, repeated from the start of each section | none |
 | `val:barsPerChord` | Score | Bars to a chord | 1 |
-| `val:root`, `val:tones` | Chord | The key a bass plays, and the keys of the voicing, lowest first | required |
+| `val:root`, `val:tones`, `val:pickup` | Chord | The key a bass plays, the keys of the voicing (lowest first), and a second bass key that leads into the next chord | required, required, the root |
 | `val:bars`, `val:stepsPerBeat` | Pattern | Length in bars, and steps to a beat (4 is sixteenth notes) | 1, 4 |
 | `val:steps` | Lane | One character a step: `x` hit, `X` accented hit, `.` or `-` rest. Spaces and `|` are ignored. The length must fill the pattern exactly | required |
-| `val:key` or `val:voice` | Lane | A MIDI key, or `chord` (every tone), `root`, `top` or `low` from the chord of the bar | one of them |
+| `val:key` or `val:voice` | Lane | A MIDI key, or `chord` (every tone), `root`, `pickup`, `top` or `low` from the chord of the bar | one of them |
 | `val:velocity`, `val:accent` | Lane | Velocity, and what `X` adds | 90, 20 |
 | `val:length`, `val:gate` | Lane | Length in steps, and the fraction of it that is held, so the note ends before the next step | 1, 0.8 |
 | `val:octave`, `val:transpose` | Lane | Moves a voice by octaves, or any lane by semitones | 0, 0 |

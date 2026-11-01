@@ -41,13 +41,14 @@ std::string scoreText(const std::string& feel, int seed)
 :score a val:Score ; val:seed )" + std::to_string(seed) + R"( ; val:progression "C F" ; val:barsPerChord 2 ;
     val:hasChord :C , :F ; val:hasPattern :beat , :walk , :stab ; val:hasFeel :f ;
     val:hasPlay :p1 , :p2 , :p3 .
-:C a val:Chord ; val:root 36 ; val:tones "60 64 67" .
+:C a val:Chord ; val:root 36 ; val:pickup 37 ; val:tones "60 64 67" .
 :F a val:Chord ; val:root 41 ; val:tones "60 65 69" .
 :beat a val:Pattern ; val:hasLane
     [ val:key 36 ; val:steps "X.......x......." ] ,
     [ val:key 42 ; val:steps ".x.x.x.x.x.x.x.x" ; val:velocity 70 ] .
 :walk a val:Pattern ; val:bars 2 ; val:hasLane
-    [ val:voice "root" ; val:steps "x...............x..............." ; val:length 4 ] .
+    [ val:voice "root" ; val:steps "x...............x..............." ; val:length 4 ] ,
+    [ val:voice "pickup" ; val:steps "..............x................." ; val:length 1 ] .
 :stab a val:Pattern ; val:hasLane
     [ val:voice "chord" ; val:steps "..x............." ; val:length 2 ; val:octave 1 ] .
 )" + feel + R"(
@@ -124,13 +125,15 @@ int main()
     //    two bars, to the end: bars 3-4, 5-6, 7-8 of the verse. Each repeat has two roots, one a bar.
     std::vector<ScoreNote> bass;
     assert(expandScorePart(song, exact, "bass", bass, error));
-    assert(bass.size() == 6);
+    assert(bass.size() == 9);                                            // three repeats: two roots and a pickup each
     // verse bar 3 is song bar 7 (beat 24); the chord there is the second of "C F" at two bars each: bars 2-3 of the verse index
     // (bar-1)/2 = 1 -> F, root 41. Verse bar 4 -> index 1 -> F. Bars 5-6 -> index 2 -> C, 7-8 -> index 3 -> F.
     assert(bass[0].beat == 24.0 && bass[0].key == 41);
-    assert(bass[1].beat == 28.0 && bass[1].key == 41);
-    assert(bass[2].beat == 32.0 && bass[2].key == 36);
-    assert(bass[4].beat == 40.0 && bass[4].key == 41);
+    assert(bass[1].beat == 27.5 && bass[1].key == 41);                  // F has no pickup, so the root
+    assert(bass[2].beat == 28.0 && bass[2].key == 41);
+    assert(bass[3].beat == 32.0 && bass[3].key == 36);
+    assert(bass[4].beat == 35.5 && bass[4].key == 37);                  // C has one
+    assert(bass[6].beat == 40.0 && bass[6].key == 41);
     assert(std::abs(bass[0].beats - 0.8) < 1e-12);                      // 4 steps of 0.25 beat, a gate of 0.8
 
     // -- the stabs: a one-bar pattern every second bar, bars 1 to 6 of the verse, three chord tones an octave up
@@ -208,7 +211,7 @@ int main()
     };
     assert(readBack(directory.getChildFile("midi/kit.mid")).first == 40);
     const auto bassFile = readBack(directory.getChildFile("notes/low.mid"));
-    assert(bassFile.first == 6 && bassFile.second == 44.0 * 480.0);     // the last root falls on beat 44
+    assert(bassFile.first == 9 && bassFile.second == 44.0 * 480.0);     // the last root falls on beat 44
     assert(! directory.getChildFile("midi/free.mid").existsAsFile());   // not in the score, so not written
 
     // only some parts; an unknown one is refused

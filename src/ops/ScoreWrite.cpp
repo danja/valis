@@ -121,6 +121,8 @@ bool expandScorePart(const Song& song, const Score& score, const std::string& pa
                     {
                         if (lane.voice == "chord")
                             for (const int t : chord->tones) keys.push_back(t + 12 * lane.octave + lane.transpose);
+                        else if (lane.voice == "pickup")
+                            keys.push_back(chord->pickup + 12 * lane.octave + lane.transpose);
                         else if (lane.voice == "root")
                             keys.push_back(chord->root + 12 * lane.octave + lane.transpose);
                         else if (lane.voice == "top")

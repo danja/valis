@@ -32,7 +32,7 @@ const char* kScore = R"(
 :score a val:Score ; val:seed 85 ; val:progression "C F" ; val:barsPerChord 2 ;
     val:hasChord :C , :F ; val:hasPattern :beat , :walk ; val:hasFeel :kitfeel ;
     val:hasPlay :p1 , :p2 .
-:C a val:Chord ; val:root 36 ; val:tones "60 64 67" .
+:C a val:Chord ; val:root 36 ; val:pickup 37 ; val:tones "60 64 67" .
 :F a val:Chord ; val:root 41 ; val:tones "60 65 69" .
 :beat a val:Pattern ; val:hasLane
     [ val:key 36 ; val:steps "X... .... x... ...." ] ,
@@ -103,6 +103,7 @@ int main()
 
     assert(score.seed == 85 && score.barsPerChord == 2);
     assert(score.progression == std::vector<std::string>({"C", "F"}));
+    assert(score.chords.at("C").pickup == 37 && score.chords.at("F").pickup == 41);
     assert(score.chords.at("F").root == 41 && score.chords.at("C").tones == std::vector<int>({60, 64, 67}));
     assert(score.patterns.size() == 2 && score.patterns.at("walk").bars == 2);
 
@@ -133,7 +134,7 @@ int main()
     assert(fails(song, without("val:steps \"|....x.......x...|\"", "val:steps \"....z.......x...\""), "among its steps"));
     assert(fails(song, without("val:progression \"C F\"", "val:progression \"C G\""), "'G'"));
     assert(fails(song, without("val:progression \"C F\" ;", ""), "no val:progression"));
-    assert(fails(song, without("val:voice \"root\"", "val:voice \"middle\""), "use chord, root, top or low"));
+    assert(fails(song, without("val:voice \"root\"", "val:voice \"middle\""), "use chord, root, pickup, top or low"));
     assert(fails(song, without("val:voice \"root\"", "val:key 40 ; val:voice \"root\""), "both val:key and val:voice"));
     assert(fails(song, without("val:velocity 100", "val:velocity 0"), "runs from 1 to 127"));
     assert(fails(song, without("val:swing 0.54", "val:swing 0.9"), "val:swing"));

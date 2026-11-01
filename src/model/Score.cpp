@@ -108,6 +108,7 @@ bool Score::read(const rdf::TurtleStore& store, const Song& song, Score& out, st
             chord.root = static_cast<int>(*root);
         else
             r.fail("chord " + chord.name + " has no val:root", std::string(c.string()));
+        chord.pickup = static_cast<int>(r.number(c, vocab::score::pickup, "val:pickup").value_or(chord.root));
         for (const auto& w : words(r.text(c, vocab::score::tones)))
         {
             try { chord.tones.push_back(std::stoi(w)); }
@@ -118,6 +119,8 @@ bool Score::read(const rdf::TurtleStore& store, const Song& song, Score& out, st
         for (const int k : chord.tones)
             if (k < 0 || k > 127)
                 r.fail("chord " + chord.name + " has the key " + std::to_string(k) + "; keys run from 0 to 127", std::string(c.string()));
+        if (chord.pickup < 0 || chord.pickup > 127)
+            r.fail("chord " + chord.name + " has the pickup " + std::to_string(chord.pickup) + "; keys run from 0 to 127", std::string(c.string()));
         if (chord.root < 0 || chord.root > 127)
             r.fail("chord " + chord.name + " has the root " + std::to_string(chord.root) + "; keys run from 0 to 127", std::string(c.string()));
         std::sort(chord.tones.begin(), chord.tones.end());
@@ -161,8 +164,8 @@ bool Score::read(const rdf::TurtleStore& store, const Song& song, Score& out, st
                 r.fail("a lane of pattern " + pattern.name + " has neither val:key nor val:voice", subject);
             if (lane.key >= 0 && ! lane.voice.empty())
                 r.fail("a lane of pattern " + pattern.name + " has both val:key and val:voice", subject);
-            if (! lane.voice.empty() && lane.voice != "chord" && lane.voice != "root" && lane.voice != "top" && lane.voice != "low")
-                r.fail("a lane of pattern " + pattern.name + " has the voice '" + lane.voice + "'; use chord, root, top or low", subject);
+            if (! lane.voice.empty() && lane.voice != "chord" && lane.voice != "root" && lane.voice != "pickup" && lane.voice != "top" && lane.voice != "low")
+                r.fail("a lane of pattern " + pattern.name + " has the voice '" + lane.voice + "'; use chord, root, pickup, top or low", subject);
             if (! lane.voice.empty() && score.progression.empty())
                 r.fail("pattern " + pattern.name + " takes a voice from the chord, and the score has no val:progression", subject);
 

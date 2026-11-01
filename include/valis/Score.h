@@ -19,7 +19,7 @@ namespace valis {
 struct ScoreLane
 {
     int         key = -1;           ///< a MIDI key, or -1 when `voice` is used
-    std::string voice;              ///< "chord" (every tone), "root", "top" or "low", from the chord of the bar
+    std::string voice;              ///< "chord" (every tone), "root", "pickup", "top" or "low", from the chord of the bar
     std::string steps;              ///< `x` a hit, `X` an accented hit, `.` or `-` a rest; spaces and `|` are ignored
     int    velocity = 90;
     int    accent = 20;             ///< added to the velocity on `X`
@@ -41,6 +41,7 @@ struct ScoreChord
 {
     std::string name;
     int root = 36;                  ///< the key a bass plays
+    int pickup = -1;                ///< a second bass key, the approach to the next chord; the root if not given
     std::vector<int> tones;         ///< the voicing, as keys, lowest first
 };
 

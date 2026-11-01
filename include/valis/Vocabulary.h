@@ -168,6 +168,7 @@ namespace score {
   inline const std::string progression   = std::string(VAL) + "progression";
   inline const std::string barsPerChord  = std::string(VAL) + "barsPerChord";
   inline const std::string root          = std::string(VAL) + "root";
+  inline const std::string pickup        = std::string(VAL) + "pickup";
   inline const std::string tones         = std::string(VAL) + "tones";
   inline const std::string stepsPerBeat  = std::string(VAL) + "stepsPerBeat";
   inline const std::string key           = std::string(VAL) + "key";
