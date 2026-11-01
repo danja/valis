@@ -800,7 +800,10 @@ void ValisProcessor::setStateInformation(const void* data, int sizeInBytes)
     // Before the circuit is installed, so the chosen files are read with it.
     samplesFromString(tree.getProperty("samples", juce::String()).toString());
     setTurtle(tree.getProperty("turtle", juce::String()).toString());
-    apvts.replaceState(tree);
+    // A state with no parameter values (one written by a tool, such as valis-song reaper) keeps the
+    // defaults setTurtle just took from the circuit; replacing the tree would reset every slot to zero.
+    if (tree.getChildWithName("PARAM").isValid())
+        apvts.replaceState(tree);
     autoSaveTicks = -1;  // setTurtle already scheduled save; don't double-fire
 
    #if VALIS_WITH_MCP

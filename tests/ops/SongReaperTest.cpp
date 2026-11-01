@@ -11,6 +11,7 @@
 #include <juce_core/juce_core.h>
 
 #include <cassert>
+#include <cstdint>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -100,6 +101,11 @@ int main()
     for (const char* name : {"loud", "quiet"})
         directory.getChildFile("midi").getChildFile(juce::String(name) + ".mid").create();      // only its existence matters here
     const auto midiProject = root + "/midi-test.rpp";
+
+    // The circuit is read from the song's directory; a part whose circuit is missing is an error.
+    const auto missingCircuit = writeReaperProject(song, root + "/wavs", midiProject, false, true, root);
+    assert(! missingCircuit.ok && missingCircuit.error.find("circuit of part loud") != std::string::npos);
+    directory.getChildFile("x.ttl").replaceWithText("# a <circuit> & \"quoted\"\n", false, false, "\n");
     const auto midi = writeReaperProject(song, root + "/wavs", midiProject, false, true, root);
     if (! midi.ok)
         std::printf("  %s\n", midi.error.c_str());
@@ -111,6 +117,44 @@ int main()
     assert(midiBody.find("<SOURCE MIDI") != std::string::npos && midiBody.find("WAVE") == std::string::npos);
     assert(midiBody.find("FILE \"" + root + "/midi/quiet.mid\"") != std::string::npos);
     assert(midiBody.find("LENGTH 14") != std::string::npos);                  // 4 s of bars and the 10 s tail
+
+    // Each track carries the plugin's state: the circuit, and the MCP server switched on at its own port.
+    assert(midiBody.find("<VST \"VST3: Valis (danja)\"") != std::string::npos);
+    {
+        const auto at = midiBody.find("<VST");
+        const auto first = midiBody.find('\n', at) + 1;
+        const auto last = midiBody.find("      >", first);
+        std::string encoded;
+        for (auto i = first; i < last; ++i)
+            if (midiBody[i] != ' ' && midiBody[i] != '\n' && midiBody[i] != '\r') encoded += midiBody[i];
+
+        std::string raw;
+        std::uint32_t group = 0;
+        int bits = 0;
+        for (const char c : encoded)
+        {
+            if (c == '=') break;
+            const std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            const auto v = alphabet.find(c);
+            if (v == std::string::npos) std::printf("  bad base64 character %d\n", static_cast<int>(c));
+            assert(v != std::string::npos);
+            group = group << 6 | static_cast<std::uint32_t>(v);
+            bits += 6;
+            if (bits >= 8) { bits -= 8; raw += static_cast<char>((group >> bits) & 0xff); }
+        }
+        auto word = [&](std::size_t o) {
+            return static_cast<std::uint32_t>(static_cast<unsigned char>(raw[o]))
+                 | static_cast<std::uint32_t>(static_cast<unsigned char>(raw[o + 1])) << 8
+                 | static_cast<std::uint32_t>(static_cast<unsigned char>(raw[o + 2])) << 16
+                 | static_cast<std::uint32_t>(static_cast<unsigned char>(raw[o + 3])) << 24;
+        };
+        assert(word(48) == raw.size() - 60 && word(60) == raw.size() - 76);     // the sizes Reaper wrote
+        assert(raw.compare(68, 4, "VC2!") == 0 && raw.compare(76, 5, "<?xml") == 0);
+        assert(76 + word(72) < raw.size() && raw.compare(76 + word(72) - 8, 8, "</VALIS>") == 0);
+        assert(raw.find("mcpEnabled=\"1\" mcpPort=\"7677\"") != std::string::npos);
+        assert(midiBody.find("<VST", midiBody.find("<VST") + 1) != std::string::npos);   // one for each track
+        assert(raw.find("# a &lt;circuit&gt; &amp; &quot;quoted&quot;&#10;") != std::string::npos);
+    }
 
     // No stems at all.
     const auto none = writeReaperProject(song, root + "/nothing", root + "/none.rpp", false);

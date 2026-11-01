@@ -7,16 +7,10 @@
   mixed (v1, -10.5 LUFS, 170 bpm measured, true peak -1 dBTP; measured, not heard). Needs a listener: the kick against the bass, the
   hoover against the marimba (the figure is G3 to G4, the tune G4 to F6), the risers and whether the three drops hit. Not done:
   a vocal or sample hook; the `valis-song reaper --midi` project for it; a second version at 175 to 180 bpm.
-* **909 levels and rim shot, found while checking the kit (31 October 2026, measured, not heard).** At full velocity the peaks are:
-  bass drum -17.1 dBFS, clap -15.6, hats -7.1 and -6.2, rim shot -8.2, toms -5.7 to -8.1, snare -4.4. The bass drum is the quietest drum by 13 dB,
-  where a real 909's is the loudest; the shipped songs level the kit as one stem, so nothing depends on it, but a kit played directly is
-  unbalanced. The rim shot's spectral centroid is 12.5 kHz (a real one is mostly 1 to 3 kHz); not looked at. Pitches: bass drum 55 Hz,
-  toms 70, 110 and 160 Hz, snare 191 Hz.
-* **Velocity-sensitive levels in `examples/909.ttl`.** The gating is fixed (every drum sounds at any velocity; `tests/engine/Tr909VelocityTest.cpp`)
-  and the toms scale with their own note's velocity, but the bass drum, snare, rim shot, clap and hats play at one level. Scaling them
-  needs a control element that samples a value when its gate rises (a sample-and-hold), because `NoteGate.velocity` drops to 0 at the
-  note-off and would cut the tail of a drum. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) route
-  velocity to a level or a resonator port, not to a gate, and were checked; only the 909 had the fault.
+* **909 rim shot, found while checking the kit (31 October 2026, measured, not heard).** The rim shot's spectral centroid is 12.5 kHz
+  (a real one is mostly 1 to 3 kHz); not looked at. Every drum now holds its hit's velocity with `val:SampleHold` and scales its level
+  by it (`tests/engine/Tr909VelocityTest.cpp`). At full velocity the bass drum (gain +11) peaks at 0.63 and the snare at 0.61; the clap
+  (gain -2) at 0.19. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) were checked; only the 909 had the fault.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/archive/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to

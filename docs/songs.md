@@ -133,7 +133,7 @@ code:
 | `render_song` | `valis-song render song.ttl [--only a,b]` | Writes `wavs/<stem>.wav` for each stem |
 | `score_song` | `valis-song score song.ttl [--only a,b]` | Plays the song's score into a MIDI file for each part it plays (see below) |
 | `check_stems` | `valis-song stems song.ttl` | Compares each stem with its MIDI file bar by bar and reports silence where there are notes (a note counts as heard if the stem sounds from its onset to 100 ms past the end of its bar), clipping and non-finite samples |
-| `reaper_project` | `valis-song reaper song.ttl [--output f.rpp] [--overwrite]` | Writes `<title>.rpp` beside the song: a track per stem with the mix's volume (the loudest at 0 dB) and pan, the tempo and the meter. The high-pass is not written, and an existing project is never replaced |
+| `reaper_project` | `valis-song reaper song.ttl [--output f.rpp] [--overwrite]` | Writes `<title>.rpp` beside the song: a track per stem with the mix's volume (the loudest at 0 dB) and pan, the tempo and the meter. The high-pass is not written, and an existing project is never replaced. With `--midi` each track holds a Valis instrument already loaded with the part's circuit and its MCP server switched on, at port 7677 for the first track and up, so the project opens ready to play and each instance can be found by its track name at `/health` |
 | `mix_song` | `valis-song mix song.ttl --version v1 [--arc] [--lufs N]` | Writes `mixes/<title>-<version>.wav` and reports the loudness and each section's level |
 
 **Render.** A part is its circuit played by its MIDI file at the song's tempo with the transport rolling, for the length of
