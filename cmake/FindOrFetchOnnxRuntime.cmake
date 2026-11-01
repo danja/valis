@@ -4,7 +4,7 @@
 # A system install is used if find_package finds one; otherwise Microsoft's prebuilt CPU release is
 # fetched, pinned by version and checked against its SHA-256. Used only by src/shot/NeuralEars.cpp.
 
-include(FetchContent)
+include(ValisDeps)
 
 find_package(onnxruntime CONFIG QUIET)
 if(onnxruntime_FOUND)
@@ -12,11 +12,12 @@ if(onnxruntime_FOUND)
   add_library(valis_onnxruntime INTERFACE)
   target_link_libraries(valis_onnxruntime INTERFACE onnxruntime::onnxruntime)
 else()
-  message(STATUS "valis: fetching the ONNX Runtime 1.31.1 prebuilt release")
+  message(STATUS "valis: ONNX Runtime 1.31.1 prebuilt release (fetched once, then kept in deps/)")
   FetchContent_Declare(onnxruntime_prebuilt
     URL      https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-x64-1.31.1.tgz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     URL_HASH SHA256=c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9)
-  FetchContent_MakeAvailable(onnxruntime_prebuilt)
+  valis_make_available(onnxruntime_prebuilt)
   add_library(valis_onnxruntime SHARED IMPORTED GLOBAL)
   set_target_properties(valis_onnxruntime PROPERTIES
     IMPORTED_LOCATION             ${onnxruntime_prebuilt_SOURCE_DIR}/lib/libonnxruntime.so

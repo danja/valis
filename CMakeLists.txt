@@ -87,6 +87,7 @@ add_library(valis_core STATIC
   src/ops/AudioFile.cpp
   src/ops/OfflineRender.cpp
   src/ops/SongMix.cpp
+  src/ops/SongCheck.cpp
   src/ops/SongRender.cpp
   src/ops/CircuitDiff.cpp
   src/ops/AgentResources.cpp

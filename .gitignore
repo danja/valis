@@ -72,3 +72,4 @@ Testing/
 
 # Claude Code
 .claude/settings.local.json
+/deps/

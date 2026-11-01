@@ -493,6 +493,9 @@ const ToolSpec kTools[] = {
     {"render_song", "Render the stems of a song file (see read_song): each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit. Writes one wav per stem to the song's wavs directory and returns its length, peak and rms. `only` names the parts to redo (with their returns). A stem that fails to load, or holds a NaN, is named in the failure and the others are still written. Each render is a private copy of its circuit, so the live circuit is untouched. Takes as long as the audio does, several at once.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"only":{"type":"array","items":{"type":"string"},"description":"part names to render; default all"},"workers":{"type":"integer","description":"renders at once, 1 to 8, default 3"},"wav_directory":{"type":"string","description":"default wavs beside the song file"}},"required":["path"]})"},
 
+    {"check_stems", "Check a song's rendered stems against its score before mixing: for each stem the notes in its MIDI file and its level, bar by bar, so a stem that is silent where the score has notes, clipped, holds a NaN, or has an empty MIDI file is named. Reads files only. Fails, naming each problem, when any stem has one. Measured, not heard.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"wav_directory":{"type":"string","description":"where the stems are; wavs beside the song file by default"}},"required":["path"]})"},
+
     {"mix_song", "Mix the stems of a song file to a stereo reference wav: each stem levelled to its playing-RMS level, high-passed, panned and summed, then (with arc) each section's level, a fade, a synthetic room, a soft clip, and the gain that reaches the song's loudness target without passing -1 dBTP. Writes mixes/<title>-<version>.wav and refuses to overwrite one, so every version is kept. Returns the loudness, each section's playing level, each stem's gain and any missing stem. A reference mix, measured and not heard; vocals and mastering are done in a DAW.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"version":{"type":"string","description":"v1, v2 and so on; default v1"},"arc":{"type":"boolean","description":"apply each section's val:level"},"loudness":{"type":"number","description":"LUFS to aim at in place of the song's own"},"overwrite":{"type":"boolean"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"a full path in place of mixes/<title>-<version>.wav"}},"required":["path"]})"},
 
@@ -595,7 +598,7 @@ bool isFileTool(const juce::String& name)
 {
     return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes"
         || name == "freesound_search" || name == "freesound_download" || name == "read_song"
-        || name == "render_song" || name == "mix_song";
+        || name == "render_song" || name == "mix_song" || name == "check_stems";
 }
 
 juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
@@ -639,6 +642,9 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
                                                                       : std::nullopt,
                                     arguments.hasProperty("overwrite") && static_cast<bool>(arguments["overwrite"]),
                                     stringArgument(arguments, "wav_directory"), stringArgument(arguments, "output")));
+
+    if (name == "check_stems")
+        return resultOf(ops.checkSongStems(stringArgument(arguments, "path"), stringArgument(arguments, "wav_directory")));
 
     if (name == "freesound_search")
         return resultOf(ops.freesoundSearch(

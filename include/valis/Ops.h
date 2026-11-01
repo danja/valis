@@ -323,6 +323,11 @@ public:
                      bool overwrite = false, const std::string& wavDirectory = {},
                      const std::string& outputPath = {}) const;
 
+    /// Checks a song's rendered stems against its score (see SongCheck.h): per stem the notes and level, the bars that
+    /// have notes and no sound, non-finite samples, clipping, and a stem that is silent throughout or has no notes. Fails
+    /// when any stem has a problem, and names it. Reads files only.
+    OpResult checkSongStems(const std::string& path, const std::string& wavDirectory = {}) const;
+
     /// Freesound (https://freesound.org/docs/api/) with the API key in FREESOUND_API_KEY, from the environment or a
     /// .env file in the working directory or the source root. Search returns JSON; download saves the Ogg preview and
     /// a .json with author, licence and page beside it, and returns their paths. Network I/O: not for the message thread.

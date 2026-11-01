@@ -23,6 +23,14 @@ serd and sord are used through `libserd-dev` and `libsord-dev` when pkg-config
 finds them, and otherwise fetched and compiled from source. Either way the
 build works with no action.
 
+Dependencies that are fetched (serd, sord, cpp-httplib, ONNX Runtime and, when
+asked for, the CLAP extensions) are fetched once and kept in `deps/` in the
+repository, which git ignores. Every build directory, Debug or Release, then
+uses that copy and needs no network. To fetch one again, for instance after
+changing its pinned version in `cmake/`, delete its directory in `deps/`. Set
+`VALIS_DEPS_DIR` to keep the copies somewhere else, such as a directory shared
+between checkouts.
+
 ## Building
 
 ```sh

@@ -4,7 +4,7 @@
 # clap-juce-extensions. It is behind VALIS_WITH_CLAP because it is the one
 # format that pulls an extra repository.
 
-include(FetchContent)
+include(ValisDeps)
 
 FetchContent_Declare(clap-juce-extensions
   GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions
@@ -12,4 +12,4 @@ FetchContent_Declare(clap-juce-extensions
   GIT_SHALLOW TRUE
   GIT_SUBMODULES_RECURSE TRUE)
 
-FetchContent_MakeAvailable(clap-juce-extensions)
+valis_make_available(clap-juce-extensions)

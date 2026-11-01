@@ -49,6 +49,7 @@ the command line tool `valis-song` all use. A score script reads it from Python 
 | `val:circuit` | Part, Return | Circuit file, relative to the song file | required |
 | `val:midi` | Part | MIDI file, relative to the song file | `midi/<name>.mid` |
 | `val:midi` | Return | MIDI file played into the return's circuit as well as the source stem (for a Leslie speed switch, say) | none |
+| `val:silent` | Part | `true` renders the part but leaves it out of the mix | false |
 | `val:follows` | Part | Another part. This part takes that part's gain plus the difference between the two `val:level` values, instead of being levelled by its own rms. For sparse percussion that should keep its balance with the kit | none |
 | `val:source` | Return | The part whose stem is the return's input | required |
 | `val:pan` | Part, Return | -1 left, 0 centre, 1 right. A stereo stem keeps its image and takes the pan as a balance | 0 |
@@ -98,7 +99,8 @@ few hits as loud as a full kit. Give it `val:follows` and the name of another pa
 the difference between the two `val:level` values, so it keeps the balance it was played at. Only a part that is not itself a
 follower can be followed, and a return cannot follow. A return may also name a `val:midi` file, which is played into its
 circuit as well as the source stem; a rotating speaker whose speed is a MIDI note is the example.
-A part that exists only to feed a return can be set to -80 dB so it is not heard in the mix.
+A part that exists only to feed a return takes `val:silent true`: it is rendered, so the return can read its stem, but it is
+left out of the mix. A return cannot be silent, and a silent part cannot be followed.
 
 **The room.** `val:roomAmount` is how much of it is added, `val:roomDecay` how long it takes to fall by 60 dB, and
 `val:roomLowpass` darkens its tail. The impulse is four decays long, noise from a fixed seed, so the mix is repeatable.

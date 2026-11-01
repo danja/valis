@@ -1,7 +1,6 @@
 ## Misc
 
-* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle. Add a
-  `val:silent` flag for a part that only feeds a return (the dry organ in `autumn-leaves` is set to -80 dB now). The stem checks
+* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle. The stem checks
   the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
   block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
@@ -354,10 +353,9 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
 * **MCP server is off after launch.** The Standalone starts with the server disabled, and an agent sees
   only a refused connection. Either start it with the app when a token or port is configured, or have
   the Standalone say in its window that the server is off and how to turn it on.
-* **`get_diagnostics` reports `sampleRate` 8000** for the live Standalone (checked again over MCP) while `render` uses 48000. The
-  engine's own default is 44100 and `ValisProcessor::prepareToPlay` passes the host's rate straight through, so 8000 is the rate the
-  Standalone's audio device was opened at: the live app is running at telephone bandwidth. Not looked at: why the device setup
-  chose it (JUCE's default for the device, or a saved setting). A fix is to ask the device for 48000 when the Standalone starts.
+* **Standalone opened its audio device at 8000 Hz.** `get_diagnostics` showed `sampleRate` 8000 (the engine passes the host's rate
+  through, and the saved settings had no audio setup, so JUCE took the device's first listed rate). `ValisEditor` now asks for
+  48000 when the device is under 32 kHz. Not checked in the running app: rebuild, relaunch, and `get_diagnostics` should say 48000.
 * **Authoring cost.** Eight circuits took eight hand-written generators, because Turtle with one
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.

@@ -10,6 +10,7 @@
 #include "valis/Freesound.h"
 #include "valis/OfflineRender.h"
 #include "valis/Song.h"
+#include "valis/SongCheck.h"
 #include "valis/SongMix.h"
 #include "valis/SongRender.h"
 #include "valis/Lint.h"
@@ -1675,6 +1676,58 @@ OpResult OpDispatcher::renderSong(const std::string& path, const std::vector<std
     auto* root = new juce::DynamicObject();
     root->setProperty("stems", stems);
     return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
+}
+
+OpResult OpDispatcher::checkSongStems(const std::string& path, const std::string& wavDirectory) const
+{
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
+
+    const auto result = valis::checkSongStems(song, file.getParentDirectory().getFullPathName().toStdString(),
+                                              inSongDirectory(file, wavDirectory, "wavs").toStdString());
+    juce::Array<juce::var> stems;
+    std::string failures;
+    for (const auto& r : result.stems)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(r.name));
+        o->setProperty("found", r.found);
+        if (r.found)
+        {
+            o->setProperty("notes", r.notes);
+            o->setProperty("peak", r.peak);
+            o->setProperty("rmsDb", r.rmsDb);
+            juce::Array<juce::var> bars;
+            for (const auto& b : r.bars)
+            {
+                auto* bo = new juce::DynamicObject();
+                bo->setProperty("bar", b.bar);
+                bo->setProperty("section", juce::String(b.section));
+                bo->setProperty("notes", b.notes);
+                bo->setProperty("rmsDb", b.rmsDb);
+                bars.add(juce::var(bo));
+            }
+            o->setProperty("bars", bars);
+        }
+        juce::Array<juce::var> problems;
+        for (const auto& p : r.problems)
+        {
+            problems.add(juce::String(p));
+            failures += "\n  " + r.name + ": " + p;
+        }
+        o->setProperty("problems", problems);
+        stems.add(juce::var(o));
+    }
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty("ok", result.ok);
+    root->setProperty("stems", stems);
+    const auto json = juce::JSON::toString(juce::var(root)).toStdString();
+    if (! result.ok)
+        return OpResult::failure("the stems have problems:" + failures + "\n" + json);
+    return OpResult::success(json);
 }
 
 OpResult OpDispatcher::mixSong(const std::string& path, const std::string& version, bool arc,

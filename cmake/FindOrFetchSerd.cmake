@@ -7,7 +7,7 @@
 # and compiled by the hand-written shims below. Both projects check in their
 # *_config.h, so they compile with no meson-generated header.
 
-include(FetchContent)
+include(ValisDeps)
 find_package(PkgConfig QUIET)
 
 set(_valis_serd_system FALSE)
@@ -28,7 +28,7 @@ if(_valis_serd_system)
   target_link_libraries(valis_serd INTERFACE PkgConfig::SERD)
   target_link_libraries(valis_sord INTERFACE PkgConfig::SORD)
 else()
-  message(STATUS "valis: system serd/sord not found, fetching sources")
+  message(STATUS "valis: no system serd/sord 0.32 or later; using sources kept in deps/ (fetched once)")
 
   FetchContent_Declare(serd
     GIT_REPOSITORY https://github.com/drobilla/serd
@@ -38,7 +38,7 @@ else()
     GIT_REPOSITORY https://github.com/drobilla/sord
     GIT_TAG v0.16.8
     GIT_SHALLOW TRUE)
-  FetchContent_MakeAvailable(serd sord)
+  valis_make_available(serd sord)
 
   # serdi.c is the command-line tool's main(), not library code.
   add_library(valis_serd STATIC

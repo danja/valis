@@ -134,7 +134,7 @@ int main()
     assert(read(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent true ;"), quiet, diagnostics));
     assert(quiet.findStem("kit")->silent && ! quiet.findStem("bass")->silent);
     assert(fails(without("val:source :kit ;", "val:source :kit ; val:silent true ;"), "cannot be val:silent"));
-    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent maybe ;"), "true or false"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent \"maybe\" ;"), "true or false"));
     assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :bass ;") + ":bass val:silent true .", "not in the mix"));
 
     Song played;

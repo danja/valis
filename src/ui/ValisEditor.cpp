@@ -17,6 +17,23 @@ namespace valis {
 ValisEditor::ValisEditor(ValisProcessor& p)
     : juce::AudioProcessorEditor(&p), processor(p)
 {
+    // The standalone's first run has no saved audio setup, and JUCE then takes whatever rate the device lists
+    // first, which has been 8000 Hz. A rate under 32 kHz is never wanted here, so ask for 48000 once the window is up.
+    juce::MessageManager::callAsync([]
+    {
+        if (auto* holder = juce::StandalonePluginHolder::getInstance())
+        {
+            auto setup = holder->deviceManager.getAudioDeviceSetup();
+            if (setup.sampleRate > 0.0 && setup.sampleRate < 32000.0)
+            {
+                setup.sampleRate = 48000.0;
+                const auto error = holder->deviceManager.setAudioDeviceSetup(setup, true);
+                if (error.isNotEmpty())
+                    juce::Logger::writeToLog("Valis: could not set 48 kHz: " + error);
+            }
+        }
+    });
+
     const auto bg = juce::Colour(0xff1e1e22);
     // The panel is usually taller than the window, and the only sign of that is
     // its scrollbar, so it gets a visible one rather than the default hairline.

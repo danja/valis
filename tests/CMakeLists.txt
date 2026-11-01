@@ -82,6 +82,7 @@ set(VALIS_TESTS
   ops/AgentResourcesTest.cpp
   ops/LintTest.cpp
   ops/SongMixTest.cpp
+  ops/SongCheckTest.cpp
   ops/SongRenderTest.cpp
   ops/OpDispatcherTest.cpp
   docs/GuideTest.cpp
