@@ -223,6 +223,54 @@ void testStereoTailsAreAlikeButNotCopies()
 
 }  // namespace
 
+/// The loop lowpass was a fixed pole per sample, so its corner rose with the rate: at 192 kHz the highs lasted
+/// far longer than at 48 kHz (the 8 kHz band 32 dB higher half a second in). The high band of the tail, against
+/// the low band, must fall at the same pace at any rate.
+void testDampingHoldsAtOtherRates()
+{
+    const auto tilt = [](double rate)
+    {
+        ElementTestFixture rig("Reverb", rate);
+        rig.set("mix", 1.0f);
+        rig.set("damping", 0.6f);
+        rig.set("decay", 2.0f);
+        const int total = static_cast<int>(rate * 1.2);
+        std::vector<float> in(static_cast<std::size_t>(total), 0.0f);
+        std::uint32_t seed = 12345u;
+        for (int i = 0; i < static_cast<int>(rate * 0.25); ++i)
+        {
+            seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+            in[static_cast<std::size_t>(i)] = 0.3f * static_cast<float>(static_cast<std::int32_t>(seed)) * 4.6566129e-10f;
+        }
+        const auto out = rig.run(in);
+        // Level of a band over 0.5 s to 1.1 s, by a Hann-windowed transform at a few frequencies in it.
+        const auto band = [&](double centre)
+        {
+            double power = 0.0;
+            const auto a = static_cast<std::size_t>(0.5 * rate), b = static_cast<std::size_t>(1.1 * rate);
+            for (double f = centre * 0.8; f <= centre * 1.25; f += centre * 0.05)
+            {
+                double re = 0.0, im = 0.0;
+                for (std::size_t i = a; i < b; ++i)
+                {
+                    const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(i - a) / static_cast<double>(b - a));
+                    re += out[i] * w * std::cos(2.0 * M_PI * f * static_cast<double>(i) / rate);
+                    im += out[i] * w * std::sin(2.0 * M_PI * f * static_cast<double>(i) / rate);
+                }
+                power += re * re + im * im;
+            }
+            return 10.0 * std::log10(power + 1.0e-30);
+        };
+        return band(6000.0) - band(500.0);
+    };
+    const double reference = tilt(48000.0);
+    for (const double rate : {44100.0, 96000.0, 192000.0})
+    {
+        std::printf("  reverb: high band %.1f dB under the low at %.0f Hz (%.1f at 48 kHz)\n", tilt(rate), rate, reference);
+        assert(std::abs(tilt(rate) - reference) < 4.0);
+    }
+}
+
 int main()
 {
     testMixZeroIsDry();
@@ -233,6 +281,7 @@ int main()
     testSmallerRoomFillsInSooner();
     testResizingStaysFinite();
     testStereoTailsAreAlikeButNotCopies();
+    testDampingHoldsAtOtherRates();
 
     std::printf("ReverbTest PASSED\n");
     return 0;

@@ -30,10 +30,10 @@ std::vector<float> settled(ElementTestFixture& rig, int blocks = 24)
     return out;
 }
 
-double dominantFrequency(const std::vector<float>& signal, double near)
+double dominantFrequency(const std::vector<float>& signal, double near, double rate = kRate)
 {
     const auto bins = ElementTestFixture::computeSpectrum(signal, 12);
-    const double binWidth = kRate / kBlock;
+    const double binWidth = rate / kBlock;
 
     std::size_t peak = static_cast<std::size_t>(near * 0.7 / binWidth);
     const std::size_t last = static_cast<std::size_t>(near * 1.4 / binWidth);
@@ -144,6 +144,37 @@ void testHasManyHarmonics()
     assert(drop > -30.0);
 }
 
+/// The same horn at another host sample rate plays the same note at the same loudness. The lip resonator and the
+/// loss filter were once fixed per-sample values, so at 88.2 kHz and above the lips were too broad to hold the
+/// oscillation: a start-up burst, then silence 43 dB down (found by the multi-rate conformance report).
+void testSoundsTheSameAtOtherRates()
+{
+    auto level = [](double rate, double& pitch) {
+        ElementTestFixture rig("Brass", rate);
+        rig.set("frequency", 262.0f);
+        rig.set("pressure", 0.5f);
+        std::vector<float> out;
+        const std::vector<float> silence(static_cast<std::size_t>(kBlock), 0.0f);
+        for (int i = 0; i < static_cast<int>(24 * rate / kRate); ++i)
+            out = rig.run(silence);
+        pitch = dominantFrequency(out, 262.0, rate);
+        return 20.0 * std::log10(std::max(ElementTestFixture::measureRms(out), 1.0e-9f));
+    };
+
+    double referencePitch = 0.0;
+    const double referenceDb = level(48000.0, referencePitch);
+    assert(referenceDb > -30.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        double pitch = 0.0;
+        const double db = level(rate, pitch);
+        assert(std::abs(db - referenceDb) < 2.0);
+        // The lips, the loss filter and the DC blocker were once fixed per sample; with the DC blocker's corner at
+        // 153 Hz at 192 kHz the note was 34 cents sharp. Within 15 cents is bin resolution plus a little.
+        assert(std::abs(1200.0 * std::log2(pitch / referencePitch)) < 15.0);
+    }
+}
+
 }  // namespace
 
 int main()
@@ -152,6 +183,7 @@ int main()
     testSpeaksAtTheGivenPitch();
     testBrighterWhenBlownHarder();
     testHasManyHarmonics();
+    testSoundsTheSameAtOtherRates();
     std::printf("BrassTest PASSED\n");
     return 0;
 }

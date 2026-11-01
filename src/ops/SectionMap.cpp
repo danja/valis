@@ -135,6 +135,7 @@ SectionMap findSections(const std::vector<float>& mono, double sampleRate, const
     // One feature row per second, and the second's RMS level.
     std::vector<std::array<double, kDims>> rows(seconds);
     std::vector<double> rmsDb(seconds, -120.0);
+    std::vector<double> pitchedPower(seconds, 0.0), allPower(seconds, 0.0);   // for the share of energy chroma can read
     std::vector<std::array<double, 12>> rawChroma(seconds);   // before standardising, for the dominant pitch class
     for (std::size_t s = 0; s < seconds; ++s)
     {
@@ -159,6 +160,9 @@ SectionMap findSections(const std::vector<float>& mono, double sampleRate, const
             {
                 const double magnitude = buffer[static_cast<std::size_t>(b)] / (kFrame / 2);
                 const auto& info = bins[static_cast<std::size_t>(b)];
+                allPower[s] += magnitude * magnitude;
+                if (info.pitchClass >= 0)
+                    pitchedPower[s] += magnitude * magnitude;
                 for (int k = 0; k < info.used; ++k)
                     melSum[static_cast<std::size_t>(info.bands[static_cast<std::size_t>(k)].first)]
                         += magnitude * info.bands[static_cast<std::size_t>(k)].second;
@@ -260,6 +264,13 @@ SectionMap findSections(const std::vector<float>& mono, double sampleRate, const
         }
         sec.energyDb = energy / static_cast<double>(b - a);
         sec.dominantPitchClass = static_cast<int>(std::max_element(chroma.begin(), chroma.end()) - chroma.begin());
+        double pitched = 0.0, all = 0.0;
+        for (std::size_t s = a; s < b; ++s)
+        {
+            pitched += pitchedPower[s];
+            all += allPower[s];
+        }
+        sec.pitchedShare = all > 0.0 ? pitched / all : 0.0;
         sec.key = estimateKey(chroma);
 
         if (stereo != nullptr && stereo->seconds.size() >= b)

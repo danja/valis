@@ -27,7 +27,7 @@ struct TempoCandidate
 
 struct TempoEstimate
 {
-    bool found = false;      ///< false for silence, a signal under 8 s, or no repeating pulse
+    bool found = false;      ///< false for silence, a signal under 8 s, or no repeating pulse (a pad: candidates unrelated to each other)
     std::vector<TempoCandidate> candidates;   ///< most likely first, which weighs strength by a preference for tempos near 120; at most 4, no two within 3% of each other
 
     double bpm() const { return candidates.empty() ? 0.0 : candidates.front().bpm; }

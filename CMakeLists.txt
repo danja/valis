@@ -49,6 +49,9 @@ add_library(valis_core STATIC
   src/dsp/elements/Spectral.cpp
   src/dsp/elements/NamModel.cpp
   src/dsp/elements/Reverb.cpp
+  src/dsp/elements/Vocoder.cpp
+  src/dsp/elements/ToneStack.cpp
+  src/dsp/elements/Sampler.cpp
   src/dsp/elements/Wavetable.cpp
   src/dsp/elements/TimeStretch.cpp
   src/dsp/elements/Utility.cpp

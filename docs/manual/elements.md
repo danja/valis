@@ -302,7 +302,7 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `speed` | Speed | 1.5 | 0.01 to 100 |  |
-| `amount` | Amount | 1 | 0 to 1000 |  |
+| `amount` | Amount | 1 | 0 to 3000 |  |
 | `centre` | Centre | 0 | -1e+06 to 1e+06 |  |
 | `seed` | Seed | 1 | 0 to 65535 |  |
 
@@ -331,7 +331,7 @@ Nonlinear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `attack` | Attack | 10 | 0.1 to 5000 | ms |
-| `decay` | Decay | 200 | 0.1 to 5000 | ms |
+| `decay` | Decay | 200 | 0.1 to 10000 | ms |
 | `sustain` | Sustain | 0.7 | 0 to 1 |  |
 | `release` | Release | 300 | 0.1 to 10000 | ms |
 | `gate` | Gate | -1 | -1 to 1 |  |
@@ -1037,6 +1037,21 @@ Linear.
 | `damping` | Damping | 0.3 | 0 to 1 |  |
 | `mix` | Mix | 0.3 | 0 to 1 |  |
 
+## val:RingModulator
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `frequency` | Frequency | 440 | 0.1 to 10000 | Hz |
+| `mix` | Mix | 1 | 0 to 1 |  |
+
 ## val:SampleLoad
 
 Nonlinear.
@@ -1051,6 +1066,26 @@ Nonlinear.
 | `start` | Start | 0 | 0 to 1 |  |
 | `loop` | Loop | 1 | 0 to 1 |  |
 | `trigger` | Trigger | -1 | -1 to 1 |  |
+| `choke` | Choke | 0 | 0 to 1 |  |
+
+## val:Sampler
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `gain` | Gain | 0 | -60 to 24 | dB |
+| `tune` | Tune | 0 | -24 to 24 |  |
+| `attack` | Attack | 0 | 0 to 2000 | ms |
+| `release` | Release | 30 | 0 to 5000 | ms |
+| `velocity` | Velocity | 1 | 0 to 1 |  |
+| `loop` | Loop | 1 | 0 to 1 |  |
+| `keytrack` | Key track | 1 | 0 to 1 |  |
+| `oneshot` | One shot | 0 | 0 to 1 |  |
 | `choke` | Choke | 0 | 0 to 1 |  |
 
 ## val:Scale
@@ -1286,6 +1321,22 @@ Nonlinear.
 | `start` | Start | 0 | 0 to 1 |  |
 | `trigger` | Trigger | -1 | -1 to 1 |  |
 
+## val:ToneStack
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `treble` | Treble | 0.5 | 0 to 1 |  |
+| `middle` | Middle | 0.5 | 0 to 1 |  |
+| `bass` | Bass | 0.5 | 0 to 1 |  |
+
 ## val:Transport
 
 Nonlinear.
@@ -1366,6 +1417,25 @@ Nonlinear.
 | `probability` | Probability | 1 | 0 to 1 |  |
 | `steps` | Steps | 0 | 0 to 64 |  |
 | `seed` | Seed | 1 | 0 to 65535 |  |
+
+## val:Vocoder
+
+Nonlinear.
+
+**Audio in**: `in`, `carrier`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `bands` | Bands | 16 | 2 to 32 |  |
+| `low` | Low | 100 | 20 to 2000 | Hz |
+| `high` | High | 8000 | 500 to 20000 | Hz |
+| `attack` | Attack | 5 | 0.1 to 100 | ms |
+| `release` | Release | 30 | 1 to 500 | ms |
+| `mix` | Mix | 1 | 0 to 1 |  |
 
 ## val:Wavetable
 

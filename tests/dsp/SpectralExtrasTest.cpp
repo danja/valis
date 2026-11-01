@@ -113,6 +113,37 @@ void testSpectralDelaySpreadsTheSpectrum()
     assert(highFirst < -0.030 * kRate);
 }
 
+/// The spread was placed by bin number, so at 192 kHz a delay meant for 8 kHz landed on 1.3 kHz's place in the
+/// spectrum: the time between a low and a high tone must be the same at any rate.
+void testSpectralDelaySpreadHoldsAtOtherRates()
+{
+    const auto lag = [](double rate)
+    {
+        const auto arrival = [rate](double hz)
+        {
+            ElementTestFixture rig("SpectralDelay", rate);
+            rig.set("time", 100.0f);
+            rig.set("spread", 1.0f);
+            rig.set("feedback", 0.0f);
+            rig.set("mix", 1.0f);
+            const int length = static_cast<int>(rate * 256 / 48000), total = static_cast<int>(rate * 0.8);
+            std::vector<float> in(static_cast<std::size_t>(total), 0.0f);
+            for (int i = 0; i < length; ++i)
+                in[static_cast<std::size_t>(i)] = static_cast<float>(
+                    (0.5 - 0.5 * std::cos(2.0 * M_PI * i / length)) * std::sin(2.0 * M_PI * hz * i / rate));
+            return centroid(rig.run(in)) / rate;
+        };
+        return arrival(8000.0) - arrival(500.0);
+    };
+    const double reference = lag(48000.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        std::printf("  spectral delay: 8 kHz after 500 Hz by %.1f ms at %.0f Hz (%.1f ms at 48 kHz)\n",
+                    lag(rate) * 1000.0, rate, reference * 1000.0);
+        assert(std::abs(lag(rate) - reference) < 0.010);
+    }
+}
+
 void testSpectralDelayFeedbackRepeatsAndDecays()
 {
     ElementTestFixture rig("SpectralDelay", kRate);
@@ -304,6 +335,7 @@ int main()
 {
     testSpectralDelayPlainDelay();
     testSpectralDelaySpreadsTheSpectrum();
+    testSpectralDelaySpreadHoldsAtOtherRates();
     testSpectralDelayFeedbackRepeatsAndDecays();
     testCodecNeutralIsADelay();
     testCodecBandwidthRemovesTheTop();

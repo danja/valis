@@ -1,0 +1,71 @@
+# examples/sampler-percussion.ttl
+#
+# A sampler played from MIDI, made of the recordings in audio/ (CC0 from freesound.org; their sources are in
+# audio/README.md). One val:Sampler holds all of them and answers by key:
+#
+#   keys 40 to 64   the conga, pitched from key 40 (its own pitch is E2, 82 Hz, measured), so the keyboard plays
+#                   it as a tuned drum
+#   key 36          the Latin Percussion cowbell
+#   key 37          the synthesised ("spurc") cowbell
+#   key 38          the tropical conga hit
+#   key 39          the bell
+#
+# A key with its own sound and no root plays it at its recorded pitch, so keys 36 to 39 are a small kit. The
+# element has sixteen voices of its own, so chords and fast rolls need nothing more. Hits play to the end of the
+# sound and ignore the key being let go (oneshot), and Velocity sets how much the loudness follows the key.
+#
+# The recordings are 128 kbps previews decoded to FLAC. Replace them with the originals from freesound.org for anything that
+# depends on the top of the spectrum.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:samplerpercussion#> .
+
+:circuit a val:Circuit , trn:PluginProfile ;
+    trn:role trn:DrumInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Latin", "World", "Sound design" ;
+    rdfs:label "Sampled percussion" ;
+    val:element :sampler , :out ;
+    val:arc :aSamplerOut .
+
+:sampler a val:Sampler ;
+    val:oneshot 1.0 ;
+    val:release 60.0 ;
+    val:samples """
+        # the keyboard: one conga, pitched
+        file=audio/conga-d-sharp-4-373411.flac root=40 keys=40-64 gain=-3
+        # the kit: each on its own key, at its own pitch
+        file=audio/cowbell-lp-319149.flac key=36
+        file=audio/cowbell-spurc-376948.flac key=37 gain=-6
+        file=audio/conga-tropical-678748.flac key=38
+        file=audio/bell-536731.flac key=39 gain=-6
+    """ .
+
+:out a val:Output .
+
+:aSamplerOut a val:Arc ;
+    val:from [ val:node :sampler ; val:port "out" ] ;
+    val:to   [ val:node :out     ; val:port "in"  ] .
+
+:pGain a val:Param ; val:slot 0 ;
+    val:target :sampler ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 12 ;
+    val:section "Sampler" ;
+    units:unit units:db .
+:pTune a val:Param ; val:slot 1 ;
+    val:target :sampler ; val:property val:tune ;
+    lv2:name "Tune" ; lv2:symbol "tune" ;
+    lv2:minimum -12 ; lv2:maximum 12 ;
+    val:section "Sampler" .
+:pRelease a val:Param ; val:slot 2 ;
+    val:target :sampler ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 5 ; lv2:maximum 1000 ;
+    val:section "Sampler" ;
+    units:unit units:ms .

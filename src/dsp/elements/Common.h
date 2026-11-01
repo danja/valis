@@ -31,6 +31,28 @@ inline float timeToCoeff(float ms, double sampleRate) noexcept
     return static_cast<float>(std::exp(-1.0 / (0.001 * ms * sampleRate)));
 }
 
+/// A control value glided to its target one sample at a time, so a knob that jumps does not click. The first
+/// value after a reset is taken as it is, so an element does not start by gliding up from zero. The glide
+/// runs per sample, so the sound does not depend on how the host cut the stream.
+struct Smoothed
+{
+    float value = 0.0f;
+    bool  primed = false;
+
+    void reset() noexcept { primed = false; }
+
+    float step(float target, float coefficient) noexcept
+    {
+        if (! primed)
+        {
+            value = target;
+            primed = true;
+        }
+        value = target + coefficient * (value - target);
+        return value;
+    }
+};
+
 /// A single-input, single-output element. Most of the library is this shape.
 class MonoElement : public DspElement
 {

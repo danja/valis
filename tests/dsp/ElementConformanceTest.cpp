@@ -63,6 +63,36 @@ const Exceptions kExceptions = {
         {"FMOperator", "an oscillator: it sounds at its default level with no input to stop"},
         {"Triode",     "outputs its DC operating point, which a coupling capacitor removes in a circuit"},
     }},
+    // Differences across host rates that are not a fault, each checked by playing the element from a note or a
+    // noise burst at several rates (see the multi-rate section of TODO.md).
+    {"multirate", {
+        {"Bow",           "one low band at 88.2 kHz only; from a note the level agrees to 0.1 dB and the pitch to 0.2 Hz at every rate"},
+        {"Noise",         "white noise of a fixed level per sample has a different density at each rate"},
+        {"Phaser",        "3 dB in one band at 192 kHz, where the LFO sweep falls"},
+        {"PitchShift",    "linear interpolation in the read heads costs a little more near Nyquist at 44.1 kHz"},
+        {"Redux",         "a hold of N samples is a different frequency at each rate"},
+        {"Reverb",        "at 44.1 kHz the line lengths round differently, so a multitone meets a different comb; with noise in, the tail agrees"},
+        {"Shaker",        "the random tail of a shake at -70 dB; over the first second the levels agree within 1 dB"},
+        {"SpectralDelay", "a delay is rounded to whole hops, 5.8 ms at 44.1 kHz against 5.3 ms at 48 kHz"},
+        {"StateVariable", "1.3 dB in the 8 kHz band at 88.2 kHz, the warp of a bilinear design near Nyquist"},
+        {"Tanh",          "aliasing of the clipped tone at 192 kHz"},
+    }},
+    // A control that steps the output when it jumps and is meant to: a different note, a different circuit,
+    // or a switch between two filters. Each was found by the zipper check and looked at.
+    {"zipper", {
+        {"BucketBrigade", "time is the clock rate of the delay line, so the repeats change pitch as it moves; compander and bandwidth are the chip's own settings"},
+        {"CombFilter",    "frequency is the pitch of the comb, a new note, not a knob swept while sounding"},
+        {"FMOperator",    "an oscillator: its feedback changes the waveform itself"},
+        {"OnePole",       "mode switches between lowpass and highpass, two different filters"},
+        {"Reverb",        "size already glides (see smoothedSize); what is left is the room changing under a steady tone"},
+        {"StiffString",   "frequency is the note and dispersion the string's stiffness, both set when a note starts"},
+        {"Triode",        "mu moves the DC operating point, which a coupling capacitor removes in a circuit"},
+    }},
+    // Declared latency is the delay the element adds to line the sound up; an element whose job is to delay sound
+    // is late by more than that.
+    {"latency", {
+        {"SpectralDelay", "declares the 1024 samples of its transform; the delays it applies per band come on top"},
+    }},
     {"denormals", {
         // ValisProcessor::processBlock sets flush-to-zero with juce::ScopedNoDenormals, so a
         // subnormal here costs nothing in the plugin. valis-render and these tests do not set it.
@@ -188,6 +218,8 @@ struct Driver
     }
 };
 
+constexpr int kJumpAt = 24000;
+
 struct Failure { std::string property, element, detail; };
 std::vector<Failure> gFailures;
 
@@ -238,37 +270,41 @@ std::vector<float> multitone(double rate, int samples)
 }
 
 /// Power in each octave from 63 Hz to 8 kHz, and in all of them, in decibels, averaged over the
-/// last stretches of a signal. The window is the same number of samples at every rate: a tone's
-/// power in a window goes with the square of its length, so windows of equal duration in seconds
-/// would differ by 6 dB for every doubling of the rate and say nothing about the element.
+/// last two windows of a signal. The windows last the same time at every rate, so a decaying
+/// sound is read over the same stretch of its tail. A tone's power in a window goes with the
+/// square of the number of samples in it, so each is divided by that to compare across rates.
 std::vector<double> octaveLevels(const std::vector<float>& signal, double rate)
 {
-    constexpr int order = 14;
-    constexpr int size = 1 << order;
+    constexpr double windowSeconds = 0.34;
+    constexpr std::size_t segments = 2;
+    const auto length = static_cast<std::size_t>(std::lround(windowSeconds * rate));
+    int order = 1;
+    while ((std::size_t{1} << order) < length)
+        ++order;
+    const std::size_t size = std::size_t{1} << order;
 
     // An element with no audio output has nothing to measure.
-    if (signal.size() < static_cast<std::size_t>(size))
+    if (signal.size() < length * segments)
         return std::vector<double>(9, -300.0);
 
     juce::dsp::FFT fft(order);
-    juce::dsp::WindowingFunction<float> window(static_cast<std::size_t>(size), juce::dsp::WindowingFunction<float>::hann);
+    juce::dsp::WindowingFunction<float> window(length, juce::dsp::WindowingFunction<float>::hann);
 
-    const std::size_t segments = std::min<std::size_t>(4, signal.size() / size);
     std::vector<double> power(8, 0.0);
     double total = 0.0;
 
     for (std::size_t seg = 0; seg < segments; ++seg)
     {
-        const auto from = signal.end() - static_cast<std::ptrdiff_t>((seg + 1) * size);
-        std::vector<float> buffer(static_cast<std::size_t>(size) * 2, 0.0f);
-        std::copy(from, from + size, buffer.begin());
-        window.multiplyWithWindowingTable(buffer.data(), static_cast<std::size_t>(size));
+        const auto from = signal.end() - static_cast<std::ptrdiff_t>((seg + 1) * length);
+        std::vector<float> buffer(size * 2, 0.0f);
+        std::copy(from, from + static_cast<std::ptrdiff_t>(length), buffer.begin());
+        window.multiplyWithWindowingTable(buffer.data(), length);
         fft.performFrequencyOnlyForwardTransform(buffer.data());
 
-        for (int b = 1; b < size / 2; ++b)
+        for (std::size_t b = 1; b < size / 2; ++b)
         {
-            const double hz = b * rate / size;
-            const double p = static_cast<double>(buffer[static_cast<std::size_t>(b)]) * buffer[static_cast<std::size_t>(b)];
+            const double hz = static_cast<double>(b) * rate / static_cast<double>(size);
+            const double p = static_cast<double>(buffer[b]) * buffer[b] / (static_cast<double>(length) * static_cast<double>(length));
             total += p;
             for (int band = 0; band < 8; ++band)
             {
@@ -359,6 +395,16 @@ int main()
                 }
 
                 const float level = trial % 3 == 0 ? 0.0f : (trial % 3 == 1 ? 0.5f : 1.0f);
+
+                // Trials 3 to 5 swap the noise for the two inputs that find what noise does not: a constant at
+                // full scale, which a filter with a pole near one or a stage with a bias turns into a ramp, and a
+                // full-scale square, which has the most energy a signal can and sharp edges.
+                if (trial >= 3)
+                {
+                    d.inputSignal.assign(8192, 0.0f);
+                    for (std::size_t i = 0; i < d.inputSignal.size(); ++i)
+                        d.inputSignal[i] = trial == 3 ? 1.0f : (trial == 4 ? ((i / 240) % 2 == 0 ? 1.0f : -1.0f) : -1.0f);
+                }
                 const auto out = d.render(8192, {32}, level, 77u + static_cast<std::uint32_t>(trial), &schedule);
                 if (! finite(out, 1.0e5f))
                 {
@@ -414,41 +460,59 @@ int main()
         if (kMarkers.count(type->implementation) != 0)
             continue;
 
+        // The levels of each audio output on its own. An element's outputs are rendered one after the other,
+        // and measuring the end of that run reads only the last output: for a crossover, the high-pass, whose
+        // low bands hold only the stop-band floor, which differs from rate to rate and means nothing.
         const auto render = [&](double rate)
         {
             Driver d(type, registry, rate);
             d.inputSignal = multitone(rate, static_cast<int>(rate));
-            return octaveLevels(d.render(static_cast<int>(rate), {32}, 0.0f), rate);
+            const auto flat = d.render(static_cast<int>(rate), {32}, 0.0f);
+            const auto perOutput = flat.size() / static_cast<std::size_t>(std::max(d.nAudioOut, 1));
+            std::vector<std::vector<double>> levels;
+            for (int c = 0; c < std::max(d.nAudioOut, 1); ++c)
+            {
+                const auto from = flat.begin() + static_cast<std::ptrdiff_t>(static_cast<std::size_t>(c) * perOutput);
+                levels.push_back(octaveLevels(std::vector<float>(from, from + static_cast<std::ptrdiff_t>(perOutput)), rate));
+            }
+            return levels;
         };
 
         const auto reference = render(48000.0);
-        const bool silent = reference.back() < -200.0;
 
         for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
         {
-            const auto other = render(rate);
-            if (silent)
-            {
-                if (other.back() > -200.0 && ! excused("multirate", name))
-                    gMultiRate.push_back({"multirate", name, "silent at 48 kHz, not at " + std::to_string(static_cast<int>(rate))});
-                continue;
-            }
-
+            const auto others = render(rate);
             const double overallTolerance = type->linear ? 0.5 : 1.5;
             const double bandTolerance    = type->linear ? 1.0 : 3.0;
             std::string detail;
 
-            if (std::abs(other.back() - reference.back()) > overallTolerance)
-                detail += "overall " + std::to_string(other.back() - reference.back()) + " dB; ";
-            for (int band = 0; band < 8; ++band)
+            for (std::size_t c = 0; c < reference.size(); ++c)
             {
-                // A band with nothing in it at either rate has no level to compare.
-                if (reference[static_cast<std::size_t>(band)] < reference.back() - 70.0 &&
-                    other[static_cast<std::size_t>(band)] < reference.back() - 70.0)
+                const auto& ref = reference[c];
+                const auto& other = others[c];
+                const std::string where = reference.size() > 1 ? "output " + std::to_string(c) + ": " : std::string();
+
+                if (ref.back() < -200.0)
+                {
+                    if (other.back() > -200.0)
+                        detail += where + "silent at 48 kHz, not here; ";
                     continue;
-                const double difference = other[static_cast<std::size_t>(band)] - reference[static_cast<std::size_t>(band)];
-                if (std::abs(difference) > bandTolerance)
-                    detail += std::to_string(63 << band) + " Hz " + std::to_string(difference) + " dB; ";
+                }
+                if (std::abs(other.back() - ref.back()) > overallTolerance)
+                    detail += where + "overall " + std::to_string(other.back() - ref.back()) + " dB; ";
+                for (int band = 0; band < 8; ++band)
+                {
+                    // A band with next to nothing in it at either rate has no level worth comparing: 40 dB under
+                    // the whole is leakage and floor, not something heard, and the overall level still counts. A
+                    // narrower cut-off of 70 dB listed generators for the skirt of a tone.
+                    if (ref[static_cast<std::size_t>(band)] < ref.back() - 40.0 &&
+                        other[static_cast<std::size_t>(band)] < ref.back() - 40.0)
+                        continue;
+                    const double difference = other[static_cast<std::size_t>(band)] - ref[static_cast<std::size_t>(band)];
+                    if (std::abs(difference) > bandTolerance)
+                        detail += where + std::to_string(63 << band) + " Hz " + std::to_string(difference) + " dB; ";
+                }
             }
 
             if (! detail.empty() && ! excused("multirate", name))
@@ -467,6 +531,90 @@ int main()
         std::printf("  %-12s val:%-18s %s\n", f.property.c_str(), f.element.c_str(), f.detail.substr(0, 150).c_str());
     if (! gMultiRate.empty())
         std::printf("  %zu elements differ across rates beyond the tolerance\n\n", gMultiRate.size());
+
+
+    // 7. Moving one control must not step the output. A sine goes in, one control jumps from a quarter to
+    // three quarters of its range, and the largest sample-to-sample change just after the jump is compared
+    // with the largest change in the steady sound before it. A control that is applied to the audio in one
+    // sample (a gain, a delay time, a filter corner) shows as a click, the zipper noise of a turned knob.
+    for (const auto* type : ontology.types())
+    {
+        const std::string name = vocab::shortName(type->classIri);
+        if (kMarkers.count(type->implementation) != 0 || type->portsMatching(true, false).empty()
+            || type->portsMatching(false, false).empty())
+            continue;
+
+        const auto ports = type->portsMatching(true, true);
+        std::string detail;
+        for (std::size_t index = 0; index < ports.size(); ++index)
+        {
+            const auto* port = ports[index];
+            if (port->minimum > port->maximum - 1.0e-9)
+                continue;
+            const double lo = std::max(port->minimum, -1000.0);
+            const double hi = std::min(port->maximum,  1000.0);
+
+            Driver d(type, registry);
+            d.inputSignal = std::vector<float>(static_cast<std::size_t>(kJumpAt) * 2, 0.0f);
+            for (std::size_t i = 0; i < d.inputSignal.size(); ++i)
+                d.inputSignal[i] = 0.3f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 220.0 * static_cast<double>(i) / kRate));
+
+            std::vector<float> before = d.controls, after = d.controls;
+            before[index] = static_cast<float>(lo + 0.25 * (hi - lo));
+            after[index]  = static_cast<float>(lo + 0.75 * (hi - lo));
+            const std::vector<std::vector<float>> schedule = {before, after};
+            const auto out = d.render(kJumpAt * 2, {32}, 0.0f, 1, &schedule);
+
+            const auto largestStep = [&](int from, int to)
+            {
+                float step = 0.0f;
+                for (int i = from; i < to; ++i)
+                    step = std::max(step, std::abs(out[static_cast<std::size_t>(i)] - out[static_cast<std::size_t>(i - 1)]));
+                return step;
+            };
+            const float steady = largestStep(kJumpAt - 2048, kJumpAt);
+            const float jump   = largestStep(kJumpAt, kJumpAt + 512);
+            if (jump > 0.05f && jump > 4.0f * steady)
+                detail += port->symbol + " (" + std::to_string(jump) + " against " + std::to_string(steady) + "); ";
+        }
+        if (! detail.empty() && ! excused("zipper", name))
+            fail("zipper", name, detail);
+    }
+
+
+    // 8. An element that declares latency delivers its answer that late. An impulse goes in, and where the
+    // output's energy sits is compared with what the element says: a host that compensates by the declared
+    // number lines the sound up only if the number is true. Elements that declare none are not held to it,
+    // because a delay or a resonator is late for reasons of its own.
+    for (const auto* type : ontology.types())
+    {
+        const std::string name = vocab::shortName(type->classIri);
+        if (kMarkers.count(type->implementation) != 0 || type->portsMatching(true, false).empty()
+            || type->portsMatching(false, false).empty())
+            continue;
+
+        Driver d(type, registry);
+        const int declared = d.element->latencyInSamples();
+        if (declared <= 0)
+            continue;
+
+        const int length = 16384, at = 2000;
+        d.inputSignal = std::vector<float>(static_cast<std::size_t>(length), 0.0f);
+        d.inputSignal[static_cast<std::size_t>(at)] = 0.5f;
+        const auto flat = d.render(length, {32}, 0.0f);
+        const auto out = std::vector<float>(flat.begin(), flat.begin() + length);
+
+        double energy = 0.0, moment = 0.0;
+        for (int i = 0; i < length; ++i)
+        {
+            const double e = static_cast<double>(out[static_cast<std::size_t>(i)]) * out[static_cast<std::size_t>(i)];
+            energy += e;
+            moment += e * (i - at);
+        }
+        const double measured = energy > 0.0 ? moment / energy : -1.0;
+        if (std::abs(measured - declared) > 0.1 * declared + 4.0 && ! excused("latency", name))
+            fail("latency", name, "declares " + std::to_string(declared) + " samples, the impulse comes out " + std::to_string(measured) + " late");
+    }
 
     std::map<std::string, int> perProperty;
     for (const auto& f : gFailures)

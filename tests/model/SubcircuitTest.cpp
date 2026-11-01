@@ -753,8 +753,26 @@ void testSubcircuitClassIsNotConstructibleAsAnElement()
 
 }  // namespace
 
+/// The knob's range is the binding's own where it gives one: the Controls view, the host parameter and the ops all
+/// ask ParamBinding, so a binding that narrows a port narrows it everywhere.
+void testABindingsRangeNarrowsThePorts()
+{
+    ParamBinding plain;
+    assert(plain.rangeMinimum(20.0) == 20.0 && plain.rangeMaximum(20000.0) == 20000.0);
+
+    ParamBinding narrow;
+    narrow.minimum = 100.0;
+    narrow.maximum = 500.0;
+    assert(narrow.rangeMinimum(20.0) == 100.0 && narrow.rangeMaximum(20000.0) == 500.0);
+
+    ParamBinding half;
+    half.maximum = 8.0;
+    assert(half.rangeMinimum(1.0) == 1.0 && half.rangeMaximum(10.0) == 8.0);
+}
+
 int main()
 {
+    testABindingsRangeNarrowsThePorts();
     testInstanceExpandsToInnerElements();
     testTwoInstancesDoNotCollide();
     testPortDefaultReplacesInnerValueAndInstanceOverridesIt();

@@ -497,7 +497,7 @@ std::string reportToJson(const SignalReport& r)
             const auto& s = r.sectionMap.sections[i];
             json += std::string(i ? "," : "") + "{\"startS\":" + number(s.startSeconds) + ",\"endS\":" + number(s.endSeconds)
                   + ",\"energyDb\":" + number(s.energyDb) + ",\"dominantNote\":" + quote(pitchClassName(s.dominantPitchClass))
-                  + ",\"key\":" + quote(keyName(s.key)) + ",\"keyCorrelation\":" + number(s.key.correlation);
+                  + ",\"pitchedShare\":" + number(s.pitchedShare) + ",\"key\":" + quote(keyName(s.key)) + ",\"keyCorrelation\":" + number(s.key.correlation);
             if (s.hasStereo)
                 json += ",\"widthDb\":" + number(s.widthDb) + ",\"correlation\":" + number(s.correlation);
             json += "}";

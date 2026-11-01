@@ -36,6 +36,10 @@ set(VALIS_TESTS
   dsp/DriftTest.cpp
   dsp/PitchShiftTest.cpp
   dsp/FreqShifterTest.cpp
+  dsp/RingModulatorTest.cpp
+  dsp/VocoderTest.cpp
+  dsp/ToneStackTest.cpp
+  dsp/SamplerTest.cpp
   dsp/TuningTest.cpp
   dsp/VaryTest.cpp
   dsp/TapeTest.cpp

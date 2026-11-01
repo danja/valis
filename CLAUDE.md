@@ -44,10 +44,11 @@ to confirm a running instance before using MCP tools that require a host.
 - `CompiledCircuit` is fully preallocated on the message thread and handed to the engine by atomic pointer swap; the retired one is freed on the message thread.
 - Surface failures (bad Turtle, unknown element, cycle) as located, recoverable errors. Never silence, never crash.
 - Anything that happens at a point in time is located by stream position, never by the index
-  within the current block and never by equality with a block boundary. The MISTAKES.md
-  entry on this records the same bug twice, from opposite directions: a per-sample event gated on
-  the block index, and a stream-position event compared for equality against one. An event fires
-  in the block that contains it.
+  within the current block and never by equality with a block boundary. The same bug has been made from
+  opposite directions: a per-sample event gated on the block index (an impulse that fired only when a
+  period wrapped on sample 0), and a stream-position event compared for equality against one (a note-on
+  at sample 960 never sent because blocks are 512). An event fires in the block that contains it, and a
+  test renders the train and asserts its exact count.
 
 ## Architecture rules
 
@@ -81,8 +82,8 @@ to confirm a running instance before using MCP tools that require a host.
 - A binary choice a circuit needs as two arbitrary values is a `val:Select`, not a dial with
   two meaningful positions.
 - Every position of a control must be able to differ in the circuit that exposes it. A mode
-  that collapses onto another for a given wiring is worse than no mode: see MISTAKES.md on the
-  granulator's Auto position.
+  that collapses onto another for a given wiring is worse than no mode (the granulator's Auto position
+  was the same as Record in the circuit that exposed it).
 - The panel scrolls and the pointer is usually over a dial, so a dial must not consume the
   scroll wheel. `PanelSlider` scrolls by default and adjusts only with Ctrl or Command held.
 
@@ -104,13 +105,21 @@ to confirm a running instance before using MCP tools that require a host.
 - Where the loop is nonlinear, the sounding pitch is not predictable from the delay lengths
   alone. Calibrate against measurements, fit a curve, and put a test on it: `val:Flute` does
   this for the jet ratio and again across the playing range.
+- Constants in a physical model are written for `waveguide::kDesignRate` (48 kHz) and must be carried to the
+  host rate: `poleAtRate`, `poleKeepingLowLoss`, `DcBlocker::prepare(rate)`, a fixed loop delay of
+  `rate / kDesignRate` samples, and a noise level scaled for the rate. A new element gets a test that plays it at
+  44.1, 48, 96 and 192 kHz and compares pitch and level. See MISTAKES.md. A clamp on a parameter
+  must be wider than anything a caller can legitimately reach: `Loss::setPole` once clamped at 0.98 and
+  silently moved a filter corner several times higher at 192 kHz.
 - Test the spectrum, not just pitch and stability. A model can be in tune, stable, and the
-  wrong instrument: see MISTAKES.md on the flute that was a stopped pipe.
+  wrong instrument: the first flute had a clipped jet and no even harmonics, a stopped pipe. Model the
+  excitation (`Uj * tanh((eta - y0) / b)`), not a curve that resembles it.
 - Measure harmonics against the pitch the instrument actually played, not the one it was
   asked for. A few cents of drift moves a partial out of the measurement window and reports a
   tone far purer than it is.
 - A plucked or struck instrument must keep ringing after note-off: give its envelope a release at least as long as
   its ring time and let the string's damping, not the envelope, fade the high harmonics first. See MISTAKES.md.
+  Test it with a note much shorter than the ring.
 - Prefer a physical model to a filtered oscillator for acoustic sounds: `val:Brass`, `val:Bow`, `val:Pluck` into
   `val:StiffString`, `val:ModalBank` for membranes, bars, plates and boxes, `val:Shaker` for maracas and guiro.
 
@@ -121,6 +130,30 @@ to confirm a running instance before using MCP tools that require a host.
 - The resting value for a controlled port must live in the control path (e.g., in a Scale's `val:min`), not on the element instance.
 - The compiler's topological sort uses two adjacency graphs: `cycleAdj` (audio only, for cycle detection) and `orderAdj` (audio + control, for processing order). Control sources are guaranteed to run before their destinations in the same block.
 - For drum voices using `val:TwinTBridge`, connect the amp envelope directly to the VCA cv. Route the `val:NoteGate` velocity to the TwinTBridge `velocity` port. Do not route velocity through the VCA cv path (e.g. via `val:ControlMultiply`) — velocity goes to 0 on note-off, closing the VCA before the oscillator's decay finishes.
+
+## Habits that have cost time
+
+- Read the log of every render before using its output: `nan`, `exceeds full scale` and `arc joins` there
+  mean a failed stem. A number that does not move when the inputs move means the wrong binary is running.
+- After editing anything under `examples/`, run the whole suite (or `grep -rl <name> tests/`): tests pin
+  counts and lint results of shipped files that have nothing to do with the element changed.
+- Before adding a port or mode to an existing element, grep `tests/` for its name. A test that says why a
+  port is absent is a design decision: add a new element instead.
+- Name a cause only after checking it: read the circuit and the element, render one note and look at its
+  spectrum. Muting a voice shows it is part of a peak, not why. Do not write an unchecked cause into
+  `TODO.md`; write "not looked at".
+- A debugging probe goes in a scratch program, never in a test's `main`: an early `return 0;` passes.
+- Check a port's unit and range in `vocabs/valis.ttl` before setting it in a generated circuit (a `val:hiss`
+  of 0 dB is full-scale noise). Render with no note played: an instrument must be silent.
+- A user-supplied path in a tool goes through `juce::File::getCurrentWorkingDirectory().getChildFile(...)`.
+- Do not wait for a build with `pgrep -f`: it matches the waiting shell itself. Run the build in the
+  foreground and chain the next step.
+- Code that wraps a library with its own lifecycle (a server, a device) gets a start, stop and restart test.
+- A delay read between samples inside a feedback loop is also a lowpass; a normalisation that depends on a
+  property of the data that playback changes must be applied after that change.
+- Where tests cannot construct a thing that is assembled by hand in one place, test the assembly against
+  the declaration of what it must contain (`tests/ops/ContextWiringTest.cpp`).
+- A report with a fixed window of samples measures different seconds at each rate; check it before trusting it.
 
 ## Conventions
 
@@ -163,7 +196,8 @@ to confirm a running instance before using MCP tools that require a host.
 - RDF: serd (parse/serialise), sord (in-memory store) — pinned to ≥ 0.32.0; system packages older than that have an incompatible `SerdError` struct layout that causes a SEGFAULT in the error callback. `cmake/FindOrFetchSerd.cmake` enforces this and fetches a known-good version if the system package is absent or too old.
 - DSP: `juce_dsp` — `StateVariableTPTFilter`, `LadderFilter`, `WaveShaper`, `Oscillator`, `DelayLine`, `Oversampling`, `FastMathApproximations`
 - GUI: `juce_gui_basics`, `CodeEditorComponent` for the Code tab
-- Sound files: `juce_audio_formats` - WAV, AIFF, FLAC, Ogg and MP3. Message thread only.
+- Sound files: `juce_audio_formats` - WAV, AIFF, FLAC and Ogg. Message thread only. MP3 is not compiled in
+  (`JUCE_USE_MP3AUDIOFORMAT` is off, as JUCE ships it); convert to FLAC with ffmpeg.
 - Neural ears (`valis-shot listen`): ONNX Runtime, behind `VALIS_WITH_ONNX` (off by default). Weights are never in git
   or fetched by a build: `scripts/shot/fetch-models.sh`, pinned and checksummed. No Python in this path.
 - HTTP: cpp-httplib; JSON: `juce::JSON` / `juce::var`

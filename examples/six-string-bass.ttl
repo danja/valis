@@ -195,7 +195,7 @@
 :p7 a val:Param ; val:slot 7 ;
     val:target :chorus ; val:property val:depth ;
     lv2:name "Chorus depth" ; lv2:symbol "chorus_depth" ;
-    lv2:minimum 0 ; lv2:maximum 6 ;
+    lv2:minimum 0 ; lv2:maximum 3.5 ;
     val:section "Chorus" .
 :p8 a val:Param ; val:slot 8 ;
     val:target :chorus ; val:property val:mix ;

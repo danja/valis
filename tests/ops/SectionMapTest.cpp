@@ -62,6 +62,18 @@ void testEachSectionIsDescribed()
     // The middle section is twice the amplitude: about 6 dB.
     assert(near(map.sections[1].energyDb - map.sections[0].energyDb, 6.02, 1.0));
     assert(! map.sections[0].hasStereo);
+    // Pure tones between 130 Hz and 5 kHz are all pitched.
+    for (const auto& s : map.sections)
+        assert(s.pitchedShare > 0.9);
+}
+
+void testASubBassHasNothingPitchedToRead()
+{
+    // 40 Hz is under the 130 Hz floor of the pitch-class profile, so its key and note say little; the share says so.
+    std::vector<float> v;
+    append(v, 40.0, 30.0, 0.4f);
+    const auto map = findSections(v, kRate);
+    assert(map.sections.size() == 1 && map.sections[0].pitchedShare < 0.05);
 }
 
 void testAnUnchangingTrackIsOneSection()
@@ -172,6 +184,7 @@ int main()
 {
     testBoundariesAreFound();
     testEachSectionIsDescribed();
+    testASubBassHasNothingPitchedToRead();
     testAnUnchangingTrackIsOneSection();
     testShortAndDegenerateInput();
     testStereoJoinsEachSection();

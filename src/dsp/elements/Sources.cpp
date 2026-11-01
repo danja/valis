@@ -555,6 +555,8 @@ public:
         const auto longest = static_cast<std::size_t>(rate / 20.0) + 4;
         bore.prepare(longest);
         jet.prepare(longest);
+        feedbackBlock.prepare(rate);
+        outputBlock.prepare(rate);
         reset();
     }
 
@@ -585,7 +587,7 @@ public:
         // The top of this range is where the loss filter's own delay stops
         // being predictable from its pole, and the instrument would go most of
         // a semitone sharp. It is already very dark by then.
-        loss.setPole(std::clamp(0.4f + 0.45f * damping, 0.05f, 0.85f));
+        loss.setPole(waveguide::poleAtRate(std::clamp(0.4f + 0.45f * damping, 0.05f, 0.85f), sampleRate));
 
         // The jet delay is inside the feedback loop, so the loop is longer than
         // the air column and the instrument would play sharp. The correction is
@@ -622,8 +624,11 @@ public:
                                           + kResidualLinear * kHz
                                           + kResidualConstant) / 1200.0f);
 
+        // The fixed part of the loop is a length of time that the calibration above found at 48 kHz, where it is one
+        // sample; at another rate it is that many samples more or fewer, or the note runs 8 cents flat at 88.2 kHz.
+        const float fixedDelay = static_cast<float>(sampleRate / waveguide::kDesignRate);
         const float length = std::max(2.0f, period * tuning * residual
-                                            - loss.phaseDelay(omega) - 1.0f);
+                                            - loss.phaseDelay(omega) - fixedDelay);
         bore.setDelay(length);
         jet.setDelay(std::max(1.0f, length * jetRatio));
 
@@ -778,6 +783,7 @@ public:
         const auto capacity = static_cast<std::size_t>(rate / 20.0) + 4;
         toBridge.prepare(capacity);
         toNut.prepare(capacity);
+        blocker.prepare(rate);
         reset();
     }
 
@@ -814,9 +820,10 @@ public:
         {
             return 1.0f - (1.0f - pole) * std::max(1.0f, frequency / kScaleAbove);
         };
-        loss.setPole(std::clamp(scaled(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f)), 0.0f, 0.9f));
-        finger.setPole(std::clamp(scaled(kFingerSoftness), 0.0f, 0.9f));
-        width.setPole(std::clamp(scaled(kBowWidth), 0.0f, 0.9f));
+        // The poles are design values for 48 kHz; at another rate the same pole would be a different filter.
+        loss.setPole(waveguide::poleAtRate(std::clamp(scaled(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.9f)), 0.0f, 0.9f), sampleRate));
+        finger.setPole(waveguide::poleAtRate(std::clamp(scaled(kFingerSoftness), 0.0f, 0.9f), sampleRate));
+        width.setPole(waveguide::poleAtRate(std::clamp(scaled(kBowWidth), 0.0f, 0.9f), sampleRate));
 
         // The wave passes each segment once per period, so the two of them come
         // to one period between them. The loss filter's own delay is known in
@@ -1028,6 +1035,7 @@ public:
         breathIdx    = controlIndex(type, "breath");
 
         bore.prepare(static_cast<std::size_t>(rate / 20.0) + 4);
+        blocker.prepare(rate);
         reset();
     }
 
@@ -1051,7 +1059,7 @@ public:
         const float damping   = std::clamp(controlAt(args, dampingIdx, 0.2f), 0.0f, 1.0f);
         const float breath    = std::clamp(controlAt(args, breathIdx, 0.02f), 0.0f, 1.0f);
 
-        loss.setPole(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.85f));
+        loss.setPole(waveguide::poleAtRate(std::clamp(kPoleBase + kPoleRange * damping, 0.05f, 0.85f), sampleRate));
 
         // Stopped at one end and open at the other, so the delay line is half a
         // period. The loss filter's own delay comes out of it, which is what
@@ -1167,7 +1175,8 @@ public:
         breathIdx   = controlIndex(type, "breath");
 
         bore.prepare(static_cast<std::size_t>(rate / 10.0) + 4);
-        reference.setPole(kReferencePole);
+        reference.setPole(atThisRate(kReferencePole));
+        blocker.prepare(rate);
         reset();
     }
 
@@ -1192,14 +1201,18 @@ public:
         const float damping   = std::clamp(controlAt(args, dampingIdx, 0.2f), 0.0f, 1.0f);
         const float breath    = std::clamp(controlAt(args, breathIdx, 0.02f), 0.0f, 1.0f);
 
-        // The lips: a two-pole resonator at the note, peak gain about 1.
+        // The lips: a two-pole resonator at the note. The radius was chosen at kDesignRate, so it is carried to
+        // other rates as the same bandwidth in hertz, and the gain at the note is kept at what the design gives there.
         const float omega = 6.283185307179586f * frequency / static_cast<float>(sampleRate);
-        const float radius = kRadiusBase + kRadiusRange * tension;
+        const float designRadius = kRadiusBase + kRadiusRange * tension;
+        const float designOmega  = 6.283185307179586f * frequency / static_cast<float>(waveguide::kDesignRate);
+        const float designGain   = (0.5f - 0.5f * designRadius * designRadius) / resonatorDenominator(designRadius, designOmega);
+        const float radius = atThisRate(designRadius);
         const float a1 = -2.0f * radius * std::cos(omega);
         const float a2 = radius * radius;
-        const float b0 = 0.5f - 0.5f * a2;
+        const float b0 = designGain * resonatorDenominator(radius, omega);
 
-        loss.setPole(kPoleRange * damping);
+        loss.setPole(atThisRate(kPoleRange * damping));
 
         // The bore is two periods long: the squared valve doubles the lip
         // frequency, so the loop closes on half the delay. What the lips and the
@@ -1246,6 +1259,19 @@ public:
     }
 
 private:
+    float atThisRate(float designPole) const noexcept { return waveguide::poleAtRate(designPole, sampleRate); }
+
+    /// |1 + a1 z^-1 + a2 z^-2| at the resonator's centre, for a pole pair of this radius: the gain at the note is the
+    /// numerator over this.
+    static float resonatorDenominator(float radius, float omega) noexcept
+    {
+        const float a1 = -2.0f * radius * std::cos(omega);
+        const float a2 = radius * radius;
+        const float re = 1.0f + a1 * std::cos(omega) + a2 * std::cos(2.0f * omega);
+        const float im = -(a1 * std::sin(omega) + a2 * std::sin(2.0f * omega));
+        return std::sqrt(re * re + im * im);
+    }
+
     /// How much longer than two periods the bore must be, in cents, to sound the note, against octaves above
     /// kTableBase. Measured at mid pressure (tests/dsp/BrassTest.cpp) and linear between the points: the lips
     /// pull the pitch about 0.43 cents for each cent of delay, which is why these are larger than the error.
@@ -1351,6 +1377,10 @@ public:
         setResonator(a, frequency, resonance, rate);
         setResonator(b, frequency * kSecondRatio, resonance, rate);
 
+        // Noise of a fixed level per sample into these resonators puts out power in proportion to the rate: the peak
+        // gain of the section goes with the rate and the noise density against it with the inverse. 48 kHz is the design.
+        const float gain = kOutputLevel * std::sqrt(static_cast<float>(waveguide::kDesignRate) / rate);
+
         float* out = args.audioOut[0];
         for (int i = 0; i < args.numSamples; ++i)
         {
@@ -1370,7 +1400,7 @@ public:
             const float excitation = level * random.bipolar();
             level *= soundCoeff;
 
-            out[i] = kOutputLevel * (resonate(a, excitation) + kSecondLevel * resonate(b, excitation));
+            out[i] = gain * (resonate(a, excitation) + kSecondLevel * resonate(b, excitation));
         }
     }
 

@@ -52,6 +52,7 @@ struct Section
     double endSeconds = 0.0;
     double energyDb = -120.0;   ///< mean of the per-second RMS levels, dBFS
     int    dominantPitchClass = 0; ///< 0 is C, 1 is C sharp, and so on to 11 for B
+    double pitchedShare = 0.0;  ///< share of the spectral energy between 130 Hz and 5 kHz, where pitch class is read
     KeyEstimate key;            ///< from the section's mean pitch-class profile
     bool   hasStereo = false;
     double widthDb = 0.0;       ///< mean width of the valid seconds; see StereoImage.h

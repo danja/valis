@@ -20,6 +20,32 @@
 
 namespace valis::elements::waveguide {
 
+/// The sample rate the loop constants of the waveguide instruments were tuned at.
+constexpr double kDesignRate = 48000.0;
+
+/// A one-pole lowpass's pole carried from kDesignRate to another rate so that it loses the same amount of the
+/// low partials per round trip, which is what sets how long a string rings. The loss at a frequency f is
+/// about (2 pi f / rate)^2 * p / (1 - p)^2 / 2, so p / (1 - p)^2 is held in proportion to the rate squared
+/// and solved for p. poleAtRate below holds the time constant instead, which keeps the brightness of a
+/// driven instrument; for a long decay it leaves the loss 23% too high at four times the rate.
+inline float poleKeepingLowLoss(float designPole, double rate) noexcept
+{
+    if (std::abs(rate - kDesignRate) < 0.5 || designPole <= 0.0f)
+        return designPole;
+    const double ratio = rate / kDesignRate;
+    const double g = static_cast<double>(designPole) / ((1.0 - designPole) * (1.0 - designPole)) * ratio * ratio;
+    return static_cast<float>(((2.0 * g + 1.0) - std::sqrt(4.0 * g + 1.0)) / (2.0 * g));
+}
+
+/// A one-pole section's pole carried from kDesignRate to another rate so that its time constant, and with it
+/// its bandwidth in hertz, stays the same. The same pole at twice the rate has half the time constant: the loop
+/// filters of an instrument then lose less at high frequencies and a lip or a bow that depends on them stops
+/// working (val:Brass fell silent at 88.2 kHz), so any pole set in a design is passed through this.
+inline float poleAtRate(float designPole, double rate) noexcept
+{
+    return std::pow(designPole, static_cast<float>(kDesignRate / rate));
+}
+
 /// A delay line read at a fractional position, by linear interpolation.
 ///
 /// The air column is rarely a whole number of samples long, and rounding it
@@ -85,7 +111,10 @@ class Loss
 public:
     void clear() noexcept { state = 0.0f; }
 
-    void setPole(float p) noexcept { pole = std::clamp(p, 0.0f, 0.98f); }
+    /// Up to 0.9995: a pole carried to a higher rate, or one that sets a corner low against the rate (a 110 Hz note's
+    /// jet filter at 192 kHz is 0.995), is close to one, and a lower ceiling silently moved the corner several times
+    /// higher and put the note 44 cents sharp.
+    void setPole(float p) noexcept { pole = std::clamp(p, 0.0f, 0.9995f); }
     float getPole() const noexcept { return pole; }
 
     float process(float input) noexcept
@@ -119,6 +148,9 @@ class DcBlocker
 public:
     void clear() noexcept { state = 0.0f; previous = 0.0f; }
 
+    /// Sets the corner to the same frequency at every rate (about 38 Hz); see poleAtRate.
+    void prepare(double rate) noexcept { coefficient = poleAtRate(kDesignCoefficient, rate); }
+
     float process(float input) noexcept
     {
         const float output = input - previous + coefficient * state;
@@ -128,7 +160,8 @@ public:
     }
 
 private:
-    static constexpr float coefficient = 0.995f;
+    static constexpr float kDesignCoefficient = 0.995f;
+    float coefficient = kDesignCoefficient;
     float state = 0.0f, previous = 0.0f;
 };
 

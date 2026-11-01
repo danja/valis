@@ -1085,6 +1085,9 @@ void registerGranular(ElementRegistry&);
 void registerSpectralElements(ElementRegistry&);
 void registerNam(ElementRegistry&);
 void registerReverb(ElementRegistry&);
+void registerVocoder(ElementRegistry&);
+void registerToneStack(ElementRegistry&);
+void registerSampler(ElementRegistry&);
 void registerWavetable(ElementRegistry&);
 void registerTimeStretch(ElementRegistry&);
 
@@ -1100,6 +1103,9 @@ ElementRegistry makeDefaultRegistry()
     registerSpectralElements(registry);
     registerNam(registry);
     registerReverb(registry);
+    registerVocoder(registry);
+    registerToneStack(registry);
+    registerSampler(registry);
     registerWavetable(registry);
     registerTimeStretch(registry);
     registerUtility(registry);

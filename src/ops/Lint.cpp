@@ -186,8 +186,8 @@ std::vector<LintFinding> lintCircuit(const CircuitModel& model)
                 || (binding.maximum && *binding.maximum > targetPort->maximum)))
             addRange("param-range-wider", binding.targetNode, binding.propertySymbol,
                 "Parameter slot " + std::to_string(binding.slot) + " (" + binding.name + ") runs from "
-                + number(binding.minimum.value_or(targetPort->minimum)) + " to "
-                + number(binding.maximum.value_or(targetPort->maximum)) + ", but " + binding.propertySymbol + " on "
+                + number(binding.rangeMinimum(targetPort->minimum)) + " to "
+                + number(binding.rangeMaximum(targetPort->maximum)) + ", but " + binding.propertySymbol + " on "
                 + shortId(binding.targetNode) + " only takes " + number(targetPort->minimum) + " to "
                 + number(targetPort->maximum) + ". Narrow the knob, or widen the port's range in the ontology.");
 

@@ -329,8 +329,10 @@ public:
         const float damping    = std::clamp(controlAt(args, dampingIndex,      0.1f), 0.0f, 1.0f);
         const float dispersion = std::clamp(controlAt(args, dispersionIndex,   0.1f), 0.0f, 1.0f);
 
-        const float ap = dispersion * 0.85f;    // allpass coefficient
-        loss.setPole(damping * 0.95f);
+        // Both are design values for 48 kHz and are carried to the current rate, so the string rings and stretches
+        // its partials the same at any host rate.
+        const float ap = allpassAtRate(dispersion * 0.85f);    // allpass coefficient
+        loss.setPole(waveguide::poleKeepingLowLoss(damping * 0.95f, sampleRate));
 
         const float omega = static_cast<float>(2.0 * M_PI * freq / sampleRate);
         line.setDelay(static_cast<float>(sampleRate / freq)
@@ -361,6 +363,19 @@ public:
 
 private:
     static constexpr int kApStages = 4;
+
+    /// An allpass coefficient carried from the design rate to the current one. With k = (1 - a) / (1 + a) the
+    /// stage delays low frequencies by 1/k samples, and its analogue corner is k times the sample rate (the
+    /// bilinear transform), so holding that corner in hertz scales k by the ratio of the rates. A coefficient
+    /// left alone gave a string whose partials stretched less the higher the host rate: partial 10 of a
+    /// 220 Hz note was 0.14% above harmonic at 48 kHz, 0.05% at 88.2 kHz and not at all at 96 kHz.
+    float allpassAtRate(float design) const noexcept
+    {
+        if (std::abs(sampleRate - waveguide::kDesignRate) < 0.5)
+            return design;   // the design rate itself is left exactly as it was tuned
+        const float k = (1.0f - design) / (1.0f + design) * static_cast<float>(waveguide::kDesignRate / sampleRate);
+        return (1.0f - k) / (1.0f + k);
+    }
 
     /// Phase delay of one allpass stage at omega, in samples.
     static float allpassPhaseDelay(float coefficient, float omega) noexcept
@@ -461,7 +476,10 @@ public:
             // Scale input by (1-r) so the resonator peak amplitude is independent
             // of T60: without this, a long decay builds up to ~1/(1-r) times the
             // input, which overflows the DAW's headroom at T60 > 500 ms.
-            const float gain  = tilt * (1.0f - r);
+            // The peak gain of a two-pole resonator goes as 1 / sin(omega), which grows with the rate; holding
+            // it at its 48 kHz value makes a tone through the bank come out the same at any rate.
+            const float design = std::sin(twoPi * fn / static_cast<float>(waveguide::kDesignRate));
+            const float gain  = tilt * (1.0f - r) * std::sin(omega) / std::max(design, 1.0e-6f);
 
             float y1 = res[n].y1;
             float y2 = res[n].y2;
@@ -661,6 +679,7 @@ public:
         rateIndex  = controlIndex(type, "rate");
         depthIndex = controlIndex(type, "depth");
         mixIndex   = controlIndex(type, "mix");
+        glide      = timeToCoeff(10.0f, rate);
 
         const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
         buffer.assign(static_cast<std::size_t>(len), 0.0f);
@@ -672,6 +691,8 @@ public:
     {
         std::fill(buffer.begin(), buffer.end(), 0.0f);
         writePos = 0;
+        depthGlide.reset();
+        mixGlide.reset();
 
         // Evenly spaced round the cycle, and back there when the transport relocates.
         for (int v = 0; v < kVoices; ++v)
@@ -688,7 +709,6 @@ public:
         const float mix     = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
 
         const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
-        const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
         const double phaseInc     = static_cast<double>(rate) / sampleRate;
         const int   bufLen        = static_cast<int>(buffer.size());
 
@@ -697,6 +717,8 @@ public:
 
         for (int i = 0; i < args.numSamples; ++i)
         {
+            const float depthSamples = static_cast<float>(sampleRate) * depthGlide.step(depth, glide) * 0.001f;
+            const float mixNow       = mixGlide.step(mix, glide);
             buffer[static_cast<std::size_t>(writePos)] = in[i];
 
             // The delay follows the LFO sample by sample. Held for a whole block it would step
@@ -718,7 +740,7 @@ public:
                 if (phase[v] >= 1.0) phase[v] -= 1.0;
             }
             wet /= static_cast<float>(kVoices);
-            out[i] = in[i] * (1.0f - mix) + wet * mix;
+            out[i] = in[i] * (1.0f - mixNow) + wet * mixNow;
 
             if (++writePos >= bufLen)
                 writePos = 0;
@@ -730,6 +752,8 @@ private:
     int    writePos     = 0;
     double phase[kVoices]{};
     double sampleRate   = 44100.0;
+    float  glide        = 0.0f;
+    Smoothed depthGlide, mixGlide;
     int rateIndex = -1, depthIndex = -1, mixIndex = -1;
 };
 
@@ -752,6 +776,7 @@ public:
         depthIndex = controlIndex(type, "depth");
         fbIndex    = controlIndex(type, "feedback");
         mixIndex   = controlIndex(type, "mix");
+        glide      = timeToCoeff(10.0f, rate);
 
         const int len = static_cast<int>(rate * kBufMs * 0.001) + 4;
         buffer.assign(static_cast<std::size_t>(len), 0.0f);
@@ -764,6 +789,9 @@ public:
         writePos      = 0;
         phase         = 0.0;
         feedbackState = 0.0f;
+        depthGlide.reset();
+        feedbackGlide.reset();
+        mixGlide.reset();
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -777,7 +805,6 @@ public:
         const float mix   = std::clamp(controlAt(args, mixIndex,   0.5f), 0.0f, 1.0f);
 
         const float centerSamples = static_cast<float>(sampleRate) * kCenterMs * 0.001f;
-        const float depthSamples  = static_cast<float>(sampleRate) * depth * 0.001f;
         const double phaseInc     = static_cast<double>(rate) / sampleRate;
         const int   bufLen        = static_cast<int>(buffer.size());
 
@@ -787,7 +814,10 @@ public:
 
         for (int i = 0; i < args.numSamples; ++i)
         {
-            buffer[static_cast<std::size_t>(writePos)] = in[i] + fb * fbSample;
+            const float depthSamples = static_cast<float>(sampleRate) * depthGlide.step(depth, glide) * 0.001f;
+            const float fbNow        = feedbackGlide.step(fb, glide);
+            const float mixNow       = mixGlide.step(mix, glide);
+            buffer[static_cast<std::size_t>(writePos)] = in[i] + fbNow * fbSample;
 
             // The delay follows the LFO sample by sample, so it neither steps at a block
             // boundary nor depends on where the host put one.
@@ -803,7 +833,7 @@ public:
             const float wet = buffer[static_cast<std::size_t>(r0)] * (1.0f - frac)
                             + buffer[static_cast<std::size_t>(r1)] * frac;
             fbSample = wet;
-            out[i] = in[i] * (1.0f - mix) + wet * mix;
+            out[i] = in[i] * (1.0f - mixNow) + wet * mixNow;
 
             if (++writePos >= bufLen) writePos = 0;
         }
@@ -816,6 +846,8 @@ private:
     double phase          = 0.0;
     float  feedbackState  = 0.0f;
     double sampleRate     = 44100.0;
+    float  glide          = 0.0f;
+    Smoothed depthGlide, feedbackGlide, mixGlide;
     int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
 };
 
@@ -838,12 +870,14 @@ public:
         depthIndex = controlIndex(type, "depth");
         fbIndex    = controlIndex(type, "feedback");
         mixIndex   = controlIndex(type, "mix");
+        glide      = timeToCoeff(10.0f, rate);
 
         reset();
     }
 
     void reset() override
     {
+        mixGlide.reset();
         std::fill(xm1, xm1 + kStages, 0.0f);
         std::fill(ym1, ym1 + kStages, 0.0f);
         phase   = 0.0;
@@ -893,7 +927,8 @@ public:
                 x = y;
             }
             fbState = x;
-            out[i] = in[i] * (1.0f - mix) + x * mix;
+            const float mixNow = mixGlide.step(mix, glide);
+            out[i] = in[i] * (1.0f - mixNow) + x * mixNow;
         }
     }
 
@@ -907,6 +942,8 @@ private:
     int    untilUpdate = 0;
     float  fbState    = 0.0f;
     double sampleRate = 44100.0;
+    float  glide      = 0.0f;
+    Smoothed mixGlide;
     int rateIndex = -1, depthIndex = -1, fbIndex = -1, mixIndex = -1;
 };
 
@@ -1305,6 +1342,51 @@ private:
     std::vector<float> line;
     int offset[2] = {0, 0};   ///< where each head's last jump was placed, in samples
     int pitchIndex = -1, mixIndex = -1, alignIndex = -1;
+};
+
+/// Ring modulator: the input multiplied by a sine carrier. A partial at f comes out as two, at the carrier
+/// plus f and the carrier minus f, and the input itself is not in the output, so the result is inharmonic
+/// unless the carrier is a multiple of the pitch. The carrier phase runs on across blocks and the frequency
+/// is read once per block, so a moving control does not click.
+class RingModulator final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double rate, int) override
+    {
+        sampleRate     = rate;
+        frequencyIndex = controlIndex(type, "frequency");
+        mixIndex       = controlIndex(type, "mix");
+        reset();
+    }
+
+    void reset() override { phase = 0.0; }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numAudioIn < 1 || args.numAudioOut < 1)
+            return;
+
+        const double frequency = std::clamp(static_cast<double>(controlAt(args, frequencyIndex, 440.0f)),
+                                            0.0, 0.45 * sampleRate);
+        const float  mix       = std::clamp(controlAt(args, mixIndex, 1.0f), 0.0f, 1.0f);
+        const double step      = frequency / sampleRate;
+        const float* in        = args.audioIn[0];
+        float*       out       = args.audioOut[0];
+
+        for (int i = 0; i < args.numSamples; ++i)
+        {
+            const float carrier = static_cast<float>(std::sin(6.283185307179586 * phase));
+            phase += step;
+            if (phase >= 1.0)
+                phase -= 1.0;
+            out[i] = in[i] + mix * (in[i] * carrier - in[i]);
+        }
+    }
+
+private:
+    double sampleRate = 48000.0;
+    double phase = 0.0;
+    int frequencyIndex = -1, mixIndex = -1;
 };
 
 /// Frequency shifter: every partial moves by the same number of hertz, so a harmonic
@@ -1789,6 +1871,7 @@ void registerFilters(ElementRegistry& registry)
     registry.add("Redux",         &make<elements::Redux>);
     registry.add("PitchShift",    &make<elements::PitchShift>);
     registry.add("FreqShifter",   &make<elements::FreqShifter>);
+    registry.add("RingModulator", &make<elements::RingModulator>);
     registry.add("Tape",          &make<elements::Tape>);
     registry.add("BucketBrigade", &make<elements::BucketBrigade>);
 }

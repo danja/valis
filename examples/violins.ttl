@@ -29,7 +29,7 @@
 
              [ a lv2:InputPort , lv2:ControlPort ;
                lv2:symbol "position" ; lv2:name "Bow position" ;
-               lv2:default 0.09 ; lv2:minimum 0.04 ; lv2:maximum 0.3 ;
+               lv2:default 0.09 ; lv2:minimum 0.05 ; lv2:maximum 0.3 ;
                val:node :string ; val:port "position" ] ,
 
              [ a lv2:InputPort , lv2:ControlPort ;
@@ -200,7 +200,7 @@
 
 :wood a val:ModalBank ;
     val:frequency 460.0 ;
-    val:decay 0.04 ;
+    val:decay 0.05 ;
     val:brightness 0.7 .
 
 :hill a val:StateVariable ;
@@ -279,7 +279,7 @@
 :p1 a val:Param ; val:slot 1 ;
     val:target :poly ; val:property val:position ;
     lv2:name "Bow position" ; lv2:symbol "bow_position" ;
-    lv2:minimum 0.04 ; lv2:maximum 0.3 ;
+    lv2:minimum 0.05 ; lv2:maximum 0.3 ;
     val:section "Bow" .
 :p2 a val:Param ; val:slot 2 ;
     val:target :poly ; val:property val:attack ;

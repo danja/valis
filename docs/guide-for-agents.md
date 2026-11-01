@@ -312,8 +312,8 @@ compile and be silent, or clip.
   | `firstSoundAt`, `silentFraction` | whether it starts late or is mostly silent |
   | `dc`, `nonFinite` | an offset, or values that are not numbers (an unstable circuit) |
   | `stereoCorrelation`, `balanceDb` | how alike the channels are, and which is louder |
-  | `tempo` | for a signal of 8 s or more with onsets: `bpm` and up to four `candidates`, each with a `strength` from 0 to 1. A pulse also repeats at half and double speed, so read the candidates: 130 and 65 are the same pulse. If the candidates all have nearly the same strength (a pad, strings) there is no clear pulse and the figure means little |
-  | `sections` | for a signal of 20 s or more: where the sound changes most (found from the mel-band and pitch-class content of each second), each with `startS`, `endS`, `energyDb`, `dominantNote` (the commonest pitch class, whatever the octave), `key` with `keyCorrelation` (a Krumhansl-Schmuckler key estimate; the correlation is the confidence: about 0.9 is a claim, about 0.6 a guess, and "none" means no pitch to go on) and, for stereo, `widthDb` and `correlation`. The whole track's `key` and `keyCorrelation` sit beside the list. Relative keys (C major and A minor) are easily confused. Compare two renders section by section to find which part changed |
+  | `tempo` | for a signal of 8 s or more with onsets: `bpm` and up to four `candidates`, each with a `strength` from 0 to 1. A pulse also repeats at half and double speed, so read the candidates: 130 and 65 are the same pulse. No `tempo` field means no clear pulse (silence, a pad, held strings, or under 8 s). A pulse is named only when the candidates include related speeds, such as half or double the best |
+  | `sections` | for a signal of 20 s or more: where the sound changes most (found from the mel-band and pitch-class content of each second), each with `startS`, `endS`, `energyDb`, `dominantNote` (the commonest pitch class, whatever the octave), `pitchedShare` (the share of the energy between 130 Hz and 5 kHz, where pitch class is read: near 1 for a melody or chords, under about 0.2 for bass and drums, and then `dominantNote` and `key` describe the partials that sound, not the notes played), `key` with `keyCorrelation` (a Krumhansl-Schmuckler key estimate; the correlation is the confidence: about 0.9 is a claim, about 0.6 a guess, and "none" means no pitch to go on) and, for stereo, `widthDb` and `correlation`. The whole track's `key` and `keyCorrelation` sit beside the list. Relative keys (C major and A minor) are easily confused. Compare two renders section by section to find which part changed |
   | `stereoImage` | stereo files of a second or more: `widthDbPerSecond` (side level against mid level; far below 0 is near mono, about 0 is wide) and `correlationPerSecond`, null where a second is too quiet to say; `bandWidthDb` for below 250 Hz, 250 Hz to 4 kHz and above 4 kHz; and `anomalies`, ten-second stretches that differ from the track's median (also in `notes`). The arrays stop at 300 seconds |
 
   A peak of 0 means silence: check the output is wired, a gate is reaching the
@@ -445,6 +445,9 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
 
 ### Sample players, stretching and granulation
 
+- `val:Sampler` plays sounds from MIDI notes: one `val:file` pitched across the keys, or a `val:samples` table
+  of zones with key and velocity ranges, loops, choke groups and round robin, sixteen voices of its own.
+  `examples/sampler-percussion.ttl` plays the recordings in `audio/`.
 - `val:SampleLoad` plays a file; `val:TimeStretch` plays one at a different speed
   or pitch; `val:GrainBuffer` holds one for grains. The file is an option
   (`val:file`), and `set_sample` swaps it in a session without editing the document.
@@ -510,12 +513,16 @@ This table is a start for common jobs. Each port named in it exists; the test
 | `val:Limiter` | lookahead brickwall limiter | `in`, `ceiling`, `release`, `out` |
 | `val:PitchShift` | pitch shift in semitones | `in`, `pitch`, `mix`, `out` |
 | `val:FreqShifter` | shift every partial by hertz | `in`, `shift`, `feedback`, `out` |
+| `val:RingModulator` | audio times a sine carrier | `in`, `frequency`, `mix`, `out` |
+| `val:Vocoder` | band-by-band vocoder, modulator and carrier | `in`, `carrier`, `bands`, `low`, `high`, `attack`, `release`, `mix`, `out` |
+| `val:ToneStack` | Fender Bassman treble, middle and bass network | `in`, `treble`, `middle`, `bass`, `out` |
 | `val:Reed` | waveguide clarinet voice | `frequency`, `pressure`, `stiffness`, `damping`, `out` |
 | `val:Brass` | lip-reed waveguide trumpet or horn voice | `frequency`, `pressure`, `lip`, `breath`, `damping`, `out` |
 | `val:Shaker` | PhISEM shaken-particle percussion (maracas, cabasa, guiro) | `trigger`, `velocity`, `particles`, `shake`, `sound`, `frequency`, `resonance`, `regularity`, `scrape`, `out` |
 | `val:Pluck` | short plucked-string exciter for a string or comb; position and hardness set the tone | `trigger`, `velocity`, `frequency`, `position`, `hardness`, `out` |
 | `val:TwinTBridge` | bridged-T drum resonator | `frequency`, `decay`, `trigger`, `velocity`, `out` |
 | `val:SampleLoad` | plays a sound file | `speed`, `start`, `loop`, `trigger`, `choke`, `out` |
+| `val:Sampler` | plays recorded sounds from notes, as a keyboard or a kit | `gain`, `tune`, `attack`, `release`, `velocity`, `loop`, `keytrack`, `oneshot`, `choke`, `out` |
 | `val:TimeStretch` | a sound file at its own speed and pitch | `speed`, `pitch`, `formant`, `loop`, `out` |
 | `val:Input` | plugin audio input | `out`, `left`, `right` |
 | `val:Output` | plugin audio output | `in`, `left`, `right` |

@@ -82,6 +82,11 @@ struct ParamBinding
     /// is used in circuits where the physical range differs.
     std::optional<double> minimum, maximum;
 
+    /// The knob's range: the binding's own where it gives one, else the port's. The Controls view, the host
+    /// parameter and the ops all ask here, so there is one answer.
+    double rangeMinimum(double portMinimum) const noexcept { return minimum.value_or(portMinimum); }
+    double rangeMaximum(double portMaximum) const noexcept { return maximum.value_or(portMaximum); }
+
     /// The two ends of an A/B morph, in the property's own units. A binding that
     /// declares both moves between them when the morph position changes.
     std::optional<double> morphA, morphB;

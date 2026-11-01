@@ -678,8 +678,8 @@ void ValisProcessor::rebindParameters()
         parameter->setAlsoTargets(binding.alsoTargets);
         parameter->bind(binding.targetNode, binding.propertySymbol,
                         binding.name.empty() ? juce::String(port->name) : juce::String(binding.name),
-                        binding.minimum.value_or(port->minimum),
-                        binding.maximum.value_or(port->maximum),
+                        binding.rangeMinimum(port->minimum),
+                        binding.rangeMaximum(port->maximum),
                         juce::String(port->unitSymbol),
                         port->logarithmic);
 

@@ -254,6 +254,48 @@ void testBreathNoiseFollowsPressure()
 
 }  // namespace
 
+/// The same instrument at another host sample rate sounds the same. Its loop filters and DC blocker were once
+/// per-sample values, so their corners moved with the rate: at 192 kHz the clarinet was 55% brighter and 14 cents flat (found by the multi-rate conformance report).
+void testSoundsTheSameAtOtherRates()
+{
+    struct Sound { double rmsDb, centroidHz, pitchHz; };
+    const auto measure = [](double rate)
+    {
+        ElementTestFixture rig("Reed", rate);
+        rig.set("frequency", 220.0f);
+        rig.set("pressure", 0.5f);
+        const std::vector<float> silence(4096, 0.0f);
+        std::vector<float> out;
+        for (int i = 0; i < static_cast<int>(24 * rate / 48000.0); ++i)
+            out = rig.run(silence);
+
+        const auto bins = ElementTestFixture::computeSpectrum(out, 12);
+        const double binHz = rate / 4096.0;
+        double weighted = 0.0, total = 0.0;
+        std::size_t peak = 1;
+        for (std::size_t b = 1; b < bins.size() && static_cast<double>(b) * binHz < 8000.0; ++b)
+        {
+            weighted += bins[b] * static_cast<double>(b) * binHz;
+            total += bins[b];
+            if (static_cast<double>(b) * binHz < 220.0 * 1.4 && static_cast<double>(b) * binHz > 220.0 * 0.7 && bins[b] > bins[peak])
+                peak = b;
+        }
+        return Sound{20.0 * std::log10(std::max(ElementTestFixture::measureRms(out), 1.0e-9f)),
+                     total > 0.0 ? weighted / total : 0.0, static_cast<double>(peak) * binHz};
+    };
+
+    const auto reference = measure(48000.0);
+    assert(reference.rmsDb > -30.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        const auto other = measure(rate);
+        assert(std::abs(other.rmsDb - reference.rmsDb) < 1.0);
+        assert(other.centroidHz > reference.centroidHz * 0.8 && other.centroidHz < reference.centroidHz * 1.25);
+        // Within two bins of the 48 kHz peak (the bins are 11 to 47 Hz wide): a gross change of note.
+        assert(std::abs(other.pitchHz - reference.pitchHz) < 2.0 * rate / 4096.0 + 1.0);
+    }
+}
+
 int main()
 {
     testSilentUntilBlown();
@@ -264,6 +306,7 @@ int main()
     testStiffnessChangesWhatItTakesToPlay();
     testBlowingHarderIsLouder();
     testBreathNoiseFollowsPressure();
+    testSoundsTheSameAtOtherRates();
 
     std::printf("ClarinetTest PASSED\n");
     return 0;

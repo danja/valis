@@ -8,6 +8,7 @@
 // Everything is sized in prepare(); process() only reads and writes the lines.
 
 #include "Common.h"
+#include "Waveguide.h"
 
 #include <array>
 #include <cmath>
@@ -41,6 +42,7 @@ public:
         dampingIndex = controlIndex(type, "damping");
         mixIndex     = controlIndex(type, "mix");
         rightOut     = audioOutIndex(type, "right");
+        mixCoefficient = timeToCoeff(10.0f, rate);
 
         const double scale = rate / 44100.0;
         for (std::size_t i = 0; i < kLines; ++i)
@@ -66,6 +68,7 @@ public:
         writePos.fill(0);
         diffuserPos.fill(0);
         damped.fill(0.0f);
+        mixGlide.reset();
     }
 
     void process(const ProcessArgs& args) noexcept override
@@ -91,7 +94,8 @@ public:
 
         const float sizeStep = (sizeTarget - smoothedSize) / static_cast<float>(std::max(args.numSamples, 1));
 
-        const float lowpass = 1.0f - 0.95f * damping;
+        // The loop's lowpass keeps its corner in hertz: its pole is a design value for 48 kHz.
+        const float lowpass = 1.0f - waveguide::poleAtRate(0.95f * damping, sampleRate);
 
         // -60 dB after `decay` seconds: gain = 0.001 ^ (delay / (decay * rate)).
         // Taken at the block's end size, since it moves by less than a block's worth.
@@ -179,9 +183,10 @@ public:
                 wetRight += (i & 2) ? -tap[i] : tap[i];
             }
 
-            out[n] = in[n] * (1.0f - mix) + wetOut * kNorm * 2.0f * mix;
+            const float mixNow = mixGlide.step(mix, mixCoefficient);
+            out[n] = in[n] * (1.0f - mixNow) + wetOut * kNorm * 2.0f * mixNow;
             if (right != nullptr)
-                right[n] = in[n] * (1.0f - mix) + wetRight * kNorm * 2.0f * mix;
+                right[n] = in[n] * (1.0f - mixNow) + wetRight * kNorm * 2.0f * mixNow;
         }
 
         // The glide ends here, exactly, so the next block can tell a resting size.
@@ -190,6 +195,8 @@ public:
 
 private:
     double sampleRate = 44100.0;
+    float mixCoefficient = 0.0f;
+    Smoothed mixGlide;
     int sizeIndex = -1, decayIndex = -1, dampingIndex = -1, mixIndex = -1, rightOut = -1;
 
     std::array<std::vector<float>, kLines>     line;

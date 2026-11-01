@@ -19,6 +19,7 @@ constexpr double kLowestBpm = 40.0;
 constexpr double kHighestBpm = 200.0;
 constexpr double kMinSeconds = 8.0;
 constexpr std::size_t kMaxCandidates = 4;
+constexpr double kRelatedWithin = 0.03; // a candidate this close to a simple ratio of the best is the same pulse
 constexpr double kDistinct = 0.03;      // candidates closer than this fraction are the same tempo
 // The flux of a steady sound is rounding error, which normalising would stretch into a pulse;
 // a real onset moves it by tens or more.
@@ -122,6 +123,24 @@ TempoEstimate estimateTempo(const std::vector<float>& mono, double sampleRate)
             break;
     }
     tempo.found = ! tempo.candidates.empty();
+
+    // A real pulse also repeats at related speeds (half, double, a third, 4/3 and so on). Several
+    // candidates that are unrelated to the best one are ripple in a flat autocorrelation, which is
+    // what a pad or a held chord gives: there is no pulse to name.
+    if (tempo.candidates.size() >= 3)
+    {
+        static constexpr double ratios[] = {2.0, 3.0, 4.0, 1.5, 4.0 / 3.0};
+        const double best = tempo.candidates.front().bpm;
+        const bool related = std::any_of(tempo.candidates.begin() + 1, tempo.candidates.end(), [&](const TempoCandidate& c) {
+            const double r = std::max(c.bpm, best) / std::min(c.bpm, best);
+            return std::any_of(std::begin(ratios), std::end(ratios), [&](double k) { return std::abs(r / k - 1.0) < kRelatedWithin; });
+        });
+        if (! related)
+        {
+            tempo.found = false;
+            tempo.candidates.clear();
+        }
+    }
     return tempo;
 }
 

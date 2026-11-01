@@ -14,6 +14,7 @@
 // FIFOs, allocate them in prepare(), and do arithmetic only in processFrame().
 
 #include "Common.h"
+#include "Waveguide.h"
 
 #include <juce_dsp/juce_dsp.h>
 
@@ -343,7 +344,10 @@ public:
         const double framesPerMs = sampleRate * 0.001 / static_cast<double>(stft.size() / 4);
         for (int b = 0; b < numBins; ++b)
         {
-            const double x = static_cast<double>(b) / static_cast<double>(numBins - 1);
+            // The place in the spectrum is by frequency against the 48 kHz design Nyquist, so a delay set at one rate
+            // lands on the same frequencies at another; bins above 24 kHz take the delay of the top.
+            const double hz = static_cast<double>(b) * sampleRate / static_cast<double>(stft.size());
+            const double x = std::min(1.0, hz / (0.5 * waveguide::kDesignRate));
             const double ms = timeMs * (1.0 + static_cast<double>(spread) * (2.0 * x - 1.0));
             delays[static_cast<std::size_t>(b)] =
                 std::clamp(static_cast<int>(std::lround(ms * framesPerMs)), 0, frames - 1);
@@ -386,7 +390,9 @@ public:
 private:
     void allocate()
     {
-        stft.prepare(order);
+        // The frame grows by an octave for each doubling of the rate, so its length in seconds, and with it the
+        // resolution of the delay and the sharpness of each bin, stays what it is at 48 kHz.
+        stft.prepare(order + static_cast<int>(std::lround(std::log2(sampleRate / waveguide::kDesignRate))));
 
         const int numBins = stft.size() / 2 + 1;
         frames = std::max(2, static_cast<int>(std::ceil(kMaxSeconds * sampleRate / (stft.size() / 4))) + 2);

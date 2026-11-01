@@ -5,7 +5,7 @@
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
-  build: `val:Vocoder` (a filter bank with a carrier and a modulator input), the speech stutter (specified in
+  build: the speech stutter (specified in
   `docs/new-order-track.md`), and a Source patch with a third waveform per oscillator and octave switches. Its
   listening is under "Needs a listener" below.
 
@@ -33,12 +33,40 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
   (frequencies exact, ring times within 1% and levels within 2 to 3%). A real conga, cowbell or bell has close modes, noise
   and a drumhead that is not purely modal; try a few real recordings and see what comes out. The analysis window is 85 ms,
   so a ring under about 0.1 s is read coarsely, and the fit ignores the attack and the phase of each mode.
+  First trial, 31 October 2026, on five CC0 recordings from freesound.org (lossy previews; sources and licences in
+  `SOURCES.txt` beside them; the fit was run through the same `fitModes`, `renderModes` and `spectralDistance` calls as
+  `OpDispatcher::fitModes`, on audio decoded with ffmpeg, not through MCP or the app's file reader). 12 modes each:
+
+  | recording | distance | what the modes look like |
+  |---|---|---|
+  | conga, D#4 (373411) | 10.7 dB | 66 to 398 Hz, rings 0.35 to 1.3 s |
+  | conga, "Kygo" (678748) | 16.0 dB | 272 to 748 Hz, rings 0.15 to 1.2 s |
+  | cowbell, LP (319149) | 13.8 dB | four modes under 100 Hz and two more at 35 and 60 s rings, which is the clamp for "no measurable decay" |
+  | cowbell, spurc (376948) | 11.8 dB | three peaks 13 Hz apart near 1500 Hz, then 4.5, 7.5, 10.5, 13.5 and 16.5 kHz, odd multiples of 1.5 kHz, like a synthesised square-wave cowbell |
+  | bell (536731) | 13.8 dB | groups of two or three modes 10 to 25 Hz apart near 650, 850 and 970 Hz, rings 2.5 to 5 s |
+
+  On the `compare` scale (a few dB a small change, tens of dB a different sound) these refits are between the two. Open: whether the
+  close groups are real doublets (a bell has them) or the picker splitting one peak (it merges only peaks under 10 Hz apart, on bins
+  of 0.7 Hz); the low-frequency modes with ring times of 35 to 60 s, which look like rumble and not a struck mode, and probably want
+  a floor on the ring time or a high-pass; whether a lossy preview changes the result (try a lossless original); and a listener to
+  say whether the refits sound like the recordings. Not tried: the MCP tool itself. (MP3 does not load in this build; see `audio/README.md`.)
+
 * **`fit_params`: what is left.** Both limits found on `dub-bass` are fixed (the note is released where the recording's was, or
   not at all inside a window that is only the start of it; and the search tries a seeded spread of starting points before it
   climbs). From a start that scored 6.4 dB it now reaches 0.45 dB in 120 renders, where one climb stopped at 1.8 dB; the
   true settings score 0. Not done: the climb still uses a fixed step schedule and could use the recording's own spectral
   shape to choose which parameters to move first; it searches only the knobs already bound as `val:Param`; and it matches a
   single held note, not a phrase.
+* **A library of reference recordings.** `audio/` holds five CC0 percussion hits from freesound.org. Extend it into a set to
+  measure synths against, and to feed the sampler (see "A versatile sampler"). Use: the target for `compare` and `fit_params`;
+  a check on `is` and `listen` (the harp, violins, trumpets and shakers in the item below are judged against nothing real yet);
+  real input for `fit_modes`; and spectra to set beside a physical model's, as the flute and brass tuning tests do by ear.
+  Wanted: for each instrument Valis models, a few notes at different pitches and dynamics, sustained and plucked or struck, plus
+  the hits of a drum kit and common percussion. Keep to CC0, or record the licence and the credit that CC BY needs. Freesound's
+  previews download without a login (128 kbps MP3, enough to start); the originals and its search API need an account and an API
+  token, which the user would have to supply. Keep a manifest per directory (file, author, licence, source URL, pitch and
+  dynamic if known), as `audio/README.md` does, and check a sound's own page for its licence, not the search filter. A note on
+  which recordings are samples of a synthesiser (the "spurc" cowbell is one) so they are not mistaken for acoustic references.
 * **Calibrate `listen`.** Port earshot's vocabulary of 322 descriptions and its statistics, so a cosine becomes a z-score
   and a verdict; then a realness score (real recording or synthesised) on the same CLAP features.
 * **Make the harp, violins, trumpets and shakers sound like themselves.** `valis_shot is` hears the harp as a piano
@@ -47,15 +75,32 @@ Everything here is measured, not heard. Each wants a person with ears, then a ch
 
 ## Acoustic instruments
 
-* **Out-of-range values the lint notes.** `metal-bash` granulator density 500 (port max 200), `violins` wood decay
-  0.04 (min 0.05), and knobs wider than their port: six-string-bass chorus depth to 6 (port 3.5), lofi wobble to 3000
-  (1000), and the ring time of harp and halloween-guitar (`ampEnv` decay to 8000 and 6000, port 5000). Check which of those
-  elements clamp. `val:StiffString` feedback now runs to 0.9999, so the harp, guitars and bass ring as written; the
+* **Out-of-range values the lint notes: fixed.** Where an element clamped, the example now stays in range (granulator density 200,
+  violins wood decay 0.05, bass chorus depth knob 3.5). Where it did not, the port was widened (`val:Drift` amount to 3000,
+  `val:Envelope` decay to 10000 ms).
+  `val:StiffString` feedback now runs to 0.9999, so the harp, guitars and bass ring as written; the
   stems made from them before that change are shorter than the circuits now play, so re-render them (`write-a-song`).
 
 ## New instruments
 
 The instruments that are done are described in `docs/examples.md`. What is open:
+
+* **`val:Sampler`: what is left.** The first version is in (`src/dsp/elements/Sampler.cpp`, `src/dsp/SampleMap.h`,
+  `examples/sampler-percussion.ttl`): a table in the circuit (`val:samples`) of zones with key and velocity ranges, root, gain,
+  tune, start and end, sustain loop with crossfade, reverse, choke groups and round robin; sixteen voices of its own; pitched by
+  cubic interpolation, within 0.1 cent at 44.1, 48 and 96 kHz. Not done:
+  * Crossfade between neighbouring zones (a key takes the one zone that answers it, or the nearest).
+  * A release loop, and a loop that follows the key (a loop in samples is fixed).
+  * A filter with its own envelope inside the element (use `val:Ladder` and `val:Envelope` after it).
+  * A monophonic legato mode; voice stealing takes the oldest voice with a 1 ms minimum attack, which can still tick.
+  * A note held across the same key being hit again does not retrigger (the engine sees one held note).
+  * Output per pad: one mono output only; no pan.
+  * Reading `.sfz` or `.sf2` files, and a General MIDI kit loader; slicing a long file at its onsets
+    (`src/ops/Analysis.cpp` has the onset finder).
+  * A session override for a zone's file, as `set_sample` does for `val:SampleLoad`, and a key map in the Controls view
+    (the Controls view shows only the knobs).
+  * Round robin runs on one counter for the element, not one per key, so a pattern across keys can line up with it.
+  * Looking at the sound: the example was measured (pitch, level), not listened to.
 
 * **FM.** `val:RateLevelEnvelope` has keyboard rate and level scaling and a pitch ratio output;
   the scaling curves are smooth approximations of the DX7's stepped ones. The shipped DX7
@@ -111,12 +156,6 @@ algorithm, mono, with a test. In order of use:
   semitones and made no difference at +3 (0.1% both). Not yet tried: a longer grain, and
   listening to it. A full SOLA with a variable hop would go further at the cost of latency.
 
-## Single source for a knob's range
-
-The Controls view (`ControlsView.cpp`) and the host parameters (`ValisProcessor.cpp`) each work out a
-knob's range from the binding and the port; the ops did their own and were wrong until a test caught
-it. Make both read `OpDispatcher::listParams`, so there is one answer. See MISTAKES.md.
-
 ## Ideas from the map.audio PAM survey
 
 From https://map.audio/mfx (a sampler and drum synth, so only its effects and modulation
@@ -154,42 +193,16 @@ design apply). Roughly in order of how self-contained they are:
 * **Songstress follow-ups** (`~/github/songstress`, MIT; one 290-line Python script, `listen.py`, that writes a "listening card" for a
   stereo WAV). Looked at, October 2026. Valis already has loudness, centroid, rolloff, onsets, pitch and one whole-file stereo
   correlation (`include/valis/Analysis.h`). What it adds, as C++ from the algorithm with a test, in order of use:
-  * **Stereo over time: done** (`include/valis/StereoImage.h`, in `measure` and `render` as `stereoImage`). It flags ten-second windows,
-    not sections (the section map below now exists; the per-section width is in `sections`). As first specified: Mid/Side width in dB (`20 log10(rms(S)/rms(M))`) and L/R correlation per second, plus width in three bands
-    (below 250 Hz, 250 to 4000 Hz, above 4000 Hz) from the Mid and Side spectra. Seconds below about -80 dBFS carry no value rather
-    than a number. This catches a chorus that is wide and decorrelated where the rest is centred, which a single correlation hides.
-    Fits `measure` and the mix scripts, whose stems are stereo.
-  * **Section map: first version done** (`include/valis/SectionMap.h`, `sections` in `measure` and `render`). Tested on synthetic
-    sections, then tried on `tenement-lights.wav` (7:01): 10 sections, with the mono intro, the verses, the breakdown and the quiet
-    outro separate. Chroma uses an 8192-sample frame and reads 130 Hz to 5 kHz only. `dominantNote` is the commonest pitch class of
-    whatever is loudest, not the key: the mix reads C# and so does the `source` stem, while `prophet` and `strings` read A. Why `source`
-    sits on C# has not been looked at. A key estimate (below) is what answers "what key is this in". `compare` now reports a
-    difference per section (`SectionCompare.h`). Not done: section-level anomaly flags (the stereo flags fire on every ten-second
-    window of a long, gradually widening intro, six for one change). As first specified: per-second vectors of 64 log-mel bands and 12 chroma values, standardised, then novelty as one minus
-    the cosine between the mean of the 5 seconds before and the 5 after; boundaries at peaks above mean plus half a standard deviation,
-    at least 10 s apart. Each section reports energy, width and correlation. Would let `compare` say which section of a mix changed.
-  * **Key estimate: done** (`estimateKey` in `include/valis/SectionMap.h`; `key` and `keyCorrelation` per section and for the track).
-    On `tenement-lights.wav` (score: A minor) the mix reads G major at 0.60, a guess; the `strings` stem reads A minor (0.64), `hook` E minor
-    (0.74), `prophet` G major (0.70) and `source` D minor at 0.29, which is close to no key. The progression A, G, F, E (bass roots) is
-    ambiguous for the templates and the mix is mostly percussive, so this is the method's limit more than a fault, but it has not been
-    checked against a recording whose key is known. Not done: songstress's tuning-drift correction (it notes it lands a half-step low on
-    detuned material).
-  * **Tempo candidates: done** (`include/valis/TempoEstimate.h`, `tempo` in `measure` and `render`). On Tenement Lights (score: 130) the mix reads
-    130.0, `drums` 130.0, `kick` 129.9 and `prophet` 129.9. Candidates are ranked by strength times a preference for tempos near 120, so a
-    pulse that also repeats at half speed is not reported as slow; at 174 the half (87) and the tempo are close to a tie. Not done: the
-    `strings` stem (no pulse) returns four candidates of equal strength and `found` true; it should say there is no clear pulse. A tempo that
-    changes within a track gets one answer (no per-section tempo).
+  * **Done** (stereo over time, section map, key estimate, tempo candidates; see `docs/shot.md` and the headers in `include/valis/`).
+    What is left: section-level anomaly flags (the stereo flags fire on every ten-second window of a long, gradually widening intro);
+    songstress's tuning-drift correction for the key estimate (it lands a half-step low on detuned material); the key estimate has
+    not been checked against a recording whose key is known; chroma reports sounding partials, not played notes, so on bass the key
+    is unreliable (`pitchedShare` per section is the warning); and a tempo that changes within a track gets one answer.
   * Not worth porting: the 64-band mel feature matrix as a stored "memory" (`valis-shot listen` has CLAP features already).
 
 ## Helping agents use Valis
 
-`docs/guide-for-agents.md` is held to the ontology and the tool list by `tests/docs/GuideTest.cpp`.
-Done: `check_stability`; `history`, `undo`, `redo` and `diff` (`include/valis/CircuitHistory.h`, `CircuitDiff.h`); `apply_edits`, several edits as one with the circuit installed once; the guide and every example as MCP resources (`valis://guide`, `valis://examples/NAME`;
-`include/valis/AgentResources.h`); "did you mean" for classes, ports and properties
-(`include/valis/Suggest.h`); `describe_element` (every element has a description of at least 200 characters, enforced by
-`OntologyTest`, and lists its options through `val:hasOption`); `get_diagnostics` reports `problems`; `measure` and the analysis inside `render` measure a
-sound (`include/valis/Analysis.h`); `lint` finds mistakes that compile (`include/valis/Lint.h`). Still
-to do, in order of use:
+`docs/guide-for-agents.md` is held to the ontology and the tool list by `tests/docs/GuideTest.cpp`. Still to do, in order of use:
 
 * **Suggestions in errors: done for classes, ports and properties.** Still to do: a misspelt option
   value (a note name in a `val:pattern`, an enumeration number out of range) could offer the valid
@@ -224,35 +237,18 @@ GPL-3.0-or-later, so a source of ideas only: write each from the algorithm, with
 copy code). Its `docs/03-testing-strategy.md`, `05-dsp-and-runtime-research.md` and
 `08-blocks-parity.md` are the useful reading. In order of leverage:
 
-* **Conformance suite: what is left.** `tests/dsp/ElementConformanceTest.cpp` now holds every element
+* **Conformance suite.** `tests/dsp/ElementConformanceTest.cpp` now holds every element
   to determinism, reset, block-size independence, boundedness under random controls with every
   control jumping at once, no allocation in `process()`, and decay after input stops. Its first run
-  found `val:Chorus`, `val:Flanger`, `val:Phaser` and `val:Noise` (all fixed). Not yet in it: the
-  zipper check (no sample-to-sample step above a limit when a control jumps), declared latency
-  against measured impulse delay, `Reset()` mid-note, and a full-scale square and DC as inputs. Ten
+  found `val:Chorus`, `val:Flanger`, `val:Phaser` and `val:Noise` (all fixed). The zipper check
+  (one control jumps, the output must not step) is in; it found mixes and depths applied in one sample in `val:Chorus`,
+  `val:Flanger`, `val:Phaser` and `val:Reverb`, now glided over 10 ms (`Smoothed` in `Common.h`), and seven elements are excused
+  with reasons. Controls that move a delay time or a note are excused whole, so a new control on one of them is not checked.
+  Declared latency is checked against the
+  measured delay of an impulse (eight elements declare one; seven match exactly). Full-scale DC and a full-scale square are among its inputs, and every element stays bounded. Ten
   elements put out subnormal values after their input stops and rely on the plugin's flush-to-zero
   (`juce::ScopedNoDenormals` in `ValisProcessor::processBlock`); they are listed in the test with
   that reason, and `valis-render` and the console do not set it.
-* **Multi-rate conformance: triage the report.** `ElementConformanceTest` renders every element at
-  its defaults on one multitone at 44.1, 88.2, 96 and 192 kHz and prints those whose octave-band
-  levels differ from 48 kHz by more than 1 dB (3 dB, nonlinear). It is a report for now and
-  asserts nothing: 19 elements differ, and each needs a look before it is fixed or excused with a
-  reason. (A first version of the check had a 6 dB error of its own: tone power in a window goes with
-  the window length squared, so the window is now the same number of samples at every rate.) A first
-  guess at each, none confirmed:
-  * Probably real, and worth fixing first: `val:StiffString` (15 dB overall at 88.2 kHz),
-    `val:Crossover` and `val:StateVariable` (the low bands drop by 17 to 85 dB at 88.2 kHz, yet the
-    state-variable filter's own `lp` and `hp` outputs match across rates when measured alone, so the
-    difference is in how the test sums an element's several outputs, or a fault in the crossover),
-    `val:Reed`, `val:TwinTBridge` and `val:Wavetable` (up to 18 dB in one band at 88.2 kHz, which
-    suggests a constant written in samples), `val:Reverb`, `val:ModalBank` and `val:PitchShift` at
-    44.1 kHz (a delay length or window rounded to whole samples).
-  * Probably by design: `val:Redux` (a hold of N samples is a different frequency at each rate),
-    `val:SpectralDelay` (delay is in whole STFT hops, so its resolution is in samples),
-    `val:Noise` (white noise of fixed per-sample level has a different density at each rate), and the
-    generators `val:Oscillator`, `val:SignalGenerator`, `val:Bow`, `val:Tanh` at 192 kHz and the
-    modulation effects `val:Chorus`, `val:Flanger`, `val:Phaser`, whose band levels depend on where an
-    LFO or a partial falls. For generators, compare pitch and level of the strongest partial instead.
 * **RealtimeSanitizer job.** Clang 20's `-fsanitize=realtime` aborts on any allocation, lock or
   blocking call inside a function marked `[[clang::nonblocking]]`. Cathode builds its native path with it
   and runs two canaries first (an allocation it must catch) so a build where the sanitizer does
@@ -260,14 +256,13 @@ copy code). Its `docs/03-testing-strategy.md`, `05-dsp-and-runtime-research.md` 
 * **Golden renders and a CPU budget.** Bit-identity baselines per example circuit, regenerated on
   purpose; per-element cost measured and a reference preset's callback time compared with its budget.
 * **Elements Valis lacks that Cathode has.** Each is a small, well-described algorithm:
-  * `val:RingModulator`: audio times a sine carrier, with the carrier optionally locked to the tempo
-    (a polarity-flipping tremolo). A `val:VCA` takes a control signal, so there is no audio times audio.
   * `val:Convolver`: zero-latency partitioned FIR convolution (uniform partitions, or Gardner's
     non-uniform scheme for long ones) for cabinet and room impulse responses, loaded from a file as
     `val:SampleLoad` is; with minimum-phase trimming by the real cepstrum, and an IR capture by sine sweep.
     The step the amp-simulation examples, and the NAM example, are missing.
-  * `val:ToneStack`: the passive treble/bass/middle stack of Fender and Marshall amps, after Yeh and
-    Smith, "Discretization of the '59 Fender Bassman tone stack" (DAFx-06).
+  * **`val:ToneStack` follow-ups.** The Bassman stack is in (Yeh and Smith, checked against the circuit solved node by node). Not done: the
+    Marshall and Vox stacks, which are the same circuit with other values (and the Vox has no middle pot); they need component values
+    read from a schematic, which could not be confirmed from the sources reached. A `val:model` choice would hold them.
   * `val:Vibe`: the Uni-Vibe, four unequal first-order allpasses sharing one lamp, with the lamp's
     lopsided response; `val:Rotary`: a Leslie as two rotors, a crossover, Doppler and amplitude
     modulation with motor inertia; `val:Wah`: from the circuit, not a swept bandpass.
@@ -307,35 +302,10 @@ has to answer: what is the smallest bounded computational model that represents 
 plugin architecture without hiding the interesting parts. The items below are the
 findings that translate into work here, ordered by leverage.
 
-Done so far:
-
-* reusable subcircuits (`val:Subcircuit`, expanded by the model, with collapse
-  and expand in the Circuit view; see `examples/subcircuit.ttl`);
-* sample-accurate note events (the engine cuts a control slice at each event's
-  position, so a note starts on the sample the host sent it on);
-* resource identity for sound files (`val:sha256`, `val:channels`,
-  `val:sampleRate`, `val:frames`, checked on load);
-* stereo (`val:Input` gained "left" and "right" to mirror `val:Output`, and the
-  processor no longer sums the host's channels to mono; elements stay mono and a
-  stereo patch is two chains);
-* port units choosing readout precision (`include/valis/ValueFormat.h`);
-* the block domain (`val:SpectralGate`, an STFT with overlap-add resynthesis and
-  declared latency; `src/dsp/elements/Spectral.cpp` is the pattern to copy);
-* per-element oversampling (`val:oversampling`, an engine-applied wrapper around
-  any element; `src/dsp/Oversampled.h`);
-* event output ports (`atom:AtomPort` carrying `midi:MidiEvent`, collected per
-  block by the engine and sent to the host; `val:NoteOut` is the element);
-* the bounded voice pool (`val:voices` on a subcircuit instance, with
-  deterministic allocation and stealing in the engine; see
-  `examples/polysynth.ttl`);
-* the seeded randomness fix in `val:SignalGenerator`.
-
-What the survey asks for and Valis already has, so nobody re-derives it: delay gives
-graph cycles their semantics (`val:UnitDelay` plus the compiler's `cycleAdj`/`orderAdj`
-split); a checked opaque-component boundary (`DspElement` plus `val:implementation`);
-resource loading off the real-time thread (`val:SampleLoad`); a distinct control rate
-(the engine's 32-sample slice); and declared latency aggregated per circuit and
-reported to the host.
+What the survey asks for and Valis already has (so nobody re-derives it): subcircuits, sample-accurate note events, sound-file
+identity, stereo, the block domain (`val:SpectralGate`), per-element oversampling, event output ports, the bounded voice pool,
+delay giving cycles their semantics (`val:UnitDelay`, `cycleAdj`/`orderAdj`), a checked opaque-component boundary, resource loading
+off the real-time thread, a distinct control rate, and declared latency reported to the host.
 
 * **Oversampling as a region rather than per element.** Done per element:
   `val:oversampling 2/4/8/16` wraps any element and runs it faster, measured at
@@ -407,6 +377,8 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
 
 ## Recurring - check periodically
 
+* check the tests for a debugging leftover that makes one pass without testing (an early `return 0;` in `main`, a probe called
+  first); `FluteTest` had one for many commits
 * check builds for warning messages (touch the sources and rebuild to see them all). Fix
   any in this codebase; the one left is in the third-party `httplib.h` (`-Wswitch-enum`)
 * remove tasks that have been done from this file

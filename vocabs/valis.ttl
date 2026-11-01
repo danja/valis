@@ -1263,6 +1263,59 @@ slightly phase coloured.""" ;
         lv2:name "Mix" ; lv2:default 1.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
+val:RingModulator a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "RingModulator" ;
+    rdfs:comment """Multiplies the input by a sine wave at val:frequency. A partial at f hertz comes out as two,
+at the carrier plus f and the carrier minus f, and the input itself does not appear in the output, which is why
+the sound is metallic or bell-like unless the carrier is a multiple of the input pitch
+(https://en.wikipedia.org/wiki/Ring_modulation). It is the effect behind the Dalek voice: a speech signal against a
+carrier near 30 Hz.
+
+val:mix blends the modulated signal with the dry input. Low carriers (under 20 Hz) give a tremolo that flips the
+sign of the signal; carriers in the hundreds of hertz give clangorous tones. Unlike val:FreqShifter, which adds
+the same number of hertz to every partial, this produces both sidebands. val:VCA takes a control signal and cannot
+multiply two audio signals; this multiplies audio by an internal carrier.""" ;
+    val:implementation "RingModulator" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 440.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:hz ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Carrier frequency. Limited to 0.45 of the sample rate." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Dry/wet blend. 0 = dry only; 1 = modulated only." ] .
+
+val:ToneStack a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "ToneStack" ;
+    rdfs:comment """The passive treble, middle and bass network of a Fender '59 Bassman guitar amplifier, three
+capacitors and four resistors with three potentiometers. It is not an equaliser with three independent bands: the
+controls interact, the middle control also changes the treble, and the whole network always loses level (about 12 dB
+at the middle notch with every control at half). That loss and interaction are the sound, so put a val:Gain after it,
+or the next amplifier stage, to make up the level (https://en.wikipedia.org/wiki/Tone_stack).
+
+val:treble, val:middle and val:bass run from 0 to 1. The bass pot is logarithmic, as in the amplifier. The transfer
+function is the exact closed form of Yeh and Smith, "Discretization of the '59 Fender Bassman Tone Stack", DAFx-06
+(https://dafx.de/paper-archive/2006/papers/p_001.pdf), turned into a digital filter by the bilinear transform. The
+source is an ideal voltage and the load is open, where the amplifier has about 1 kilohm in front and 1 megohm after;
+the paper found that makes no visible difference. Component values are those of the Bassman. Put it before a
+val:Triode or val:Tanh stage, as the amplifier does, not after.""" ;
+    val:implementation "ToneStack" ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "treble" ;
+        lv2:name "Treble" ; lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "middle" ;
+        lv2:name "Middle" ; lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bass" ;
+        lv2:name "Bass" ; lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:Tape a rdfs:Class ; rdfs:subClassOf val:Filter ;
     rdfs:label "Tape" ;
     rdfs:comment """A tape machine's effect on a signal, in four stages. val:drive pushes the signal
@@ -2324,6 +2377,49 @@ See https://en.wikipedia.org/wiki/Linear_predictive_coding""" ;
         lv2:name "Mix" ; lv2:default 1.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
+val:Vocoder a rdfs:Class ; rdfs:subClassOf val:Filter ;
+    rdfs:label "Vocoder" ;
+    rdfs:comment """A channel vocoder. The first input, val:in, is the modulator, usually a voice. The second,
+val:carrier, is what is shaped, usually a sawtooth, a pulse or a chord with plenty of harmonics. Both are split by the
+same bank of bandpass filters, spaced evenly in log frequency from val:low to val:high. The level of each modulator
+band is followed with an attack and a release, and the matching carrier band is scaled by it, so the carrier takes on
+the changing spectrum of the voice and seems to speak (https://en.wikipedia.org/wiki/Vocoder).
+
+val:bands sets the resolution: 8 is robotic, 16 is clear, 24 or more follows vowels closely. Speech needs content
+above 4 kHz to be understood, so keep val:high near 8000 Hz and give the carrier energy up there. A short val:attack
+and release keep consonants crisp; longer ones smear them. Unlike val:LPC, which fits one smooth envelope, this keeps
+each band separate, which gives the classic dated sound. val:mix blends the result with the plain carrier.""" ;
+    val:implementation "Vocoder" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "in" ;      lv2:name "Modulator" ] ,
+      [ a lv2:InputPort,  lv2:AudioPort ; lv2:symbol "carrier" ; lv2:name "Carrier" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ;     lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "bands" ;
+        lv2:name "Bands" ; lv2:default 16.0 ;
+        lv2:minimum 2.0 ; lv2:maximum 32.0 ; lv2:portProperty lv2:integer ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "low" ;
+        lv2:name "Low" ; lv2:default 100.0 ;
+        lv2:minimum 20.0 ; lv2:maximum 2000.0 ; units:unit units:hz ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Centre of the lowest band." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "high" ;
+        lv2:name "High" ; lv2:default 8000.0 ;
+        lv2:minimum 500.0 ; lv2:maximum 20000.0 ; units:unit units:hz ;
+        lv2:portProperty lv2:logarithmic ;
+        rdfs:comment "Centre of the highest band. Held below 0.45 of the sample rate." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
+        lv2:name "Attack" ; lv2:default 5.0 ;
+        lv2:minimum 0.1 ; lv2:maximum 100.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
+        lv2:name "Release" ; lv2:default 30.0 ;
+        lv2:minimum 1.0 ; lv2:maximum 500.0 ; units:unit units:ms ;
+        lv2:portProperty lv2:logarithmic ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:FreqAnalyzer a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "FreqAnalyzer" ;
     rdfs:comment """A monitor: it passes audio straight through and measures where its energy is. Its control outputs
@@ -2538,7 +2634,7 @@ with sustain 0.""" ;
         lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "decay" ;
         lv2:name "Decay" ; lv2:default 200.0 ;
-        lv2:minimum 0.1 ; lv2:maximum 5000.0 ; units:unit units:ms ;
+        lv2:minimum 0.1 ; lv2:maximum 10000.0 ; units:unit units:ms ;
         lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "sustain" ;
         lv2:name "Sustain" ; lv2:default 0.7 ;
@@ -2838,7 +2934,7 @@ the same drift, so a render repeats exactly.""" ;
         lv2:portProperty lv2:logarithmic ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "amount" ;
         lv2:name "Amount" ; lv2:default 1.0 ;
-        lv2:minimum 0.0 ; lv2:maximum 1000.0 ] ,
+        lv2:minimum 0.0 ; lv2:maximum 3000.0 ] ,
       [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "centre" ;
         lv2:name "Centre" ; lv2:default 0.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
@@ -3392,6 +3488,90 @@ is what lets the sample be swapped while the circuit runs.""" ;
         lv2:name "Choke" ; lv2:default 0.0 ;
         lv2:minimum 0.0 ; lv2:maximum 1.0 ;
         rdfs:comment "A rise through 0.5 stops the sound, fading out over 2 ms. A trigger in the same block wins." ] .
+
+val:rootNote a rdf:Property ;
+    rdfs:label "rootNote" ;
+    rdfs:range xsd:integer ;
+    rdfs:comment """The MIDI note at which the sound named by val:file plays at its recorded pitch (60 is middle C, C4).
+Other notes play it faster or slower by the interval between them, a semitone per key.""" .
+
+val:samples a rdf:Property ;
+    rdfs:label "samples" ;
+    rdfs:range xsd:string ;
+    rdfs:comment """The sample table of a val:Sampler: one zone per line (or separated by ;), each a list of key=value words.
+file is the sound (resolved as val:file is, and needed), root the MIDI note it was recorded at, keys the range of keys it answers
+(keys=36-48, or key=38 for one), vel the range of velocities from 1 to 127, gain in decibels, tune in semitones, and choke a group
+number: a hit cuts any other sounding hit with the same non-zero group. start, end, loopStart, loopEnd and fade are in seconds of
+the file, reverse is 1 to play it backwards, and sha256 checks the file against a hash. A value with a space is in double quotes.
+Zones that share a key and a velocity take turns, which is how round robin and layered hits are written. Lines starting with #
+are ignored. A single key with no root plays at its own pitch.""" .
+
+val:Sampler a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Sampler" ;
+    rdfs:comment """Plays recorded sounds from notes, as a keyboard instrument or a drum kit. Name one sound with
+val:file and val:rootNote and every key plays it, faster or slower in proportion to the key: a conga becomes a pitched
+instrument. Or give a table with val:samples that maps ranges of keys and velocities to different sounds, so several
+recordings cover the keyboard (a multisample), harder hits play different sounds (velocity layers), repeated hits take turns
+(round robin), and a drum kit puts one sound on each key.
+
+It is polyphonic on its own, with 16 voices, and takes the oldest when all are in use. A note starts a voice and its release
+ends it; val:attack and val:release set the fade at each end, and the sound runs on through the release. With val:loop on, a
+sound with loopStart and loopEnd loops between them while the key is held, crossfading over fade, and a sound with none loops
+whole. With val:oneshot on, a note plays its sound to the end and ignores the key being let go, which is how a drum hit works.
+With val:keytrack off every key plays the sound at its recorded pitch, for a kit. val:velocity is how far loudness follows how
+hard the key was hit. A key that no zone answers plays the nearest zone, so the ends of the keyboard are stretched rather than
+silent.
+
+The sound is mono, summed from a stereo file. There is no filter: send the output to val:Ladder or val:StateVariable, and shape
+it with val:Envelope, as the other instruments do. Reading a file happens when the circuit loads, not while it plays. For
+other ways to play a file see val:SampleLoad, val:Granulator and val:TimeStretch
+(https://en.wikipedia.org/wiki/Sampler_(musical_instrument)).""" ;
+    val:implementation "Sampler" ;
+    val:hasOption val:file , val:rootNote , val:samples ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 0.0 ;
+        lv2:minimum -60.0 ; lv2:maximum 24.0 ; units:unit units:db ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "tune" ;
+        lv2:name "Tune" ; lv2:default 0.0 ;
+        lv2:minimum -24.0 ; lv2:maximum 24.0 ;
+        rdfs:comment "Added to every note, in semitones. A fractional value detunes." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "attack" ;
+        lv2:name "Attack" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 2000.0 ; units:unit units:ms ;
+        rdfs:comment "Fade in. Never shorter than 1 ms, which keeps a note from clicking." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "release" ;
+        lv2:name "Release" ; lv2:default 30.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 5000.0 ; units:unit units:ms ;
+        rdfs:comment "Fade out after the key is let go." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "velocity" ;
+        lv2:name "Velocity" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "How far loudness follows key velocity. 0 plays every note at full level; 1 scales with velocity." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "loop" ;
+        lv2:name "Loop" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Off" ; rdf:value 0 ] ,
+                       [ rdfs:label "On"  ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "keytrack" ;
+        lv2:name "Key track" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Fixed pitch" ; rdf:value 0 ] ,
+                       [ rdfs:label "Follow keys" ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "oneshot" ;
+        lv2:name "One shot" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "Held"     ; rdf:value 0 ] ,
+                       [ rdfs:label "One shot" ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "choke" ;
+        lv2:name "Choke" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "A rise through 0.5 fades every sounding voice out over 2 ms." ] .
 
 val:Transport a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Transport" ;

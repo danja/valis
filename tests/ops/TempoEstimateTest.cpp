@@ -81,6 +81,16 @@ void testNoPulseMeansNoTempo()
     assert(! estimateTempo({}, kRate).found);
     assert(! estimateTempo(clicks(120.0, 20.0), 0.0).found);
 
+    // Noise has onsets everywhere and no pattern: its candidates, if any, are unrelated to each other.
+    std::vector<float> noise(static_cast<std::size_t>(kRate * 30.0));
+    unsigned state = 12345u;
+    for (auto& s : noise)
+    {
+        state = state * 1664525u + 1013904223u;
+        s = 0.3f * (static_cast<float>(state >> 8) / 8388608.0f - 1.0f);
+    }
+    assert(! estimateTempo(noise, kRate).found);
+
     // A steady tone has no onsets to repeat.
     std::vector<float> tone(static_cast<std::size_t>(kRate * 20.0));
     for (std::size_t i = 0; i < tone.size(); ++i)

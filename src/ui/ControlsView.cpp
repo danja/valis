@@ -177,8 +177,8 @@ void ControlsView::rebuild()
         // The binding may narrow the port's range, and the processor binds the
         // slot to that same narrowed range, so the readout and the selector
         // have to measure against it rather than against the port.
-        knob.minimum = binding.minimum.value_or(port->minimum);
-        knob.maximum = binding.maximum.value_or(port->maximum);
+        knob.minimum = binding.rangeMinimum(port->minimum);
+        knob.maximum = binding.rangeMaximum(port->maximum);
         // The bare symbol: formatControlValue decides the spacing, and reads
         // the symbol to choose how many decimals the value needs.
         knob.unit    = port->unitSymbol;

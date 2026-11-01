@@ -146,6 +146,24 @@ void testRestartIsDeterministic()
 
 }  // namespace
 
+/// Noise of a fixed level per sample through a resonator whose peak gain follows the rate was 4.7 dB louder at
+/// 192 kHz and 1.3 dB quieter at 44.1 kHz than at 48 kHz. The first 250 ms of a hard shake must match.
+void testSameLoudnessAtOtherRates()
+{
+    const auto level = [](double rate) {
+        ElementTestFixture rig("Shaker", rate);
+        rig.setNote(60, 1.0f, true);
+        const auto out = rig.run(std::vector<float>(static_cast<std::size_t>(rate * 0.25), 0.0f));
+        return 20.0 * std::log10(std::max(rmsOf(out, 0, out.size()), 1.0e-9f));
+    };
+    const double reference = level(kRate);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        std::printf("  shaker at %.0f Hz: %+.1f dB against 48 kHz\n", rate, level(rate) - reference);
+        assert(std::abs(level(rate) - reference) < 2.0);
+    }
+}
+
 int main()
 {
     testSilentUntilShaken();
@@ -154,6 +172,7 @@ int main()
     testShellFrequencyIsHeard();
     testRegularityMakesAGuiro();
     testRestartIsDeterministic();
+    testSameLoudnessAtOtherRates();
     std::printf("ShakerTest PASSED\n");
     return 0;
 }

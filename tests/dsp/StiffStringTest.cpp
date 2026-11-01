@@ -126,6 +126,70 @@ void testALongRingStaysStable()
     assert(energyAfterSeconds(1.5f) <= longRing * 1.001);   // above the port's range it is held at 0.9999
 }
 
+/// Magnitude of `x` at `frequency` over [from, to) seconds, by a Hann-windowed single-bin transform.
+double magnitudeAt(const std::vector<float>& x, double rate, double frequency, double from, double to)
+{
+    const auto a = static_cast<std::size_t>(from * rate), b = static_cast<std::size_t>(to * rate);
+    double re = 0.0, im = 0.0;
+    for (std::size_t i = a; i < b; ++i)
+    {
+        const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(i - a) / static_cast<double>(b - a));
+        const double ph = 2.0 * M_PI * frequency * static_cast<double>(i) / rate;
+        re += x[i] * w * std::cos(ph);
+        im -= x[i] * w * std::sin(ph);
+    }
+    return std::sqrt(re * re + im * im);
+}
+
+/// The frequency near `guess` with the most energy over [0.2 s, 1.2 s).
+double peakNear(const std::vector<float>& x, double rate, double guess)
+{
+    double best = guess, bestMag = 0.0;
+    for (double f = guess * 0.98; f <= guess * 1.04; f += guess * 0.0005)
+    {
+        const double m = magnitudeAt(x, rate, f, 0.2, 1.2);
+        if (m > bestMag) { bestMag = m; best = f; }
+    }
+    return best;
+}
+
+struct RateReport { double stretch; double decayDbPerSecond; };
+
+RateReport playAt(double rate)
+{
+    ElementTestFixture rig("StiffString", rate);
+    rig.set("frequency", 220.0f);
+    rig.set("feedback", 0.99f);
+    rig.set("damping", 0.3f);
+    rig.set("dispersion", 1.0f);
+
+    std::vector<float> impulse(static_cast<std::size_t>(2.4 * rate), 0.0f);
+    impulse[0] = 1.0f;
+    const auto x = rig.run(impulse);
+
+    const double f1 = peakNear(x, rate, 220.0);
+    const double f8 = peakNear(x, rate, 8.0 * f1 * 1.02);
+    const double ring = 20.0 * std::log10(magnitudeAt(x, rate, f1, 0.3, 0.9) / magnitudeAt(x, rate, f1, 1.5, 2.1));
+    return {f8 / (8.0 * f1), ring / 1.2};
+}
+
+/// The loop filters were fixed per sample, so their corner frequencies moved with the host rate: at 192 kHz
+/// the loss pole and the dispersion allpass sat at a quarter of their 48 kHz frequencies. A string must keep
+/// its inharmonic stretch (set by the allpass) and its ring time (set by the loss) at any rate.
+void testRingsTheSameAtOtherRates()
+{
+    const RateReport reference = playAt(48000.0);
+    assert(reference.stretch > 1.005);   // the dispersion is audible, so the comparison means something
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        const RateReport r = playAt(rate);
+        std::printf("  stiff string at %6.0f Hz: stretch %.4f (%.4f at 48 kHz), ring %.2f dB/s (%.2f)\n",
+                    rate, r.stretch, reference.stretch, r.decayDbPerSecond, reference.decayDbPerSecond);
+        assert(std::abs(r.stretch / reference.stretch - 1.0) < 0.003);
+        assert(std::abs(r.decayDbPerSecond - reference.decayDbPerSecond) < 0.5);
+    }
+}
+
 }  // namespace
 
 int main()
@@ -133,6 +197,7 @@ int main()
     testInTuneAcrossTheRange();
     testInTuneAcrossDampingAndDispersion();
     testALongRingStaysStable();
+    testRingsTheSameAtOtherRates();
     std::printf("StiffStringTest passed\n");
     return 0;
 }

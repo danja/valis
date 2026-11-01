@@ -254,31 +254,101 @@ void testBreathNoiseFollowsPressure()
     assert(windy > clean * 2.0);
 }
 
-void probeReed()
+}  // namespace
+
+/// The same instrument at another host sample rate sounds the same. Its loop filters and DC blocker were once
+/// per-sample values, so their corners moved with the rate: the loss filter's corner moved (found by the multi-rate conformance report).
+void testSoundsTheSameAtOtherRates()
 {
-    for (const double frequency : {147.0, 196.0, 262.0, 440.0, 880.0})
+    struct Sound { double rmsDb, centroidHz, pitchHz; };
+    const auto measure = [](double rate)
     {
-        ElementTestFixture rig("Reed", kRate);
-        rig.set("frequency", static_cast<float>(frequency));
+        ElementTestFixture rig("Flute", rate);
+        rig.set("frequency", 440.0f);
         rig.set("pressure", 0.6f);
-        const auto out = settled(rig);
+        const std::vector<float> silence(4096, 0.0f);
+        std::vector<float> out;
+        for (int i = 0; i < static_cast<int>(24 * rate / 48000.0); ++i)
+            out = rig.run(silence);
+
         const auto bins = ElementTestFixture::computeSpectrum(out, 12);
-        const float f1 = ElementTestFixture::measureEnergyAt(bins, frequency, kRate);
-        std::fprintf(stderr, "  reed f %4.0f  %+6.1fc rms %.3f  ", frequency,
-                     centsFrom(out, frequency), ElementTestFixture::measureRms(out));
-        for (int h = 2; h <= 5; ++h)
-            std::fprintf(stderr, " %d:%.3f", h,
-                         std::sqrt(ElementTestFixture::measureEnergyAt(bins, frequency * h, kRate)
-                                   / std::max(f1, 1.0e-12f)));
-        std::fprintf(stderr, "\n");
+        const double binHz = rate / 4096.0;
+        double weighted = 0.0, total = 0.0;
+        std::size_t peak = 1;
+        for (std::size_t b = 1; b < bins.size() && static_cast<double>(b) * binHz < 8000.0; ++b)
+        {
+            weighted += bins[b] * static_cast<double>(b) * binHz;
+            total += bins[b];
+            if (static_cast<double>(b) * binHz < 440.0 * 1.4 && static_cast<double>(b) * binHz > 440.0 * 0.7 && bins[b] > bins[peak])
+                peak = b;
+        }
+        return Sound{20.0 * std::log10(std::max(ElementTestFixture::measureRms(out), 1.0e-9f)),
+                     total > 0.0 ? weighted / total : 0.0, static_cast<double>(peak) * binHz};
+    };
+
+    const auto reference = measure(48000.0);
+    assert(reference.rmsDb > -30.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        const auto other = measure(rate);
+        assert(std::abs(other.rmsDb - reference.rmsDb) < 1.0);
+        assert(other.centroidHz > reference.centroidHz * 0.8 && other.centroidHz < reference.centroidHz * 1.25);
+        // Within two bins of the 48 kHz peak (the bins are 11 to 47 Hz wide): a gross change of note.
+        assert(std::abs(other.pitchHz - reference.pitchHz) < 2.0 * rate / 4096.0 + 1.0);
     }
 }
 
-}  // namespace
+/// Pitch of a settled note to a few cents: the strongest of a fine sweep of single-frequency transforms near it.
+double fineDominantFrequency(const std::vector<float>& x, double rate, double guess)
+{
+    double best = guess, bestMagnitude = 0.0;
+    for (double f = guess * 0.97; f <= guess * 1.03; f += guess * 0.0004)
+    {
+        double re = 0.0, im = 0.0;
+        for (std::size_t i = 0; i < x.size(); ++i)
+        {
+            const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * static_cast<double>(i) / static_cast<double>(x.size()));
+            re += x[i] * w * std::cos(2.0 * M_PI * f * static_cast<double>(i) / rate);
+            im += x[i] * w * std::sin(2.0 * M_PI * f * static_cast<double>(i) / rate);
+        }
+        const double m = re * re + im * im;
+        if (m > bestMagnitude) { bestMagnitude = m; best = f; }
+    }
+    return best;
+}
+
+/// The fixed part of the loop was subtracted as one sample, which is 20.8 us at 48 kHz where the calibration was
+/// made, 10.4 us at 96 kHz: the note ran 9 cents flat at 440 Hz and 34 cents flat at 1760 Hz at 96 kHz. The jet
+/// filter pole for a low note at a high rate is close to one, and Loss::setPole once cut it at 0.98: 110 Hz was
+/// 44 cents sharp at 192 kHz.
+void testHoldsPitchAtOtherRates()
+{
+    for (const double hz : {110.0, 440.0, 1760.0})
+    {
+        const auto pitch = [hz](double rate)
+        {
+            ElementTestFixture rig("Flute", rate);
+            rig.set("frequency", static_cast<float>(hz));
+            rig.set("pressure", 0.6f);
+            std::vector<float> out;
+            const int block = 4096;
+            const int blocks = static_cast<int>(2.5 * rate / block);
+            for (int i = 0; i < blocks; ++i)
+                out = rig.run(std::vector<float>(static_cast<std::size_t>(block), 0.0f));
+            return fineDominantFrequency(out, rate, hz);
+        };
+        const double reference = pitch(48000.0);
+        for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+        {
+            const double cents = 1200.0 * std::log2(pitch(rate) / reference);
+            std::printf("  flute %.0f Hz at %.0f Hz: %+.1f cents against 48 kHz\n", hz, rate, cents);
+            assert(std::abs(cents) < 8.0);
+        }
+    }
+}
 
 int main()
 {
-    probeReed(); return 0;
     testSilentUntilBlown();
     testSpeaksAtTheGivenPitch();
     testOffsetPutsInTheEvenHarmonics();
@@ -286,6 +356,8 @@ int main()
     testTuningHoldsAcrossTheControls();
     testDampingDarkensTheTone();
     testBreathNoiseFollowsPressure();
+    testSoundsTheSameAtOtherRates();
+    testHoldsPitchAtOtherRates();
 
     std::printf("FluteTest PASSED\n");
     return 0;

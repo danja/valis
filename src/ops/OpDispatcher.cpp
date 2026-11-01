@@ -965,8 +965,8 @@ std::vector<ParamInfo> OpDispatcher::listParams() const
             {
                 // The binding's own range, where it gives one, is the knob's range: it is what the
                 // Controls view and the host parameter use, so it is what a caller must see and be clamped to.
-                info.minimum = binding.minimum.value_or(port->minimum);
-                info.maximum = binding.maximum.value_or(port->maximum);
+                info.minimum = binding.rangeMinimum(port->minimum);
+                info.maximum = binding.rangeMaximum(port->maximum);
                 info.unit    = port->unitSymbol;
 
                 // What is running, not what the Turtle declared: a host or an

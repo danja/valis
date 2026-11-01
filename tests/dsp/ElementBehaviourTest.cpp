@@ -578,6 +578,29 @@ void testModalBankResonatesAtModeFrequencies()
     }
 }
 
+/// A tone at a mode through the bank must come out at the same level at any rate. The resonator's peak
+/// gain goes as 1 / sin(omega), so it was 5.6 dB louder at 88.2 kHz than at 48 kHz.
+void testModalBankLevelHoldsAtOtherRates()
+{
+    const auto level = [](double rate) {
+        Rig rig("ModalBank", rate);
+        rig.set("frequency", 200.0f);
+        rig.set("decay", 0.5f);
+        rig.set("brightness", 1.0f);
+        rig.set("mode", 0.0f);
+        const auto out = rig.run(sine(200.0, rate, static_cast<int>(rate), 0.3f));
+        double sum = 0.0;
+        for (std::size_t i = out.size() / 2; i < out.size(); ++i) sum += static_cast<double>(out[i]) * out[i];
+        return 10.0 * std::log10(sum / static_cast<double>(out.size() / 2) + 1.0e-30);
+    };
+    const double reference = level(48000.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        std::printf("  modal bank at %.0f Hz: %+.2f dB against 48 kHz\n", rate, level(rate) - reference);
+        assert(std::abs(level(rate) - reference) < 0.5);
+    }
+}
+
 /// Reed must be silent below the threshold and self-oscillate above it.
 void testReedSelfOscillatesAbovePressureThreshold()
 {
@@ -1163,6 +1186,7 @@ int main()
     testCombFilterRingsAtCorrectPitch();
     testStiffStringDispersionAffectsOutput();
     testModalBankResonatesAtModeFrequencies();
+    testModalBankLevelHoldsAtOtherRates();
     testReedSelfOscillatesAbovePressureThreshold();
     testOnePoleFiltersCorrectly();
     testLadderFiltersAndResonates();

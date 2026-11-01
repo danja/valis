@@ -120,7 +120,7 @@
     val:seconds 0.25 ;
     val:position 0.5 ;
     val:size 4.0 ;
-    val:density 500.0 ;
+    val:density 200.0 ;
     val:spray 1.0 ;            # anywhere in the noise: it is all alike
     val:jitter 0.6 ;           # rebounds, not a metronome
     val:sizeJitter 0.7 ;

@@ -260,6 +260,43 @@ void testPositionChangesTheTone()
 
 }  // namespace
 
+/// The same bow at another host sample rate sounds the same. The loop filters were once fixed per-sample poles, so
+/// at 88.2 kHz the string was twice as bright (spectral centroid 784 Hz at 48 kHz, 1537 Hz at 88.2 kHz, 2019 Hz at
+/// 192 kHz) and 1.5 dB louder: found by the multi-rate conformance report.
+void testSoundsTheSameAtOtherRates()
+{
+    struct Sound { double rmsDb, centroidHz; };
+    const auto measure = [](double rate)
+    {
+        ElementTestFixture rig("Bow", rate);
+        rig.set("frequency", 220.0f);
+        rig.setNote(57, 1.0f, true);
+        const std::vector<float> silence(16384, 0.0f);
+        std::vector<float> out;
+        for (int i = 0; i < static_cast<int>(6 * rate / kRate); ++i)
+            out = rig.run(silence);
+
+        const auto bins = ElementTestFixture::computeSpectrum(out, 13);
+        const double binHz = rate / (2.0 * static_cast<double>(bins.size()));
+        double weighted = 0.0, total = 0.0;
+        for (std::size_t b = 1; b < bins.size() && static_cast<double>(b) * binHz < 8000.0; ++b)
+        {
+            weighted += bins[b] * static_cast<double>(b) * binHz;
+            total += bins[b];
+        }
+        return Sound{20.0 * std::log10(std::max(ElementTestFixture::measureRms(out), 1.0e-9f)), total > 0.0 ? weighted / total : 0.0};
+    };
+
+    const auto reference = measure(48000.0);
+    assert(reference.rmsDb > -30.0);
+    for (const double rate : {44100.0, 88200.0, 96000.0, 192000.0})
+    {
+        const auto other = measure(rate);
+        assert(std::abs(other.rmsDb - reference.rmsDb) < 1.0);
+        assert(other.centroidHz > reference.centroidHz * 0.8 && other.centroidHz < reference.centroidHz * 1.25);
+    }
+}
+
 int main()
 {
     testBowingStartsTheString();
@@ -268,6 +305,7 @@ int main()
     testStaysBoundedWhileBowedHard();
     testSpectrumIsRichInHarmonics();
     testPositionChangesTheTone();
+    testSoundsTheSameAtOtherRates();
 
     std::puts("CelloTest PASSED");
     return 0;
