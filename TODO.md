@@ -1,5 +1,9 @@
 ## Misc
 
+* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle; port
+  the mix from `scripts/song/songlib.py` to a C++ op so MCP can mix; convert `dub-metal` and the older song scripts to
+  `song.ttl`.
+
 * review pre-existing examples to see if they can be improved with the new features - subcircuits etc
   (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,

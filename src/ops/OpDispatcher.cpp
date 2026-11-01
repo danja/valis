@@ -8,6 +8,7 @@
 #include "valis/CircuitHistory.h"
 #include "valis/DspElement.h"
 #include "valis/Freesound.h"
+#include "valis/Song.h"
 #include "valis/Lint.h"
 #include "valis/MidiScore.h"
 #include "valis/ModalFit.h"
@@ -1508,6 +1509,93 @@ OpResult OpDispatcher::listen(const std::string& path, const std::vector<std::st
 OpResult OpDispatcher::soundsLike(const std::string& path, const std::string& sentence) const
 {
     return fromShot(shotIs(path, sentence));
+}
+
+OpResult OpDispatcher::readSong(const std::string& path) const
+{
+    const auto file = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path));
+    if (! file.existsAsFile())
+        return OpResult::failure("no song file at " + file.getFullPathName().toStdString());
+
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+    if (! store.parseFile(file.getFullPathName().toStdString(), parseErrors))
+    {
+        std::string message = "the song file does not parse:";
+        for (const auto& e : parseErrors)
+            message += "\n  " + e.toString();
+        return OpResult::failure(message);
+    }
+
+    Song song;
+    std::vector<Diagnostic> diagnostics;
+    if (! Song::read(store, song, diagnostics))
+    {
+        std::string message = "not a usable song:";
+        for (const auto& d : diagnostics)
+            message += "\n  " + d.message;
+        return OpResult::failure(message);
+    }
+
+    const auto resolve = [&](const std::string& relative)
+    {
+        return juce::File::isAbsolutePath(juce::String(relative))
+                   ? juce::File(juce::String(relative))
+                   : file.getParentDirectory().getChildFile(juce::String(relative));
+    };
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty("title", juce::String(song.title));
+    root->setProperty("tempo", song.tempo);
+    root->setProperty("beatsPerBar", song.beatsPerBar);
+    root->setProperty("bars", song.totalBars());
+    root->setProperty("seconds", song.seconds());
+    root->setProperty("renderSeconds", song.renderSeconds());
+    if (song.loudness)
+        root->setProperty("loudness", *song.loudness);
+
+    juce::Array<juce::var> sections;
+    for (const auto& s : song.sections)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(s.name));
+        o->setProperty("label", juce::String(s.label));
+        o->setProperty("index", s.index);
+        o->setProperty("bars", s.bars);
+        o->setProperty("firstBar", s.firstBar);
+        o->setProperty("startSeconds", s.firstBar * song.barSeconds());
+        o->setProperty("level", s.level);
+        sections.add(juce::var(o));
+    }
+    root->setProperty("sections", sections);
+
+    juce::Array<juce::var> stems, problems;
+    for (const auto& s : song.stems)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(s.name));
+        o->setProperty("kind", s.isReturn ? "return" : "part");
+        const auto circuit = resolve(s.circuit);
+        o->setProperty("circuit", circuit.getFullPathName());
+        if (! circuit.existsAsFile())
+            problems.add(juce::String(s.name) + ": no circuit at " + circuit.getFullPathName());
+        if (s.isReturn)
+            o->setProperty("source", juce::String(s.source));
+        else
+        {
+            const auto midi = resolve(s.midi);
+            o->setProperty("midi", midi.getFullPathName());
+            if (! midi.existsAsFile())
+                problems.add(juce::String(s.name) + ": no MIDI file at " + midi.getFullPathName());
+        }
+        o->setProperty("level", s.level);
+        o->setProperty("pan", s.pan);
+        o->setProperty("highpass", s.highpass);
+        stems.add(juce::var(o));
+    }
+    root->setProperty("stems", stems);
+    root->setProperty("problems", problems);
+    return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
 }
 
 namespace {

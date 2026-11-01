@@ -487,6 +487,9 @@ const ToolSpec kTools[] = {
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, its latency, and any problems an element recovered from (a missing sound file, say) as `problems`.",
      R"({"type":"object","properties":{}})"},
 
+    {"read_song", "Read and check a song file (a Turtle file with one val:Song: tempo, sections in order, the parts that play it and the effect returns, with each stem's level, pan and high-pass). Returns the layout (bars, length, where each section starts) and the stems with their resolved circuit and MIDI paths, and lists in `problems` any file it names that is missing. A song that is not usable fails with each reason. Reads a file only; it does not change the circuit.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"absolute, or relative to the working directory"}},"required":["path"]})"},
+
     {"freesound_search", "Search freesound.org for sounds, using the API key in .env. Returns id, name, author, licence, duration, tags and page for each. licence is cc0 (default, free to use with no credit), cc-by (credit the author), or any. Sorted by rating unless sort says otherwise (e.g. downloads_desc, score, duration_asc). Network access; the key is never returned.",
      R"({"type":"object","properties":{"query":{"type":"string","description":"words, e.g. \"kick drum 808\"; + and - mark required and excluded words"},"license":{"type":"string","enum":["cc0","cc-by","any"]},"min_seconds":{"type":"number"},"max_seconds":{"type":"number"},"page_size":{"type":"integer","description":"1 to 50, default 15"},"sort":{"type":"string"}},"required":["query"]})"},
 
@@ -585,7 +588,7 @@ namespace {
 bool isFileTool(const juce::String& name)
 {
     return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes"
-        || name == "freesound_search" || name == "freesound_download";
+        || name == "freesound_search" || name == "freesound_download" || name == "read_song";
 }
 
 juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
@@ -607,6 +610,9 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
                 queries.push_back(q.toString().toStdString());
         return resultOf(ops.listen(stringArgument(arguments, "path"), queries));
     }
+
+    if (name == "read_song")
+        return resultOf(ops.readSong(stringArgument(arguments, "path")));
 
     if (name == "freesound_search")
         return resultOf(ops.freesoundSearch(

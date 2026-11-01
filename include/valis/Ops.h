@@ -301,6 +301,12 @@ public:
     /// The one-question form of listen: yes, maybe or no, and what the sound is closest to.
     OpResult soundsLike(const std::string& path, const std::string& sentence) const;
 
+    /// Reads a song file (a Turtle file with one val:Song, see docs/songs.md) and reports it as JSON: tempo, bars,
+    /// length, each section with the bar and time it starts, and each stem with its resolved circuit and MIDI paths.
+    /// `problems` lists files it names that are not there. Fails with the located reasons if it is not a usable song.
+    /// Reads a file only, so it needs no circuit and can run on any thread.
+    OpResult readSong(const std::string& path) const;
+
     /// Freesound (https://freesound.org/docs/api/) with the API key in FREESOUND_API_KEY, from the environment or a
     /// .env file in the working directory or the source root. Search returns JSON; download saves the Ogg preview and
     /// a .json with author, licence and page beside it, and returns their paths. Network I/O: not for the message thread.

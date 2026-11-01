@@ -47,6 +47,7 @@ add_library(valis_core STATIC
   src/model/Ontology.cpp
   src/model/CircuitModel.cpp
   src/model/Subcircuit.cpp
+  src/model/Song.cpp
   src/compiler/CircuitCompiler.cpp
   src/dsp/ElementRegistry.cpp
   src/net/Freesound.cpp

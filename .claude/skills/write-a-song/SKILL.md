@@ -11,6 +11,10 @@ newer and tidier pattern; copy it.
 
 ## Method
 
+The tempo, sections, parts, returns and mix table can be written once as a `val:Song` file (`docs/songs.md`) and
+checked with the `read_song` tool; `scripts/song/songlib.py` renders and mixes from it, and
+`valis-artifacts/scripts/interstate-rain/track.py` keeps only the score. Prefer that to a new table in each script.
+
 1. **Fix the plan in numbers first.** Tempo, key, bars per section, the eight-bar harmony, and which part plays in
    which section. A section table in the script (`SECTIONS`) and one function that answers "what plays in this
    bar" keep an alternate arrangement a change of table, not a rewrite. `track.py --short` is the example.

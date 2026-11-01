@@ -90,7 +90,7 @@ void testEveryClassMentionedExists(const Ontology& ontology, const std::string& 
 {
     // Classes that are not elements but are real.
     const std::set<std::string> others{"Circuit", "Arc", "ControlArc", "Param", "Subcircuit",
-                                       "BufferPort", "NoteGate"};
+                                       "BufferPort", "NoteGate", "Song"};
 
     static const std::regex mention("val:([A-Z]\\w+)");
     for (std::sregex_iterator it(guide.begin(), guide.end(), mention), end; it != end; ++it)

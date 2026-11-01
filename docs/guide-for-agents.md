@@ -80,6 +80,7 @@ asking the running program:
 | `compare` | how far apart two wav files are, in dB, and how their loudness differs |
 | `sounds_like` | is this file "a trumpet"? yes, maybe or no, and what it is closest to (needs the neural models) |
 | `freesound_search` | search freesound.org (CC0 by default) for sounds: id, name, author, licence, length, tags. Needs `FREESOUND_API_KEY` in `.env` |
+| `read_song` | read a `val:Song` file (tempo, sections, parts, returns, mix table) and list problems such as a missing circuit or MIDI file; see `docs/songs.md` |
 | `freesound_download` | fetch a sound by id into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence; returns the path for a `val:Sampler` |
 | `listen` | AudioSet labels for a file, and a score for each sentence you give (needs the neural models) |
 

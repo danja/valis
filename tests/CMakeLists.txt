@@ -8,6 +8,7 @@ set(VALIS_TESTS
   rdf/TurtleStoreTest.cpp
   model/OntologyTest.cpp
   model/SubcircuitTest.cpp
+  model/SongTest.cpp
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
   dsp/ElementConformanceTest.cpp

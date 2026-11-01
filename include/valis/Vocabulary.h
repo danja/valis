@@ -117,6 +117,31 @@ namespace units {
   inline const std::string symbol = std::string(UNITS) + "symbol";
 }
 
+// A song: sections, the parts that play them, and how the parts are mixed (see docs/songs.md).
+namespace song {
+  inline const std::string Song    = std::string(VAL) + "Song";
+  inline const std::string Section = std::string(VAL) + "Section";
+  inline const std::string Part    = std::string(VAL) + "Part";
+  inline const std::string Return  = std::string(VAL) + "Return";
+
+  inline const std::string hasSection  = std::string(VAL) + "hasSection";
+  inline const std::string hasPart     = std::string(VAL) + "hasPart";
+  inline const std::string hasReturn   = std::string(VAL) + "hasReturn";
+  inline const std::string title       = std::string(VAL) + "title";
+  inline const std::string tempo       = std::string(VAL) + "tempo";
+  inline const std::string beatsPerBar = std::string(VAL) + "beatsPerBar";
+  inline const std::string loudness    = std::string(VAL) + "loudness";
+  inline const std::string tailSeconds = std::string(VAL) + "tailSeconds";
+  inline const std::string index       = std::string(VAL) + "index";
+  inline const std::string bars        = std::string(VAL) + "bars";
+  inline const std::string circuit     = std::string(VAL) + "circuit";
+  inline const std::string midi        = std::string(VAL) + "midi";
+  inline const std::string level       = std::string(VAL) + "level";
+  inline const std::string pan         = std::string(VAL) + "pan";
+  inline const std::string highpass    = std::string(VAL) + "highpass";
+  inline const std::string source      = std::string(VAL) + "source";
+}  // namespace song
+
 namespace val {
   // Classes
   inline const std::string Circuit    = std::string(VAL) + "Circuit";
