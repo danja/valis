@@ -1,6 +1,6 @@
 ## Misc
 
-* **Songs as data, next steps** (`docs/songs.md`): fixed patterns and chords are now a `val:Score` (`valis-song score`); not yet tried on a whole song: write one score for a new song, and convert `dub-metal`'s tables if the changed humanising is acceptable. Not done in the score: a pattern that depends on the bar's position in a cycle other than the chord progression, per-play velocity scaling, tuplets, and a vocal-guide format. The stem checks
+* **Songs as data, next steps** (`docs/songs.md`): fixed patterns and chords are now a `val:Score` (`valis-song score`); `dub-metal` is converted (its `metal` part is still generated in Python). Not tried: a score written first for a new song. Not done in the score: a pattern that depends on the bar's position in a cycle other than the chord progression, per-play velocity scaling, tuplets, and a vocal-guide format. The stem checks
   the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
   block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
@@ -373,9 +373,9 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   so the choir can hold a chord. It plays one note at a time now, and the song uses single notes.
 * **Make the Halloween guitar and bass polyphonic or document that they are not.** The guitar riff is
   single notes by design; say so in the header of each file.
-* **Put the song into the plug-in once a circuit can be chosen per instance** (see the Reaper item
-  above): replace the audio stems with eight Valis tracks driven by the MIDI files in `midi/`, so the
-  project edits the instruments rather than recordings of them.
+* **Put the song into the plug-in: done for dub-metal** (`valis-song reaper --midi`, then circuits loaded through each
+  instance's MCP port, 31 October 2026). Not done for Halloween. `--midi` does not write the return buses (echo), high-passes
+  or markers, and the circuits live only in the saved instance state, not in the `.rpp` written by the tool.
 
 ## Recurring - check periodically
 

@@ -1791,7 +1791,7 @@ OpResult OpDispatcher::scoreSong(const std::string& path, const std::vector<std:
 }
 
 OpResult OpDispatcher::reaperProject(const std::string& path, const std::string& wavDirectory,
-                                     const std::string& outputPath, bool overwrite) const
+                                     const std::string& outputPath, bool overwrite, bool midi) const
 {
     Song song;
     juce::File file;
@@ -1802,7 +1802,8 @@ OpResult OpDispatcher::reaperProject(const std::string& path, const std::string&
         ? file.getParentDirectory().getChildFile(juce::String(song.slug()) + ".rpp").getFullPathName()
         : juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(outputPath)).getFullPathName();
     const auto result = writeReaperProject(song, inSongDirectory(file, wavDirectory, "wavs").toStdString(),
-                                           output.toStdString(), overwrite);
+                                           output.toStdString(), overwrite, midi,
+                                           file.getParentDirectory().getFullPathName().toStdString());
     if (! result.ok)
         return OpResult::failure(result.error);
 
@@ -1815,6 +1816,9 @@ OpResult OpDispatcher::reaperProject(const std::string& path, const std::string&
         o->setProperty("pan", t.pan);
         o->setProperty("muted", t.muted);
         o->setProperty("seconds", t.seconds);
+        if (! t.midiPath.empty())
+            o->setProperty("midi", juce::String(t.midiPath));
+        o->setProperty("circuit", file.getParentDirectory().getChildFile(juce::String(t.circuit)).getFullPathName());
         tracks.add(juce::var(o));
     }
     for (const auto& m : result.missing)

@@ -94,7 +94,7 @@ bool Score::read(const rdf::TurtleStore& store, const Song& song, Score& out, st
     if (const auto per = r.number(node, vocab::score::barsPerChord, "val:barsPerChord"))
     {
         score.barsPerChord = static_cast<int>(*per);
-        if (*per < 1.0 || *per > 64.0 || std::floor(*per) != *per)
+        if (*per < 1.0 || *per > 64.0 || std::floor(*per) < *per)
             r.fail("val:barsPerChord must be a whole number from 1 to 64", score.id);
     }
     score.progression = words(r.text(node, vocab::score::progression));
@@ -139,13 +139,13 @@ bool Score::read(const rdf::TurtleStore& store, const Song& song, Score& out, st
         if (const auto bars = r.number(p, vocab::song::bars, "val:bars"))
         {
             pattern.bars = static_cast<int>(*bars);
-            if (*bars < 1.0 || *bars > 64.0 || std::floor(*bars) != *bars)
+            if (*bars < 1.0 || *bars > 64.0 || std::floor(*bars) < *bars)
                 r.fail("pattern " + pattern.name + " has val:bars " + std::to_string(*bars) + "; it needs a whole number from 1 to 64", std::string(p.string()));
         }
         if (const auto spb = r.number(p, vocab::score::stepsPerBeat, "val:stepsPerBeat"))
         {
             pattern.stepsPerBeat = static_cast<int>(*spb);
-            if (*spb < 1.0 || *spb > 12.0 || std::floor(*spb) != *spb)
+            if (*spb < 1.0 || *spb > 12.0 || std::floor(*spb) < *spb)
                 r.fail("pattern " + pattern.name + " has val:stepsPerBeat " + std::to_string(*spb) + "; it needs a whole number from 1 to 12", std::string(p.string()));
         }
         const std::size_t expected = static_cast<std::size_t>(std::max(1, pattern.bars) * beatsPerBar * std::max(1, pattern.stepsPerBeat));

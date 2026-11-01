@@ -161,6 +161,15 @@ def check(song):
     return _run(["check", song.path])
 
 
+def score(song, only=None):
+    """Plays the song's score (val:score) into the MIDI file of each part it plays; a part it does not play is left alone."""
+    args = ["score", song.path]
+    if only:
+        args += ["--only", ",".join(only)]
+    for p in _run(args)["parts"]:
+        print("%-12s %5d notes" % (p["part"], p["notes"]))
+
+
 def render(song, only=None, workers=3):
     """Renders every part (a stem is the part's circuit played by its MIDI file), then every return (the source stem
     through the return's circuit). `only` is a list of part names; a return is redone with its source."""

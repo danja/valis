@@ -32,7 +32,7 @@ std::string trackId(std::size_t index)
 } // namespace
 
 ReaperResult writeReaperProject(const Song& song, const std::string& wavDirectory, const std::string& outputPath,
-                                bool overwrite)
+                                bool overwrite, bool midi, const std::string& songDirectory)
 {
     ReaperResult result;
     const juce::File target{juce::String(outputPath)};
@@ -61,29 +61,72 @@ ReaperResult writeReaperProject(const Song& song, const std::string& wavDirector
         stems.push_back(std::move(stem));
         from.push_back(&s);
     }
-    if (stems.empty())
+    if (stems.empty() && ! midi)
     {
         result.error = "no stem wavs in " + wavDirectory + " (render the song first)";
         return result;
     }
-    const double rate = stems.front().audio.sampleRate;
-
-    std::vector<double> gains;
-    std::vector<MixStemReport> levels;
-    if (! songmix::stemGains(stems, rate, gains, levels, result.error))
-        return result;
 
     // The loudest stem sits at 0 dB, so no fader is above unity and the balance is the mix's.
-    const double loudest = *std::max_element(gains.begin(), gains.end());
-    for (std::size_t k = 0; k < stems.size(); ++k)
+    std::vector<double> gains;
+    double rate = 48000.0, loudest = 0.0;
+    if (! stems.empty())
     {
-        ReaperTrack t;
-        t.name = stems[k].name;
-        t.volumeDb = gains[k] - loudest;
-        t.pan = std::clamp(stems[k].pan, -1.0, 1.0);
-        t.muted = from[k]->silent;
-        t.seconds = static_cast<double>(stems[k].audio.frames()) / rate;
-        result.tracks.push_back(t);
+        rate = stems.front().audio.sampleRate;
+        std::vector<MixStemReport> levels;
+        if (! songmix::stemGains(stems, rate, gains, levels, result.error))
+            return result;
+        loudest = *std::max_element(gains.begin(), gains.end());
+    }
+    const auto volumeOf = [&](const std::string& name)
+    {
+        for (std::size_t k = 0; k < stems.size(); ++k)
+            if (stems[k].name == name) return gains[k] - loudest;
+        return 0.0;
+    };
+
+    if (! midi)
+    {
+        for (std::size_t k = 0; k < stems.size(); ++k)
+        {
+            ReaperTrack t;
+            t.name = stems[k].name;
+            t.volumeDb = gains[k] - loudest;
+            t.pan = std::clamp(stems[k].pan, -1.0, 1.0);
+            t.muted = from[k]->silent;
+            t.seconds = static_cast<double>(stems[k].audio.frames()) / rate;
+            t.circuit = from[k]->circuit;
+            result.tracks.push_back(t);
+        }
+    }
+    else
+    {
+        result.missing.clear();     // here a part is missing when its MIDI file is, not its wav
+        for (const auto& s : song.stems)
+        {
+            if (s.isReturn)
+                continue;
+            const auto path = s.midi.empty() ? std::string() : (s.midi.front() == '/' ? s.midi : songDirectory + "/" + s.midi);
+            if (path.empty() || ! juce::File(juce::String(path)).existsAsFile())
+            {
+                result.missing.push_back(s.name);
+                continue;
+            }
+            ReaperTrack t;
+            t.name = s.name;
+            t.volumeDb = volumeOf(s.name);
+            t.pan = std::clamp(s.pan, -1.0, 1.0);
+            t.muted = s.silent;
+            t.seconds = song.renderSeconds();
+            t.midiPath = path;
+            t.circuit = s.circuit;
+            result.tracks.push_back(t);
+        }
+        if (result.tracks.empty())
+        {
+            result.error = "no MIDI files found for the parts (run valis-song score, or the song's score script)";
+            return result;
+        }
     }
 
     std::string out = "<REAPER_PROJECT 0.1 \"7.83/linux-x86_64\" 1793285344 0\n";
@@ -101,9 +144,18 @@ ReaperResult writeReaperProject(const Song& song, const std::string& wavDirector
         out += "      POSITION 0\n";
         out += "      LENGTH " + number(t.seconds) + "\n";
         out += "      LOOP 0\n";
-        out += "      NAME \"" + t.name + ".wav\"\n";
-        out += "      <SOURCE WAVE\n";
-        out += "        FILE \"" + wavDirectory + "/" + t.name + ".wav\"\n";
+        if (midi)
+        {
+            out += "      NAME \"" + t.name + ".mid\"\n";
+            out += "      <SOURCE MIDI\n";
+            out += "        FILE \"" + t.midiPath + "\"\n";
+        }
+        else
+        {
+            out += "      NAME \"" + t.name + ".wav\"\n";
+            out += "      <SOURCE WAVE\n";
+            out += "        FILE \"" + wavDirectory + "/" + t.name + ".wav\"\n";
+        }
         out += "      >\n";
         out += "    >\n";
         out += "  >\n";

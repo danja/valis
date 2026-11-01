@@ -157,7 +157,7 @@ bool expandScorePart(const Song& song, const Score& score, const std::string& pa
         return false;
     }
     std::stable_sort(notes.begin(), notes.end(), [](const ScoreNote& a, const ScoreNote& b)
-                     { return a.beat < b.beat || (a.beat == b.beat && a.key < b.key); });
+                     { return a.beat < b.beat || (!(b.beat < a.beat) && a.key < b.key); });
     return true;
 }
 

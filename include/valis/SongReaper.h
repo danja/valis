@@ -21,6 +21,8 @@ struct ReaperTrack
     double pan = 0.0;
     bool   muted = false;       ///< a val:silent part, kept so the return it feeds can be rebuilt
     double seconds = 0.0;
+    std::string midiPath;       ///< the MIDI file on the track, in midi mode
+    std::string circuit;        ///< the circuit that plays it, as the song names it
 };
 
 struct ReaperResult
@@ -34,7 +36,11 @@ struct ReaperResult
 
 /// Reads each `<wavDirectory>/<stem>.wav`, works out the mix's gain for each, and writes the project to `outputPath`.
 /// Refuses to replace a file there unless `overwrite`, since the project may have been edited in Reaper.
+///
+/// With `midi`, each part gets a track holding its MIDI file (found against `songDirectory`) instead of its stem, so an
+/// instrument can be put on the track to play it. Volumes still come from the stems when their wavs exist, and are 0 dB
+/// when they do not. Returns are effects fed by a stem and get no track.
 ReaperResult writeReaperProject(const Song& song, const std::string& wavDirectory, const std::string& outputPath,
-                                bool overwrite);
+                                bool overwrite, bool midi = false, const std::string& songDirectory = {});
 
 } // namespace valis

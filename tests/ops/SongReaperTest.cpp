@@ -96,6 +96,22 @@ int main()
     assert(! again.ok && again.error.find("not replaced") != std::string::npos);
     assert(writeReaperProject(song, root + "/wavs", project, true).ok);
 
+    // MIDI mode: a track for each part that has a MIDI file, holding that file; volumes still come from the stems
+    for (const char* name : {"loud", "quiet"})
+        directory.getChildFile("midi").getChildFile(juce::String(name) + ".mid").create();      // only its existence matters here
+    const auto midiProject = root + "/midi-test.rpp";
+    const auto midi = writeReaperProject(song, root + "/wavs", midiProject, false, true, root);
+    if (! midi.ok)
+        std::printf("  %s\n", midi.error.c_str());
+    assert(midi.ok && midi.tracks.size() == 2);                              // dry and gone have no MIDI file
+    assert(midi.missing.size() == 2);
+    assert(midi.tracks[0].midiPath == root + "/midi/loud.mid" && midi.tracks[0].circuit == "x.ttl");
+    assert(std::abs(midi.tracks[1].volumeDb + 6.0) < 1.0e-6);
+    const auto midiBody = juce::File(juce::String(midiProject)).loadFileAsString().toStdString();
+    assert(midiBody.find("<SOURCE MIDI") != std::string::npos && midiBody.find("WAVE") == std::string::npos);
+    assert(midiBody.find("FILE \"" + root + "/midi/quiet.mid\"") != std::string::npos);
+    assert(midiBody.find("LENGTH 14") != std::string::npos);                  // 4 s of bars and the 10 s tail
+
     // No stems at all.
     const auto none = writeReaperProject(song, root + "/nothing", root + "/none.rpp", false);
     assert(! none.ok && none.error.find("render the song first") != std::string::npos);

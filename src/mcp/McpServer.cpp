@@ -497,7 +497,7 @@ const ToolSpec kTools[] = {
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"wav_directory":{"type":"string","description":"where the stems are; wavs beside the song file by default"}},"required":["path"]})"},
 
     {"reaper_project", "Write a Reaper project from a song file: one track per rendered stem with its wav at the start, the track's volume and pan set from the song's mix (the loudest stem at 0 dB) and the song's tempo and meter. A starting point for mixing by ear. The high-pass is not written. Refuses to replace a project that exists unless overwrite is true, since it may have been edited in Reaper. Open it in Reaper, or build on it through reaper-mcp.",
-     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"the .rpp to write; <title>.rpp beside the song file by default"},"overwrite":{"type":"boolean"}},"required":["path"]})"},
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"the .rpp to write; <title>.rpp beside the song file by default"},"overwrite":{"type":"boolean"},"midi":{"type":"boolean","description":"put each part's MIDI file on its track instead of its stem, for an instrument to play; the reply names each track's circuit"}},"required":["path"]})"},
 
     {"score_song", "Play a song's score into MIDI: the song file's val:score names a Turtle file of patterns (a step string per lane, x a hit, X an accent), chords with their voicings, a progression, a feel per part (timing and velocity spread, swing) and a plan of which part plays which pattern in which section. Writes the MIDI file of each part the score plays, or of those named in only. A part the score does not play is left alone. The same score always gives the same notes, on every platform. Run it before render_song.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"only":{"type":"array","items":{"type":"string"},"description":"part names to write; all the score plays by default"}},"required":["path"]})"},
@@ -665,7 +665,8 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
     if (name == "reaper_project")
         return resultOf(ops.reaperProject(stringArgument(arguments, "path"), stringArgument(arguments, "wav_directory"),
                                           stringArgument(arguments, "output"),
-                                          arguments.hasProperty("overwrite") && static_cast<bool>(arguments["overwrite"])));
+                                          arguments.hasProperty("overwrite") && static_cast<bool>(arguments["overwrite"]),
+                                          arguments.hasProperty("midi") && static_cast<bool>(arguments["midi"])));
 
     if (name == "freesound_search")
         return resultOf(ops.freesoundSearch(

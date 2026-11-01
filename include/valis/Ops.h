@@ -336,9 +336,10 @@ public:
 
     /// Writes a Reaper project beside the song file (`<title>.rpp`, or `outputPath`) with one track per rendered stem: its wav
     /// at the start, volume and pan from the song's mix (the loudest stem at 0 dB), tempo and meter from the song. The
-    /// high-pass is not written. Refuses to replace a project that exists unless `overwrite`. Reads and writes files only.
+    /// high-pass is not written. Refuses to replace a project that exists unless `overwrite`. With `midi` each part's track holds its MIDI
+    /// file instead of its stem, for an instrument to play; each track's circuit is returned. Reads and writes files only.
     OpResult reaperProject(const std::string& path, const std::string& wavDirectory = {}, const std::string& outputPath = {},
-                           bool overwrite = false) const;
+                           bool overwrite = false, bool midi = false) const;
 
     /// Freesound (https://freesound.org/docs/api/) with the API key in FREESOUND_API_KEY, from the environment or a
     /// .env file in the working directory or the source root. Search returns JSON; download saves the Ogg preview and

@@ -25,7 +25,7 @@ void usage()
         "  valis-song score  <song.ttl> [--only a,b]\n"
         "  valis-song render <song.ttl> [--only a,b] [--workers N]\n"
         "  valis-song stems  <song.ttl>\n"
-        "  valis-song reaper <song.ttl> [--output file.rpp] [--overwrite]\n"
+        "  valis-song reaper <song.ttl> [--midi] [--output file.rpp] [--overwrite]\n"
         "  valis-song mix    <song.ttl> [--version vN] [--arc] [--lufs N] [--overwrite]\n"
         "\n"
         "check prints the layout and any file the song names that is missing. stems compares each rendered wav with its\n"
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
     std::string version, wavs, output;
     std::optional<double> lufs;
     int workers = 3;
-    bool arc = false, overwrite = false;
+    bool arc = false, overwrite = false, midi = false;
     for (std::size_t i = 2; i < args.size(); ++i)
     {
         const auto& a = args[i];
@@ -68,6 +68,7 @@ int main(int argc, char** argv)
         else if (a == "--output")    output = next();
         else if (a == "--arc")       arc = true;
         else if (a == "--overwrite") overwrite = true;
+        else if (a == "--midi")      midi = true;
         else
         {
             std::fprintf(stderr, "unknown option %s\n", a.c_str());
@@ -95,7 +96,7 @@ int main(int argc, char** argv)
     if (command == "check")        result = ops.readSong(song);
     else if (command == "render")  result = ops.renderSong(song, only, workers, wavs);
     else if (command == "score")   result = ops.scoreSong(song, only);
-    else if (command == "reaper")  result = ops.reaperProject(song, wavs, output, overwrite);
+    else if (command == "reaper")  result = ops.reaperProject(song, wavs, output, overwrite, midi);
     else if (command == "stems")   result = ops.checkSongStems(song, wavs);
     else if (command == "mix")     result = ops.mixSong(song, version, arc, lufs, overwrite, wavs, output);
     else
