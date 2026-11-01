@@ -490,6 +490,12 @@ const ToolSpec kTools[] = {
     {"read_song", "Read and check a song file (a Turtle file with one val:Song: tempo, sections in order, the parts that play it and the effect returns, with each stem's level, pan and high-pass). Returns the layout (bars, length, where each section starts) and the stems with their resolved circuit and MIDI paths, and lists in `problems` any file it names that is missing. A song that is not usable fails with each reason. Reads a file only; it does not change the circuit.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"absolute, or relative to the working directory"}},"required":["path"]})"},
 
+    {"render_song", "Render the stems of a song file (see read_song): each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit. Writes one wav per stem to the song's wavs directory and returns its length, peak and rms. `only` names the parts to redo (with their returns). A stem that fails to load, or holds a NaN, is named in the failure and the others are still written. Each render is a private copy of its circuit, so the live circuit is untouched. Takes as long as the audio does, several at once.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"only":{"type":"array","items":{"type":"string"},"description":"part names to render; default all"},"workers":{"type":"integer","description":"renders at once, 1 to 8, default 3"},"wav_directory":{"type":"string","description":"default wavs beside the song file"}},"required":["path"]})"},
+
+    {"mix_song", "Mix the stems of a song file to a stereo reference wav: each stem levelled to its playing-RMS level, high-passed, panned and summed, then (with arc) each section's level, a fade, a synthetic room, a soft clip, and the gain that reaches the song's loudness target without passing -1 dBTP. Writes mixes/<title>-<version>.wav and refuses to overwrite one, so every version is kept. Returns the loudness, each section's playing level, each stem's gain and any missing stem. A reference mix, measured and not heard; vocals and mastering are done in a DAW.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"version":{"type":"string","description":"v1, v2 and so on; default v1"},"arc":{"type":"boolean","description":"apply each section's val:level"},"loudness":{"type":"number","description":"LUFS to aim at in place of the song's own"},"overwrite":{"type":"boolean"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"a full path in place of mixes/<title>-<version>.wav"}},"required":["path"]})"},
+
     {"freesound_search", "Search freesound.org for sounds, using the API key in .env. Returns id, name, author, licence, duration, tags and page for each. licence is cc0 (default, free to use with no credit), cc-by (credit the author), or any. Sorted by rating unless sort says otherwise (e.g. downloads_desc, score, duration_asc). Network access; the key is never returned.",
      R"({"type":"object","properties":{"query":{"type":"string","description":"words, e.g. \"kick drum 808\"; + and - mark required and excluded words"},"license":{"type":"string","enum":["cc0","cc-by","any"]},"min_seconds":{"type":"number"},"max_seconds":{"type":"number"},"page_size":{"type":"integer","description":"1 to 50, default 15"},"sort":{"type":"string"}},"required":["query"]})"},
 
@@ -588,7 +594,8 @@ namespace {
 bool isFileTool(const juce::String& name)
 {
     return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes"
-        || name == "freesound_search" || name == "freesound_download" || name == "read_song";
+        || name == "freesound_search" || name == "freesound_download" || name == "read_song"
+        || name == "render_song" || name == "mix_song";
 }
 
 juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
@@ -613,6 +620,25 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
 
     if (name == "read_song")
         return resultOf(ops.readSong(stringArgument(arguments, "path")));
+
+    if (name == "render_song")
+    {
+        std::vector<std::string> only;
+        if (const auto* list = arguments["only"].getArray())
+            for (const auto& p : *list)
+                only.push_back(p.toString().toStdString());
+        return resultOf(ops.renderSong(stringArgument(arguments, "path"), only,
+                                       arguments.hasProperty("workers") ? static_cast<int>(arguments["workers"]) : 3,
+                                       stringArgument(arguments, "wav_directory")));
+    }
+
+    if (name == "mix_song")
+        return resultOf(ops.mixSong(stringArgument(arguments, "path"), stringArgument(arguments, "version"),
+                                    arguments.hasProperty("arc") && static_cast<bool>(arguments["arc"]),
+                                    arguments.hasProperty("loudness") ? std::optional<double>(static_cast<double>(arguments["loudness"]))
+                                                                      : std::nullopt,
+                                    arguments.hasProperty("overwrite") && static_cast<bool>(arguments["overwrite"]),
+                                    stringArgument(arguments, "wav_directory"), stringArgument(arguments, "output")));
 
     if (name == "freesound_search")
         return resultOf(ops.freesoundSearch(

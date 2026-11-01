@@ -9,6 +9,8 @@
 #include "valis/DspElement.h"
 #include "valis/Freesound.h"
 #include "valis/Song.h"
+#include "valis/SongMix.h"
+#include "valis/SongRender.h"
 #include "valis/Lint.h"
 #include "valis/MidiScore.h"
 #include "valis/ModalFit.h"
@@ -1511,9 +1513,12 @@ OpResult OpDispatcher::soundsLike(const std::string& path, const std::string& se
     return fromShot(shotIs(path, sentence));
 }
 
-OpResult OpDispatcher::readSong(const std::string& path) const
+namespace {
+
+/// Reads a song file; `file` is the song file itself, whose directory the song's relative paths are read against.
+OpResult loadSongFile(const std::string& path, Song& song, juce::File& file)
 {
-    const auto file = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path));
+    file = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path));
     if (! file.existsAsFile())
         return OpResult::failure("no song file at " + file.getFullPathName().toStdString());
 
@@ -1527,7 +1532,6 @@ OpResult OpDispatcher::readSong(const std::string& path) const
         return OpResult::failure(message);
     }
 
-    Song song;
     std::vector<Diagnostic> diagnostics;
     if (! Song::read(store, song, diagnostics))
     {
@@ -1536,6 +1540,24 @@ OpResult OpDispatcher::readSong(const std::string& path) const
             message += "\n  " + d.message;
         return OpResult::failure(message);
     }
+    return OpResult::success();
+}
+
+juce::String inSongDirectory(const juce::File& songFile, const std::string& given, const char* fallback)
+{
+    if (given.empty())
+        return songFile.getParentDirectory().getChildFile(fallback).getFullPathName();
+    return juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(given)).getFullPathName();
+}
+
+} // namespace
+
+OpResult OpDispatcher::readSong(const std::string& path) const
+{
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
 
     const auto resolve = [&](const std::string& relative)
     {
@@ -1553,6 +1575,11 @@ OpResult OpDispatcher::readSong(const std::string& path) const
     root->setProperty("renderSeconds", song.renderSeconds());
     if (song.loudness)
         root->setProperty("loudness", *song.loudness);
+    root->setProperty("tailSeconds", song.tailSeconds);
+    root->setProperty("fadeSeconds", song.fadeSeconds);
+    root->setProperty("roomAmount", song.roomAmount);
+    root->setProperty("drive", song.drive);
+    root->setProperty("slug", juce::String(song.slug()));
 
     juce::Array<juce::var> sections;
     for (const auto& s : song.sections)
@@ -1595,6 +1622,139 @@ OpResult OpDispatcher::readSong(const std::string& path) const
     }
     root->setProperty("stems", stems);
     root->setProperty("problems", problems);
+    return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
+}
+
+OpResult OpDispatcher::renderSong(const std::string& path, const std::vector<std::string>& only, int workers,
+                                  const std::string& wavDirectory) const
+{
+    if (ctx.ontology == nullptr || ctx.registry == nullptr)
+        return OpResult::failure("no ontology or registry");
+
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
+
+    for (const auto& name : only)
+    {
+        const auto* stem = song.findStem(name);
+        if (stem == nullptr || stem->isReturn)
+            return OpResult::failure("'" + name + "' is not a part of this song");
+    }
+
+    SongRenderOptions options;
+    options.only = only;
+    options.workers = std::clamp(workers, 1, 8);
+    const auto result = renderSongStems(*ctx.ontology, *ctx.registry, song,
+                                        file.getParentDirectory().getFullPathName().toStdString(),
+                                        inSongDirectory(file, wavDirectory, "wavs").toStdString(), options);
+
+    juce::Array<juce::var> stems;
+    std::string failures;
+    for (const auto& e : result.stems)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(e.name));
+        o->setProperty("ok", e.ok);
+        if (e.ok)
+        {
+            o->setProperty("path", juce::String(e.path));
+            o->setProperty("seconds", e.seconds);
+            o->setProperty("peak", e.peak);
+            o->setProperty("rms", e.rms);
+            o->setProperty("clipped", e.clipped);
+        }
+        else
+        {
+            o->setProperty("error", juce::String(e.error));
+            failures += "\n  " + e.name + ": " + e.error;
+        }
+        stems.add(juce::var(o));
+    }
+
+    if (! result.ok)
+        return OpResult::failure(result.stems.empty() ? std::string("there is nothing to render")
+                                                      : "not every stem was rendered:" + failures);
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty("stems", stems);
+    return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
+}
+
+OpResult OpDispatcher::mixSong(const std::string& path, const std::string& version, bool arc,
+                               std::optional<double> loudness, bool overwrite, const std::string& wavDirectory,
+                               const std::string& outputPath) const
+{
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
+
+    juce::String output;
+    if (outputPath.empty())
+    {
+        // a name that cannot climb out of the mixes directory
+        juce::String tag = version.empty() ? juce::String("v1") : juce::String(version).retainCharacters(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-");
+        if (tag.isEmpty())
+            return OpResult::failure("the version must hold letters, digits, '.', '_' or '-'");
+        output = file.getParentDirectory().getChildFile("mixes").getChildFile(juce::String(song.slug()) + "-" + tag + ".wav")
+                     .getFullPathName();
+    }
+    else
+        output = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(outputPath)).getFullPathName();
+
+    if (! overwrite && juce::File(output).existsAsFile())
+        return OpResult::failure(output.toStdString() + " already exists; choose a new version so the old mix is kept, or overwrite it");
+
+    MixOptions options;
+    options.arc = arc;
+    options.loudness = loudness;
+    const auto result = mixSongFiles(song, inSongDirectory(file, wavDirectory, "wavs").toStdString(), output.toStdString(), options);
+    if (! result.ok)
+        return OpResult::failure(result.error);
+
+    const auto& r = result.report;
+    auto* root = new juce::DynamicObject();
+    root->setProperty("path", juce::String(result.outputPath));
+    root->setProperty("seconds", static_cast<double>(r.mix.frames()) / r.mix.sampleRate);
+    auto* loud = new juce::DynamicObject();
+    loud->setProperty("integratedLufs", r.loudness.integratedLufs);
+    loud->setProperty("rangeLu", r.loudness.rangeLu);
+    loud->setProperty("shortTermMaxLufs", r.loudness.shortTermMaxLufs);
+    loud->setProperty("momentaryMaxLufs", r.loudness.momentaryMaxLufs);
+    loud->setProperty("truePeakDbtp", r.loudness.truePeakDbtp);
+    root->setProperty("loudness", juce::var(loud));
+    if (r.targetLufs)
+    {
+        root->setProperty("targetLufs", *r.targetLufs);
+        root->setProperty("gainDb", r.loudnessGainDb);
+        root->setProperty("limitedByPeak", r.limitedByPeak);
+    }
+    root->setProperty("arc", arc);
+
+    juce::Array<juce::var> sections, stems, missing;
+    for (const auto& [name, level] : r.sections)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(name));
+        o->setProperty("level", level);
+        sections.add(juce::var(o));
+    }
+    for (const auto& s : r.stems)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("name", juce::String(s.name));
+        o->setProperty("measuredDb", s.measuredDb);
+        o->setProperty("gainDb", s.gainDb);
+        stems.add(juce::var(o));
+    }
+    for (const auto& m : result.missing)
+        missing.add(juce::String(m));
+    root->setProperty("sections", sections);
+    root->setProperty("stems", stems);
+    root->setProperty("missing", missing);
     return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
 }
 

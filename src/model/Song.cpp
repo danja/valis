@@ -4,6 +4,7 @@
 #include "valis/Vocabulary.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <set>
 
@@ -71,6 +72,25 @@ std::optional<Song::Place> Song::locate(int bar) const
     return std::nullopt;
 }
 
+std::string Song::slug() const
+{
+    std::string out;
+    bool dash = false;
+    for (const char ch : title)
+    {
+        const auto c = static_cast<unsigned char>(ch);
+        if (std::isalnum(c))
+        {
+            if (dash && ! out.empty()) out += '-';
+            out += static_cast<char>(std::tolower(c));
+            dash = false;
+        }
+        else
+            dash = true;
+    }
+    return out.empty() ? "song" : out;
+}
+
 const SongStem* Song::findStem(const std::string& name) const
 {
     for (const auto& s : stems)
@@ -124,6 +144,24 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
         song.tailSeconds = *tail;
         if (*tail < 0.0 || *tail > 120.0)
             r.fail("val:tailSeconds must be between 0 and 120", song.id);
+    }
+    if (const auto fade = r.number(node, vocab::song::fadeSeconds, "val:fadeSeconds"))
+    {
+        song.fadeSeconds = *fade;
+        if (*fade < 0.0 || *fade > 60.0)
+            r.fail("val:fadeSeconds must be between 0 and 60", song.id);
+    }
+    if (const auto room = r.number(node, vocab::song::roomAmount, "val:roomAmount"))
+    {
+        song.roomAmount = *room;
+        if (*room < 0.0 || *room > 1.0)
+            r.fail("val:roomAmount must be between 0 and 1", song.id);
+    }
+    if (const auto drive = r.number(node, vocab::song::drive, "val:drive"))
+    {
+        song.drive = *drive;
+        if (*drive < 0.1 || *drive > 10.0)
+            r.fail("val:drive must be between 0.1 and 10", song.id);
     }
 
     // -- sections, in index order with no gaps

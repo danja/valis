@@ -307,6 +307,22 @@ public:
     /// Reads a file only, so it needs no circuit and can run on any thread.
     OpResult readSong(const std::string& path) const;
 
+    /// Renders the stems of a song file (see docs/songs.md) into its `wavs` directory (or `wavDirectory`): each part is
+    /// its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's
+    /// circuit. `only` names the parts to redo, with their returns; empty renders all. Each render is a private copy of
+    /// the circuit, so it reads nothing live and runs on any thread, `workers` at a time. A stem that fails, or holds a NaN,
+    /// is named in the failure; the rest are still written. Returns, for each stem, the file, length, peak and rms.
+    OpResult renderSong(const std::string& path, const std::vector<std::string>& only, int workers,
+                        const std::string& wavDirectory = {}) const;
+
+    /// Mixes the stems in a song's wav directory to `mixes/<title>-<version>.wav` (or `outputPath`), levelled, panned and
+    /// summed as the song file says; `arc` applies each section's level, and `loudness` replaces the song's LUFS target.
+    /// Refuses to overwrite a mix, so every version is kept, unless `overwrite`. Returns the loudness, each section's
+    /// level, each stem's gain, and any stem whose wav was missing. Reads and writes files only.
+    OpResult mixSong(const std::string& path, const std::string& version, bool arc, std::optional<double> loudness,
+                     bool overwrite = false, const std::string& wavDirectory = {},
+                     const std::string& outputPath = {}) const;
+
     /// Freesound (https://freesound.org/docs/api/) with the API key in FREESOUND_API_KEY, from the environment or a
     /// .env file in the working directory or the source root. Search returns JSON; download saves the Ogg preview and
     /// a .json with author, licence and page beside it, and returns their paths. Network I/O: not for the message thread.

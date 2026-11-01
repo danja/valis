@@ -84,6 +84,10 @@ add_library(valis_core STATIC
   src/shot/BpeTokenizer.cpp
   src/ops/Lint.cpp
   src/ops/MidiScore.cpp
+  src/ops/AudioFile.cpp
+  src/ops/OfflineRender.cpp
+  src/ops/SongMix.cpp
+  src/ops/SongRender.cpp
   src/ops/CircuitDiff.cpp
   src/ops/AgentResources.cpp
   src/console/Console.cpp
@@ -150,6 +154,13 @@ endif()
 juce_add_console_app(valis_render PRODUCT_NAME "valis-render")
 target_sources(valis_render PRIVATE src/tools/RenderMain.cpp)
 target_link_libraries(valis_render
+  PRIVATE valis_core juce::juce_audio_formats
+  PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+
+# valis-song - renders and mixes a song file (see docs/songs.md) through the same ops as the MCP tools.
+juce_add_console_app(valis_song PRODUCT_NAME "valis-song")
+target_sources(valis_song PRIVATE src/tools/SongMain.cpp)
+target_link_libraries(valis_song
   PRIVATE valis_core juce::juce_audio_formats
   PUBLIC  juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 

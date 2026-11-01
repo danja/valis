@@ -5,8 +5,9 @@ script writes one MIDI file per part. The **layout and the mix** are data: the t
 which circuit plays each part, and how loud, where in the stereo field and how filtered each stem sits in the mix. The
 second half lives in a Turtle file, `song.ttl`, so it can be read, checked and changed without touching the score.
 
-The file is read by three things: the C++ reader (`src/model/Song.cpp`), the MCP tool `read_song`, and the Python module
-`scripts/song/songlib.py`, which renders and mixes. Python reads it with [rdflib](https://rdflib.readthedocs.io/).
+The file is read by the C++ reader (`src/model/Song.cpp`), which the MCP tools `read_song`, `render_song` and `mix_song` and
+the command line tool `valis-song` all use. A score script reads it from Python with [rdflib](https://rdflib.readthedocs.io/)
+(`scripts/song/songlib.py`) for the tempo and the section lengths it needs to place notes.
 
 ## The file
 
@@ -36,6 +37,9 @@ The file is read by three things: the C++ reader (`src/model/Song.cpp`), the MCP
 | `val:beatsPerBar` | Song | Beats in a bar | 4 |
 | `val:loudness` | Song | Target integrated loudness in LUFS ([ITU-R BS.1770](https://www.itu.int/rec/R-REC-BS.1770)) | none |
 | `val:tailSeconds` | Song | Seconds rendered after the last bar, so reverb and release can ring out | 10 |
+| `val:fadeSeconds` | Song | Length of the fade at the end of the mix | 4 |
+| `val:roomAmount` | Song | A synthetic room added to the mix, as a fraction of it, 0 to 1 | 0.10 |
+| `val:drive` | Song | Gain into the final soft clip (a hyperbolic tangent): 1 is nearly clean, higher is harder | 1.3 |
 | `val:index` | Section, Part, Return | Position in order. Sections must be numbered 1, 2, 3 and so on | order of the name |
 | `val:bars` | Section | Length in bars | required |
 | `val:level` | Section | Gain in dB of the whole mix while the section plays | 0 |
@@ -60,20 +64,34 @@ value outside its range, each with the name of the thing at fault.
 
 ## Rendering and mixing
 
-```python
-import songlib
-song = songlib.load("artifacts/my-song/song.ttl")
-songlib.render(song)                                 # parts, then returns, into wavs/
-songlib.mix(song, version="v1", arc=True)            # mixes/my-song-v1.wav at the song's loudness
-```
+Three operations work on a song file. Each is an op in `src/ops/`, so the MCP tools and the command line tool are the same
+code:
 
-`render` picks a `valis_render` that is newer than the source (set `VALIS_RENDER` to name one). `mix` levels each stem,
-high-passes and pans it, sums them, applies the section levels if `arc` is set, fades the end, adds a synthetic room,
-soft-clips, and then aims at the loudness the song asks for. It prints the loudness and the playing level of each
-section, so an arrangement can be checked by number. The mix is a reference. It is measured, not heard.
+| MCP tool | `valis-song` | What it does |
+| --- | --- | --- |
+| `read_song` | `valis-song check song.ttl` | Reads the file, lists the layout and any circuit or MIDI file it names that is missing |
+| `render_song` | `valis-song render song.ttl [--only a,b]` | Writes `wavs/<stem>.wav` for each stem |
+| `mix_song` | `valis-song mix song.ttl --version v1 [--arc] [--lufs N]` | Writes `mixes/<title>-<version>.wav` and reports the loudness and each section's level |
 
-A track script keeps only its score and calls these functions: `scripts/interstate-rain/track.py` is the example, and
-its mix reproduces the earlier hand-written one sample for sample.
+**Render.** A part is its circuit played by its MIDI file at the song's tempo with the transport rolling, for the length of
+the song plus its tail. A return is its source part's wav played through the return's circuit. Each stem is a private copy of
+the circuit (a model, a compiler and an engine of its own), so the live circuit in a running Valis is not touched and stems
+render several at a time. A stem that will not load, or that holds a NaN, is named in the failure and not written; the others
+still are. `--only` redoes the named parts and their returns.
+
+**Mix.** Each stem is high-passed, levelled so its playing RMS is its `val:level`, and panned with a constant-power law (a
+stereo stem keeps its image and takes the pan as a balance). The stems are summed, then the sections' levels are applied if
+`--arc` is given (stepped, then smoothed over about two seconds), then the fade, the room, the soft clip, and a gain that sets the
+peak to -1 dBFS. If the song has a loudness, or `--lufs` gives one, a last gain brings the mix to that
+[integrated loudness](https://tech.ebu.ch/docs/r/r128.pdf), held back so the true peak stays at or under -1 dBTP. The reply
+says when the ceiling, not the target, set the gain. The room is noise shaped by a fixed seed, so a mix is repeatable.
+
+A mix is never replaced: asking for a version that exists fails unless `--overwrite` is given, so every version is kept. The mix is
+a reference to judge the arrangement by. It is measured, not heard, and vocals and mastering are done in a DAW.
+
+A track script keeps only its score and calls these through `songlib.render(song)` and `songlib.mix(song, version, arc=True)`.
+`scripts/interstate-rain/track.py` and `scripts/dub-metal/track.py` are the examples. The C++ mix matches the Python one it
+replaced to within -74 dB of the signal when the room is switched off; the room differs only in its noise.
 
 ## What stays in code
 

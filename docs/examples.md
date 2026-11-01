@@ -135,6 +135,7 @@ instruments that read as played, not synthesised, so each is a physical model ra
 - `trumpets.ttl`: four `val:Brass` voices (a lip-reed waveguide). Harder blowing is brighter. Vibrato starts after the note does.
 - `violins.ttl`: four `val:Bow` voices behind a violin body (two `val:ModalBank` resonances and a bridge-hill lift).
   Vibrato starts after the note does. Reliable up to about 880 Hz.
+- `sampled-strings.ttl`: recorded string sections (VSCO 2, CC0) as three `val:Sampler` voices, violins, violas and cellos, chosen by one Voice control through `val:AudioSelect`. Each recording loops, so a note can be held past the 9 to 15 seconds of the file, and a shared Attack and Release set all three. Tests: `tests/engine/SampledStringsTest.cpp`.
 - `latin-perc.ttl`: one circuit played by note number (36 bass drum, 38 snare, 39 snare body, 41 floor tom, 49 crash,
   56 cowbell, 60 and 61 bongos, 62 conga slap, 63 and 64 congas, 69 cabasa, 70 maracas, 73 and 74 guiro, 75 claves).
   Struck sounds are a short noise burst into a `val:ModalBank` (a circular membrane, wooden bars or a plate); shaken

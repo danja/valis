@@ -56,6 +56,7 @@ set(VALIS_TESTS
   engine/ValisEngineTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp
+  engine/SampledStringsTest.cpp
   engine/ElectroInstrumentsTest.cpp
   engine/GristExampleTest.cpp
   engine/DemoEffectsTest.cpp
@@ -80,6 +81,8 @@ set(VALIS_TESTS
   ops/CircuitDiffTest.cpp
   ops/AgentResourcesTest.cpp
   ops/LintTest.cpp
+  ops/SongMixTest.cpp
+  ops/SongRenderTest.cpp
   ops/OpDispatcherTest.cpp
   docs/GuideTest.cpp
   console/ConsoleTest.cpp)

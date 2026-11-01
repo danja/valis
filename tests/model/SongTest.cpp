@@ -98,6 +98,21 @@ int main()
     assert(song.stems[2].midi.empty());
     assert(song.findStem("bass") && ! song.findStem("nothing"));
 
+    // The mix settings default, and a title is also a file name.
+    assert(song.fadeSeconds == 4.0 && song.roomAmount == 0.10 && song.drive == 1.3);
+    assert(song.slug() == "test");
+    Song titled;
+    assert(read(without("val:title \"Test\"", "val:title \"  Interstate Rain (v2)!  \""), titled, diagnostics));
+    assert(titled.slug() == "interstate-rain-v2");
+    Song blank;
+    assert(read(without("val:title \"Test\"", "val:title \"???\""), blank, diagnostics) && blank.slug() == "song");
+    Song set;
+    assert(read(without("val:tempo 120", "val:tempo 120 ; val:fadeSeconds 3 ; val:roomAmount 0.12 ; val:drive 1.5"), set, diagnostics));
+    assert(set.fadeSeconds == 3.0 && set.roomAmount == 0.12 && set.drive == 1.5);
+    assert(fails(without("val:tempo 120", "val:tempo 120 ; val:fadeSeconds -1"), "val:fadeSeconds"));
+    assert(fails(without("val:tempo 120", "val:tempo 120 ; val:roomAmount 2"), "val:roomAmount"));
+    assert(fails(without("val:tempo 120", "val:tempo 120 ; val:drive 0"), "val:drive"));
+
     // A different meter changes the length of a bar.
     Song waltz;
     assert(read(without("val:tempo 120", "val:tempo 90 ; val:beatsPerBar 3"), waltz, diagnostics));

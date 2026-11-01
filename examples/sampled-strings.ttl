@@ -1,0 +1,218 @@
+# examples/sampled-strings.ttl
+#
+# A string section played from recordings, with a choice of three voices: violins, violas or cellos. Each voice is a
+# val:Sampler holding a multisample of the Versilian Community Sample Library (VSCO 2), a section of players playing a
+# sustained note with vibrato, released to CC0 by the freesound.org user sgossner. One recording every seventh
+# key; the sampler stretches a recording over the keys on either side, up to three semitones. Sources, ids and licences
+# are in audio/freesound/*.json beside each file. The files are 192 kbps Ogg previews.
+#
+# Voice picks which sampler is heard (val:AudioSelect, a five millisecond crossfade, so switching never clicks). All three
+# samplers hear every note, so a switch takes up the voice at once, but a note already sounding is cut over to the new
+# voice. A recording is 9 to 15 seconds long; between 2.5 and 7 seconds of each loops, crossfaded over a second, so a
+# note can be held for as long as it is wanted. Attack and Release are one control for all three voices (val:Scale).
+# The recordings are of a section, not one player, so there is no chorus: add one for a bigger sound.
+#
+#   violins   G3 to B5 (MIDI 55 to 83)   violas   C3 to E5 (48 to 76)   cellos   C2 to B4 (36 to 71)
+#
+# https://github.com/sgossner/VSCO-2-CE
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:sampledstrings#> .
+
+:circuit a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Strings", "Orchestral", "Sampled", "Cinematic" ;
+    trn:caution """Each recording is of a section playing together, so a note is a chord of players, not a solo line. The ends of the range are stretched over several semitones and sound it.""" ;
+    rdfs:label "Sampled strings" ;
+    val:element :vln , :vla , :vc , :atk , :rel , :sel , :level , :dry , :send , :room , :bus , :limL , :limR , :out ;
+    val:arc :aVln , :aVla , :aVc , :aAtkVln , :aAtkVla , :aAtkVc , :aRelVln , :aRelVla , :aRelVc ,
+            :aSel , :aDry , :aSend , :aRoom , :aDryL , :aDryR , :aRoomL , :aRoomR , :aBusLimL , :aBusLimR , :aLimL , :aLimR .
+
+# Violins
+:vln a val:Sampler ;
+    val:gain 0.0 ;
+    val:loop 1.0 ;
+    val:keytrack 1.0 ;
+    val:samples """
+        file=audio/freesound/vln-55-374597.ogg root=55 keys=0-58 loopStart=2.5 loopEnd=7 fade=1 gain=19.5 name="G3"
+        file=audio/freesound/vln-62-374593.ogg root=62 keys=59-65 loopStart=2.5 loopEnd=7 fade=1 gain=17.4 name="D4"
+        file=audio/freesound/vln-69-374589.ogg root=69 keys=66-72 loopStart=2.5 loopEnd=7 fade=1 gain=15.6 name="A4"
+        file=audio/freesound/vln-76-374595.ogg root=76 keys=73-79 loopStart=2.5 loopEnd=7 fade=1 gain=17.3 name="E5"
+        file=audio/freesound/vln-83-374591.ogg root=83 keys=80-127 loopStart=2.5 loopEnd=7 fade=1 gain=14.9 name="B5"
+    """ .
+
+# Violas
+:vla a val:Sampler ;
+    val:gain 0.0 ;
+    val:loop 1.0 ;
+    val:keytrack 1.0 ;
+    val:samples """
+        file=audio/freesound/vla-48-374455.ogg root=48 keys=0-51 loopStart=2.5 loopEnd=7 fade=1 gain=3.0 name="C3"
+        file=audio/freesound/vla-55-374463.ogg root=55 keys=52-58 loopStart=2.5 loopEnd=7 fade=1 gain=3.5 name="G3"
+        file=audio/freesound/vla-62-374458.ogg root=62 keys=59-65 loopStart=2.5 loopEnd=7 fade=1 gain=3.2 name="D4"
+        file=audio/freesound/vla-69-374452.ogg root=69 keys=66-72 loopStart=2.5 loopEnd=7 fade=1 gain=-1.4 name="A4"
+        file=audio/freesound/vla-76-374461.ogg root=76 keys=73-127 loopStart=2.5 loopEnd=7 fade=1 gain=4.3 name="E5"
+    """ .
+
+# Cellos
+:vc a val:Sampler ;
+    val:gain 0.0 ;
+    val:loop 1.0 ;
+    val:keytrack 1.0 ;
+    val:samples """
+        file=audio/freesound/vc-36-372831.ogg root=36 keys=0-39 loopStart=2.5 loopEnd=7 fade=1 gain=2.0 name="C2"
+        file=audio/freesound/vc-43-372839.ogg root=43 keys=40-46 loopStart=2.5 loopEnd=7 fade=1 gain=-2.8 name="G2"
+        file=audio/freesound/vc-50-372833.ogg root=50 keys=47-53 loopStart=2.5 loopEnd=7 fade=1 gain=-2.3 name="D3"
+        file=audio/freesound/vc-57-372828.ogg root=57 keys=54-60 loopStart=2.5 loopEnd=7 fade=1 gain=3.6 name="A3"
+        file=audio/freesound/vc-64-372836.ogg root=64 keys=61-67 loopStart=2.5 loopEnd=7 fade=1 gain=0.0 name="E4"
+        file=audio/freesound/vc-71-372830.ogg root=71 keys=68-127 loopStart=2.5 loopEnd=7 fade=1 gain=5.5 name="B4"
+    """ .
+
+:atk a val:Scale ;
+    val:min 90.0 ;
+    val:max 0.0 .
+
+:rel a val:Scale ;
+    val:min 350.0 ;
+    val:max 0.0 .
+
+:sel a val:AudioSelect ;
+    val:select 0.0 .
+
+:level a val:Gain ;
+    val:gain 0.0 .
+
+:dry a val:Gain ;
+    val:gain -3.0 .
+
+:send a val:Gain ;
+    val:gain -13.0 .
+
+:room a val:Reverb ;
+    val:size 0.7 ;
+    val:decay 1.8 ;
+    val:damping 0.5 ;
+    val:mix 1.0 .
+
+:bus a val:Mixer .
+
+:limL a val:Limiter ;
+    val:ceiling -1.0 .
+
+:limR a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:aVln a val:Arc ;
+    val:from [ val:node :vln ; val:port "out" ] ;
+    val:to   [ val:node :sel ; val:port "a" ] .
+:aVla a val:Arc ;
+    val:from [ val:node :vla ; val:port "out" ] ;
+    val:to   [ val:node :sel ; val:port "b" ] .
+:aVc a val:Arc ;
+    val:from [ val:node :vc ; val:port "out" ] ;
+    val:to   [ val:node :sel ; val:port "c" ] .
+:aAtkVln a val:Arc ;
+    val:from [ val:node :atk ; val:port "out" ] ;
+    val:to   [ val:node :vln ; val:port "attack" ] .
+:aRelVln a val:Arc ;
+    val:from [ val:node :rel ; val:port "out" ] ;
+    val:to   [ val:node :vln ; val:port "release" ] .
+:aAtkVla a val:Arc ;
+    val:from [ val:node :atk ; val:port "out" ] ;
+    val:to   [ val:node :vla ; val:port "attack" ] .
+:aRelVla a val:Arc ;
+    val:from [ val:node :rel ; val:port "out" ] ;
+    val:to   [ val:node :vla ; val:port "release" ] .
+:aAtkVc a val:Arc ;
+    val:from [ val:node :atk ; val:port "out" ] ;
+    val:to   [ val:node :vc ; val:port "attack" ] .
+:aRelVc a val:Arc ;
+    val:from [ val:node :rel ; val:port "out" ] ;
+    val:to   [ val:node :vc ; val:port "release" ] .
+:aSel a val:Arc ;
+    val:from [ val:node :sel ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:aDry a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :dry ; val:port "in" ] .
+:aSend a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :send ; val:port "in" ] .
+:aRoom a val:Arc ;
+    val:from [ val:node :send ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:aDryL a val:Arc ;
+    val:from [ val:node :dry ; val:port "out" ] ;
+    val:to   [ val:node :bus ; val:port "left" ] .
+:aDryR a val:Arc ;
+    val:from [ val:node :dry ; val:port "out" ] ;
+    val:to   [ val:node :bus ; val:port "right" ] .
+:aRoomL a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :bus ; val:port "left" ] .
+:aRoomR a val:Arc ;
+    val:from [ val:node :room ; val:port "right" ] ;
+    val:to   [ val:node :bus ; val:port "right" ] .
+:aBusLimL a val:Arc ;
+    val:from [ val:node :bus ; val:port "left" ] ;
+    val:to   [ val:node :limL ; val:port "in" ] .
+:aBusLimR a val:Arc ;
+    val:from [ val:node :bus ; val:port "right" ] ;
+    val:to   [ val:node :limR ; val:port "in" ] .
+:aLimL a val:Arc ;
+    val:from [ val:node :limL ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "left" ] .
+:aLimR a val:Arc ;
+    val:from [ val:node :limR ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "right" ] .
+
+:pVoice a val:Param ; val:slot 0 ;
+    val:target :sel ; val:property val:select ;
+    lv2:name "Voice" ; lv2:symbol "voice" ;
+    lv2:minimum 0.0 ; lv2:maximum 2.0 ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Violins" ; rdf:value 0.0 ] ;
+    lv2:scalePoint [ rdfs:label "Violas"  ; rdf:value 1.0 ] ;
+    lv2:scalePoint [ rdfs:label "Cellos"  ; rdf:value 2.0 ] ;
+    val:section "Voice" .
+:pLevel a val:Param ; val:slot 1 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 12 ;
+    val:section "Voice" ;
+    units:unit units:db .
+:pAttack a val:Param ; val:slot 2 ;
+    val:target :atk ; val:property val:min ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 1500 ;
+    lv2:portProperty lv2:logarithmic ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:pRelease a val:Param ; val:slot 3 ;
+    val:target :rel ; val:property val:min ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 20 ; lv2:maximum 3000 ;
+    lv2:portProperty lv2:logarithmic ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:pRoomSend a val:Param ; val:slot 4 ;
+    val:target :send ; val:property val:gain ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum -40 ; lv2:maximum -3 ;
+    val:section "Room" ;
+    units:unit units:db .
+:pRoomDecay a val:Param ; val:slot 5 ;
+    val:target :room ; val:property val:decay ;
+    lv2:name "Room decay" ; lv2:symbol "room_decay" ;
+    lv2:minimum 0.3 ; lv2:maximum 5 ;
+    val:section "Room" ;
+    units:unit units:s .

@@ -1,11 +1,11 @@
 ## Misc
 
-* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle; port
-  the mix from `scripts/song/songlib.py` to a C++ op so MCP can mix; convert `dub-metal` and the older song scripts to
-  `song.ttl`.
-
-* review pre-existing examples to see if they can be improved with the new features - subcircuits etc
-  (profiles are done: every shipped instrument and effect now declares a trn:PluginProfile)
+* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle; convert the
+  older song scripts (`autumn-leaves`, `lights-on-nobody-home`, `electro83`, `halloween`) to `song.ttl`. Rendering and mixing are
+  C++ ops now (`render_song`, `mix_song`, `valis-song`). Still in Python: the score (`midiw.py` writes the MIDI), and the stem
+  checks the skill asks for (per-bar rms, `isnan`). `valis-render` and `RenderJob::run` each still carry their own copy of the
+  block loop in `OfflineRender.cpp`; make both call it. The mix takes about 70 s for a 3-minute song in a Debug build (the FFT room
+  and the loudness meter); a Release build is several times faster.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
@@ -353,7 +353,8 @@ off the real-time thread, a distinct control rate, and declared latency reported
   is also configured with ONNX by `build.sh` now. `listen` should still cap the audio it reads.
 * **Dynamic arc in other mix scripts.** `scripts/dub-metal/track.py mix --arc` (`ARC_DB`, `arc_curve`, `section_levels`) applies a
   gain per section and prints each section's level. The `write-a-song` skill and the older mix scripts (`scripts/electro83/`,
-  `scripts/halloween/`) still level every stem flat. Move the arc into a shared helper once a second piece wants it.
+  `scripts/halloween/`) still level every stem flat. The arc is now in `scripts/song/songlib.py` and read from `val:level` on each section; move the
+  older scripts onto it with their `song.ttl`.
 * **A lighter stab voice.** `tonewheel-organ.ttl` has eight voices of nine drawbars and is slower than real time in Debug, for
   three-note chords a few times a bar. A four-voice organ or an electric-piano stab (`dx7-epiano.ttl`) may do.
 * **More industrial sources.** Only `metal-bash.ttl` was used. Try a gated noise loop, a clanking step sequence, a metal

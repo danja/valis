@@ -1,6 +1,6 @@
 ---
 name: write-a-song
-description: Write, render and mix a song from Valis circuits. Use when asked to make a track, an arrangement or an alternate edit, or to change a part of one that exists. Covers the score script, one MIDI file per part, offline stems with valis-render, and a Python mix.
+description: Write, render and mix a song from Valis circuits. Use when asked to make a track, an arrangement or an alternate edit, or to change a part of one that exists. Covers the score script, one MIDI file per part, offline stems with valis-song (or valis-render), and the reference mix.
 ---
 
 # Write a song from Valis circuits
@@ -12,8 +12,9 @@ newer and tidier pattern; copy it.
 ## Method
 
 The tempo, sections, parts, returns and mix table can be written once as a `val:Song` file (`docs/songs.md`) and
-checked with the `read_song` tool; `scripts/song/songlib.py` renders and mixes from it, and
-`valis-artifacts/scripts/interstate-rain/track.py` keeps only the score. Prefer that to a new table in each script.
+checked with the `read_song` tool; `valis-song render` and `valis-song mix` (or the MCP tools `render_song` and `mix_song`) render and mix from it, and
+`valis-artifacts/scripts/interstate-rain/track.py` keeps only the score. Prefer that to a new table in each script. A mix is
+written to a new version each time and never replaces one.
 
 1. **Fix the plan in numbers first.** Tempo, key, bars per section, the eight-bar harmony, and which part plays in
    which section. A section table in the script (`SECTIONS`) and one function that answers "what plays in this
@@ -40,11 +41,12 @@ checked with the `read_song` tool; `scripts/song/songlib.py` renders and mixes f
    Then ask `valis_shot is stem.wav "a harp"` (the `hear-a-sound` skill) for each pitched or struck part: a stem that comes
    out as a synthesizer preset, or as the wrong instrument, is worth fixing before the mix.
    Check tuning of any pitched part (see the `test-an-instrument` skill). Check `isnan`.
-9. **Mix in Python (numpy, scipy), not by ear.** Normalise each stem to a target rms measured over the stretches
-   where it plays (windows above -60 dB), so a part that rarely plays sits as loud as one that always does.
-   Sparse effect stems (percussion, reverb returns) take the kit's gain plus an offset, to keep the balance they
-   were played at. Pan with a constant-power law, high-pass pads, soft-clip the sum with `tanh`, normalise the peak
-   to -1 dB.
+9. **Mix with `valis-song mix` (or `mix_song`), not by ear.** It normalises each stem to a target rms measured over the
+   stretches where it plays (windows above -60 dB), so a part that rarely plays sits as loud as one that always does,
+   pans with a constant-power law, high-passes, applies the sections' levels with `--arc`, adds a fade and a room, soft-clips
+   with `tanh`, sets the peak to -1 dB and aims at the song's loudness. The levels, pans, high-passes, fade, room and drive
+   are in `song.ttl`. Sparse effect stems (percussion, reverb returns) take an offset from the kit's level, to keep the balance
+   they were played at. Each mix is a new version; one is never replaced.
 10. **Trim and fade** a short edit to its exact length, with the last seconds faded.
 
 ## Notes

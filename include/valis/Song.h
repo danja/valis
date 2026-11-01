@@ -44,10 +44,15 @@ struct Song
     int    beatsPerBar = 4;
     std::optional<double> loudness;     ///< LUFS the mix is aimed at
     double tailSeconds = 10.0;
+    double fadeSeconds = 4.0;           ///< fade out at the end of the mix
+    double roomAmount = 0.10;           ///< synthetic room added to the mix, as a fraction of it
+    double drive = 1.3;                 ///< gain into the final tanh soft clip
     std::vector<SongSection> sections;  ///< in order
     std::vector<SongStem> stems;        ///< parts first, then returns; each group in index order, then by name
 
     int    totalBars() const;
+    /// The title as a file name: lower-case words joined by hyphens, "song" if nothing is left.
+    std::string slug() const;
     double barSeconds() const { return beatsPerBar * 60.0 / tempo; }
     double seconds() const { return totalBars() * barSeconds(); }              ///< without the tail
     double renderSeconds() const { return seconds() + tailSeconds; }

@@ -249,7 +249,12 @@ val:Song a rdfs:Class ;
 (effect sends) that follow some of them. A file holds one. Paths in it (val:circuit, val:midi) are relative to the
 directory of the file, unless absolute. val:tempo is in beats per minute and a bar is val:beatsPerBar beats (4 if
 not given). val:loudness is the integrated loudness in LUFS a mix is aimed at, if any, and val:tailSeconds is how much
-longer than the last bar the stems are rendered, so a ring or a reverb is not cut off (10 if not given).""" .
+longer than the last bar the stems are rendered, so a ring or a reverb is not cut off (10 if not given).
+
+Three more settings shape the mixdown (see docs/songs.md). val:fadeSeconds is the length of the fade at the end (4 if not
+given). val:roomAmount is how much of a synthetic room, as a fraction of the dry mix, is added (0.10 if not given).
+val:drive is the gain into the final soft clip, a hyperbolic tangent: 1 is nearly clean and higher is harder (1.3 if not
+given).""" .
 
 val:Section a rdfs:Class ;
     rdfs:label "Section" ;
@@ -279,6 +284,9 @@ val:tempo       a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:beatsPerBar a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:integer .
 val:loudness    a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:tailSeconds a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:fadeSeconds a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:roomAmount  a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
+val:drive       a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:bars        a rdf:Property ; rdfs:domain val:Section ; rdfs:range xsd:integer .
 val:index       a rdf:Property ; rdfs:range xsd:integer .
 val:circuit     a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:string .
