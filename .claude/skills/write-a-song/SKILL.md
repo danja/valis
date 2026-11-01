@@ -20,7 +20,8 @@ written to a new version each time and never replaces one.
 1. **Fix the plan in numbers first.** Tempo, key, bars per section, the eight-bar harmony, and which part plays in
    which section. A section table in the script (`SECTIONS`) and one function that answers "what plays in this
    bar" keep an alternate arrangement a change of table, not a rewrite. `track.py --short` is the example.
-2. **One part, one circuit, one MIDI file.** The score script writes `midi/<part>.mid` for each part with
+2. **One part, one circuit, one MIDI file.** Patterns, chords and the plan of who plays when can be data: a `val:score` file
+   and `valis-song score` (see `docs/songs.md`). Generated parts stay in the script. The score script writes `midi/<part>.mid` for each part with
    `scripts/song/midiw.py`. Put sparse or very different sounds in their own part (the wood block and the
    tambourine are not in the kit's file) so each can be levelled and sent to effects alone.
 3. **Seed every random choice** (`random.Random(seed)`), so a run gives the same MIDI.

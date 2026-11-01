@@ -499,6 +499,9 @@ const ToolSpec kTools[] = {
     {"reaper_project", "Write a Reaper project from a song file: one track per rendered stem with its wav at the start, the track's volume and pan set from the song's mix (the loudest stem at 0 dB) and the song's tempo and meter. A starting point for mixing by ear. The high-pass is not written. Refuses to replace a project that exists unless overwrite is true, since it may have been edited in Reaper. Open it in Reaper, or build on it through reaper-mcp.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"the .rpp to write; <title>.rpp beside the song file by default"},"overwrite":{"type":"boolean"}},"required":["path"]})"},
 
+    {"score_song", "Play a song's score into MIDI: the song file's val:score names a Turtle file of patterns (a step string per lane, x a hit, X an accent), chords with their voicings, a progression, a feel per part (timing and velocity spread, swing) and a plan of which part plays which pattern in which section. Writes the MIDI file of each part the score plays, or of those named in only. A part the score does not play is left alone. The same score always gives the same notes, on every platform. Run it before render_song.",
+     R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"only":{"type":"array","items":{"type":"string"},"description":"part names to write; all the score plays by default"}},"required":["path"]})"},
+
     {"mix_song", "Mix the stems of a song file to a stereo reference wav: each stem levelled to its playing-RMS level, high-passed, panned and summed, then (with arc) each section's level, a fade, a synthetic room, a soft clip, and the gain that reaches the song's loudness target without passing -1 dBTP. Writes mixes/<title>-<version>.wav and refuses to overwrite one, so every version is kept. Returns the loudness, each section's playing level, each stem's gain and any missing stem. A reference mix, measured and not heard; vocals and mastering are done in a DAW.",
      R"({"type":"object","properties":{"path":{"type":"string","description":"the song file"},"version":{"type":"string","description":"v1, v2 and so on; default v1"},"arc":{"type":"boolean","description":"apply each section's val:level"},"loudness":{"type":"number","description":"LUFS to aim at in place of the song's own"},"overwrite":{"type":"boolean"},"wav_directory":{"type":"string"},"output":{"type":"string","description":"a full path in place of mixes/<title>-<version>.wav"}},"required":["path"]})"},
 
@@ -602,7 +605,7 @@ bool isFileTool(const juce::String& name)
     return name == "measure" || name == "compare" || name == "sounds_like" || name == "listen" || name == "fit_modes"
         || name == "freesound_search" || name == "freesound_download" || name == "read_song"
         || name == "render_song" || name == "mix_song" || name == "check_stems"
-        || name == "reaper_project";
+        || name == "reaper_project" || name == "score_song";
 }
 
 juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const juce::var& arguments)
@@ -649,6 +652,15 @@ juce::var runFileTool(const OpDispatcher& ops, const juce::String& name, const j
 
     if (name == "check_stems")
         return resultOf(ops.checkSongStems(stringArgument(arguments, "path"), stringArgument(arguments, "wav_directory")));
+
+    if (name == "score_song")
+    {
+        std::vector<std::string> only;
+        if (const auto* list = arguments["only"].getArray())
+            for (const auto& p : *list)
+                only.push_back(p.toString().toStdString());
+        return resultOf(ops.scoreSong(stringArgument(arguments, "path"), only));
+    }
 
     if (name == "reaper_project")
         return resultOf(ops.reaperProject(stringArgument(arguments, "path"), stringArgument(arguments, "wav_directory"),

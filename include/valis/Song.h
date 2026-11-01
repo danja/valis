@@ -42,6 +42,7 @@ struct SongStem
 struct Song
 {
     std::string id, title;
+    std::string score;          ///< the score file (val:score), relative to the song file; empty if the notes are written elsewhere
     double tempo = 120.0;
     int    beatsPerBar = 4;
     std::optional<double> loudness;     ///< LUFS the mix is aimed at

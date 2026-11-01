@@ -1,6 +1,6 @@
 ## Misc
 
-* **Songs as data, next steps** (`docs/songs.md`): move fixed patterns (a drum bar, a chord progression) into Turtle. The stem checks
+* **Songs as data, next steps** (`docs/songs.md`): fixed patterns and chords are now a `val:Score` (`valis-song score`); not yet tried on a whole song: write one score for a new song, and convert `dub-metal`'s tables if the changed humanising is acceptable. Not done in the score: a pattern that depends on the bar's position in a cycle other than the chord progression, per-play velocity scaling, tuplets, and a vocal-guide format. The stem checks
   the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
   block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,

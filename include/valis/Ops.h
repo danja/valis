@@ -328,6 +328,12 @@ public:
     /// when any stem has a problem, and names it. Reads files only.
     OpResult checkSongStems(const std::string& path, const std::string& wavDirectory = {}) const;
 
+    /// Plays the song's score (the file named by `val:score`: patterns, chords and a plan, see docs/songs.md) into notes and
+    /// writes the MIDI file of each part it plays, or of those in `only`. A part the score does not play is left alone, so its
+    /// notes can come from a script. The same score gives the same notes every time. Returns, for each part, the file and
+    /// the number of notes. Reads and writes files only.
+    OpResult scoreSong(const std::string& path, const std::vector<std::string>& only = {}) const;
+
     /// Writes a Reaper project beside the song file (`<title>.rpp`, or `outputPath`) with one track per rendered stem: its wav
     /// at the start, volume and pan from the song's mix (the loudest stem at 0 dB), tempo and meter from the song. The
     /// high-pass is not written. Refuses to replace a project that exists unless `overwrite`. Reads and writes files only.

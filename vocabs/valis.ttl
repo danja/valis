@@ -288,6 +288,71 @@ val:Return a rdfs:Class ;
 (val:circuit) and mixed as a stem of its own. It has no MIDI file unless it names one with val:midi, for an effect that
 is played, such as a rotating speaker whose speed is a note.""" .
 
+val:Score a rdfs:Class ;
+    rdfs:label "Score" ;
+    rdfs:comment """The notes of a song as data, in a file named by the song's val:score. It holds patterns (val:hasPattern), chords
+(val:hasChord), a feel for each part that is not exact (val:hasFeel) and a plan of which part plays which pattern in which
+section (val:hasPlay). val:progression is a list of chord names separated by spaces, one for each val:barsPerChord bars (1 if not
+given), repeated from the start of each section. val:seed (1 if not given) makes the humanising repeatable: the same score and seed
+always give the same notes, on every platform. valis-song score writes the MIDI file of each part the score plays; a part it does
+not play keeps its file, so its notes can come from a script. See docs/songs.md.""" .
+
+val:Pattern a rdfs:Class ;
+    rdfs:label "Pattern" ;
+    rdfs:comment """A repeating figure of val:bars bars (1 if not given), made of lanes (val:hasLane). There are val:stepsPerBeat steps
+to a beat (4 if not given, which is sixteenth notes in quarter-note beats), so a lane of a one-bar pattern in 4/4 has 16 steps.""" .
+
+val:Lane a rdfs:Class ;
+    rdfs:label "Lane" ;
+    rdfs:comment """One row of a pattern. val:steps is a string with one character a step: x a hit, X an accented hit (val:accent more
+velocity, 20 if not given), and . or - a rest; spaces and | are ignored so a bar can be marked. The lane plays either one val:key (a
+MIDI key, as in a drum kit) or a val:voice taken from the chord of the bar: chord (every tone), root, top (the highest tone) or low
+(the lowest). val:octave and val:transpose move a voice. A hit has val:velocity (90 if not given) and lasts val:length steps (1 if not
+given) times val:gate (0.8 if not given), so the note ends before the next step starts.""" .
+
+val:Chord a rdfs:Class ;
+    rdfs:label "Chord" ;
+    rdfs:comment """A chord as it is voiced, named by the local name of its IRI. val:root is the key a bass plays and val:tones are the
+keys of the voicing, separated by spaces. The progression names chords; the voicing stays under the score's control.""" .
+
+val:Feel a rdfs:Class ;
+    rdfs:label "Feel" ;
+    rdfs:comment """How loosely a part is played. val:part names the part. val:timing is the standard deviation in milliseconds of each
+note's start, val:velocity the standard deviation of its velocity, and val:swing where the second step of each pair of steps falls,
+from 0.5 (straight) to 0.75. A part with no feel is exact. No note starts before the first beat.""" .
+
+val:Play a rdfs:Class ;
+    rdfs:label "Play" ;
+    rdfs:comment """One entry of the plan: the part val:part plays the pattern val:pattern in the section val:section (a name, the local
+name of the section's IRI). It plays from val:fromBar (1 if not given) to val:toBar (the end if not given), counted in the section.
+The pattern restarts every val:every bars (its own length if not given); with an every of 2 and a one-bar pattern it plays on every
+second bar. val:progression replaces the score's progression for this play.""" .
+
+val:score        a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:string .
+val:hasPattern   a rdf:Property ; rdfs:domain val:Score ; rdfs:range val:Pattern .
+val:hasLane      a rdf:Property ; rdfs:domain val:Pattern ; rdfs:range val:Lane .
+val:hasChord     a rdf:Property ; rdfs:domain val:Score ; rdfs:range val:Chord .
+val:hasFeel      a rdf:Property ; rdfs:domain val:Score ; rdfs:range val:Feel .
+val:hasPlay      a rdf:Property ; rdfs:domain val:Score ; rdfs:range val:Play .
+val:progression  a rdf:Property ; rdfs:range xsd:string .
+val:barsPerChord a rdf:Property ; rdfs:domain val:Score ; rdfs:range xsd:integer .
+val:root         a rdf:Property ; rdfs:domain val:Chord ; rdfs:range xsd:integer .
+val:tones        a rdf:Property ; rdfs:domain val:Chord ; rdfs:range xsd:string .
+val:stepsPerBeat a rdf:Property ; rdfs:domain val:Pattern ; rdfs:range xsd:integer .
+val:key          a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:integer .
+val:voice        a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:string .
+val:steps        a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:string .
+val:accent       a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:integer .
+val:length       a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:double .
+val:octave       a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:integer .
+val:transpose    a rdf:Property ; rdfs:domain val:Lane ; rdfs:range xsd:integer .
+val:part         a rdf:Property ; rdfs:range xsd:string .
+val:fromBar      a rdf:Property ; rdfs:domain val:Play ; rdfs:range xsd:integer .
+val:toBar        a rdf:Property ; rdfs:domain val:Play ; rdfs:range xsd:integer .
+val:every        a rdf:Property ; rdfs:domain val:Play ; rdfs:range xsd:integer .
+val:timing       a rdf:Property ; rdfs:domain val:Feel ; rdfs:range xsd:double .
+val:swing        a rdf:Property ; rdfs:domain val:Feel ; rdfs:range xsd:double .
+
 val:hasSection a rdf:Property ; rdfs:domain val:Song ; rdfs:range val:Section .
 val:hasPart    a rdf:Property ; rdfs:domain val:Song ; rdfs:range val:Part .
 val:hasReturn  a rdf:Property ; rdfs:domain val:Song ; rdfs:range val:Return .

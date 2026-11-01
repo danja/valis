@@ -9,9 +9,10 @@ The reasoning and the problems are in `docs/halloween-process.md`. Read it first
 
 ## What Reaper holds
 
-Reaper holds recordings of the instruments (stems from `valis_render`), not live plug-ins, because an instance of
-the plug-in cannot yet be given its circuit without opening its window (`TODO.md`). A MIDI project is also possible:
-`scripts/halloween/mkrpp.py` writes a `.rpp` with one track per MIDI file, which makes no sound until a Valis
+Reaper holds recordings of the instruments (stems from `valis-song render`), not live plug-ins, because an instance of
+the plug-in cannot yet be given its circuit without opening its window (`TODO.md`). For a song file, `reaper_project` (or `valis-song reaper song.ttl`) writes the project: a track per stem with the song mix's
+volume and pan, and the tempo and meter. It does not write the high-pass, and it never replaces a project that exists. A MIDI project is also possible:
+`scripts/halloween/mkrpp.py` (older, for one song) writes a `.rpp` with one track per MIDI file, which makes no sound until a Valis
 instance is added to each track by hand.
 
 ## Setting up (once)

@@ -22,6 +22,7 @@ void usage()
         "valis-song - render and mix a song file (a Turtle file with one val:Song; see docs/songs.md)\n"
         "\n"
         "  valis-song check  <song.ttl>\n"
+        "  valis-song score  <song.ttl> [--only a,b]\n"
         "  valis-song render <song.ttl> [--only a,b] [--workers N]\n"
         "  valis-song stems  <song.ttl>\n"
         "  valis-song reaper <song.ttl> [--output file.rpp] [--overwrite]\n"
@@ -93,6 +94,7 @@ int main(int argc, char** argv)
     valis::OpResult result;
     if (command == "check")        result = ops.readSong(song);
     else if (command == "render")  result = ops.renderSong(song, only, workers, wavs);
+    else if (command == "score")   result = ops.scoreSong(song, only);
     else if (command == "reaper")  result = ops.reaperProject(song, wavs, output, overwrite);
     else if (command == "stems")   result = ops.checkSongStems(song, wavs);
     else if (command == "mix")     result = ops.mixSong(song, version, arc, lufs, overwrite, wavs, output);

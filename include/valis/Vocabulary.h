@@ -139,6 +139,7 @@ namespace song {
   inline const std::string roomLowpass = std::string(VAL) + "roomLowpass";
   inline const std::string follows     = std::string(VAL) + "follows";
   inline const std::string silent      = std::string(VAL) + "silent";
+  inline const std::string score       = std::string(VAL) + "score";
   inline const std::string index       = std::string(VAL) + "index";
   inline const std::string bars        = std::string(VAL) + "bars";
   inline const std::string circuit     = std::string(VAL) + "circuit";
@@ -148,6 +149,46 @@ namespace song {
   inline const std::string highpass    = std::string(VAL) + "highpass";
   inline const std::string source      = std::string(VAL) + "source";
 }  // namespace song
+
+// A score: the notes of a song as patterns, chords and a plan (see docs/songs.md).
+namespace score {
+  inline const std::string Score   = std::string(VAL) + "Score";
+  inline const std::string Pattern = std::string(VAL) + "Pattern";
+  inline const std::string Lane    = std::string(VAL) + "Lane";
+  inline const std::string Chord   = std::string(VAL) + "Chord";
+  inline const std::string Feel    = std::string(VAL) + "Feel";
+  inline const std::string Play    = std::string(VAL) + "Play";
+
+  inline const std::string hasPattern    = std::string(VAL) + "hasPattern";
+  inline const std::string hasLane       = std::string(VAL) + "hasLane";
+  inline const std::string hasChord      = std::string(VAL) + "hasChord";
+  inline const std::string hasFeel       = std::string(VAL) + "hasFeel";
+  inline const std::string hasPlay       = std::string(VAL) + "hasPlay";
+  inline const std::string seed          = std::string(VAL) + "seed";
+  inline const std::string progression   = std::string(VAL) + "progression";
+  inline const std::string barsPerChord  = std::string(VAL) + "barsPerChord";
+  inline const std::string root          = std::string(VAL) + "root";
+  inline const std::string tones         = std::string(VAL) + "tones";
+  inline const std::string stepsPerBeat  = std::string(VAL) + "stepsPerBeat";
+  inline const std::string key           = std::string(VAL) + "key";
+  inline const std::string voice         = std::string(VAL) + "voice";
+  inline const std::string steps         = std::string(VAL) + "steps";
+  inline const std::string velocity      = std::string(VAL) + "velocity";
+  inline const std::string accent        = std::string(VAL) + "accent";
+  inline const std::string length        = std::string(VAL) + "length";
+  inline const std::string gate          = std::string(VAL) + "gate";
+  inline const std::string octave        = std::string(VAL) + "octave";
+  inline const std::string transpose     = std::string(VAL) + "transpose";
+  inline const std::string part          = std::string(VAL) + "part";
+  inline const std::string section       = std::string(VAL) + "section";
+  inline const std::string pattern       = std::string(VAL) + "pattern";
+  inline const std::string fromBar       = std::string(VAL) + "fromBar";
+  inline const std::string toBar         = std::string(VAL) + "toBar";
+  inline const std::string every         = std::string(VAL) + "every";
+  inline const std::string timing        = std::string(VAL) + "timing";
+  inline const std::string swing         = std::string(VAL) + "swing";
+}  // namespace score
+
 
 namespace val {
   // Classes

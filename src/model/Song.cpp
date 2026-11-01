@@ -120,6 +120,8 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
     if (song.title.empty()) song.title = r.text(node, vocab::rdfs::label);
     if (song.title.empty()) song.title = localName(song.id);
 
+    song.score = r.text(node, vocab::song::score);
+
     // -- the clock
     if (const auto tempo = r.number(node, vocab::song::tempo, "val:tempo"))
     {

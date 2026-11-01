@@ -10,6 +10,8 @@
 #include "valis/Freesound.h"
 #include "valis/OfflineRender.h"
 #include "valis/Song.h"
+#include "valis/Score.h"
+#include "valis/ScoreWrite.h"
 #include "valis/SongCheck.h"
 #include "valis/SongMix.h"
 #include "valis/SongReaper.h"
@@ -1525,6 +1527,35 @@ OpResult loadSongFile(const std::string& path, Song& song, juce::File& file)
     return OpResult::success();
 }
 
+/// Reads the score a song names (val:score), checked against the song.
+OpResult loadScoreFile(const Song& song, const juce::File& songFile, Score& score)
+{
+    if (song.score.empty())
+        return OpResult::failure("the song names no score (val:score); its notes are written elsewhere");
+    const auto file = songFile.getParentDirectory().getChildFile(juce::String(song.score));
+    if (! file.existsAsFile())
+        return OpResult::failure("no score file at " + file.getFullPathName().toStdString());
+
+    rdf::TurtleStore store;
+    std::vector<rdf::ParseError> parseErrors;
+    if (! store.parseFile(file.getFullPathName().toStdString(), parseErrors))
+    {
+        std::string message = "the score file does not parse:";
+        for (const auto& e : parseErrors)
+            message += "\n  " + e.toString();
+        return OpResult::failure(message);
+    }
+    std::vector<Diagnostic> diagnostics;
+    if (! Score::read(store, song, score, diagnostics))
+    {
+        std::string message = "not a usable score:";
+        for (const auto& d : diagnostics)
+            message += "\n  " + d.message;
+        return OpResult::failure(message);
+    }
+    return OpResult::success();
+}
+
 juce::String inSongDirectory(const juce::File& songFile, const std::string& given, const char* fallback)
 {
     if (given.empty())
@@ -1729,6 +1760,34 @@ OpResult OpDispatcher::checkSongStems(const std::string& path, const std::string
     if (! result.ok)
         return OpResult::failure("the stems have problems:" + failures + "\n" + json);
     return OpResult::success(json);
+}
+
+OpResult OpDispatcher::scoreSong(const std::string& path, const std::vector<std::string>& only) const
+{
+    Song song;
+    juce::File file;
+    if (auto loaded = loadSongFile(path, song, file); ! loaded.ok)
+        return loaded;
+    Score score;
+    if (auto loaded = loadScoreFile(song, file, score); ! loaded.ok)
+        return loaded;
+
+    const auto result = writeScoreMidi(song, score, file.getParentDirectory().getFullPathName().toStdString(), only);
+    if (! result.ok)
+        return OpResult::failure(result.error);
+
+    juce::Array<juce::var> parts;
+    for (const auto& p : result.parts)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("part", juce::String(p.part));
+        o->setProperty("path", juce::String(p.path));
+        o->setProperty("notes", p.notes);
+        parts.add(juce::var(o));
+    }
+    auto* root = new juce::DynamicObject();
+    root->setProperty("parts", parts);
+    return OpResult::success(juce::JSON::toString(juce::var(root)).toStdString());
 }
 
 OpResult OpDispatcher::reaperProject(const std::string& path, const std::string& wavDirectory,

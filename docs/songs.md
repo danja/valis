@@ -1,7 +1,7 @@
 # Songs as data
 
-A song made from Valis circuits has two halves. The **score** is code: it decides which notes each part plays, and a
-script writes one MIDI file per part. The **layout and the mix** are data: the tempo, the sections and their lengths,
+A song made from Valis circuits has two halves. The **score** decides which notes each part plays, and ends as one MIDI
+file per part. Fixed patterns and chords can be written as data (see "The score" below); generated parts are code. The **layout and the mix** are data: the tempo, the sections and their lengths,
 which circuit plays each part, and how loud, where in the stereo field and how filtered each stem sits in the mix. The
 second half lives in a Turtle file, `song.ttl`, so it can be read, checked and changed without touching the score.
 
@@ -61,6 +61,61 @@ stem too: the source stem is played through the return's circuit, then mixed lik
 Sections are numbered explicitly with `val:index` rather than written as an `rdf:List`, so the order survives merging
 and editing files in any triple order.
 
+## The score
+
+The notes can be data too. A song names a score file with `val:score "score.ttl"`, and `valis-song score` plays it into
+one MIDI file for each part it plays. The file holds patterns written as strings of steps, chords with their voicings, a
+progression, how loosely each part is played, and a plan. A part the score does not play keeps its MIDI file, so a
+generator that builds a bass line or a solo can still be a script.
+
+```turtle
+:score a val:Score ; val:seed 85 ;
+    val:progression "C C Db C C C Fm Db" ;              # a chord a bar, from the start of each section
+    val:hasChord :C , :Db , :Fm ; val:hasPattern :onedrop , :skank ; val:hasFeel :kit-feel ;
+    val:hasPlay :groove-kit , :groove-stabs .
+
+:C  a val:Chord ; val:root 36 ; val:tones "60 64 67" .
+:Db a val:Chord ; val:root 37 ; val:tones "61 65 68" .
+:Fm a val:Chord ; val:root 41 ; val:tones "60 65 68" .
+
+:onedrop a val:Pattern ; val:hasLane                      # one bar of 4/4, sixteen steps
+    [ val:key 36 ; val:steps "....|....|X...|...." ] ,   # X is an accented hit, x a hit, . a rest
+    [ val:key 42 ; val:steps "x.x.|x.x.|x.x.|x.x." ; val:velocity 70 ] .
+:skank a val:Pattern ; val:hasLane
+    [ val:voice "chord" ; val:steps "....|x...|....|x..." ; val:length 2 ; val:octave 1 ] .
+
+:kit-feel a val:Feel ; val:part "kit" ; val:timing 4 ; val:velocity 5 ; val:swing 0.54 .
+:groove-kit   a val:Play ; val:section "groove" ; val:part "kit"   ; val:pattern :onedrop .
+:groove-stabs a val:Play ; val:section "groove" ; val:part "stabs" ; val:pattern :skank ; val:fromBar 5 .
+```
+
+| Term | On | Meaning | Default |
+| --- | --- | --- | --- |
+| `val:score` | Song | The score file, relative to the song file | none |
+| `val:seed` | Score | Seed for the humanising. The same score and seed always give the same notes, on every platform | 1 |
+| `val:progression` | Score, Play | Chord names separated by spaces, one for each `val:barsPerChord` bars, repeated from the start of each section | none |
+| `val:barsPerChord` | Score | Bars to a chord | 1 |
+| `val:root`, `val:tones` | Chord | The key a bass plays, and the keys of the voicing, lowest first | required |
+| `val:bars`, `val:stepsPerBeat` | Pattern | Length in bars, and steps to a beat (4 is sixteenth notes) | 1, 4 |
+| `val:steps` | Lane | One character a step: `x` hit, `X` accented hit, `.` or `-` rest. Spaces and `|` are ignored. The length must fill the pattern exactly | required |
+| `val:key` or `val:voice` | Lane | A MIDI key, or `chord` (every tone), `root`, `top` or `low` from the chord of the bar | one of them |
+| `val:velocity`, `val:accent` | Lane | Velocity, and what `X` adds | 90, 20 |
+| `val:length`, `val:gate` | Lane | Length in steps, and the fraction of it that is held, so the note ends before the next step | 1, 0.8 |
+| `val:octave`, `val:transpose` | Lane | Moves a voice by octaves, or any lane by semitones | 0, 0 |
+| `val:part`, `val:timing`, `val:velocity`, `val:swing` | Feel | The part; standard deviation of each start in milliseconds and of each velocity; where the second step of a pair falls, 0.5 to 0.75 | exact |
+| `val:section`, `val:part`, `val:pattern` | Play | Which part plays which pattern in which section (names are the local names of the IRIs) | required |
+| `val:fromBar`, `val:toBar`, `val:every` | Play | The bars of the section it covers, and how often the pattern restarts | 1, the end, its own length |
+
+A bar is `val:beatsPerBar` beats of the song, so a 4/4 pattern at four steps to a beat has 16 steps in a bar. A pattern
+is placed in the song by stream position, and a note that falls in a bar is counted in that bar. No note starts before
+the first beat, however loose the feel. The humanising comes from a small generator defined in the code (not the
+standard library's, whose results differ between platforms) seeded from `val:seed` and the part's name, so a score
+gives the same MIDI on every machine. It is not the same as the sequence Python's `random` gave, so a song first written
+as a script will sound slightly different when its score is written as data.
+
+`valis-song score song.ttl` writes the MIDI files; `valis-song score song.ttl --only kit` writes one part. Then render
+and check the stems as before.
+
 ## Checking a file
 
 The `read_song` tool takes a path, reads the file, and returns the song as JSON together with a list of problems. It
@@ -69,14 +124,16 @@ value outside its range, each with the name of the thing at fault.
 
 ## Rendering and mixing
 
-Four operations work on a song file. Each is an op in `src/ops/`, so the MCP tools and the command line tool are the same
+Six operations work on a song file. Each is an op in `src/ops/`, so the MCP tools and the command line tool are the same
 code:
 
 | MCP tool | `valis-song` | What it does |
 | --- | --- | --- |
 | `read_song` | `valis-song check song.ttl` | Reads the file, lists the layout and any circuit or MIDI file it names that is missing |
 | `render_song` | `valis-song render song.ttl [--only a,b]` | Writes `wavs/<stem>.wav` for each stem |
+| `score_song` | `valis-song score song.ttl [--only a,b]` | Plays the song's score into a MIDI file for each part it plays (see below) |
 | `check_stems` | `valis-song stems song.ttl` | Compares each stem with its MIDI file bar by bar and reports silence where there are notes (a note counts as heard if the stem sounds from its onset to 100 ms past the end of its bar), clipping and non-finite samples |
+| `reaper_project` | `valis-song reaper song.ttl [--output f.rpp] [--overwrite]` | Writes `<title>.rpp` beside the song: a track per stem with the mix's volume (the loudest at 0 dB) and pan, the tempo and the meter. The high-pass is not written, and an existing project is never replaced |
 | `mix_song` | `valis-song mix song.ttl --version v1 [--arc] [--lufs N]` | Writes `mixes/<title>-<version>.wav` and reports the loudness and each section's level |
 
 **Render.** A part is its circuit played by its MIDI file at the song's tempo with the transport rolling, for the length of
@@ -116,5 +173,6 @@ Python ones (measured, not heard); the C++ mix keeps stereo stems stereo, where 
 ## What stays in code
 
 Generators stay code: a walking bass line, a rain of random thunder hits, a solo built from a seeded motif. Data is
-the right shape for what is a table. Fixed patterns (a drum bar, a chord progression) are the next candidates to move
-into Turtle; see `TODO.md`.
+the right shape for what is a table, and a drum bar, a chord progression and a plan of which part plays when are tables,
+so they are in the score. A script and a score can share a song: the score writes the parts it plays and the script writes
+the rest.

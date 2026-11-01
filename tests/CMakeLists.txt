@@ -9,6 +9,7 @@ set(VALIS_TESTS
   model/OntologyTest.cpp
   model/SubcircuitTest.cpp
   model/SongTest.cpp
+  model/ScoreTest.cpp
   compiler/CircuitCompilerTest.cpp
   dsp/ElementRegistryTest.cpp
   dsp/ElementConformanceTest.cpp
@@ -83,6 +84,7 @@ set(VALIS_TESTS
   ops/LintTest.cpp
   ops/SongMixTest.cpp
   ops/SongCheckTest.cpp
+  ops/ScoreWriteTest.cpp
   ops/SongReaperTest.cpp
   ops/SongRenderTest.cpp
   ops/OpDispatcherTest.cpp

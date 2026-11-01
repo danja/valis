@@ -82,7 +82,9 @@ asking the running program:
 | `freesound_search` | search freesound.org (CC0 by default) for sounds: id, name, author, licence, length, tags. Needs `FREESOUND_API_KEY` in `.env` |
 | `read_song` | read a `val:Song` file (tempo, sections, parts, returns, mix table) and list problems such as a missing circuit or MIDI file; see `docs/songs.md` |
 | `render_song` | render the stems of a song file: each part is its circuit played by its MIDI file at the song's tempo, each return is its source stem through the return's circuit; writes `wavs/<stem>.wav`. Private copies of the circuits, so the live one is untouched |
+| `score_song` | play a song's score (patterns of steps, chords, a feel per part, a plan) into a MIDI file for each part it plays; the same score gives the same notes every time |
 | `check_stems` | compare a song's rendered stems with its MIDI files bar by bar: silence where there are notes, clipping, non-finite samples, an empty MIDI file; run it before `mix_song` |
+| `reaper_project` | write a Reaper project from a song file: a track per rendered stem with the mix's volume and pan, and the song's tempo and meter; never replaces one that exists |
 | `mix_song` | mix a song's stems to `mixes/<title>-<version>.wav`: levelled, panned, optional per-section levels, fade, room, soft clip, and the song's loudness target. Never replaces an existing version |
 | `freesound_download` | fetch a sound by id into `audio/freesound/` as an Ogg preview with a `.json` naming author and licence; returns the path for a `val:Sampler` |
 | `listen` | AudioSet labels for a file, and a score for each sentence you give (needs the neural models) |
@@ -480,7 +482,8 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
 A song is a Turtle file of type `val:Song` beside its MIDI files: tempo, sections, one part per circuit, returns that send a
 part through an effect, and the mix (level, pan and high-pass per stem, the room, the fade, a target loudness). `read_song`
 checks it, `render_song` writes a stem per part and `mix_song` writes a versioned reference mix, all measured, not heard.
-The notes stay in a script that writes MIDI. See [songs.md](songs.md) for the vocabulary and the `write-a-song` skill for the
+The notes can be data as well: `val:score` names a file of patterns, chords and a plan, and `score_song` writes the MIDI;
+generated parts stay in a script. See [songs.md](songs.md) for the vocabulary and the `write-a-song` skill for the
 method.
 
 ### Sectioned knob panel
