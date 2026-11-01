@@ -132,6 +132,41 @@ int main()
     // Notes are placed by stream position: a note-on at the very start of the last bar belongs to that bar.
     assert(good->bars[3].notes == 1 && good->bars[0].notes == 1);
 
+    // A bar that is not a whole number of samples: at 170 bpm it is 67764.7 samples long, so a note on the bar line
+    // is placed on a sample just before or just after the exact line. It belongs to the bar that starts there, in
+    // every bar and not only the ones the rounding favours.
+    {
+        const char* fast = R"(
+@prefix val: <http://purl.org/stuff/valis/> .
+@prefix : <urn:test:fast#> .
+:s a val:Song ; val:tempo 170 ; val:hasSection :a ; val:hasPart :p .
+:a a val:Section ; val:index 1 ; val:bars 24 .
+:p a val:Part ; val:index 1 ; val:circuit "x.ttl" .
+)";
+        rdf::TurtleStore fastStore;
+        std::vector<rdf::ParseError> fastErrors;
+        const bool fastParsed = fastStore.parse(fast, "urn:test:fast", fastErrors);
+        assert(fastParsed);
+        Song fastSong;
+        std::vector<Diagnostic> fastDiagnostics;
+        const bool fastRead = Song::read(fastStore, fastSong, fastDiagnostics);
+        assert(fastRead);
+
+        std::vector<int> everyBar;
+        for (int bar = 0; bar < 24; ++bar)
+            everyBar.push_back(bar);
+        writeMidi(directory.getChildFile("midi/p.mid"), everyBar);
+        written = writeWavFile(root + "/wavs/p.wav", tone(24 * 240.0 / 170.0 + 1.0, 1000.0), error);
+        assert(written);
+
+        const auto fastResult = checkSongStems(fastSong, root, root + "/wavs");
+        const auto* p = find(fastResult, "p");
+        assert(p != nullptr && p->notes == 24 && p->bars.size() == 24);
+        for (const auto& bar : p->bars)
+            assert(bar.notes == 1);
+        assert(p->problems.empty());
+    }
+
     directory.deleteRecursively();
     std::puts("SongCheckTest passed");
     return 0;

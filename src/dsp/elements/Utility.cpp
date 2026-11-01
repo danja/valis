@@ -1090,6 +1090,10 @@ void registerToneStack(ElementRegistry&);
 void registerSampler(ElementRegistry&);
 void registerWavetable(ElementRegistry&);
 void registerTimeStretch(ElementRegistry&);
+void registerConvolver(ElementRegistry&);
+void registerPitchTracker(ElementRegistry&);
+void registerOctaveDivider(ElementRegistry&);
+void registerSampleHold(ElementRegistry&);
 
 ElementRegistry makeDefaultRegistry()
 {
@@ -1108,6 +1112,10 @@ ElementRegistry makeDefaultRegistry()
     registerSampler(registry);
     registerWavetable(registry);
     registerTimeStretch(registry);
+    registerConvolver(registry);
+    registerPitchTracker(registry);
+    registerOctaveDivider(registry);
+    registerSampleHold(registry);
     registerUtility(registry);
     return registry;
 }

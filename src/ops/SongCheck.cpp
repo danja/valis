@@ -102,7 +102,9 @@ SongCheckResult checkSongStems(const Song& song, const std::string& songDirector
             if (n.on && n.velocity > 0.0f)
             {
                 ++report.notes;
-                const auto bar = static_cast<long long>(std::floor(static_cast<double>(n.sample) / barSamples));
+                // The note's sample is its exact time rounded to a whole sample, which can fall a fraction of a sample
+                // before the bar line it sits on. A note a sample or two short of a line belongs to the bar after it.
+                const auto bar = static_cast<long long>(std::floor((static_cast<double>(n.sample) + 2.0) / barSamples));
                 if (bar < 0 || bar >= totalBars)
                     continue;
                 ++noteCount[static_cast<std::size_t>(bar)];

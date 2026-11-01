@@ -470,6 +470,8 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
 - `examples/sampled-strings.ttl` is a multisample: violins, violas and cellos (VSCO 2, CC0) as three samplers chosen by one
   Voice control through `val:AudioSelect`, each recording looped so a note can be held past the length of the file.
   Its tuning, loudness and sustain are pinned by `tests/engine/SampledStringsTest.cpp`.
+- `val:Convolver` takes an impulse response from `val:file` and puts the input in that room or through that device; no
+  latency, at most 12 s of response, level scaled to unit energy (trim with `gain`).
 - `val:SampleLoad` plays a file; `val:TimeStretch` plays one at a different speed
   or pitch; `val:GrainBuffer` holds one for grains. The file is an option
   (`val:file`), and `set_sample` swaps it in a session without editing the document.
@@ -555,6 +557,10 @@ This table is a start for common jobs. Each port named in it exists; the test
 | `val:SampleLoad` | plays a sound file | `speed`, `start`, `loop`, `trigger`, `choke`, `out` |
 | `val:Sampler` | plays recorded sounds from notes, as a keyboard or a kit | `gain`, `tune`, `attack`, `release`, `velocity`, `loop`, `keytrack`, `oneshot`, `choke`, `out` |
 | `val:TimeStretch` | a sound file at its own speed and pitch | `speed`, `pitch`, `formant`, `loop`, `out` |
+| `val:PitchTracker` | pitch of a monophonic signal as control outputs (YIN) | `in`, `low`, `high`, `threshold`, `floor`, `frequency`, `note`, `voiced`, `clarity` |
+| `val:SampleHold` | copies a control value when its trigger rises and holds it (a note's velocity for the length of a drum) | `in`, `trigger`, `out` |
+| `val:OctaveDivider` | analogue octave-down: Schmitt trigger and flip-flops, one note at a time | `in`, `division`, `hysteresis`, `dry`, `wet`, `out` |
+| `val:Convolver` | convolves the input with an impulse response file (a room, a cabinet); no latency | `in`, `mix`, `gain`, `out` |
 | `val:Input` | plugin audio input | `out`, `left`, `right` |
 | `val:Output` | plugin audio output | `in`, `left`, `right` |
 

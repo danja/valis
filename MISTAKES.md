@@ -78,3 +78,29 @@ file". JUCE builds its MP3 decoder only with `JUCE_USE_MP3AUDIOFORMAT`, which is
 carries FLAC copies and the docs say MP3 does not load. Turning the decoder on is a decision for the owner, because JUCE ships it
 with a warning about third-party patents and code.
 
+
+## A note on a bar line counted in the bar before it
+
+**What happened.** `valis-song stems` reported "silent in bars that have notes" for a new track at 170 bpm: bars 4 to 8 of the kit, and
+the same shape elsewhere. The MIDI was right and the kit really was silent there, but the report named the wrong bars, and a bar that
+had no kick showed one note in it. Every earlier song had humanised timing or a tempo whose bar is a whole number of samples (85 and 120 bpm), so the check had never seen a note exactly on a bar line.
+
+**Root cause.** The check placed a note in `floor(sample / barSamples)`. At 170 bpm a bar is 67764.7 samples, and a note on the line is rounded
+to a whole sample, which can fall just before the line, so it was counted in the bar before. This is the stream-position rule in
+`CLAUDE.md` again, from the other side: a position compared against a boundary without allowing for the rounding of the position.
+
+**Prevention.** `SongCheckTest` now has a 24-bar song at 170 bpm with a note on every bar line and asserts one note in each bar. The
+check adds two samples before dividing. A test of anything placed by bar uses a tempo whose bar is not a whole number of samples.
+
+## A drum that fires on velocity, and is silent below half
+
+**What happened.** The first render of a new track had no closed hi-hats: `examples/909.ttl` closed hat, and the rest of the kit, are
+gated by the note's `velocity` output, and an envelope fires only when its gate passes 0.5, so any note under velocity 64 makes no sound.
+Hats written at velocity 52 and 60 were silent, with no message.
+
+**Root cause.** Not looked at beyond the wiring: `NoteGate.velocity` feeds each `val:Envelope`'s `gate`, which was a way to get a level
+and a gate from one signal. It was never tried with a soft hit.
+
+**Prevention.** Fixed 1 November 2026: every drum gates from `gate`, the toms take velocity through the resonator's `velocity` port, and
+`tests/engine/Tr909VelocityTest.cpp` plays each drum from velocity 0.05 to 1. `NoteGate.velocity` is a level that is 0 after the note-off,
+never a gate. All other examples were searched for a velocity arc into a gate, trigger or choke port; none had one.

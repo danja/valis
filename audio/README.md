@@ -32,3 +32,11 @@ of `fit_modes` on them is recorded in `TODO.md`.
 
 `oberheim-dmx/` holds captures of the Oberheim DMX drum machine, used by `examples/dmx.ttl` and
 `examples/blue-monday-sketch.ttl`. They moved here from `samples/Oberheim DMX/`.
+
+## Impulse responses
+
+`ir/` holds impulse responses for `val:Convolver`. `ir/room-synthetic.flac` is not a recording: it is
+3 seconds of the output of `examples/reverb-return.ttl` given a single click, made with
+`valis-render -i click.wav`. Replace it with a real room, cabinet or spring for a real
+[convolution reverb](https://en.wikipedia.org/wiki/Convolution_reverb); keep the licence and credit here
+beside it, as for the files above.

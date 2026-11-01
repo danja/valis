@@ -3,6 +3,20 @@
 * **Songs as data, next steps** (`docs/songs.md`): fixed patterns and chords are now a `val:Score` (`valis-song score`); `dub-metal` is converted (its `metal` part is still generated in Python). Not tried: a score written first for a new song. Not done in the score: a pattern that depends on the bar's position in a cycle other than the chord progression, per-play velocity scaling, tuplets, and a vocal-guide format. The stem checks
   the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
   block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
+* **Street Hammer** (hardcore techno inspired by Orff's "Gassenhauer"; `valis-artifacts/artifacts/street-hammer/`): built, rendered and
+  mixed (v1, -10.5 LUFS, 170 bpm measured, true peak -1 dBTP; measured, not heard). Needs a listener: the kick against the bass, the
+  hoover against the marimba (the figure is G3 to G4, the tune G4 to F6), the risers and whether the three drops hit. Not done:
+  a vocal or sample hook; the `valis-song reaper --midi` project for it; a second version at 175 to 180 bpm.
+* **909 levels and rim shot, found while checking the kit (31 October 2026, measured, not heard).** At full velocity the peaks are:
+  bass drum -17.1 dBFS, clap -15.6, hats -7.1 and -6.2, rim shot -8.2, toms -5.7 to -8.1, snare -4.4. The bass drum is the quietest drum by 13 dB,
+  where a real 909's is the loudest; the shipped songs level the kit as one stem, so nothing depends on it, but a kit played directly is
+  unbalanced. The rim shot's spectral centroid is 12.5 kHz (a real one is mostly 1 to 3 kHz); not looked at. Pitches: bass drum 55 Hz,
+  toms 70, 110 and 160 Hz, snare 191 Hz.
+* **Velocity-sensitive levels in `examples/909.ttl`.** The gating is fixed (every drum sounds at any velocity; `tests/engine/Tr909VelocityTest.cpp`)
+  and the toms scale with their own note's velocity, but the bass drum, snare, rim shot, clap and hats play at one level. Scaling them
+  needs a control element that samples a value when its gate rises (a sample-and-hold), because `NoteGate.velocity` drops to 0 at the
+  note-off and would cut the tail of a drum. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) route
+  velocity to a level or a resonator port, not to a gate, and were checked; only the 909 had the fault.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/archive/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
@@ -259,20 +273,28 @@ copy code). Its `docs/03-testing-strategy.md`, `05-dsp-and-runtime-research.md` 
 * **Golden renders and a CPU budget.** Bit-identity baselines per example circuit, regenerated on
   purpose; per-element cost measured and a reference preset's callback time compared with its budget.
 * **Elements Valis lacks that Cathode has.** Each is a small, well-described algorithm:
-  * `val:Convolver`: zero-latency partitioned FIR convolution (uniform partitions, or Gardner's
-    non-uniform scheme for long ones) for cabinet and room impulse responses, loaded from a file as
-    `val:SampleLoad` is; with minimum-phase trimming by the real cepstrum, and an IR capture by sine sweep.
-    The step the amp-simulation examples, and the NAM example, are missing.
+  * **`val:Convolver` follow-ups.** The element is in (`src/dsp/elements/Convolver.cpp`, `tests/dsp/ConvolverTest.cpp`,
+    `examples/convolver-room.ttl`): a 128-sample direct head and uniform 128-sample partitions, no latency, matching direct
+    convolution to about 2e-7. Not done: non-uniform partitions (Gardner, 1995), which would cut the cost of a long response
+    from about 1500 multiply-adds per sample per second of response to a few hundred; a stereo response (two files, or one
+    two-channel file); minimum-phase trimming of the response by the real cepstrum; capturing a response by sine sweep;
+    a pre-delay control; and a measured cost in a release build. The shipped response is synthetic, from `val:Reverb`;
+    a real recorded room, with its licence, is wanted in `audio/ir/`. Not heard.
   * **`val:ToneStack` follow-ups.** The Bassman stack is in (Yeh and Smith, checked against the circuit solved node by node). Not done: the
     Marshall and Vox stacks, which are the same circuit with other values (and the Vox has no middle pot); they need component values
     read from a schematic, which could not be confirmed from the sources reached. A `val:model` choice would hold them.
   * `val:Vibe`: the Uni-Vibe, four unequal first-order allpasses sharing one lamp, with the lamp's
     lopsided response; `val:Rotary`: a Leslie as two rotors, a crossover, Doppler and amplitude
     modulation with motor inertia; `val:Wah`: from the circuit, not a swept bandpass.
-  * `val:PitchTracker`: YIN (de Cheveigne and Kawahara, 2002; `src/ops/Analysis.cpp` already has an offline one
-    that now rejects octave-up errors) on a decimated copy, with a pitch output
-    and a voiced flag as controls. It would let an oscillator or a granulator follow a played note.
-    `val:OctaveDivider` (Schmitt trigger and flip-flops) is a cheaper cousin.
+  * **`val:PitchTracker` follow-ups.** The element is in (`src/dsp/elements/PitchTracker.cpp`, `tests/dsp/PitchTrackerTest.cpp`,
+    `examples/pitch-follower.ttl`): YIN on a copy reduced to about 12 kHz, within 0.2 cent on sines from 41 to 1318 Hz at 44.1 to 192 kHz,
+    and right on a missing fundamental. Not done: a recorded voice, guitar or bass has not been tried (only synthetic tones and
+    noise); a chord reads as one note or as unvoiced; no smoothing or glide on the output (the oscillator follows each 5 ms step);
+    the cost in a release build is unmeasured.
+  * **`val:OctaveDivider` follow-ups.** In (`src/dsp/elements/OctaveDivider.cpp`, `tests/dsp/OctaveDividerTest.cpp`): Schmitt trigger at a
+    fraction of the input's peak, one or two flip-flops, output scaled to the input's loudness (measured 0.93 of the input's rms on a sine).
+    Pitch is exact on sines from 110 to 440 Hz. Not done: tried on a real guitar or bass (only sines and silence); the classic
+    low-pass on the output that rounds the square; no example circuit; and not heard.
   * `val:Ducker` (wet drops while the dry input is above a threshold; a sidechain for a delay or reverb),
     a loudness meter as a monitor element (the BS.1770 measurement exists offline as `measureLoudness` in `src/shot/`; this
     needs a streaming version without allocation), program-dependent attack and

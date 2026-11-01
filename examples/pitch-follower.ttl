@@ -1,0 +1,43 @@
+# examples/pitch-follower.ttl
+#
+# A synth that plays what it hears. A val:PitchTracker reads the pitch of a monophonic input (a
+# voice, a bass, a whistle) and a saw oscillator is held to that pitch, an octave down. The
+# tracker's voiced output opens a VCA, so the oscillator is silent while the input has no pitch.
+#
+# The oscillator's frequency is set by the control arc alone: an arc replaces the port's value,
+# so the figure on the oscillator would never be heard. The octave is the val:Scale's range.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix :      <urn:valis:pitchfollower#> .
+
+:pitchfollower a val:Circuit ;
+    rdfs:label "Pitch follower" ;
+    val:element :in , :tracker , :octave , :osc , :vca , :out ;
+    val:arc :aInTrack , :aFreqOct , :aOctOsc , :aVoicedVca , :aOscVca , :aVcaOut .
+
+:in a val:Input .
+
+:tracker a val:PitchTracker ; val:low 60.0 ; val:high 1000.0 .
+
+# Half the tracked frequency: 0 to 4000 Hz in, 0 to 2000 Hz out.
+:octave a val:Scale ; val:min 0.0 ; val:max 0.5 .
+
+:osc a val:Oscillator ; val:shape 1 .
+:vca a val:VCA .
+:out a val:Output .
+
+:aInTrack a val:Arc ; val:from [ val:node :in      ; val:port "out" ] ;
+                      val:to   [ val:node :tracker ; val:port "in"  ] .
+:aFreqOct a val:ControlArc ; val:from [ val:node :tracker ; val:port "frequency" ] ;
+                             val:to   [ val:node :octave  ; val:port "in" ] .
+:aOctOsc  a val:ControlArc ; val:from [ val:node :octave ; val:port "out" ] ;
+                             val:to   [ val:node :osc    ; val:port "frequency" ] .
+:aVoicedVca a val:ControlArc ; val:from [ val:node :tracker ; val:port "voiced" ] ;
+                               val:to   [ val:node :vca     ; val:port "cv" ] .
+:aOscVca  a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
+                      val:to   [ val:node :vca ; val:port "in"  ] .
+:aVcaOut  a val:Arc ; val:from [ val:node :vca ; val:port "out" ] ;
+                      val:to   [ val:node :out ; val:port "in"  ] .

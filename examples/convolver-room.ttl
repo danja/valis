@@ -1,0 +1,53 @@
+# examples/convolver-room.ttl
+#
+# A convolution reverb. The impulse response, audio/ir/room-synthetic.flac, is the output of
+# examples/reverb-return.ttl given a single click, so what the Convolver does here is the same room
+# the Reverb element makes, but as a recording that can be swapped for another. In the Controls view
+# the file slot's Load button replaces it with any room, cabinet or spring you have recorded.
+#
+# The response is scaled to unit energy when it loads, so Gain is a trim and not a level to find.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:convolverroom#> .
+
+:convolverroom a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Effect", "Reverb", "Convolution" ;
+    rdfs:label "Convolution room" ;
+    val:element :in , :room , :out ;
+    val:arc :a_in_out__room_in ,
+        :a_room_out__out_in .
+
+:in a val:Input .
+
+:room a val:Convolver ;
+    val:file "audio/ir/room-synthetic.flac" ;
+    val:mix 0.35 ;
+    val:gain 0.0 .
+
+:out a val:Output .
+
+:a_in_out__room_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__out_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Mix" ; lv2:symbol "mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Room" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :room ; val:property val:gain ;
+    lv2:name "Gain" ; lv2:symbol "gain" ;
+    lv2:minimum -24 ; lv2:maximum 12 ;
+    val:section "Room" ;
+    units:unit units:db .

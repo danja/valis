@@ -66,6 +66,10 @@ add_library(valis_core STATIC
   src/dsp/SampleTable.cpp
   src/dsp/elements/Wavetable.cpp
   src/dsp/elements/TimeStretch.cpp
+  src/dsp/elements/Convolver.cpp
+  src/dsp/elements/PitchTracker.cpp
+  src/dsp/elements/OctaveDivider.cpp
+  src/dsp/elements/SampleHold.cpp
   src/dsp/elements/Utility.cpp
   src/engine/ValisEngine.cpp
   src/ops/OpDispatcher.cpp

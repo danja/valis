@@ -2115,6 +2115,31 @@ yet. Both inputs usually come from control arcs; an input with no arc keeps its 
         lv2:name "Out" ; lv2:default 0.0 ;
         lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
 
+val:SampleHold a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "SampleHold" ;
+    rdfs:comment """Copies val:in when val:trigger rises through 0.5 and holds the copy until the next rise
+(https://en.wikipedia.org/wiki/Sample_and_hold). The output is 0 until the first trigger.
+
+Its use is to keep a note's velocity for as long as the sound it plays lasts: a val:NoteGate reports velocity
+only while the note is held and 0 after the note-off, so a drum that rings on after a short note cannot take
+its level from it directly. Connect the NoteGate's velocity to val:in and its gate to val:trigger, and the
+output is the velocity of the last hit, ready for a val:VCA.
+
+Control signals update once per block of 32 samples. A trigger that rises and falls inside one block is not
+seen, and val:in is read in the block where the trigger rises.""" ;
+    val:implementation "SampleHold" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "in" ;
+        lv2:name "In" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "trigger" ;
+        lv2:name "Trigger" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ;
+        lv2:name "Out" ; lv2:default 0.0 ;
+        lv2:minimum -1.0e6 ; lv2:maximum 1.0e6 ] .
+
 val:ControlAdd a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "ControlAdd" ;
     rdfs:comment """Adds three control signals: the output is val:a plus val:b plus val:c. Use it to
@@ -2906,6 +2931,89 @@ short attack and a release of 100 ms or more is a smooth follower; a slow attack
                        [ rdfs:label "RMS"  ; rdf:value 1 ] ;
         rdfs:comment "0 peak, 1 RMS" ] .
 
+val:PitchTracker a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "PitchTracker" ;
+    rdfs:comment """Measures the pitch of a monophonic audio signal and puts it on control outputs, so an
+oscillator, a filter or a granulator can follow a played note. It uses the YIN method (de Cheveigne and
+Kawahara, 2002: https://en.wikipedia.org/wiki/Pitch_detection_algorithm): the signal is compared with a
+delayed copy of itself, and the first delay at which they match is the period. It does not answer an octave
+low on a sound with strong harmonics, and it finds a note whose fundamental is weak or missing.
+
+val:frequency is in hertz and val:note is the same pitch as a fractional MIDI note number, so 69.5 is a
+quarter tone above A4. Both hold the last pitch found while the signal has none, and are 0 before the first.
+val:voiced is 1 while a clear pitch is heard and 0 for silence, noise and chords; val:clarity says how clear,
+from 0 to 1. Connect val:note to a val:Quantise or val:MidiPitch to turn it back into a tuned oscillator.
+
+It reads one pitch. A chord has no single period and reads as unvoiced or as one of its notes. The estimate is
+made from 45 ms of signal and refreshed every 5 ms, so it follows a new note about 25 to 45 ms after the
+attack, and a vibrato faster than about 10 Hz is averaged. The signal is reduced to about 12 kHz first, so the
+cost does not depend on the engine's rate.""" ;
+    val:implementation "PitchTracker" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 4000.0 ; units:unit units:hz ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "note" ;
+        lv2:name "Note" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 127.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "voiced" ;
+        lv2:name "Voiced" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "clarity" ;
+        lv2:name "Clarity" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "low" ;
+        lv2:name "Lowest" ; lv2:default 50.0 ;
+        lv2:minimum 40.0 ; lv2:maximum 2000.0 ; units:unit units:hz ;
+        rdfs:comment "The lowest pitch to look for. Raising it makes the answer faster to settle." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "high" ;
+        lv2:name "Highest" ; lv2:default 1500.0 ;
+        lv2:minimum 100.0 ; lv2:maximum 4000.0 ; units:unit units:hz ;
+        rdfs:comment "The highest pitch to look for." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "threshold" ;
+        lv2:name "Threshold" ; lv2:default 0.15 ;
+        lv2:minimum 0.02 ; lv2:maximum 0.6 ;
+        rdfs:comment "How well the signal must match its delayed copy to count as a pitch. Lower is stricter: fewer wrong answers, more dropouts on a rough sound." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "floor" ;
+        lv2:name "Floor" ; lv2:default -60.0 ;
+        lv2:minimum -120.0 ; lv2:maximum 0.0 ; units:unit units:db ;
+        rdfs:comment "Signals quieter than this (rms) are treated as silence." ] .
+
+val:OctaveDivider a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "OctaveDivider" ;
+    rdfs:comment """The analogue octave-down effect. A Schmitt trigger squares the input, a flip-flop halves the
+frequency of the square wave (a second halves it again for two octaves), and the square wave is given the loudness of the
+input so that it dies away with the note: https://en.wikipedia.org/wiki/Frequency_divider. The sound is a buzzy
+square wave an octave or two below the note played.
+
+The trigger switches at plus and minus val:hysteresis times the input's own recent peak, so a quiet and a loud note divide
+alike. It is for one note at a time. A chord, or a bright and noisy sound, crosses the thresholds at the wrong moments and
+the output growls; that is how the pedals it copies behave. Where a clean pitch is wanted, use val:PitchTracker to drive an
+oscillator instead. Mix the result under the dry sound with val:dry and val:wet.""" ;
+    val:implementation "OctaveDivider" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "division" ;
+        lv2:name "Octaves down" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        lv2:portProperty lv2:toggled ;
+        lv2:scalePoint [ rdfs:label "One"  ; rdf:value 0 ] ,
+                       [ rdfs:label "Two"  ; rdf:value 1 ] ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "hysteresis" ;
+        lv2:name "Hysteresis" ; lv2:default 0.25 ;
+        lv2:minimum 0.02 ; lv2:maximum 0.9 ;
+        rdfs:comment "How far the input must swing, as a fraction of its recent peak, before the trigger changes. Higher ignores more of a note's harmonics and noise but needs a cleaner, louder input." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "dry" ;
+        lv2:name "Dry" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "wet" ;
+        lv2:name "Wet" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
 val:Expander a rdfs:Class ; rdfs:subClassOf val:Element ;
     rdfs:label "Expander" ;
     rdfs:comment """A downward expander, used as a noise gate: it turns down a signal while it is quiet. It reads its
@@ -3589,6 +3697,39 @@ no input to be late against.""" ;
         lv2:name "Trigger" ; lv2:default -1.0 ;
         lv2:minimum -1.0 ; lv2:maximum 1.0 ;
         rdfs:comment "-1 plays free-running; otherwise each rise restarts from start." ] .
+
+val:Convolver a rdfs:Class ; rdfs:subClassOf val:Element ;
+    rdfs:label "Convolver" ;
+    rdfs:comment """Convolves the input with an impulse response, the recorded sound of a room, a
+cabinet or a spring, read from the sound file named by val:file. The result has the character of
+the place or the device the response was captured in: https://en.wikipedia.org/wiki/Convolution_reverb.
+
+The file is summed to mono and resampled to the engine's rate, as for val:SampleLoad, and is scaled
+to unit energy so that a loud and a quiet recording of the same room give about the same level;
+val:gain trims it. A response longer than 12 seconds is cut there with a short fade. With no file
+loaded, or a silent one, the input passes through unchanged.
+
+It adds no latency: the first 128 samples of the response are a direct filter, and the rest is
+done with partitioned fast Fourier transforms (uniformly partitioned overlap-save convolution),
+a block at a time. The cost grows with the length of the response: about 1500 multiply-adds per
+output sample for every second of it (plus 128 for the direct part), against 48000 per second
+for a direct filter. A 2 second room is cheap and a 12 second hall is a real load.
+Mix is 0 for the dry input and 1 for the convolved sound alone.
+
+The model is mono. To convolve a stereo response, use two Convolvers with a file each.""" ;
+    val:implementation "Convolver" ;
+    val:hasOption val:file , val:sha256 , val:channels , val:sampleRate , val:frames ;
+    val:linear true ;
+    lv2:port
+      [ a lv2:InputPort, lv2:AudioPort ; lv2:symbol "in" ; lv2:name "In" ] ,
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "mix" ;
+        lv2:name "Mix" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "gain" ;
+        lv2:name "Gain" ; lv2:default 0.0 ;
+        lv2:minimum -48.0 ; lv2:maximum 24.0 ; units:unit units:db ;
+        rdfs:comment "Trim on the convolved sound, after the response has been scaled to unit energy." ] .
 
 val:SampleLoad a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "SampleLoad" ;

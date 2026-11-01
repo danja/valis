@@ -68,6 +68,7 @@ const Exceptions kExceptions = {
     {"multirate", {
         {"Bow",           "one low band at 88.2 kHz only; from a note the level agrees to 0.1 dB and the pitch to 0.2 Hz at every rate"},
         {"Noise",         "white noise of a fixed level per sample has a different density at each rate"},
+        {"OctaveDivider", "where noise crosses its thresholds depends on the rate (noise crosses more often at a higher one); from a sine the pitch agrees at every rate, which OctaveDividerTest checks"},
         {"Phaser",        "3 dB in one band at 192 kHz, where the LFO sweep falls"},
         {"PitchShift",    "linear interpolation in the read heads costs a little more near Nyquist at 44.1 kHz"},
         {"Redux",         "a hold of N samples is a different frequency at each rate"},

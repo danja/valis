@@ -17,7 +17,7 @@ namespace valis {
 inline bool hasFileSlot(std::string_view implementation)
 {
     return implementation == "SampleLoad" || implementation == "NamModel"
-        || implementation == "TimeStretch";
+        || implementation == "TimeStretch" || implementation == "Convolver";
 }
 
 /// A val:Sampler is chosen by a table of sounds, not by one file. The session's table sits on top of the

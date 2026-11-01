@@ -230,6 +230,21 @@ Linear.
 | `a` | A | 0 | -1e+06 to 1e+06 |  |
 | `b` | B | 0 | -1e+06 to 1e+06 |  |
 
+## val:Convolver
+
+Linear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `mix` | Mix | 1 | 0 to 1 |  |
+| `gain` | Gain | 0 | -48 to 24 | dB |
+
 ## val:Crossover
 
 Linear.
@@ -840,6 +855,23 @@ Nonlinear.
 | `velocity` | Velocity | 0.8 | 0 to 1 |  |
 | `channel` | Channel | 1 | 1 to 16 |  |
 
+## val:OctaveDivider
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `division` | Octaves down | 0 | 0 to 1 |  |
+| `hysteresis` | Hysteresis | 0.25 | 0.02 to 0.9 |  |
+| `dry` | Dry | 0 | 0 to 1 |  |
+| `wet` | Wet | 1 | 0 to 1 |  |
+
 ## val:OnePole
 
 Linear.
@@ -930,6 +962,23 @@ Linear.
 | `pitch` | Pitch | 0 | -24 to 24 |  |
 | `mix` | Mix | 1 | 0 to 1 |  |
 | `align` | Align | 0 | 0 to 1 |  |
+
+## val:PitchTracker
+
+Nonlinear.
+
+**Audio in**: `in`
+
+**Control out**: `frequency`, `note`, `voiced`, `clarity`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `low` | Lowest | 50 | 40 to 2000 | Hz |
+| `high` | Highest | 1500 | 100 to 4000 | Hz |
+| `threshold` | Threshold | 0.15 | 0.02 to 0.6 |  |
+| `floor` | Floor | -60 | -120 to 0 | dB |
 
 ## val:Pluck
 
@@ -1051,6 +1100,19 @@ Nonlinear.
 |---|---|---|---|---|
 | `frequency` | Frequency | 440 | 0.1 to 10000 | Hz |
 | `mix` | Mix | 1 | 0 to 1 |  |
+
+## val:SampleHold
+
+Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `in` | In | 0 | -1e+06 to 1e+06 |  |
+| `trigger` | Trigger | 0 | 0 to 1 |  |
 
 ## val:SampleLoad
 

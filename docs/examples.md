@@ -119,6 +119,8 @@ machine the band used; see `docs/new-order-track.md`. The drums are `dmx.ttl`. T
 - `emulator-choir.ttl`: four voices of a vowel (two saws through three fixed formants), bit-reduced, then a tape wobble, chorus and hall. No recording is used.
 - `quadra-strings.ttl`: eight voices of three detuned saws with a slow attack, two choruses and a phaser.
 - `reverb-return.ttl`: an effect. Only the room comes out: a low cut, a reverb and a high cut, for a send. Used on the high percussion.
+- `pitch-follower.ttl`: an effect. A `val:PitchTracker` holds a saw oscillator an octave below the input's pitch, and its `voiced` output opens a VCA so it is silent when the input has no pitch. Measured: a 220 Hz input gives 110.0 Hz.
+- `convolver-room.ttl`: an effect. A convolution reverb: `val:Convolver` with an impulse response from `audio/ir/` (the sound of `reverb-return.ttl` given one click, so it can be swapped for a recorded room). No latency.
 - `speaker-room.ttl`: an effect. A low cut, a cone resonance, a soft clip and a small room, for a drum played through a monitor and recorded again. Feed it with `valis-render -i`.
 
 ## Acoustic Latin set

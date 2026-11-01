@@ -50,11 +50,16 @@ set(VALIS_TESTS
   dsp/SampleLoadChokeTest.cpp
   dsp/LfoTest.cpp
   dsp/TimeStretchTest.cpp
+  dsp/ConvolverTest.cpp
+  dsp/PitchTrackerTest.cpp
+  dsp/OctaveDividerTest.cpp
+  dsp/SampleHoldTest.cpp
   dsp/StepSequencerTest.cpp
   dsp/WavetableTest.cpp
   dsp/StateVariableDriveTest.cpp
   dsp/CompressorTest.cpp
   engine/ValisEngineTest.cpp
+  engine/Tr909VelocityTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp
   engine/SampledStringsTest.cpp

@@ -21,6 +21,11 @@
 # (ratios 1 : 1.483 : 2.0 : 2.483 : 2.9668 : 3.5503). A high-pass filter
 # removes the fundamental and low partials.
 #
+# Each drum is gated by its NoteGate's gate output, so it sounds at any velocity. (The envelopes used to be
+# gated by the velocity output, and a note under velocity 64 was silent.) The toms take their level from the
+# velocity of their own note, through the resonator's velocity port; every other drum holds the velocity of its
+# last hit in a val:SampleHold and scales its level by it (a val:VCA before the pan), at full velocity unchanged.
+#
 # General MIDI channel 10 note map:
 #   36  Bass Drum
 #   37  Rim Shot
@@ -48,18 +53,18 @@
     val:element
         # Bass Drum
         :bdGate , :bdOsc , :bdPitchEnv , :bdPitchScale ,
-        :bdAmpEnv , :bdSat , :bdVca , :bdLevel , :bdPan ,
+        :bdAmpEnv , :bdSat , :bdVca , :bdLevel , :bdVelHold , :bdVelVca , :bdPan ,
         # Snare Drum
         :sdGate ,
         :sdOsc1 , :sdOsc2 , :sdOscMix ,
         :sdNoise , :sdBpf ,
         :sdToneEnv , :sdToneVca ,
         :sdNoiseEnv , :sdNoiseVca ,
-        :sdMix , :sdLevel , :sdPan ,
+        :sdMix , :sdLevel , :sdVelHold , :sdVelVca , :sdPan ,
         # Rim Shot
-        :rsGate , :rsNoise , :rsHpf , :rsEnv , :rsVca , :rsLevel , :rsPan ,
+        :rsGate , :rsNoise , :rsHpf , :rsEnv , :rsVca , :rsLevel , :rsVelHold , :rsVelVca , :rsPan ,
         # Hand Clap
-        :cpGate , :cpNoise , :cpBpf , :cpEnv , :cpVca , :cpLevel , :cpPan ,
+        :cpGate , :cpNoise , :cpBpf , :cpEnv , :cpVca , :cpLevel , :cpVelHold , :cpVelVca , :cpPan ,
         # Low Tom
         :ltGate , :ltOsc , :ltPitchEnv , :ltPitchScale , :ltAmpEnv , :ltVca , :ltLevel , :ltPan ,
         # Mid Tom
@@ -68,47 +73,47 @@
         :htGate , :htOsc , :htPitchEnv , :htPitchScale , :htAmpEnv , :htVca , :htLevel , :htPan ,
         # Closed Hi-Hat
         :chGate , :chOsc1 , :chOsc2 , :chOsc3 , :chOsc4 , :chOsc5 , :chOsc6 ,
-        :chMix , :chHpf , :chEnv , :chVca , :chLevel , :chPan ,
+        :chMix , :chHpf , :chEnv , :chVca , :chLevel , :chVelHold , :chVelVca , :chPan ,
         # Open Hi-Hat
         :ohGate , :ohOsc1 , :ohOsc2 , :ohOsc3 , :ohOsc4 , :ohOsc5 , :ohOsc6 ,
-        :ohMix , :ohHpf , :ohEnv , :ohVca , :ohLevel , :ohPan , :ohChoke ,
+        :ohMix , :ohHpf , :ohEnv , :ohVca , :ohLevel , :ohVelHold , :ohVelVca , :ohPan , :ohChoke ,
         # Output stage
         :mix , :out ;
     val:arc
         # Bass Drum
         :aBdGatePitchEnv , :aBdGateAmpEnv ,
         :aBdPitchEnvScale , :aBdScaleOsc ,
-        :aBdOscSat , :aBdSatVca , :aBdAmpEnvVca , :aBdVcaLevel , :aBdLevelPan , :aBdPanMixL , :aBdPanMixR ,
+        :aBdOscSat , :aBdSatVca , :aBdAmpEnvVca , :aBdVcaLevel , :aBdLevelVel , :aBdVelIn , :aBdVelTrigger , :aBdVelCv , :aBdVelPan , :aBdPanMixL , :aBdPanMixR ,
         # Snare Drum
         :aSdGateToneEnv , :aSdGateNoiseEnv ,
         :aSdOsc1OscMix , :aSdOsc2OscMix ,
         :aSdOscMixToneVca , :aSdToneEnvToneVca ,
         :aSdNoiseBpf , :aSdBpfNoiseVca , :aSdNoiseEnvNoiseVca ,
-        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelPan , :aSdPanMixL , :aSdPanMixR ,
+        :aSdToneVcaMix , :aSdNoiseVcaMix , :aSdMixLevel , :aSdLevelVel , :aSdVelIn , :aSdVelTrigger , :aSdVelCv , :aSdVelPan , :aSdPanMixL , :aSdPanMixR ,
         # Rim Shot
-        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelPan , :aRsPanMixL , :aRsPanMixR ,
+        :aRsGateEnv , :aRsNoiseHpf , :aRsHpfVca , :aRsEnvVca , :aRsVcaLevel , :aRsLevelVel , :aRsVelIn , :aRsVelTrigger , :aRsVelCv , :aRsVelPan , :aRsPanMixL , :aRsPanMixR ,
         # Hand Clap
-        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelPan , :aCpPanMixL , :aCpPanMixR ,
+        :aCpGateEnv , :aCpNoiseBpf , :aCpBpfVca , :aCpEnvVca , :aCpVcaLevel , :aCpLevelVel , :aCpVelIn , :aCpVelTrigger , :aCpVelCv , :aCpVelPan , :aCpPanMixL , :aCpPanMixR ,
         # Low Tom
-        :aLtGatePitchEnv , :aLtGateAmpEnv , :aLtGateTwinT ,
+        :aLtGatePitchEnv , :aLtGateAmpEnv , :aLtGateTwinT , :aLtVelTwinT ,
         :aLtPitchEnvScale , :aLtScaleOsc ,
         :aLtOscVca , :aLtAmpEnvVca , :aLtVcaLevel , :aLtLevelPan , :aLtPanMixL , :aLtPanMixR ,
         # Mid Tom
-        :aMtGatePitchEnv , :aMtGateAmpEnv , :aMtGateTwinT ,
+        :aMtGatePitchEnv , :aMtGateAmpEnv , :aMtGateTwinT , :aMtVelTwinT ,
         :aMtPitchEnvScale , :aMtScaleOsc ,
         :aMtOscVca , :aMtAmpEnvVca , :aMtVcaLevel , :aMtLevelPan , :aMtPanMixL , :aMtPanMixR ,
         # High Tom
-        :aHtGatePitchEnv , :aHtGateAmpEnv , :aHtGateTwinT ,
+        :aHtGatePitchEnv , :aHtGateAmpEnv , :aHtGateTwinT , :aHtVelTwinT ,
         :aHtPitchEnvScale , :aHtScaleOsc ,
         :aHtOscVca , :aHtAmpEnvVca , :aHtVcaLevel , :aHtLevelPan , :aHtPanMixL , :aHtPanMixR ,
         # Closed Hi-Hat
         :aChGateEnv ,
         :aChOsc1Mix , :aChOsc2Mix , :aChOsc3Mix , :aChOsc4Mix , :aChOsc5Mix , :aChOsc6Mix ,
-        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelPan , :aChPanMixL , :aChPanMixR ,
+        :aChMixHpf , :aChHpfVca , :aChEnvVca , :aChVcaLevel , :aChLevelVel , :aChVelIn , :aChVelTrigger , :aChVelCv , :aChVelPan , :aChPanMixL , :aChPanMixR ,
         # Open Hi-Hat
         :aOhGateChoke , :aChGateChoke , :aOhChokeEnv ,
         :aOhOsc1Mix , :aOhOsc2Mix , :aOhOsc3Mix , :aOhOsc4Mix , :aOhOsc5Mix , :aOhOsc6Mix ,
-        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelPan , :aOhPanMixL , :aOhPanMixR ,
+        :aOhMixHpf , :aOhHpfVca , :aOhEnvVca , :aOhVcaLevel , :aOhLevelVel , :aOhVelIn , :aOhVelTrigger , :aOhVelCv , :aOhVelPan , :aOhPanMixL , :aOhPanMixR ,
         # Output
         :aMixOutL , :aMixOutR .
 
@@ -155,7 +160,9 @@
 
 :bdVca a val:VCA .
 
-:bdLevel a val:Gain ; val:gain -2 .
+:bdLevel a val:Gain ; val:gain 11 .
+:bdVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:bdVelVca a val:VCA .
 :bdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
@@ -209,6 +216,8 @@
 :sdMix a val:Mixer .          # sums tone + noise outputs
 
 :sdLevel a val:Gain ; val:gain -8 .
+:sdVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:sdVelVca a val:VCA .
 :sdPan a val:Pan ; val:pan 0.0 .
 
 ################################################################
@@ -237,6 +246,8 @@
 :rsVca a val:VCA .
 
 :rsLevel a val:Gain ; val:gain -8 .
+:rsVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:rsVelVca a val:VCA .
 :rsPan a val:Pan ; val:pan -0.3 .
 
 ################################################################
@@ -264,7 +275,9 @@
 
 :cpVca a val:VCA .
 
-:cpLevel a val:Gain ; val:gain -8 .
+:cpLevel a val:Gain ; val:gain -2 .
+:cpVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:cpVelVca a val:VCA .
 :cpPan a val:Pan ; val:pan 0.3 .
 
 ################################################################
@@ -394,6 +407,8 @@
 :chVca a val:VCA .
 
 :chLevel a val:Gain ; val:gain -11 .
+:chVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:chVelVca a val:VCA .
 :chPan a val:Pan ; val:pan -0.2 .
 
 ################################################################
@@ -428,6 +443,8 @@
 :ohVca a val:VCA .
 
 :ohLevel a val:Gain ; val:gain -11 .
+:ohVelHold a val:SampleHold .   # the velocity of the last hit, kept while it rings
+:ohVelVca a val:VCA .
 :ohPan a val:Pan ; val:pan 0.2 .
 :ohChoke a val:Choke .
 
@@ -474,9 +491,25 @@
     val:from [ val:node :bdVca ; val:port "out" ] ;
     val:to   [ val:node :bdLevel ; val:port "in"  ] .
 
-:aBdLevelPan a val:Arc ;
+:aBdLevelVel a val:Arc ;
     val:from [ val:node :bdLevel ; val:port "out" ] ;
-    val:to   [ val:node :bdPan   ; val:port "in"  ] .
+    val:to   [ val:node :bdVelVca ; val:port "in" ] .
+
+:aBdVelPan a val:Arc ;
+    val:from [ val:node :bdVelVca ; val:port "out" ] ;
+    val:to   [ val:node :bdPan ; val:port "in" ] .
+
+:aBdVelIn a val:ControlArc ;
+    val:from [ val:node :bdGate ; val:port "velocity" ] ;
+    val:to   [ val:node :bdVelHold ; val:port "in" ] .
+
+:aBdVelTrigger a val:ControlArc ;
+    val:from [ val:node :bdGate ; val:port "gate" ] ;
+    val:to   [ val:node :bdVelHold ; val:port "trigger" ] .
+
+:aBdVelCv a val:ControlArc ;
+    val:from [ val:node :bdVelHold ; val:port "out" ] ;
+    val:to   [ val:node :bdVelVca ; val:port "cv" ] .
 
 :aBdPanMixL a val:Arc ;
     val:from [ val:node :bdPan ; val:port "left" ] ;
@@ -491,11 +524,11 @@
 ################################################################
 
 :aSdGateToneEnv a val:Arc ;
-    val:from [ val:node :sdGate    ; val:port "velocity" ] ;
+    val:from [ val:node :sdGate    ; val:port "gate" ] ;
     val:to   [ val:node :sdToneEnv ; val:port "gate" ] .
 
 :aSdGateNoiseEnv a val:Arc ;
-    val:from [ val:node :sdGate     ; val:port "velocity" ] ;
+    val:from [ val:node :sdGate     ; val:port "gate" ] ;
     val:to   [ val:node :sdNoiseEnv ; val:port "gate" ] .
 
 # Both oscillators sum in the oscillator mixer.
@@ -541,9 +574,25 @@
     val:from [ val:node :sdMix ; val:port "out" ] ;
     val:to   [ val:node :sdLevel ; val:port "in"  ] .
 
-:aSdLevelPan a val:Arc ;
+:aSdLevelVel a val:Arc ;
     val:from [ val:node :sdLevel ; val:port "out" ] ;
-    val:to   [ val:node :sdPan   ; val:port "in"  ] .
+    val:to   [ val:node :sdVelVca ; val:port "in" ] .
+
+:aSdVelPan a val:Arc ;
+    val:from [ val:node :sdVelVca ; val:port "out" ] ;
+    val:to   [ val:node :sdPan ; val:port "in" ] .
+
+:aSdVelIn a val:ControlArc ;
+    val:from [ val:node :sdGate ; val:port "velocity" ] ;
+    val:to   [ val:node :sdVelHold ; val:port "in" ] .
+
+:aSdVelTrigger a val:ControlArc ;
+    val:from [ val:node :sdGate ; val:port "gate" ] ;
+    val:to   [ val:node :sdVelHold ; val:port "trigger" ] .
+
+:aSdVelCv a val:ControlArc ;
+    val:from [ val:node :sdVelHold ; val:port "out" ] ;
+    val:to   [ val:node :sdVelVca ; val:port "cv" ] .
 
 :aSdPanMixL a val:Arc ;
     val:from [ val:node :sdPan ; val:port "left" ] ;
@@ -558,7 +607,7 @@
 ################################################################
 
 :aRsGateEnv a val:Arc ;
-    val:from [ val:node :rsGate ; val:port "velocity" ] ;
+    val:from [ val:node :rsGate ; val:port "gate" ] ;
     val:to   [ val:node :rsEnv  ; val:port "gate" ] .
 
 :aRsNoiseHpf a val:Arc ;
@@ -577,9 +626,25 @@
     val:from [ val:node :rsVca ; val:port "out" ] ;
     val:to   [ val:node :rsLevel ; val:port "in"  ] .
 
-:aRsLevelPan a val:Arc ;
+:aRsLevelVel a val:Arc ;
     val:from [ val:node :rsLevel ; val:port "out" ] ;
-    val:to   [ val:node :rsPan   ; val:port "in"  ] .
+    val:to   [ val:node :rsVelVca ; val:port "in" ] .
+
+:aRsVelPan a val:Arc ;
+    val:from [ val:node :rsVelVca ; val:port "out" ] ;
+    val:to   [ val:node :rsPan ; val:port "in" ] .
+
+:aRsVelIn a val:ControlArc ;
+    val:from [ val:node :rsGate ; val:port "velocity" ] ;
+    val:to   [ val:node :rsVelHold ; val:port "in" ] .
+
+:aRsVelTrigger a val:ControlArc ;
+    val:from [ val:node :rsGate ; val:port "gate" ] ;
+    val:to   [ val:node :rsVelHold ; val:port "trigger" ] .
+
+:aRsVelCv a val:ControlArc ;
+    val:from [ val:node :rsVelHold ; val:port "out" ] ;
+    val:to   [ val:node :rsVelVca ; val:port "cv" ] .
 
 :aRsPanMixL a val:Arc ;
     val:from [ val:node :rsPan ; val:port "left" ] ;
@@ -594,7 +659,7 @@
 ################################################################
 
 :aCpGateEnv a val:Arc ;
-    val:from [ val:node :cpGate ; val:port "velocity" ] ;
+    val:from [ val:node :cpGate ; val:port "gate" ] ;
     val:to   [ val:node :cpEnv  ; val:port "gate" ] .
 
 :aCpNoiseBpf a val:Arc ;
@@ -613,9 +678,25 @@
     val:from [ val:node :cpVca ; val:port "out" ] ;
     val:to   [ val:node :cpLevel ; val:port "in"  ] .
 
-:aCpLevelPan a val:Arc ;
+:aCpLevelVel a val:Arc ;
     val:from [ val:node :cpLevel ; val:port "out" ] ;
-    val:to   [ val:node :cpPan   ; val:port "in"  ] .
+    val:to   [ val:node :cpVelVca ; val:port "in" ] .
+
+:aCpVelPan a val:Arc ;
+    val:from [ val:node :cpVelVca ; val:port "out" ] ;
+    val:to   [ val:node :cpPan ; val:port "in" ] .
+
+:aCpVelIn a val:ControlArc ;
+    val:from [ val:node :cpGate ; val:port "velocity" ] ;
+    val:to   [ val:node :cpVelHold ; val:port "in" ] .
+
+:aCpVelTrigger a val:ControlArc ;
+    val:from [ val:node :cpGate ; val:port "gate" ] ;
+    val:to   [ val:node :cpVelHold ; val:port "trigger" ] .
+
+:aCpVelCv a val:ControlArc ;
+    val:from [ val:node :cpVelHold ; val:port "out" ] ;
+    val:to   [ val:node :cpVelVca ; val:port "cv" ] .
 
 :aCpPanMixL a val:Arc ;
     val:from [ val:node :cpPan ; val:port "left" ] ;
@@ -630,15 +711,15 @@
 ################################################################
 
 :aLtGatePitchEnv a val:Arc ;
-    val:from [ val:node :ltGate    ; val:port "velocity" ] ;
+    val:from [ val:node :ltGate    ; val:port "gate" ] ;
     val:to   [ val:node :ltPitchEnv ; val:port "gate" ] .
 
 :aLtGateAmpEnv a val:Arc ;
-    val:from [ val:node :ltGate  ; val:port "velocity" ] ;
+    val:from [ val:node :ltGate  ; val:port "gate" ] ;
     val:to   [ val:node :ltAmpEnv ; val:port "gate" ] .
 
 :aLtGateTwinT a val:Arc ;
-    val:from [ val:node :ltGate ; val:port "velocity" ] ;
+    val:from [ val:node :ltGate ; val:port "gate" ] ;
     val:to   [ val:node :ltOsc  ; val:port "trigger" ] .
 
 :aLtPitchEnvScale a val:Arc ;
@@ -678,15 +759,15 @@
 ################################################################
 
 :aMtGatePitchEnv a val:Arc ;
-    val:from [ val:node :mtGate    ; val:port "velocity" ] ;
+    val:from [ val:node :mtGate    ; val:port "gate" ] ;
     val:to   [ val:node :mtPitchEnv ; val:port "gate" ] .
 
 :aMtGateAmpEnv a val:Arc ;
-    val:from [ val:node :mtGate  ; val:port "velocity" ] ;
+    val:from [ val:node :mtGate  ; val:port "gate" ] ;
     val:to   [ val:node :mtAmpEnv ; val:port "gate" ] .
 
 :aMtGateTwinT a val:Arc ;
-    val:from [ val:node :mtGate ; val:port "velocity" ] ;
+    val:from [ val:node :mtGate ; val:port "gate" ] ;
     val:to   [ val:node :mtOsc  ; val:port "trigger" ] .
 
 :aMtPitchEnvScale a val:Arc ;
@@ -726,15 +807,15 @@
 ################################################################
 
 :aHtGatePitchEnv a val:Arc ;
-    val:from [ val:node :htGate    ; val:port "velocity" ] ;
+    val:from [ val:node :htGate    ; val:port "gate" ] ;
     val:to   [ val:node :htPitchEnv ; val:port "gate" ] .
 
 :aHtGateAmpEnv a val:Arc ;
-    val:from [ val:node :htGate  ; val:port "velocity" ] ;
+    val:from [ val:node :htGate  ; val:port "gate" ] ;
     val:to   [ val:node :htAmpEnv ; val:port "gate" ] .
 
 :aHtGateTwinT a val:Arc ;
-    val:from [ val:node :htGate ; val:port "velocity" ] ;
+    val:from [ val:node :htGate ; val:port "gate" ] ;
     val:to   [ val:node :htOsc  ; val:port "trigger" ] .
 
 :aHtPitchEnvScale a val:Arc ;
@@ -769,12 +850,24 @@
     val:from [ val:node :htPan ; val:port "right" ] ;
     val:to   [ val:node :mix   ; val:port "right" ] .
 
+:aLtVelTwinT a val:Arc ;
+    val:from [ val:node :ltGate ; val:port "velocity" ] ;
+    val:to   [ val:node :ltOsc  ; val:port "velocity" ] .
+
+:aMtVelTwinT a val:Arc ;
+    val:from [ val:node :mtGate ; val:port "velocity" ] ;
+    val:to   [ val:node :mtOsc  ; val:port "velocity" ] .
+
+:aHtVelTwinT a val:Arc ;
+    val:from [ val:node :htGate ; val:port "velocity" ] ;
+    val:to   [ val:node :htOsc  ; val:port "velocity" ] .
+
 ################################################################
 # Closed Hi-Hat arcs                                           #
 ################################################################
 
 :aChGateEnv a val:Arc ;
-    val:from [ val:node :chGate ; val:port "velocity" ] ;
+    val:from [ val:node :chGate ; val:port "gate" ] ;
     val:to   [ val:node :chEnv  ; val:port "gate" ] .
 
 :aChOsc1Mix a val:Arc ;
@@ -817,9 +910,25 @@
     val:from [ val:node :chVca ; val:port "out" ] ;
     val:to   [ val:node :chLevel ; val:port "in"  ] .
 
-:aChLevelPan a val:Arc ;
+:aChLevelVel a val:Arc ;
     val:from [ val:node :chLevel ; val:port "out" ] ;
-    val:to   [ val:node :chPan   ; val:port "in"  ] .
+    val:to   [ val:node :chVelVca ; val:port "in" ] .
+
+:aChVelPan a val:Arc ;
+    val:from [ val:node :chVelVca ; val:port "out" ] ;
+    val:to   [ val:node :chPan ; val:port "in" ] .
+
+:aChVelIn a val:ControlArc ;
+    val:from [ val:node :chGate ; val:port "velocity" ] ;
+    val:to   [ val:node :chVelHold ; val:port "in" ] .
+
+:aChVelTrigger a val:ControlArc ;
+    val:from [ val:node :chGate ; val:port "gate" ] ;
+    val:to   [ val:node :chVelHold ; val:port "trigger" ] .
+
+:aChVelCv a val:ControlArc ;
+    val:from [ val:node :chVelHold ; val:port "out" ] ;
+    val:to   [ val:node :chVelVca ; val:port "cv" ] .
 
 :aChPanMixL a val:Arc ;
     val:from [ val:node :chPan ; val:port "left" ] ;
@@ -834,11 +943,11 @@
 ################################################################
 
 :aOhGateChoke a val:Arc ;
-    val:from [ val:node :ohGate  ; val:port "velocity" ] ;
+    val:from [ val:node :ohGate  ; val:port "gate" ] ;
     val:to   [ val:node :ohChoke ; val:port "gate" ] .
 
 :aChGateChoke a val:Arc ;
-    val:from [ val:node :chGate  ; val:port "velocity" ] ;
+    val:from [ val:node :chGate  ; val:port "gate" ] ;
     val:to   [ val:node :ohChoke ; val:port "choke" ] .
 
 :aOhChokeEnv a val:Arc ;
@@ -885,9 +994,25 @@
     val:from [ val:node :ohVca ; val:port "out" ] ;
     val:to   [ val:node :ohLevel ; val:port "in"  ] .
 
-:aOhLevelPan a val:Arc ;
+:aOhLevelVel a val:Arc ;
     val:from [ val:node :ohLevel ; val:port "out" ] ;
-    val:to   [ val:node :ohPan   ; val:port "in"  ] .
+    val:to   [ val:node :ohVelVca ; val:port "in" ] .
+
+:aOhVelPan a val:Arc ;
+    val:from [ val:node :ohVelVca ; val:port "out" ] ;
+    val:to   [ val:node :ohPan ; val:port "in" ] .
+
+:aOhVelIn a val:ControlArc ;
+    val:from [ val:node :ohGate ; val:port "velocity" ] ;
+    val:to   [ val:node :ohVelHold ; val:port "in" ] .
+
+:aOhVelTrigger a val:ControlArc ;
+    val:from [ val:node :ohGate ; val:port "gate" ] ;
+    val:to   [ val:node :ohVelHold ; val:port "trigger" ] .
+
+:aOhVelCv a val:ControlArc ;
+    val:from [ val:node :ohVelHold ; val:port "out" ] ;
+    val:to   [ val:node :ohVelVca ; val:port "cv" ] .
 
 :aOhPanMixL a val:Arc ;
     val:from [ val:node :ohPan ; val:port "left" ] ;
