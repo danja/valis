@@ -67,6 +67,7 @@ add_library(valis_core STATIC
   src/dsp/elements/Wavetable.cpp
   src/dsp/elements/TimeStretch.cpp
   src/dsp/elements/Convolver.cpp
+  src/dsp/elements/Glottal.cpp
   src/dsp/elements/PitchTracker.cpp
   src/dsp/elements/OctaveDivider.cpp
   src/dsp/elements/SampleHold.cpp

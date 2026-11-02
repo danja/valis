@@ -1,0 +1,1215 @@
+# examples/inferno-choir.ttl
+#
+# A synthesised human scream and wail, the sound of the inferno. It is a source-filter voice: three val:Glottal
+# oscillators (a detuned pair and one an octave below) stand in for the vocal folds, with a pulse shape you choose (Rosenberg by
+# default) whose open quotient and Rd tighten as the scream grows, a ring modulator at half the pitch adds the
+# half-integer partials of a screamed subharmonic, and four parallel band-pass formants (val:StateVariable) form the
+# throat, morphing from a closed "ooh" to an open "aah". White noise is the breath. A tanh drive, a wavefolder and a
+# low-pass are the strained larynx and the smoke, a brown-noise furnace roar and random crackles are the fire, and a
+# chorus and a long hall are the pit.
+#
+# Play it from about A2 to A5 (a wail sits low, a scream above C5). Monophonic. It answers MIDI notes (pitch, and velocity
+# adds scream) and four controllers, each added to its knob:
+#   CC1 (mod wheel)  Wail: vibrato rate and depth.
+#   CC2 (breath)     Scream: lifts the pitch, raises the formants, opens the brightness, roughens the tone, adds breath.
+#   CC3              Vowel: closed "ooh" to open "aah".
+#   CC4              Inferno: drive, fold, roar and crackle.
+# Each controller's reach is set by its CC amount knob, and a controller rests at 0 until it is moved.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:infernochoir#> .
+
+:infernochoir a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Voice", "Scream", "Horror", "Drone" ;
+    rdfs:label "Inferno Choir" ;
+    val:element :cc1 , :cc2 , :cc3 , :cc4 , :vel , :pitch , :glide , :cc1Amt , :wail , :cc2Amt , :velAmt , :scream , :cc3Amt , :vowel , :mouth , :vowelNow , :cc4Amt , :inferno , :swoopEnv , :swoop , :diveEnv , :dive , :lift , :vibRate , :vibLfo , :vibDepth , :vibAmt , :waver , :cry , :wander , :vibFactor , :m1 , :m2 , :m3 , :hz , :hzB , :hzLow , :hzRing , :oscA , :oscB , :oscC , :openQ , :rdQ , :lvA , :lvB , :lvC , :oscMix , :rough , :roughAmt , :tilt , :tiltHz , :hiss , :breathAmt , :breathVca , :excite , :f1v , :f2v , :f3v , :f4v , :strain , :shift , :f1 , :f2 , :f3 , :f4 , :t1 , :t2 , :t3 , :t4 , :g1 , :g2 , :g3 , :g4 , :body , :throat , :driveG , :burn , :foldG , :scorch , :smoke , :makeup , :makeupDb , :roarNoise , :roarLp , :roarWander , :roarVca , :roarAmt , :roarVca2 , :roarLvl , :crackRate , :crackClock , :crackPick , :crackEnv , :crackNoise , :crackVca , :crackHp , :crackAmt , :crackVca2 , :crackLvl , :voiceLvl , :sum , :choir , :ampEnv , :velLvl , :ampCv , :vca , :hall , :dc , :trim , :limit , :out ;
+    val:arc :a_cc1_out__cc1Amt_in ,
+        :a_cc1Amt_out__wail_b ,
+        :a_cc2_out__cc2Amt_in ,
+        :a_cc2Amt_out__scream_b ,
+        :a_vel_out__velAmt_in ,
+        :a_velAmt_out__scream_c ,
+        :a_cc3_out__cc3Amt_in ,
+        :a_cc3Amt_out__vowel_b ,
+        :a_cc4_out__cc4Amt_in ,
+        :a_cc4Amt_out__inferno_b ,
+        :a_pitch_out__glide_in ,
+        :a_swoopEnv_out__swoop_in ,
+        :a_diveEnv_out__dive_in ,
+        :a_scream_out__lift_in ,
+        :a_glide_out__m1_a ,
+        :a_swoop_out__m1_b ,
+        :a_m1_out__m2_a ,
+        :a_dive_out__m2_b ,
+        :a_m2_out__m3_a ,
+        :a_lift_out__m3_b ,
+        :a_wail_out__vibRate_in ,
+        :a_vibRate_out__vibLfo_rate ,
+        :a_wail_out__vibDepth_in ,
+        :a_vibLfo_out__vibAmt_a ,
+        :a_vibDepth_out__vibAmt_b ,
+        :a_vibAmt_out__vibFactor_b ,
+        :a_waver_out__wander_a ,
+        :a_cry_out__wander_c ,
+        :a_wander_out__vibFactor_c ,
+        :a_m3_out__hz_a ,
+        :a_vibFactor_out__hz_b ,
+        :a_hz_out__oscA_frequency ,
+        :a_hz_out__hzB_a ,
+        :a_hzB_out__oscB_frequency ,
+        :a_hz_out__hzLow_a ,
+        :a_hzLow_out__oscC_frequency ,
+        :a_hz_out__hzRing_a ,
+        :a_hzRing_out__rough_frequency ,
+        :a_scream_out__openQ_in ,
+        :a_scream_out__rdQ_in ,
+        :a_openQ_out__oscA_open ,
+        :a_openQ_out__oscB_open ,
+        :a_openQ_out__oscC_open ,
+        :a_rdQ_out__oscA_rd ,
+        :a_rdQ_out__oscB_rd ,
+        :a_rdQ_out__oscC_rd ,
+        :a_oscA_out__lvA_in ,
+        :a_oscB_out__lvB_in ,
+        :a_oscC_out__lvC_in ,
+        :a_lvA_out__oscMix_in ,
+        :a_lvB_out__oscMix_in ,
+        :a_lvC_out__oscMix_in ,
+        :a_oscMix_out__rough_in ,
+        :a_scream_out__roughAmt_in ,
+        :a_roughAmt_out__rough_mix ,
+        :a_rough_out__tilt_in ,
+        :a_scream_out__tiltHz_in ,
+        :a_tiltHz_out__tilt_cutoff ,
+        :a_hiss_out__breathVca_in ,
+        :a_scream_out__breathAmt_in ,
+        :a_breathAmt_out__breathVca_cv ,
+        :a_tilt_out__excite_in ,
+        :a_breathVca_out__excite_in ,
+        :a_vowel_out__vowelNow_a ,
+        :a_mouth_out__vowelNow_b ,
+        :a_vowelNow_out__f1v_in ,
+        :a_vowelNow_out__f2v_in ,
+        :a_vowelNow_out__f3v_in ,
+        :a_vowelNow_out__f4v_in ,
+        :a_scream_out__strain_in ,
+        :a_strain_out__shift_b ,
+        :a_f1v_out__f1_a ,
+        :a_f2v_out__f2_a ,
+        :a_f3v_out__f3_a ,
+        :a_f4v_out__f4_a ,
+        :a_shift_out__f1_b ,
+        :a_shift_out__f2_b ,
+        :a_shift_out__f3_b ,
+        :a_shift_out__f4_b ,
+        :a_f1_out__t1_cutoff ,
+        :a_f2_out__t2_cutoff ,
+        :a_f3_out__t3_cutoff ,
+        :a_f4_out__t4_cutoff ,
+        :a_excite_out__t1_in ,
+        :a_excite_out__t2_in ,
+        :a_excite_out__t3_in ,
+        :a_excite_out__t4_in ,
+        :a_t1_bp__g1_in ,
+        :a_t2_bp__g2_in ,
+        :a_t3_bp__g3_in ,
+        :a_t4_bp__g4_in ,
+        :a_g1_out__throat_in ,
+        :a_g2_out__throat_in ,
+        :a_g3_out__throat_in ,
+        :a_g4_out__throat_in ,
+        :a_excite_out__body_in ,
+        :a_body_out__throat_in ,
+        :a_inferno_out__driveG_in ,
+        :a_driveG_out__burn_gain ,
+        :a_inferno_out__foldG_in ,
+        :a_foldG_out__scorch_gain ,
+        :a_throat_out__burn_in ,
+        :a_burn_out__scorch_in ,
+        :a_scorch_out__smoke_in ,
+        :a_roarNoise_out__roarLp_in ,
+        :a_roarLp_out__roarVca_in ,
+        :a_roarWander_out__roarVca_cv ,
+        :a_roarVca_out__roarVca2_in ,
+        :a_inferno_out__roarAmt_in ,
+        :a_roarAmt_out__roarVca2_cv ,
+        :a_roarVca2_out__roarLvl_in ,
+        :a_inferno_out__crackRate_in ,
+        :a_crackRate_out__crackClock_rate ,
+        :a_crackClock_out__crackPick_trigger ,
+        :a_crackPick_out__crackEnv_gate ,
+        :a_crackNoise_out__crackVca_in ,
+        :a_crackEnv_out__crackVca_cv ,
+        :a_crackVca_out__crackHp_in ,
+        :a_crackHp_out__crackVca2_in ,
+        :a_inferno_out__crackAmt_in ,
+        :a_crackAmt_out__crackVca2_cv ,
+        :a_crackVca2_out__crackLvl_in ,
+        :a_smoke_out__makeup_in ,
+        :a_inferno_out__makeupDb_in ,
+        :a_makeupDb_out__makeup_gain ,
+        :a_makeup_out__voiceLvl_in ,
+        :a_voiceLvl_out__sum_in ,
+        :a_roarLvl_out__sum_in ,
+        :a_crackLvl_out__sum_in ,
+        :a_sum_out__choir_in ,
+        :a_vel_out__velLvl_in ,
+        :a_ampEnv_out__ampCv_a ,
+        :a_velLvl_out__ampCv_b ,
+        :a_choir_out__vca_in ,
+        :a_ampCv_out__vca_cv ,
+        :a_vca_out__hall_in ,
+        :a_hall_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:cc1 a val:MidiCC ;
+    val:controller 1 ;
+    val:initial 0.0 .
+
+:cc2 a val:MidiCC ;
+    val:controller 2 ;
+    val:initial 0.0 .
+
+:cc3 a val:MidiCC ;
+    val:controller 3 ;
+    val:initial 0.0 .
+
+:cc4 a val:MidiCC ;
+    val:controller 4 ;
+    val:initial 0.0 .
+
+:vel a val:MidiVelocity .
+
+:pitch a val:MidiPitch .
+
+:glide a val:Slew ;
+    val:rise 40.0 ;
+    val:fall 40.0 .
+
+:cc1Amt a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:wail a val:ControlAdd ;
+    val:a 0.25 .
+
+:cc2Amt a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:velAmt a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.35 .
+
+:scream a val:ControlAdd ;
+    val:a 0.2 .
+
+:cc3Amt a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:vowel a val:ControlAdd ;
+    val:a 0.45 .
+
+:mouth a val:Drift ;
+    val:speed 1.3 ;
+    val:amount 0.12 ;
+    val:centre 0.0 ;
+    val:seed 9.0 .
+
+:vowelNow a val:ControlAdd .
+
+:cc4Amt a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:inferno a val:ControlAdd ;
+    val:a 0.3 .
+
+:swoopEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 240.0 ;
+    val:sustain 0.0 ;
+    val:release 10.0 .
+
+:swoop a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.25 .
+
+:diveEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 1.0 ;
+    val:sustain 1.0 ;
+    val:release 900.0 .
+
+:dive a val:Scale ;
+    val:min 0.7 ;
+    val:max 1.0 .
+
+:lift a val:Scale ;
+    val:min 1.0 ;
+    val:max 1.18 .
+
+:vibRate a val:Scale ;
+    val:min 4.2 ;
+    val:max 7.4 .
+
+:vibLfo a val:LFO ;
+    val:shape 0 .
+
+:vibDepth a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.045 .
+
+:vibAmt a val:ControlMultiply .
+
+:waver a val:Drift ;
+    val:speed 1.4 ;
+    val:amount 0.012 ;
+    val:centre 0.0 ;
+    val:seed 7.0 .
+
+:cry a val:Drift ;
+    val:speed 0.55 ;
+    val:amount 0.05 ;
+    val:centre 0.0 ;
+    val:seed 5.0 .
+
+:wander a val:ControlAdd .
+
+:vibFactor a val:ControlAdd ;
+    val:a 1.0 .
+
+:m1 a val:ControlMultiply .
+
+:m2 a val:ControlMultiply .
+
+:m3 a val:ControlMultiply .
+
+:hz a val:ControlMultiply .
+
+:hzB a val:ControlMultiply ;
+    val:b 1.007 .
+
+:hzLow a val:ControlMultiply ;
+    val:b 0.4985 .
+
+:hzRing a val:ControlMultiply ;
+    val:b 0.5 .
+
+:oscA a val:Glottal ;
+    val:shape 0 .
+
+:oscB a val:Glottal ;
+    val:shape 0 .
+
+:oscC a val:Glottal ;
+    val:shape 0 .
+
+:openQ a val:Scale ;
+    val:min 0.7 ;
+    val:max 0.35 .
+
+:rdQ a val:Scale ;
+    val:min 1.8 ;
+    val:max 0.45 .
+
+:lvA a val:Gain ;
+    val:gain -4.0 .
+
+:lvB a val:Gain ;
+    val:gain -5.0 .
+
+:lvC a val:Gain ;
+    val:gain -12.0 .
+
+:oscMix a val:Mixer .
+
+:rough a val:RingModulator .
+
+:roughAmt a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.55 .
+
+:tilt a val:OnePole ;
+    val:mode 0 .
+
+:tiltHz a val:Scale ;
+    val:min 1600.0 ;
+    val:max 9000.0 .
+
+:hiss a val:Noise ;
+    val:colour 0.0 .
+
+:breathAmt a val:Scale ;
+    val:min 0.06 ;
+    val:max 0.6 .
+
+:breathVca a val:VCA .
+
+:excite a val:Mixer .
+
+:f1v a val:Scale ;
+    val:min 320.0 ;
+    val:max 900.0 .
+
+:f2v a val:Scale ;
+    val:min 850.0 ;
+    val:max 1450.0 .
+
+:f3v a val:Scale ;
+    val:min 2250.0 ;
+    val:max 2800.0 .
+
+:f4v a val:Scale ;
+    val:min 3300.0 ;
+    val:max 3700.0 .
+
+:strain a val:Scale ;
+    val:min 0.0 ;
+    val:max 0.24 .
+
+:shift a val:ControlAdd ;
+    val:a 1.0 .
+
+:f1 a val:ControlMultiply .
+
+:f2 a val:ControlMultiply .
+
+:f3 a val:ControlMultiply .
+
+:f4 a val:ControlMultiply .
+
+:t1 a val:StateVariable ;
+    val:resonance 11.0 .
+
+:t2 a val:StateVariable ;
+    val:resonance 12.0 .
+
+:t3 a val:StateVariable ;
+    val:resonance 13.0 .
+
+:t4 a val:StateVariable ;
+    val:resonance 14.0 .
+
+:g1 a val:Gain ;
+    val:gain 9.0 .
+
+:g2 a val:Gain ;
+    val:gain 6.0 .
+
+:g3 a val:Gain ;
+    val:gain 1.0 .
+
+:g4 a val:Gain ;
+    val:gain -4.0 .
+
+:body a val:Gain ;
+    val:gain -5.0 .
+
+:throat a val:Mixer .
+
+:driveG a val:Scale ;
+    val:min 1.6 ;
+    val:max 14.0 .
+
+:burn a val:Tanh .
+
+:foldG a val:Scale ;
+    val:min 1.0 ;
+    val:max 3.2 .
+
+:scorch a val:Fold .
+
+:smoke a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 7500.0 .
+
+:makeup a val:Gain .
+
+:makeupDb a val:Scale ;
+    val:min 0.0 ;
+    val:max 9.0 .
+
+:roarNoise a val:Noise ;
+    val:colour 1.0 .
+
+:roarLp a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 260.0 .
+
+:roarWander a val:Drift ;
+    val:speed 0.7 ;
+    val:amount 0.3 ;
+    val:centre 0.6 ;
+    val:seed 3.0 .
+
+:roarVca a val:VCA .
+
+:roarAmt a val:Scale ;
+    val:min 0.25 ;
+    val:max 1.0 .
+
+:roarVca2 a val:VCA .
+
+:roarLvl a val:Gain ;
+    val:gain -22.0 .
+
+:crackRate a val:Scale ;
+    val:min 20.0 ;
+    val:max 85.0 .
+
+:crackClock a val:LFO ;
+    val:shape 3 .
+
+:crackPick a val:Vary ;
+    val:min 0.0 ;
+    val:max 1.0 ;
+    val:probability 1.0 ;
+    val:seed 11.0 .
+
+:crackEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 7.0 ;
+    val:sustain 0.0 ;
+    val:release 4.0 .
+
+:crackNoise a val:Noise ;
+    val:colour 0.0 .
+
+:crackVca a val:VCA .
+
+:crackHp a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 1800.0 .
+
+:crackAmt a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:crackVca2 a val:VCA .
+
+:crackLvl a val:Gain ;
+    val:gain -20.0 .
+
+:voiceLvl a val:Gain ;
+    val:gain -2.0 .
+
+:sum a val:Mixer .
+
+:choir a val:Chorus ;
+    val:rate 0.33 ;
+    val:depth 2.4 ;
+    val:mix 0.35 .
+
+:ampEnv a val:Envelope ;
+    val:attack 70.0 ;
+    val:decay 300.0 ;
+    val:sustain 0.9 ;
+    val:release 1100.0 .
+
+:velLvl a val:Scale ;
+    val:min 0.55 ;
+    val:max 1.0 .
+
+:ampCv a val:ControlMultiply .
+
+:vca a val:VCA .
+
+:hall a val:Reverb ;
+    val:size 1.7 ;
+    val:decay 5.5 ;
+    val:damping 0.45 ;
+    val:mix 0.38 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 28.0 .
+
+:trim a val:Gain ;
+    val:gain -2.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_cc1_out__cc1Amt_in a val:Arc ;
+    val:from [ val:node :cc1 ; val:port "out" ] ;
+    val:to   [ val:node :cc1Amt ; val:port "in" ] .
+:a_cc1Amt_out__wail_b a val:Arc ;
+    val:from [ val:node :cc1Amt ; val:port "out" ] ;
+    val:to   [ val:node :wail ; val:port "b" ] .
+:a_cc2_out__cc2Amt_in a val:Arc ;
+    val:from [ val:node :cc2 ; val:port "out" ] ;
+    val:to   [ val:node :cc2Amt ; val:port "in" ] .
+:a_cc2Amt_out__scream_b a val:Arc ;
+    val:from [ val:node :cc2Amt ; val:port "out" ] ;
+    val:to   [ val:node :scream ; val:port "b" ] .
+:a_vel_out__velAmt_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :velAmt ; val:port "in" ] .
+:a_velAmt_out__scream_c a val:Arc ;
+    val:from [ val:node :velAmt ; val:port "out" ] ;
+    val:to   [ val:node :scream ; val:port "c" ] .
+:a_cc3_out__cc3Amt_in a val:Arc ;
+    val:from [ val:node :cc3 ; val:port "out" ] ;
+    val:to   [ val:node :cc3Amt ; val:port "in" ] .
+:a_cc3Amt_out__vowel_b a val:Arc ;
+    val:from [ val:node :cc3Amt ; val:port "out" ] ;
+    val:to   [ val:node :vowel ; val:port "b" ] .
+:a_cc4_out__cc4Amt_in a val:Arc ;
+    val:from [ val:node :cc4 ; val:port "out" ] ;
+    val:to   [ val:node :cc4Amt ; val:port "in" ] .
+:a_cc4Amt_out__inferno_b a val:Arc ;
+    val:from [ val:node :cc4Amt ; val:port "out" ] ;
+    val:to   [ val:node :inferno ; val:port "b" ] .
+:a_pitch_out__glide_in a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :glide ; val:port "in" ] .
+:a_swoopEnv_out__swoop_in a val:Arc ;
+    val:from [ val:node :swoopEnv ; val:port "out" ] ;
+    val:to   [ val:node :swoop ; val:port "in" ] .
+:a_diveEnv_out__dive_in a val:Arc ;
+    val:from [ val:node :diveEnv ; val:port "out" ] ;
+    val:to   [ val:node :dive ; val:port "in" ] .
+:a_scream_out__lift_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :lift ; val:port "in" ] .
+:a_glide_out__m1_a a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :m1 ; val:port "a" ] .
+:a_swoop_out__m1_b a val:Arc ;
+    val:from [ val:node :swoop ; val:port "out" ] ;
+    val:to   [ val:node :m1 ; val:port "b" ] .
+:a_m1_out__m2_a a val:Arc ;
+    val:from [ val:node :m1 ; val:port "out" ] ;
+    val:to   [ val:node :m2 ; val:port "a" ] .
+:a_dive_out__m2_b a val:Arc ;
+    val:from [ val:node :dive ; val:port "out" ] ;
+    val:to   [ val:node :m2 ; val:port "b" ] .
+:a_m2_out__m3_a a val:Arc ;
+    val:from [ val:node :m2 ; val:port "out" ] ;
+    val:to   [ val:node :m3 ; val:port "a" ] .
+:a_lift_out__m3_b a val:Arc ;
+    val:from [ val:node :lift ; val:port "out" ] ;
+    val:to   [ val:node :m3 ; val:port "b" ] .
+:a_wail_out__vibRate_in a val:Arc ;
+    val:from [ val:node :wail ; val:port "out" ] ;
+    val:to   [ val:node :vibRate ; val:port "in" ] .
+:a_vibRate_out__vibLfo_rate a val:Arc ;
+    val:from [ val:node :vibRate ; val:port "out" ] ;
+    val:to   [ val:node :vibLfo ; val:port "rate" ] .
+:a_wail_out__vibDepth_in a val:Arc ;
+    val:from [ val:node :wail ; val:port "out" ] ;
+    val:to   [ val:node :vibDepth ; val:port "in" ] .
+:a_vibLfo_out__vibAmt_a a val:Arc ;
+    val:from [ val:node :vibLfo ; val:port "out" ] ;
+    val:to   [ val:node :vibAmt ; val:port "a" ] .
+:a_vibDepth_out__vibAmt_b a val:Arc ;
+    val:from [ val:node :vibDepth ; val:port "out" ] ;
+    val:to   [ val:node :vibAmt ; val:port "b" ] .
+:a_vibAmt_out__vibFactor_b a val:Arc ;
+    val:from [ val:node :vibAmt ; val:port "out" ] ;
+    val:to   [ val:node :vibFactor ; val:port "b" ] .
+:a_waver_out__wander_a a val:Arc ;
+    val:from [ val:node :waver ; val:port "out" ] ;
+    val:to   [ val:node :wander ; val:port "a" ] .
+:a_cry_out__wander_c a val:Arc ;
+    val:from [ val:node :cry ; val:port "out" ] ;
+    val:to   [ val:node :wander ; val:port "c" ] .
+:a_wander_out__vibFactor_c a val:Arc ;
+    val:from [ val:node :wander ; val:port "out" ] ;
+    val:to   [ val:node :vibFactor ; val:port "c" ] .
+:a_m3_out__hz_a a val:Arc ;
+    val:from [ val:node :m3 ; val:port "out" ] ;
+    val:to   [ val:node :hz ; val:port "a" ] .
+:a_vibFactor_out__hz_b a val:Arc ;
+    val:from [ val:node :vibFactor ; val:port "out" ] ;
+    val:to   [ val:node :hz ; val:port "b" ] .
+:a_hz_out__oscA_frequency a val:Arc ;
+    val:from [ val:node :hz ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "frequency" ] .
+:a_hz_out__hzB_a a val:Arc ;
+    val:from [ val:node :hz ; val:port "out" ] ;
+    val:to   [ val:node :hzB ; val:port "a" ] .
+:a_hzB_out__oscB_frequency a val:Arc ;
+    val:from [ val:node :hzB ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "frequency" ] .
+:a_hz_out__hzLow_a a val:Arc ;
+    val:from [ val:node :hz ; val:port "out" ] ;
+    val:to   [ val:node :hzLow ; val:port "a" ] .
+:a_hzLow_out__oscC_frequency a val:Arc ;
+    val:from [ val:node :hzLow ; val:port "out" ] ;
+    val:to   [ val:node :oscC ; val:port "frequency" ] .
+:a_hz_out__hzRing_a a val:Arc ;
+    val:from [ val:node :hz ; val:port "out" ] ;
+    val:to   [ val:node :hzRing ; val:port "a" ] .
+:a_hzRing_out__rough_frequency a val:Arc ;
+    val:from [ val:node :hzRing ; val:port "out" ] ;
+    val:to   [ val:node :rough ; val:port "frequency" ] .
+:a_scream_out__openQ_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :openQ ; val:port "in" ] .
+:a_scream_out__rdQ_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :rdQ ; val:port "in" ] .
+:a_openQ_out__oscA_open a val:Arc ;
+    val:from [ val:node :openQ ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "open" ] .
+:a_openQ_out__oscB_open a val:Arc ;
+    val:from [ val:node :openQ ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "open" ] .
+:a_openQ_out__oscC_open a val:Arc ;
+    val:from [ val:node :openQ ; val:port "out" ] ;
+    val:to   [ val:node :oscC ; val:port "open" ] .
+:a_rdQ_out__oscA_rd a val:Arc ;
+    val:from [ val:node :rdQ ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "rd" ] .
+:a_rdQ_out__oscB_rd a val:Arc ;
+    val:from [ val:node :rdQ ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "rd" ] .
+:a_rdQ_out__oscC_rd a val:Arc ;
+    val:from [ val:node :rdQ ; val:port "out" ] ;
+    val:to   [ val:node :oscC ; val:port "rd" ] .
+:a_oscA_out__lvA_in a val:Arc ;
+    val:from [ val:node :oscA ; val:port "out" ] ;
+    val:to   [ val:node :lvA ; val:port "in" ] .
+:a_oscB_out__lvB_in a val:Arc ;
+    val:from [ val:node :oscB ; val:port "out" ] ;
+    val:to   [ val:node :lvB ; val:port "in" ] .
+:a_oscC_out__lvC_in a val:Arc ;
+    val:from [ val:node :oscC ; val:port "out" ] ;
+    val:to   [ val:node :lvC ; val:port "in" ] .
+:a_lvA_out__oscMix_in a val:Arc ;
+    val:from [ val:node :lvA ; val:port "out" ] ;
+    val:to   [ val:node :oscMix ; val:port "in" ] .
+:a_lvB_out__oscMix_in a val:Arc ;
+    val:from [ val:node :lvB ; val:port "out" ] ;
+    val:to   [ val:node :oscMix ; val:port "in" ] .
+:a_lvC_out__oscMix_in a val:Arc ;
+    val:from [ val:node :lvC ; val:port "out" ] ;
+    val:to   [ val:node :oscMix ; val:port "in" ] .
+:a_oscMix_out__rough_in a val:Arc ;
+    val:from [ val:node :oscMix ; val:port "out" ] ;
+    val:to   [ val:node :rough ; val:port "in" ] .
+:a_scream_out__roughAmt_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :roughAmt ; val:port "in" ] .
+:a_roughAmt_out__rough_mix a val:Arc ;
+    val:from [ val:node :roughAmt ; val:port "out" ] ;
+    val:to   [ val:node :rough ; val:port "mix" ] .
+:a_rough_out__tilt_in a val:Arc ;
+    val:from [ val:node :rough ; val:port "out" ] ;
+    val:to   [ val:node :tilt ; val:port "in" ] .
+:a_scream_out__tiltHz_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :tiltHz ; val:port "in" ] .
+:a_tiltHz_out__tilt_cutoff a val:Arc ;
+    val:from [ val:node :tiltHz ; val:port "out" ] ;
+    val:to   [ val:node :tilt ; val:port "cutoff" ] .
+:a_hiss_out__breathVca_in a val:Arc ;
+    val:from [ val:node :hiss ; val:port "out" ] ;
+    val:to   [ val:node :breathVca ; val:port "in" ] .
+:a_scream_out__breathAmt_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :breathAmt ; val:port "in" ] .
+:a_breathAmt_out__breathVca_cv a val:Arc ;
+    val:from [ val:node :breathAmt ; val:port "out" ] ;
+    val:to   [ val:node :breathVca ; val:port "cv" ] .
+:a_tilt_out__excite_in a val:Arc ;
+    val:from [ val:node :tilt ; val:port "out" ] ;
+    val:to   [ val:node :excite ; val:port "in" ] .
+:a_breathVca_out__excite_in a val:Arc ;
+    val:from [ val:node :breathVca ; val:port "out" ] ;
+    val:to   [ val:node :excite ; val:port "in" ] .
+:a_vowel_out__vowelNow_a a val:Arc ;
+    val:from [ val:node :vowel ; val:port "out" ] ;
+    val:to   [ val:node :vowelNow ; val:port "a" ] .
+:a_mouth_out__vowelNow_b a val:Arc ;
+    val:from [ val:node :mouth ; val:port "out" ] ;
+    val:to   [ val:node :vowelNow ; val:port "b" ] .
+:a_vowelNow_out__f1v_in a val:Arc ;
+    val:from [ val:node :vowelNow ; val:port "out" ] ;
+    val:to   [ val:node :f1v ; val:port "in" ] .
+:a_vowelNow_out__f2v_in a val:Arc ;
+    val:from [ val:node :vowelNow ; val:port "out" ] ;
+    val:to   [ val:node :f2v ; val:port "in" ] .
+:a_vowelNow_out__f3v_in a val:Arc ;
+    val:from [ val:node :vowelNow ; val:port "out" ] ;
+    val:to   [ val:node :f3v ; val:port "in" ] .
+:a_vowelNow_out__f4v_in a val:Arc ;
+    val:from [ val:node :vowelNow ; val:port "out" ] ;
+    val:to   [ val:node :f4v ; val:port "in" ] .
+:a_scream_out__strain_in a val:Arc ;
+    val:from [ val:node :scream ; val:port "out" ] ;
+    val:to   [ val:node :strain ; val:port "in" ] .
+:a_strain_out__shift_b a val:Arc ;
+    val:from [ val:node :strain ; val:port "out" ] ;
+    val:to   [ val:node :shift ; val:port "b" ] .
+:a_f1v_out__f1_a a val:Arc ;
+    val:from [ val:node :f1v ; val:port "out" ] ;
+    val:to   [ val:node :f1 ; val:port "a" ] .
+:a_f2v_out__f2_a a val:Arc ;
+    val:from [ val:node :f2v ; val:port "out" ] ;
+    val:to   [ val:node :f2 ; val:port "a" ] .
+:a_f3v_out__f3_a a val:Arc ;
+    val:from [ val:node :f3v ; val:port "out" ] ;
+    val:to   [ val:node :f3 ; val:port "a" ] .
+:a_f4v_out__f4_a a val:Arc ;
+    val:from [ val:node :f4v ; val:port "out" ] ;
+    val:to   [ val:node :f4 ; val:port "a" ] .
+:a_shift_out__f1_b a val:Arc ;
+    val:from [ val:node :shift ; val:port "out" ] ;
+    val:to   [ val:node :f1 ; val:port "b" ] .
+:a_shift_out__f2_b a val:Arc ;
+    val:from [ val:node :shift ; val:port "out" ] ;
+    val:to   [ val:node :f2 ; val:port "b" ] .
+:a_shift_out__f3_b a val:Arc ;
+    val:from [ val:node :shift ; val:port "out" ] ;
+    val:to   [ val:node :f3 ; val:port "b" ] .
+:a_shift_out__f4_b a val:Arc ;
+    val:from [ val:node :shift ; val:port "out" ] ;
+    val:to   [ val:node :f4 ; val:port "b" ] .
+:a_f1_out__t1_cutoff a val:Arc ;
+    val:from [ val:node :f1 ; val:port "out" ] ;
+    val:to   [ val:node :t1 ; val:port "cutoff" ] .
+:a_f2_out__t2_cutoff a val:Arc ;
+    val:from [ val:node :f2 ; val:port "out" ] ;
+    val:to   [ val:node :t2 ; val:port "cutoff" ] .
+:a_f3_out__t3_cutoff a val:Arc ;
+    val:from [ val:node :f3 ; val:port "out" ] ;
+    val:to   [ val:node :t3 ; val:port "cutoff" ] .
+:a_f4_out__t4_cutoff a val:Arc ;
+    val:from [ val:node :f4 ; val:port "out" ] ;
+    val:to   [ val:node :t4 ; val:port "cutoff" ] .
+:a_excite_out__t1_in a val:Arc ;
+    val:from [ val:node :excite ; val:port "out" ] ;
+    val:to   [ val:node :t1 ; val:port "in" ] .
+:a_excite_out__t2_in a val:Arc ;
+    val:from [ val:node :excite ; val:port "out" ] ;
+    val:to   [ val:node :t2 ; val:port "in" ] .
+:a_excite_out__t3_in a val:Arc ;
+    val:from [ val:node :excite ; val:port "out" ] ;
+    val:to   [ val:node :t3 ; val:port "in" ] .
+:a_excite_out__t4_in a val:Arc ;
+    val:from [ val:node :excite ; val:port "out" ] ;
+    val:to   [ val:node :t4 ; val:port "in" ] .
+:a_t1_bp__g1_in a val:Arc ;
+    val:from [ val:node :t1 ; val:port "bp" ] ;
+    val:to   [ val:node :g1 ; val:port "in" ] .
+:a_t2_bp__g2_in a val:Arc ;
+    val:from [ val:node :t2 ; val:port "bp" ] ;
+    val:to   [ val:node :g2 ; val:port "in" ] .
+:a_t3_bp__g3_in a val:Arc ;
+    val:from [ val:node :t3 ; val:port "bp" ] ;
+    val:to   [ val:node :g3 ; val:port "in" ] .
+:a_t4_bp__g4_in a val:Arc ;
+    val:from [ val:node :t4 ; val:port "bp" ] ;
+    val:to   [ val:node :g4 ; val:port "in" ] .
+:a_g1_out__throat_in a val:Arc ;
+    val:from [ val:node :g1 ; val:port "out" ] ;
+    val:to   [ val:node :throat ; val:port "in" ] .
+:a_g2_out__throat_in a val:Arc ;
+    val:from [ val:node :g2 ; val:port "out" ] ;
+    val:to   [ val:node :throat ; val:port "in" ] .
+:a_g3_out__throat_in a val:Arc ;
+    val:from [ val:node :g3 ; val:port "out" ] ;
+    val:to   [ val:node :throat ; val:port "in" ] .
+:a_g4_out__throat_in a val:Arc ;
+    val:from [ val:node :g4 ; val:port "out" ] ;
+    val:to   [ val:node :throat ; val:port "in" ] .
+:a_excite_out__body_in a val:Arc ;
+    val:from [ val:node :excite ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__throat_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :throat ; val:port "in" ] .
+:a_inferno_out__driveG_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :driveG ; val:port "in" ] .
+:a_driveG_out__burn_gain a val:Arc ;
+    val:from [ val:node :driveG ; val:port "out" ] ;
+    val:to   [ val:node :burn ; val:port "gain" ] .
+:a_inferno_out__foldG_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :foldG ; val:port "in" ] .
+:a_foldG_out__scorch_gain a val:Arc ;
+    val:from [ val:node :foldG ; val:port "out" ] ;
+    val:to   [ val:node :scorch ; val:port "gain" ] .
+:a_throat_out__burn_in a val:Arc ;
+    val:from [ val:node :throat ; val:port "out" ] ;
+    val:to   [ val:node :burn ; val:port "in" ] .
+:a_burn_out__scorch_in a val:Arc ;
+    val:from [ val:node :burn ; val:port "out" ] ;
+    val:to   [ val:node :scorch ; val:port "in" ] .
+:a_scorch_out__smoke_in a val:Arc ;
+    val:from [ val:node :scorch ; val:port "out" ] ;
+    val:to   [ val:node :smoke ; val:port "in" ] .
+:a_roarNoise_out__roarLp_in a val:Arc ;
+    val:from [ val:node :roarNoise ; val:port "out" ] ;
+    val:to   [ val:node :roarLp ; val:port "in" ] .
+:a_roarLp_out__roarVca_in a val:Arc ;
+    val:from [ val:node :roarLp ; val:port "out" ] ;
+    val:to   [ val:node :roarVca ; val:port "in" ] .
+:a_roarWander_out__roarVca_cv a val:Arc ;
+    val:from [ val:node :roarWander ; val:port "out" ] ;
+    val:to   [ val:node :roarVca ; val:port "cv" ] .
+:a_roarVca_out__roarVca2_in a val:Arc ;
+    val:from [ val:node :roarVca ; val:port "out" ] ;
+    val:to   [ val:node :roarVca2 ; val:port "in" ] .
+:a_inferno_out__roarAmt_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :roarAmt ; val:port "in" ] .
+:a_roarAmt_out__roarVca2_cv a val:Arc ;
+    val:from [ val:node :roarAmt ; val:port "out" ] ;
+    val:to   [ val:node :roarVca2 ; val:port "cv" ] .
+:a_roarVca2_out__roarLvl_in a val:Arc ;
+    val:from [ val:node :roarVca2 ; val:port "out" ] ;
+    val:to   [ val:node :roarLvl ; val:port "in" ] .
+:a_inferno_out__crackRate_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :crackRate ; val:port "in" ] .
+:a_crackRate_out__crackClock_rate a val:Arc ;
+    val:from [ val:node :crackRate ; val:port "out" ] ;
+    val:to   [ val:node :crackClock ; val:port "rate" ] .
+:a_crackClock_out__crackPick_trigger a val:Arc ;
+    val:from [ val:node :crackClock ; val:port "out" ] ;
+    val:to   [ val:node :crackPick ; val:port "trigger" ] .
+:a_crackPick_out__crackEnv_gate a val:Arc ;
+    val:from [ val:node :crackPick ; val:port "out" ] ;
+    val:to   [ val:node :crackEnv ; val:port "gate" ] .
+:a_crackNoise_out__crackVca_in a val:Arc ;
+    val:from [ val:node :crackNoise ; val:port "out" ] ;
+    val:to   [ val:node :crackVca ; val:port "in" ] .
+:a_crackEnv_out__crackVca_cv a val:Arc ;
+    val:from [ val:node :crackEnv ; val:port "out" ] ;
+    val:to   [ val:node :crackVca ; val:port "cv" ] .
+:a_crackVca_out__crackHp_in a val:Arc ;
+    val:from [ val:node :crackVca ; val:port "out" ] ;
+    val:to   [ val:node :crackHp ; val:port "in" ] .
+:a_crackHp_out__crackVca2_in a val:Arc ;
+    val:from [ val:node :crackHp ; val:port "out" ] ;
+    val:to   [ val:node :crackVca2 ; val:port "in" ] .
+:a_inferno_out__crackAmt_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :crackAmt ; val:port "in" ] .
+:a_crackAmt_out__crackVca2_cv a val:Arc ;
+    val:from [ val:node :crackAmt ; val:port "out" ] ;
+    val:to   [ val:node :crackVca2 ; val:port "cv" ] .
+:a_crackVca2_out__crackLvl_in a val:Arc ;
+    val:from [ val:node :crackVca2 ; val:port "out" ] ;
+    val:to   [ val:node :crackLvl ; val:port "in" ] .
+:a_smoke_out__makeup_in a val:Arc ;
+    val:from [ val:node :smoke ; val:port "out" ] ;
+    val:to   [ val:node :makeup ; val:port "in" ] .
+:a_inferno_out__makeupDb_in a val:Arc ;
+    val:from [ val:node :inferno ; val:port "out" ] ;
+    val:to   [ val:node :makeupDb ; val:port "in" ] .
+:a_makeupDb_out__makeup_gain a val:Arc ;
+    val:from [ val:node :makeupDb ; val:port "out" ] ;
+    val:to   [ val:node :makeup ; val:port "gain" ] .
+:a_makeup_out__voiceLvl_in a val:Arc ;
+    val:from [ val:node :makeup ; val:port "out" ] ;
+    val:to   [ val:node :voiceLvl ; val:port "in" ] .
+:a_voiceLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :voiceLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_roarLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :roarLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_crackLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :crackLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__choir_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :choir ; val:port "in" ] .
+:a_vel_out__velLvl_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :velLvl ; val:port "in" ] .
+:a_ampEnv_out__ampCv_a a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampCv ; val:port "a" ] .
+:a_velLvl_out__ampCv_b a val:Arc ;
+    val:from [ val:node :velLvl ; val:port "out" ] ;
+    val:to   [ val:node :ampCv ; val:port "b" ] .
+:a_choir_out__vca_in a val:Arc ;
+    val:from [ val:node :choir ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampCv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampCv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__hall_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :hall ; val:port "in" ] .
+:a_hall_out__dc_in a val:Arc ;
+    val:from [ val:node :hall ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :wail ; val:property val:a ;
+    lv2:name "Wail" ; lv2:symbol "wail" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :scream ; val:property val:a ;
+    lv2:name "Scream" ; lv2:symbol "scream" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :vowel ; val:property val:a ;
+    lv2:name "Vowel" ; lv2:symbol "vowel" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :inferno ; val:property val:a ;
+    lv2:name "Inferno" ; lv2:symbol "inferno" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :cc1Amt ; val:property val:max ;
+    lv2:name "CC1 wail" ; lv2:symbol "cc1_wail" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Controllers" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :cc2Amt ; val:property val:max ;
+    lv2:name "CC2 scream" ; lv2:symbol "cc2_scream" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Controllers" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :cc3Amt ; val:property val:max ;
+    lv2:name "CC3 vowel" ; lv2:symbol "cc3_vowel" ;
+    lv2:minimum -1 ; lv2:maximum 1 ;
+    val:section "Controllers" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :cc4Amt ; val:property val:max ;
+    lv2:name "CC4 inferno" ; lv2:symbol "cc4_inferno" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Controllers" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :velAmt ; val:property val:max ;
+    lv2:name "Velocity to scream" ; lv2:symbol "vel_scream" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Controllers" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :glide ; val:property val:rise ;
+    lv2:name "Glide" ; lv2:symbol "glide" ;
+    lv2:minimum 0 ; lv2:maximum 1500 ;
+    val:section "Pitch" ;
+    units:unit units:ms .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :swoop ; val:property val:max ;
+    lv2:name "Onset swoop" ; lv2:symbol "onset_swoop" ;
+    lv2:minimum 1.0 ; lv2:maximum 2.0 ;
+    val:section "Pitch" .
+:p11 a val:Param ; val:slot 11 ;
+    val:target :dive ; val:property val:min ;
+    lv2:name "Release dive" ; lv2:symbol "release_dive" ;
+    lv2:minimum 0.25 ; lv2:maximum 1.0 ;
+    val:section "Pitch" .
+:p12 a val:Param ; val:slot 12 ;
+    val:target :diveEnv ; val:property val:release ;
+    lv2:name "Dive time" ; lv2:symbol "dive_time" ;
+    lv2:minimum 50 ; lv2:maximum 5000 ;
+    val:section "Pitch" ;
+    units:unit units:ms .
+:p13 a val:Param ; val:slot 13 ;
+    val:target :lift ; val:property val:max ;
+    lv2:name "Scream lift" ; lv2:symbol "scream_lift" ;
+    lv2:minimum 1.0 ; lv2:maximum 1.6 ;
+    val:section "Pitch" .
+:p14 a val:Param ; val:slot 14 ;
+    val:target :vibDepth ; val:property val:max ;
+    lv2:name "Vibrato depth" ; lv2:symbol "vibrato_depth" ;
+    lv2:minimum 0 ; lv2:maximum 0.15 ;
+    val:section "Pitch" .
+:p15 a val:Param ; val:slot 15 ;
+    val:target :waver ; val:property val:amount ;
+    lv2:name "Waver" ; lv2:symbol "waver" ;
+    lv2:minimum 0 ; lv2:maximum 0.06 ;
+    val:section "Pitch" .
+:p36 a val:Param ; val:slot 36 ;
+    val:target :cry ; val:property val:amount ;
+    lv2:name "Cry" ; lv2:symbol "cry" ;
+    lv2:minimum 0 ; lv2:maximum 0.15 ;
+    val:section "Pitch" .
+:p37 a val:Param ; val:slot 37 ;
+    val:target :oscA , :oscB , :oscC ; val:property val:jitter ;
+    lv2:name "Jitter" ; lv2:symbol "jitter" ;
+    lv2:minimum 0 ; lv2:maximum 0.08 ;
+    val:section "Voice source" .
+:p40 a val:Param ; val:slot 40 ;
+    val:target :oscA , :oscB , :oscC ; val:property val:shimmer ;
+    lv2:name "Shimmer" ; lv2:symbol "shimmer" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice source" .
+:p41 a val:Param ; val:slot 41 ;
+    val:target :oscA , :oscB , :oscC ; val:property val:shape ;
+    lv2:name "Pulse shape" ; lv2:symbol "pulse_shape" ;
+    lv2:minimum 0 ; lv2:maximum 6 ;
+    val:section "Voice source" .
+:p42 a val:Param ; val:slot 42 ;
+    val:target :oscA , :oscB , :oscC ; val:property val:skew ;
+    lv2:name "Speed quotient" ; lv2:symbol "speed_quotient" ;
+    lv2:minimum 0.5 ; lv2:maximum 6 ;
+    val:section "Voice source" .
+:p43 a val:Param ; val:slot 43 ;
+    val:target :openQ ; val:property val:min ;
+    lv2:name "Calm open quotient" ; lv2:symbol "calm_open" ;
+    lv2:minimum 0.1 ; lv2:maximum 1 ;
+    val:section "Voice source" .
+:p44 a val:Param ; val:slot 44 ;
+    val:target :openQ ; val:property val:max ;
+    lv2:name "Scream open quotient" ; lv2:symbol "scream_open" ;
+    lv2:minimum 0.1 ; lv2:maximum 1 ;
+    val:section "Voice source" .
+:p45 a val:Param ; val:slot 45 ;
+    val:target :rdQ ; val:property val:min ;
+    lv2:name "Calm Rd" ; lv2:symbol "calm_rd" ;
+    lv2:minimum 0.3 ; lv2:maximum 2.7 ;
+    val:section "Voice source" .
+:p46 a val:Param ; val:slot 46 ;
+    val:target :rdQ ; val:property val:max ;
+    lv2:name "Scream Rd" ; lv2:symbol "scream_rd" ;
+    lv2:minimum 0.3 ; lv2:maximum 2.7 ;
+    val:section "Voice source" .
+:p38 a val:Param ; val:slot 38 ;
+    val:target :mouth ; val:property val:amount ;
+    lv2:name "Mouth" ; lv2:symbol "mouth" ;
+    lv2:minimum 0 ; lv2:maximum 0.3 ;
+    val:section "Throat" .
+:p39 a val:Param ; val:slot 39 ;
+    val:target :makeupDb ; val:property val:max ;
+    lv2:name "Fire makeup" ; lv2:symbol "fire_makeup" ;
+    lv2:minimum 0 ; lv2:maximum 18 ;
+    val:section "Fire" ;
+    units:unit units:db .
+:p16 a val:Param ; val:slot 16 ;
+    val:target :hzB ; val:property val:b ;
+    lv2:name "Choir detune" ; lv2:symbol "choir_detune" ;
+    lv2:minimum 1.0 ; lv2:maximum 1.04 ;
+    val:section "Pitch" .
+:p17 a val:Param ; val:slot 17 ;
+    val:target :lvC ; val:property val:gain ;
+    lv2:name "Low voice" ; lv2:symbol "low_voice" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Pitch" ;
+    units:unit units:db .
+:p18 a val:Param ; val:slot 18 ;
+    val:target :f1v ; val:property val:max ;
+    lv2:name "Jaw" ; lv2:symbol "jaw" ;
+    lv2:minimum 500 ; lv2:maximum 1100 ;
+    val:section "Throat" ;
+    units:unit units:hertz .
+:p19 a val:Param ; val:slot 19 ;
+    val:target :f2v ; val:property val:max ;
+    lv2:name "Tongue" ; lv2:symbol "tongue" ;
+    lv2:minimum 900 ; lv2:maximum 2200 ;
+    val:section "Throat" ;
+    units:unit units:hertz .
+:p20 a val:Param ; val:slot 20 ;
+    val:target :shift ; val:property val:a ;
+    lv2:name "Throat size" ; lv2:symbol "throat_size" ;
+    lv2:minimum 0.7 ; lv2:maximum 1.5 ;
+    val:section "Throat" .
+:p21 a val:Param ; val:slot 21 ;
+    val:target :t1 , :t2 , :t3 , :t4 ; val:property val:resonance ;
+    lv2:name "Sharpness" ; lv2:symbol "sharpness" ;
+    lv2:minimum 1 ; lv2:maximum 18 ;
+    val:section "Throat" .
+:p22 a val:Param ; val:slot 22 ;
+    val:target :body ; val:property val:gain ;
+    lv2:name "Body" ; lv2:symbol "body" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Throat" ;
+    units:unit units:db .
+:p23 a val:Param ; val:slot 23 ;
+    val:target :breathAmt ; val:property val:max ;
+    lv2:name "Scream breath" ; lv2:symbol "scream_breath" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Throat" .
+:p24 a val:Param ; val:slot 24 ;
+    val:target :roughAmt ; val:property val:max ;
+    lv2:name "Roughness" ; lv2:symbol "roughness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Fire" .
+:p25 a val:Param ; val:slot 25 ;
+    val:target :driveG ; val:property val:max ;
+    lv2:name "Burn" ; lv2:symbol "burn" ;
+    lv2:minimum 2 ; lv2:maximum 30 ;
+    val:section "Fire" .
+:p26 a val:Param ; val:slot 26 ;
+    val:target :foldG ; val:property val:max ;
+    lv2:name "Scorch" ; lv2:symbol "scorch" ;
+    lv2:minimum 1 ; lv2:maximum 6 ;
+    val:section "Fire" .
+:p27 a val:Param ; val:slot 27 ;
+    val:target :roarLvl ; val:property val:gain ;
+    lv2:name "Roar" ; lv2:symbol "roar" ;
+    lv2:minimum -60 ; lv2:maximum 0 ;
+    val:section "Fire" ;
+    units:unit units:db .
+:p28 a val:Param ; val:slot 28 ;
+    val:target :crackLvl ; val:property val:gain ;
+    lv2:name "Crackle" ; lv2:symbol "crackle" ;
+    lv2:minimum -60 ; lv2:maximum 0 ;
+    val:section "Fire" ;
+    units:unit units:db .
+:p29 a val:Param ; val:slot 29 ;
+    val:target :tiltHz ; val:property val:max ;
+    lv2:name "Scream brightness" ; lv2:symbol "scream_brightness" ;
+    lv2:minimum 2000 ; lv2:maximum 14000 ;
+    val:section "Fire" ;
+    units:unit units:hertz .
+:p30 a val:Param ; val:slot 30 ;
+    val:target :ampEnv ; val:property val:attack ;
+    lv2:name "Swell" ; lv2:symbol "swell" ;
+    lv2:minimum 2 ; lv2:maximum 4000 ;
+    val:section "Output" ;
+    units:unit units:ms .
+:p31 a val:Param ; val:slot 31 ;
+    val:target :ampEnv ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 30 ; lv2:maximum 8000 ;
+    val:section "Output" ;
+    units:unit units:ms .
+:p32 a val:Param ; val:slot 32 ;
+    val:target :choir ; val:property val:mix ;
+    lv2:name "Choir width" ; lv2:symbol "choir_width" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Output" .
+:p33 a val:Param ; val:slot 33 ;
+    val:target :hall ; val:property val:mix ;
+    lv2:name "Hall" ; lv2:symbol "hall" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Output" .
+:p34 a val:Param ; val:slot 34 ;
+    val:target :hall ; val:property val:decay ;
+    lv2:name "Hall decay" ; lv2:symbol "hall_decay" ;
+    lv2:minimum 0.5 ; lv2:maximum 15 ;
+    val:section "Output" ;
+    units:unit units:s .
+:p35 a val:Param ; val:slot 35 ;
+    val:target :voiceLvl ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -30 ; lv2:maximum 6 ;
+    val:section "Output" ;
+    units:unit units:db .

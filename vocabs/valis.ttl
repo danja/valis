@@ -369,6 +369,7 @@ val:roomDecay   a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:roomLowpass a rdf:Property ; rdfs:domain val:Song ; rdfs:range xsd:double .
 val:follows     a rdf:Property ; rdfs:domain val:Part ; rdfs:range val:Part .
 val:silent      a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:boolean .
+val:recorded    a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:boolean .
 val:bars        a rdf:Property ; rdfs:domain val:Section ; rdfs:range xsd:integer .
 val:index       a rdf:Property ; rdfs:range xsd:integer .
 val:circuit     a rdf:Property ; rdfs:domain val:Part ; rdfs:range xsd:string .
@@ -470,6 +471,68 @@ smoothly between timbres use val:Wavetable.""" ;
                        [ rdfs:label "Square"   ; rdf:value 2 ] ,
                        [ rdfs:label "Triangle" ; rdf:value 3 ] ;
         rdfs:comment "0 sine, 1 saw, 2 square, 3 triangle" ] .
+
+val:Glottal a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "Glottal" ;
+    rdfs:comment """A voltage-controlled oscillator whose waveforms are models of the pulse the vocal folds make
+(https://en.wikipedia.org/wiki/Source%E2%80%93filter_model), for a voice, a choir or any sound meant to be shaped by formants. val:shape
+chooses: Rosenberg (the flow through the glottis, smooth and dark), Klatt (a cubic flow), Liljencrants-Fant (the flow's derivative, set by
+val:rd, with the sharp closure that excites a voice), Radiated (the Rosenberg flow differentiated, as the lips radiate it), Cosine (the
+breathiest) and, for comparison, a band-limited Saw and Pulse.
+
+val:open is the open quotient, the part of each cycle the folds are apart: low is pressed and bright, high is breathy and dark. val:skew
+is the speed quotient, how much longer the flow takes to rise than to fall (Rosenberg and Radiated only). val:rd moves the Liljencrants-Fant
+pulse from tense (0.3) to breathy (2.7). val:breath adds aspiration noise that is louder while the folds are open, val:jitter and
+val:shimmer vary the length and height of each cycle at random (the same every render), and val:tilt darkens the result.
+
+The output has no DC offset and swings about plus or minus 1. The closure is a corner, which aliases at high pitch: put val:oversampling
+on the element for a note above about 600 Hz. Drive val:frequency from a control arc, as for val:Oscillator.""" ;
+    val:implementation "Glottal" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:OutputPort, lv2:AudioPort ; lv2:symbol "out" ; lv2:name "Out" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "frequency" ;
+        lv2:name "Frequency" ; lv2:default 220.0 ;
+        lv2:minimum 0.01 ; lv2:maximum 20000.0 ; units:unit units:hz ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shape" ;
+        lv2:name "Shape" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 6.0 ;
+        lv2:portProperty lv2:enumeration, lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Rosenberg" ; rdf:value 0 ] ,
+                       [ rdfs:label "Klatt"     ; rdf:value 1 ] ,
+                       [ rdfs:label "LF"        ; rdf:value 2 ] ,
+                       [ rdfs:label "Radiated"  ; rdf:value 3 ] ,
+                       [ rdfs:label "Cosine"    ; rdf:value 4 ] ,
+                       [ rdfs:label "Saw"       ; rdf:value 5 ] ,
+                       [ rdfs:label "Pulse"     ; rdf:value 6 ] ;
+        rdfs:comment "0 Rosenberg, 1 Klatt, 2 Liljencrants-Fant, 3 Radiated, 4 Cosine, 5 Saw, 6 Pulse" ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "open" ;
+        lv2:name "Open quotient" ; lv2:default 0.6 ;
+        lv2:minimum 0.05 ; lv2:maximum 1.0 ;
+        rdfs:comment "The part of each cycle the folds are apart (or the width of the Pulse). Not used by LF or Saw." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "skew" ;
+        lv2:name "Speed quotient" ; lv2:default 2.0 ;
+        lv2:minimum 0.5 ; lv2:maximum 6.0 ;
+        rdfs:comment "Rise time over fall time of the flow. Used by Rosenberg and Radiated." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "rd" ;
+        lv2:name "Rd" ; lv2:default 1.0 ;
+        lv2:minimum 0.3 ; lv2:maximum 2.7 ;
+        rdfs:comment "Fant's single voice-quality number for the LF shape: 0.3 tense and pressed, 2.7 breathy." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "breath" ;
+        lv2:name "Breath" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "jitter" ;
+        lv2:name "Jitter" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 0.2 ;
+        rdfs:comment "Random change to the length of each cycle, as a fraction of it." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "shimmer" ;
+        lv2:name "Shimmer" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "Random change to the height of each cycle." ] ,
+      [ a lv2:InputPort, lv2:ControlPort ; lv2:symbol "tilt" ;
+        lv2:name "Tilt" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ;
+        rdfs:comment "A low-pass whose corner falls from 20 kHz (0) to 400 Hz (1)." ] .
 
 val:Wavetable a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "Wavetable" ;
@@ -3270,6 +3333,25 @@ present while the note is held.""" ;
     lv2:port
       [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
         lv2:default 0.5 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
+
+val:MidiCC a rdfs:Class ; rdfs:subClassOf val:Source ;
+    rdfs:label "MidiCC" ;
+    rdfs:comment """Outputs the last value of one MIDI continuous controller as a control signal from 0 to 1 (the
+controller's 0 to 127 divided by 127). val:controller picks the number: 1 is the mod wheel, 2 breath, 7 volume, 11 expression.
+Until the host has sent that controller, the output is val:initial, so a circuit has a resting value to play with before a
+wheel is touched. Any channel is accepted. A control arc into the circuit replaces a port's value, so put the controller
+through val:Scale and val:ControlAdd to add it to a knob rather than replace it.""" ;
+    val:implementation "MidiCC" ;
+    val:linear false ;
+    lv2:port
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "controller" ;
+        lv2:name "Controller" ; lv2:default 1.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 127.0 ; lv2:portProperty lv2:integer ] ,
+      [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "initial" ;
+        lv2:name "Initial" ; lv2:default 0.0 ;
+        lv2:minimum 0.0 ; lv2:maximum 1.0 ] ,
+      [ a lv2:OutputPort, lv2:ControlPort ; lv2:symbol "out" ; lv2:name "Out" ;
+        lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
 val:NoteGate a rdfs:Class ; rdfs:subClassOf val:Source ;
     rdfs:label "NoteGate" ;

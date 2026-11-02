@@ -34,6 +34,7 @@ struct SongStem
     std::string source;         ///< a return's source part, by name
     std::string follows;        ///< a part whose gain this takes; `level` is then an offset from it, in dB
     bool        silent = false; ///< rendered, but left out of the mix: a part that only feeds a return
+    bool        recorded = false; ///< a part whose wavs/NAME.wav is made elsewhere (a voice rendered in a host): no circuit, no MIDI, not rendered
     double level = -20.0;       ///< dB of the stem's playing rms
     double pan = 0.0;           ///< -1 to 1
     double highpass = 0.0;      ///< Hz, 0 for none

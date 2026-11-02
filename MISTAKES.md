@@ -117,3 +117,13 @@ and a gate from one signal. It was never tried with a soft hit.
 **Prevention.** Fixed 1 November 2026: every drum gates from `gate`, the toms take velocity through the resonator's `velocity` port, and
 `tests/engine/Tr909VelocityTest.cpp` plays each drum from velocity 0.05 to 1. `NoteGate.velocity` is a level that is 0 after the note-off,
 never a gate. All other examples were searched for a velocity arc into a gate, trigger or choke port; none had one.
+
+## "Sits at its limiter" written from a peak value
+
+**What happened.** The All Fall Down README and TODO.md said the lead stem "sits at its limiter on the loudest notes", because its peak
+was -1.0 dBFS, the limiter's ceiling. On 2 November 2026 the stem was counted: 3 samples in 10 million are above 0.85, and 0.5% of the
+sounding samples are above 0.5. The lead is not leaning on the limiter; the ceiling is only where the loudest transient lands.
+
+**Root cause.** A peak equal to a ceiling was read as a limiter at work, without looking at how many samples were near it.
+
+**Prevention.** Say a stem is limited only after counting the samples above, say, 0.85 of full scale. Both notes were corrected.

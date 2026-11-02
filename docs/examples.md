@@ -164,6 +164,22 @@ oscillator and filter. They are written by `scripts/nursery/nursery.py` and test
 - `nursery-wind-up-riser.ttl`: a riser. One envelope speeds a guiro's scrape from 3 to 180 ticks a second, opens a noise filter with a rising frequency shifter, and lifts a saw four octaves.
 - `nursery-voice-vocoder.ttl`: an effect, not an instrument. A 24-band `val:Vocoder` whose modulator is the input (a speech synthesiser) and whose carrier is built inside: five saws on A3, E4 and A4 with a veil of high noise for consonants, so the voice sings the track's chord. Written by `scripts/nursery/voice-vocoder.py`.
 
+## Inferno Choir: a scream and a wail
+
+- `inferno-choir.ttl`: a synthesised human scream and wail, played from MIDI notes (about A2 to A5) and four controllers. It is a
+  [source-filter voice](https://en.wikipedia.org/wiki/Source%E2%80%93filter_model): three glottal-pulse oscillators for the vocal folds, a ring
+  modulator at half the pitch for a screamed subharmonic, four parallel `val:StateVariable` band-pass formants for the throat (morphing
+  from "ooh" to "aah"), white noise for breath, a tanh drive and wavefolder for the strained larynx, a brown-noise furnace roar and
+  random crackles for the fire, then a chorus and a long hall. The vocal folds are three `val:Glottal` oscillators (a detuned pair and one an
+  octave down) with a Pulse shape selector (Rosenberg by default), whose open quotient and Rd tighten as the scream grows. About 50 knobs in
+  seven sections (Voice, Controllers, Pitch, Voice source, Throat, Fire, Output).
+  The controllers are read by the new `val:MidiCC`: CC1 (mod wheel) wails (vibrato rate and depth), CC2 (breath) screams (pitch lift,
+  higher formants, brightness, roughness and breath), CC3 opens the vowel and CC4 lights the fire (drive, fold, roar, crackle). Each is added to
+  its knob (Wail, Scream, Vowel, Inferno), and the Controllers section sets how far each reaches. Written by `scripts/inferno/inferno.py`;
+  tested by `tests/engine/InfernoChoirTest.cpp` (silent until played, in tune across four octaves, each controller moves what it should).
+  Measured, not heard: the neural check reads the wail as "a human voice" (share 0.60, a yes; it was 0.28 with saw oscillators), and the scream
+  as a distorted guitar or a synthesizer preset.
+
 ## Not examples
 
 - `temp.ttl` is a variant of `subsynth.ttl` with the same title.

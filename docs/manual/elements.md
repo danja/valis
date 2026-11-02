@@ -393,6 +393,23 @@ FM matrix. Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
+| `detune3` | Detune 3 | 0 | -100 to 100 | ct |
+| `level3` | Level 3 | 99 | 0 to 99 |  |
+| `amp3` | Amp 3 | 1 | 0 to 1 |  |
+| `carrier3` | Carrier 3 | 0 | 0 to 1 |  |
+| `ratio4` | Ratio 4 | 1 | 0 to 32 |  |
+| `detune4` | Detune 4 | 0 | -100 to 100 | ct |
+| `level4` | Level 4 | 99 | 0 to 99 |  |
+| `amp4` | Amp 4 | 1 | 0 to 1 |  |
+| `carrier4` | Carrier 4 | 0 | 0 to 1 |  |
+| `ratio5` | Ratio 5 | 1 | 0 to 32 |  |
+| `detune5` | Detune 5 | 0 | -100 to 100 | ct |
+| `level5` | Level 5 | 99 | 0 to 99 |  |
+| `amp5` | Amp 5 | 1 | 0 to 1 |  |
+| `carrier5` | Carrier 5 | 0 | 0 to 1 |  |
+| `ratio6` | Ratio 6 | 1 | 0 to 32 |  |
+| `detune6` | Detune 6 | 0 | -100 to 100 | ct |
+| `level6` | Level 6 | 99 | 0 to 99 |  |
 | `amp6` | Amp 6 | 1 | 0 to 1 |  |
 | `carrier6` | Carrier 6 | 0 | 0 to 1 |  |
 | `m11` | Feedback 1 | 0 | 0 to 7 |  |
@@ -446,23 +463,6 @@ FM matrix. Nonlinear.
 | `amp2` | Amp 2 | 1 | 0 to 1 |  |
 | `carrier2` | Carrier 2 | 0 | 0 to 1 |  |
 | `ratio3` | Ratio 3 | 1 | 0 to 32 |  |
-| `detune3` | Detune 3 | 0 | -100 to 100 | ct |
-| `level3` | Level 3 | 99 | 0 to 99 |  |
-| `amp3` | Amp 3 | 1 | 0 to 1 |  |
-| `carrier3` | Carrier 3 | 0 | 0 to 1 |  |
-| `ratio4` | Ratio 4 | 1 | 0 to 32 |  |
-| `detune4` | Detune 4 | 0 | -100 to 100 | ct |
-| `level4` | Level 4 | 99 | 0 to 99 |  |
-| `amp4` | Amp 4 | 1 | 0 to 1 |  |
-| `carrier4` | Carrier 4 | 0 | 0 to 1 |  |
-| `ratio5` | Ratio 5 | 1 | 0 to 32 |  |
-| `detune5` | Detune 5 | 0 | -100 to 100 | ct |
-| `level5` | Level 5 | 99 | 0 to 99 |  |
-| `amp5` | Amp 5 | 1 | 0 to 1 |  |
-| `carrier5` | Carrier 5 | 0 | 0 to 1 |  |
-| `ratio6` | Ratio 6 | 1 | 0 to 32 |  |
-| `detune6` | Detune 6 | 0 | -100 to 100 | ct |
-| `level6` | Level 6 | 99 | 0 to 99 |  |
 
 ## val:FMOperator
 
@@ -587,6 +587,26 @@ Linear.
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
 | `gain` | Gain | 0 | -60 to 24 | dB |
+
+## val:Glottal
+
+Nonlinear.
+
+**Audio out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `shape` | Shape | 0 | 0 to 6 |  |
+| `open` | Open quotient | 0.6 | 0.05 to 1 |  |
+| `skew` | Speed quotient | 2 | 0.5 to 6 |  |
+| `rd` | Rd | 1 | 0.3 to 2.7 |  |
+| `breath` | Breath | 0 | 0 to 1 |  |
+| `jitter` | Jitter | 0 | 0 to 0.2 |  |
+| `shimmer` | Shimmer | 0 | 0 to 1 |  |
+| `tilt` | Tilt | 0 | 0 to 1 |  |
+| `frequency` | Frequency | 220 | 0.01 to 20000 | Hz |
 
 ## val:GrainBuffer
 
@@ -745,6 +765,19 @@ Nonlinear.
 |---|---|---|---|---|
 | `ceiling` | Ceiling | -0.3 | -24 to 0 | dB |
 | `release` | Release | 60 | 1 to 1000 | ms |
+
+## val:MidiCC
+
+Nonlinear.
+
+**Control out**: `out`
+
+**Controls**
+
+| symbol | name | default | range | unit |
+|---|---|---|---|---|
+| `controller` | Controller | 1 | 0 to 127 |  |
+| `initial` | Initial | 0 | 0 to 1 |  |
 
 ## val:MidiInterval
 
@@ -1509,7 +1542,7 @@ Nonlinear.
 
 | symbol | name | default | range | unit |
 |---|---|---|---|---|
+| `frequency` | Frequency | 220 | 0.01 to 20000 | Hz |
 | `position` | Position | 0 | 0 to 1 |  |
 | `set` | Set | 0 | 0 to 2 |  |
-| `frequency` | Frequency | 220 | 0.01 to 20000 | Hz |
 

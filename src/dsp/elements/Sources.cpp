@@ -500,6 +500,31 @@ private:
     int referenceIndex = -1, rootIndex = -1;
 };
 
+/// Outputs the last value of one MIDI controller, 0 to 1, or `initial` until the host has sent it.
+class MidiCC final : public DspElement
+{
+public:
+    void prepare(const ElementType& type, double, int) override
+    {
+        controllerIndex = controlIndex(type, "controller");
+        initialIndex    = controlIndex(type, "initial");
+    }
+
+    void process(const ProcessArgs& args) noexcept override
+    {
+        if (args.numControlOut < 1)
+            return;
+
+        const float initial = std::clamp(controlAt(args, initialIndex, 0.0f), 0.0f, 1.0f);
+        const int   number  = std::clamp(static_cast<int>(controlAt(args, controllerIndex, 1.0f) + 0.5f), 0, 127);
+        const float value   = args.controllers != nullptr ? args.controllers[number] : -1.0f;
+        args.controlOut[0]  = value >= 0.0f ? value : initial;
+    }
+
+private:
+    int controllerIndex = -1, initialIndex = -1;
+};
+
 /// Outputs the velocity of the most recent MIDI note-on as a control signal
 /// (0–1 normalised). Holds the last value between notes.
 class MidiVelocity final : public DspElement
@@ -1547,6 +1572,7 @@ void registerSources(ElementRegistry& registry)
     registry.add("Drift",        &make<elements::Drift>);
     registry.add("MidiPitch",    &make<elements::MidiPitch>);
     registry.add("MidiVelocity", &make<elements::MidiVelocity>);
+    registry.add("MidiCC", &make<elements::MidiCC>);
     registry.add("NoteGate",     &make<elements::NoteGate>);
     registry.add("Bow",           &make<elements::Bow>);
     registry.add("Reed",         &make<elements::Reed>);

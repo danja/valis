@@ -66,6 +66,10 @@ struct ProcessArgs
     int          noteNumber     = 69;   ///< default A4 so MidiPitch outputs 440 Hz before any note
     const float* noteVelocities = nullptr;  ///< Array of 128 per-MIDI-note velocities (0..127)
 
+    /// The last value of each MIDI controller, 0 to 1, or -1 for one that has not been received. Null in a
+    /// fixture that supplies none, which reads as every controller being unreceived.
+    const float* controllers = nullptr;
+
     /// The host timeline, already advanced to the start of this block.
     TransportInfo transport;
 

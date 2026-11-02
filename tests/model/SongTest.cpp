@@ -137,6 +137,14 @@ int main()
     assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:silent \"maybe\" ;"), "true or false"));
     assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:circuit \"circuits/kit.ttl\" ; val:follows :bass ;") + ":bass val:silent true .", "not in the mix"));
 
+    Song recorded;
+    assert(read(without("val:circuit \"circuits/kit.ttl\" ;", "val:recorded true ;"), recorded, diagnostics));
+    assert(recorded.findStem("kit")->recorded && recorded.findStem("kit")->circuit.empty() && recorded.findStem("kit")->midi.empty());
+    assert(! recorded.findStem("bass")->recorded && ! recorded.findStem("bass")->midi.empty());
+    assert(fails(without("val:source :kit ;", "val:source :kit ; val:recorded true ;"), "cannot be val:recorded"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:recorded \"maybe\" ;"), "true or false"));
+    assert(fails(without("val:circuit \"circuits/kit.ttl\" ;", "val:recorded false ;"), "has no val:circuit"));
+
     Song played;
     assert(read(without("val:source :kit ;", "val:source :kit ; val:midi \"midi/speed.mid\" ;"), played, diagnostics));
     assert(played.findStem("kit-echo")->midi == "midi/speed.mid" && song.findStem("kit-echo")->midi.empty());

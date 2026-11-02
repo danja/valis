@@ -47,6 +47,8 @@ SongRenderResult renderSongStems(const Ontology& ontology, const ElementRegistry
 {
     const auto wanted = [&](const SongStem& s)
     {
+        if (s.recorded)
+            return false;
         const auto& part = s.isReturn ? s.source : s.name;
         return options.only.empty() || std::find(options.only.begin(), options.only.end(), part) != options.only.end();
     };

@@ -53,6 +53,8 @@ set(VALIS_TESTS
   dsp/ConvolverTest.cpp
   dsp/PitchTrackerTest.cpp
   dsp/OctaveDividerTest.cpp
+  dsp/MidiCCTest.cpp
+  dsp/GlottalTest.cpp
   dsp/SampleHoldTest.cpp
   dsp/StepSequencerTest.cpp
   dsp/WavetableTest.cpp
@@ -65,6 +67,7 @@ set(VALIS_TESTS
   engine/SampledStringsTest.cpp
   engine/ElectroInstrumentsTest.cpp
   engine/NurseryInstrumentsTest.cpp
+  engine/InfernoChoirTest.cpp
   engine/GristExampleTest.cpp
   engine/DemoEffectsTest.cpp
   engine/MetalBashTest.cpp

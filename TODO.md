@@ -12,10 +12,28 @@
   by it (`tests/engine/Tr909VelocityTest.cpp`). At full velocity the bass drum (gain +11) peaks at 0.63 and the snare at 0.61; the clap
   (gain -2) at 0.19. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) were checked; only the 909 had the fault.
 * **Nursery instruments and "All Fall Down"** (`scripts/nursery/`, `examples/nursery-*.ttl`; the track is in `valis-artifacts/artifacts/all-fall-down/`,
-  2 November 2026): eight circuits and a 3:00 track at 140 bpm built from them, mix v3 at -11.0 LUFS. All measured, not heard. Needs a listener:
-  whether the star tune is the earworm, the intro arp's octave echoes against the tune, the hat (centroid 12.7 kHz), the break into the second
-  build. The bass above A2 reports its sub octave as its pitch. Not done: the Reaper project `all-fall-down-midi.rpp` has not been opened (the
-  Street Hammer one is open and holds ports 7677 to 7682), and the lead stem sits at its limiter on the loudest notes.
+  2 November 2026): eight circuits and a 3:00 track at 140 bpm built from them. Mix v3 is -11.0 LUFS and v4 adds the vocoded SAM voice
+  (-11.5 LUFS, true peak -1.0 dBTP). All measured, not heard (the composer has played the project in Reaper and said the voice works; the
+  listening tests are theirs). The project `all-fall-down-midi.rpp` has been opened and plays, with the instruments at ports 7677 to 7685.
+  Looked at: the lead stem peaks at its -1 dBFS ceiling but only 3 samples in 10 million are above 0.85, so it is not leaning on the limiter.
+  The bass sounds an octave under the note below MIDI 69 (measured 55 Hz for note 45, 110 Hz for 57, 440 Hz for 69): its strongest
+  partial is the added sine, and the score is written for that. Mix v6 is -10.6 LUFS: the voice is a `val:recorded` part in `song.ttl` (v6), but its WAV is rendered by hand in Reaper and its track is not written by `--midi`.
+* **A speech track in a song** (found making All Fall Down, 2 November 2026). The voice is SAM (`~/github/downspout/plugins/sam`) into
+  `examples/nursery-voice-vocoder.ttl`, added to the Reaper project by hand and rendered to `wavs/voice.wav` by hand. Open:
+  * The vocoder's carrier is a fixed A, E, A chord, so the voice does not follow the chord loop. Giving the carrier notes (a MIDI input
+    played from the pad's MIDI file) would need the `--midi` writer to put a MIDI item on the voice track.
+  * `valis-song reaper --midi` could write the `sam` track itself: SAM and the vocoder instance, with `voice.txt` as SAM's state. It needs
+    SAM's state format, which is in the downspout repository.
+  * The voice level (-22 dB in `make.py`) is a guess; v6 is not heard.
+* **Inferno Choir and MIDI controllers** (`examples/inferno-choir.ttl`, `scripts/inferno/`, 2 November 2026): a scream and wail voice that
+  answers notes and CC1 to CC4, through the new `val:MidiCC` and `ValisEngine::setController` (plugin, `valis-render --cc N=V` and CC in
+  MIDI files read by `valis-render --midi` and `OfflineRender`). Measured, not heard; the neural check calls the wail a human voice about
+  as often as a violin section and the scream a distorted guitar. Needs a listener. The voice now uses `val:Glottal` (Rosenberg, Klatt, LF, Radiated, Cosine, Saw, Pulse);
+  with the Rosenberg pulse the neural check reads the wail as a human voice (0.60) but not the distorted scream or a calm note.
+  `val:Glottal` follow-ups: its closure aliases at high pitch (use `val:oversampling` on the element above about 600 Hz; not measured), the three
+  oscillators share one jitter sequence (no seed port), and the LF solver is tested for Rd 0.3 to 2.7 only. Not done: pitch bend and channel pressure (a scream wants a bend), CC in `valis-song` stems (a part
+  reads its MIDI file's controllers only through `valis-render --midi`; `check` ignores them), a `val:MidiCC` smoothing time (use `val:Slew`),
+  an editor control that sends a CC without a host, and a check in Reaper: the plugin must be reinstalled (`./install.sh`) to receive CC.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/archive/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to
@@ -377,10 +395,9 @@ Failings met using the MCP tools to build `examples/halloween-*.ttl`. Each wants
   `val:Arc` block per connection runs to hundreds of lines. A way to write arcs tersely, or an
   `export` of the loaded circuit built from `apply_edits`, would help an agent write a file.
 * **Running a circuit inside Reaper.** Several instances now each get an MCP port (7676, 7677, and so
-  on) and `/health` reports the port and the host's track name. Still to do: a way to set a circuit from
-  a path in the plug-in's saved state, so a project can be written without opening the GUI; and a check,
-  in a real Reaper session with eight instances, that the track name is passed on (`updateTrackProperties`
-  is only called by some hosts) and that the ports are what the Settings menu says.
+  on) and `/health` reports the port and the host's track name. Done: `valis-song reaper --midi` writes each circuit into the
+  instrument's saved state, and in a real Reaper session with nine instances the track names (`riser`, `sam`) and ports 7677 to 7685
+  were right (2 November 2026). Still to do: check that the ports are what the Settings menu says.
 * **`valis-render --midi` limits.** It reads only note events and a fixed tempo; tempo changes and controllers are
   ignored (`tests/console/RenderMidiTest.cpp` pins the tempo behaviour, so it will fail when the tool learns to read it).
 * **`reaper-mcp` bugs** are listed in `/chalet/github/reaper-mcp/TODO.md`. The project at

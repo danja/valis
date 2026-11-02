@@ -1091,6 +1091,7 @@ void registerSampler(ElementRegistry&);
 void registerWavetable(ElementRegistry&);
 void registerTimeStretch(ElementRegistry&);
 void registerConvolver(ElementRegistry&);
+void registerGlottal(ElementRegistry&);
 void registerPitchTracker(ElementRegistry&);
 void registerOctaveDivider(ElementRegistry&);
 void registerSampleHold(ElementRegistry&);
@@ -1113,6 +1114,7 @@ ElementRegistry makeDefaultRegistry()
     registerWavetable(registry);
     registerTimeStretch(registry);
     registerConvolver(registry);
+    registerGlottal(registry);
     registerPitchTracker(registry);
     registerOctaveDivider(registry);
     registerSampleHold(registry);

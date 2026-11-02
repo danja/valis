@@ -31,7 +31,8 @@ void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const st
         {
             const auto& e = score[nextEvent++];
             const int offset = static_cast<int>(std::max<long long>(0, e.sample - sample));
-            if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
+            if (e.controller >= 0) engine.setController(e.controller, e.velocity);
+            else if (e.on) engine.queueNoteOn(e.note, e.velocity, offset);
             else      engine.queueNoteOff(e.note, offset);
         }
 
@@ -106,7 +107,7 @@ OfflineRenderResult renderCircuitFile(const Ontology& ontology, const ElementReg
         input.assign(static_cast<std::size_t>(std::clamp(request.seconds, 0.05, 1200.0) * rate), 0.0f);
 
     std::vector<TimedNote> score;
-    if (! request.midiPath.empty() && ! readMidiScore(request.midiPath, tempo, rate, score, error))
+    if (! request.midiPath.empty() && ! readMidiScore(request.midiPath, tempo, rate, score, error, true))
         return fail(error);
 
     BlockRun run;

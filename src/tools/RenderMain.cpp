@@ -44,6 +44,7 @@ struct Options
     double tempo      = 120.0; ///< the transport tempo reported to the circuit
     bool   rolling    = false; ///< whether the transport is running
     std::string midiPath;      ///< a standard MIDI file played into the circuit
+    std::vector<std::pair<int, float>> controllers;   ///< --cc N=V: controller N set to V (0 to 1) before the first sample
 };
 
 /// Prints the element reference as markdown, straight from the ontology, so
@@ -120,7 +121,8 @@ void usage()
         "  --velocity <v>   note velocity 0.0-1.0 (default 1.0)\n"
         "  --gate-on <s>    time in seconds when the note fires (default 0.0)\n"
         "  --gate-off <s>   time in seconds when the note is released (default 80% of --seconds)\n"
-        "  --midi <file>    play every note of a standard MIDI file at --tempo, in place of --note\n"
+        "  --midi <file>    play every note and controller change of a standard MIDI file at --tempo, in place of --note\n"
+        "  --cc <n>=<v>     set MIDI controller n (0-127) to v (0.0-1.0) before the first sample; repeat for more\n"
         "\n"
         "Transport (for circuits that take their timing from the host):\n"
         "  --tempo <bpm>    tempo reported to the circuit (default 120)\n"
@@ -150,6 +152,17 @@ bool parse(int argc, char** argv, Options& options)
         else if (arg == "--tempo")               options.tempo      = std::stod(next());
         else if (arg == "--rolling")             options.rolling    = true;
         else if (arg == "--midi")                options.midiPath   = next();
+        else if (arg == "--cc")
+        {
+            const std::string spec = next();
+            const auto eq = spec.find('=');
+            if (eq == std::string::npos)
+            {
+                std::fprintf(stderr, "--cc wants N=V, for example --cc 1=0.5\n");
+                return false;
+            }
+            options.controllers.emplace_back(std::stoi(spec.substr(0, eq)), std::stof(spec.substr(eq + 1)));
+        }
         else if (! arg.empty() && arg[0] == '-') { std::fprintf(stderr, "unknown option %s\n", arg.c_str()); return false; }
         else                                     options.circuitPath = arg;
     }
@@ -284,12 +297,22 @@ int main(int argc, char** argv)
     if (! options.midiPath.empty())
     {
         std::string midiError;
-        if (! valis::readMidiScore(options.midiPath, options.tempo, options.sampleRate, score, midiError))
+        if (! valis::readMidiScore(options.midiPath, options.tempo, options.sampleRate, score, midiError, true))
         {
             std::fprintf(stderr, "%s\n", midiError.c_str());
             return 1;
         }
     }
+    for (const auto& [controller, value] : options.controllers)
+    {
+        valis::TimedNote event;
+        event.sample = 0;
+        event.controller = controller;
+        event.velocity = value;
+        score.push_back(event);
+    }
+    std::stable_sort(score.begin(), score.end(),
+                     [](const valis::TimedNote& a, const valis::TimedNote& b) { return a.sample < b.sample; });
     // --note is a note-on and a note-off placed in the score, like any other event
     if (options.midiNote >= 0)
     {

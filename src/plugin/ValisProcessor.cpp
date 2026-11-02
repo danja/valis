@@ -292,6 +292,8 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
             engine.queueNoteOff(message.getNoteNumber(), at);
         else if (message.isAllNotesOff() || message.isAllSoundOff())
             engine.queueAllNotesOff(at);
+        else if (message.isController())
+            engine.setController(message.getControllerNumber(), static_cast<float>(message.getControllerValue()) / 127.0f);
     }
 
     // The host timeline, if this host offers one. A host that reports no

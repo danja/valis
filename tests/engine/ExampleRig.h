@@ -82,6 +82,7 @@ struct ExampleRig
                 engine.setControl(node, port, value);
             return;
         }
+        std::printf("  no parameter %s\n", symbol.c_str());
         assert(false && "no such parameter");
     }
 

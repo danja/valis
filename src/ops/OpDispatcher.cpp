@@ -1618,8 +1618,11 @@ OpResult OpDispatcher::readSong(const std::string& path) const
         o->setProperty("name", juce::String(s.name));
         o->setProperty("kind", s.isReturn ? "return" : "part");
         const auto circuit = resolve(s.circuit);
-        o->setProperty("circuit", circuit.getFullPathName());
-        if (! circuit.existsAsFile())
+        if (s.recorded)
+            o->setProperty("recorded", true);
+        else
+            o->setProperty("circuit", circuit.getFullPathName());
+        if (! s.recorded && ! circuit.existsAsFile())
             problems.add(juce::String(s.name) + ": no circuit at " + circuit.getFullPathName());
         if (! s.follows.empty())
             o->setProperty("follows", juce::String(s.follows));
@@ -1636,7 +1639,7 @@ OpResult OpDispatcher::readSong(const std::string& path) const
                     problems.add(juce::String(s.name) + ": no MIDI file at " + midi.getFullPathName());
             }
         }
-        else
+        else if (! s.recorded)
         {
             const auto midi = resolve(s.midi);
             o->setProperty("midi", midi.getFullPathName());

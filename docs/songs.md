@@ -50,6 +50,7 @@ the command line tool `valis-song` all use. A score script reads it from Python 
 | `val:midi` | Part | MIDI file, relative to the song file | `midi/<name>.mid` |
 | `val:midi` | Return | MIDI file played into the return's circuit as well as the source stem (for a Leslie speed switch, say) | none |
 | `val:silent` | Part | `true` renders the part but leaves it out of the mix | false |
+| `val:recorded` | Part | `true` for a part made elsewhere: no `val:circuit` or MIDI, not rendered; `wavs/NAME.wav` must already exist | false |
 | `val:follows` | Part | Another part. This part takes that part's gain plus its own `val:level`, which is therefore a number of dB under the leader's gain (0 or below, since a level above 0 is refused), instead of being levelled by its own rms. For sparse percussion that should keep its balance with the kit | none |
 | `val:source` | Return | The part whose stem is the return's input | required |
 | `val:pan` | Part, Return | -1 left, 0 centre, 1 right. A stereo stem keeps its image and takes the pan as a balance | 0 |
@@ -157,6 +158,10 @@ few hits as loud as a full kit. Give it `val:follows` and the name of another pa
 its own `val:level` as an offset in dB, so it keeps the balance it was played at. Only a part that is not itself a
 follower can be followed, and a return cannot follow. A return may also name a `val:midi` file, which is played into its
 circuit as well as the source stem; a rotating speaker whose speed is a MIDI note is the example.
+A part made outside Valis, such as a speech synthesizer rendered in a host, takes `val:recorded true` in place of `val:circuit`. It is not scored,
+rendered or written as a track by `reaper --midi`. Its `wavs/NAME.wav` must already exist; `check` reads it (with no notes to compare) and `mix`
+levels it like any other stem, by `val:level`, or as an offset if it `val:follows` a part.
+
 A part that exists only to feed a return takes `val:silent true`: it is rendered, so the return can read its stem, but it is
 left out of the mix. A return cannot be silent, and a silent part cannot be followed.
 

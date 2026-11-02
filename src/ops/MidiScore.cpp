@@ -9,7 +9,7 @@
 namespace valis {
 
 bool readMidiScore(const std::string& path, double tempoBpm, double sampleRate,
-                   std::vector<TimedNote>& notes, std::string& error)
+                   std::vector<TimedNote>& notes, std::string& error, bool controllers)
 {
     if (tempoBpm <= 0.0)
     {
@@ -38,11 +38,20 @@ bool readMidiScore(const std::string& path, double tempoBpm, double sampleRate,
         for (int i = 0; i < sequence->getNumEvents(); ++i)
         {
             const auto& message = sequence->getEventPointer(i)->message;
-            if (! message.isNoteOnOrOff())
+            const bool isController = controllers && message.isController();
+            if (! message.isNoteOnOrOff() && ! isController)
                 continue;
 
             const double quarters = message.getTimeStamp() / static_cast<double>(division);
             TimedNote note;
+            if (isController)
+            {
+                note.sample     = static_cast<long long>(quarters * 60.0 / tempoBpm * sampleRate);
+                note.controller = message.getControllerNumber();
+                note.velocity   = static_cast<float>(message.getControllerValue()) / 127.0f;
+                notes.push_back(note);
+                continue;
+            }
             note.sample   = static_cast<long long>(quarters * 60.0 / tempoBpm * sampleRate);
             note.on       = message.isNoteOn();
             note.note     = message.getNoteNumber();

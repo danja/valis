@@ -521,6 +521,8 @@ This table is a start for common jobs. Each port named in it exists; the test
 | `val:StepSequencer` | pattern of notes and rests against the host | `division`, `gatelength`, `gate`, `note`, `pitch` |
 | `val:MidiPitch` | note to hertz, with an optional tuning | `reference`, `root`, `out` |
 | `val:MidiVelocity` | note velocity, 0 to 1 | `out` |
+| `val:Glottal` | a vocal-fold pulse oscillator: Rosenberg, Klatt, LF, Radiated, Cosine, Saw, Pulse; open quotient, jitter, shimmer, breath, tilt | `out` |
+| `val:MidiCC` | the last value of MIDI controller `controller` (1 is the mod wheel), 0 to 1, `initial` until it is sent | `out` |
 | `val:NoteGate` | per-note gate | `note`, `gate` |
 | `val:Envelope` | ADSR | `attack`, `decay`, `sustain`, `release`, `gate`, `out` |
 | `val:Ladder` | Moog-style low-pass | `in`, `cutoff`, `resonance`, `drive`, `out` |

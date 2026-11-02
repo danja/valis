@@ -54,6 +54,11 @@ public:
     void noteOff(int noteNumber) noexcept;
     void allNotesOff() noexcept;
 
+    /// Audio thread, before process(). The value (0 to 1) of a MIDI controller, seen by `val:MidiCC` from the next
+    /// slice. Not queued: only the latest value matters, and a host that sends a controller sweep must not fill the
+    /// note queue. A controller outside 0 to 127 is ignored.
+    void setController(int controller, float value) noexcept;
+
     /// Audio thread, before process(). A note event located by its position
     /// within the block about to run, which is what the host reports for each
     /// MIDI message. process() cuts its slices at these positions, so the note
@@ -272,6 +277,8 @@ private:
     /// Written by setTransport on the audio thread, read by process() there.
     TransportInfo transport;
 
+    std::array<float, 128> controllerValues = makeUnreceived();
+    static constexpr std::array<float, 128> makeUnreceived() { std::array<float, 128> a{}; for (auto& v : a) v = -1.0f; return a; }
     std::array<float, 128> activeNoteVelocities{};
     std::array<float, 128> triggeredNoteVelocities{};
     std::atomic<int> reportedLatency{0};

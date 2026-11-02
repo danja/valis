@@ -12,6 +12,7 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <complex>
@@ -72,6 +73,9 @@ public:
         gate       = g;
     }
 
+    /// Sets the last value (0 to 1) of a MIDI controller, as the engine's setController does; the others stay unreceived.
+    void setController(int controller, float value) { controllerValues[static_cast<std::size_t>(controller)] = value; }
+
     /// The host timeline the element sees. The engine advances this a control
     /// slice at a time; a fixture run is one slice, so the caller advances it.
     void setTransport(bool playing, double tempoBpm, double ppqPosition)
@@ -114,6 +118,7 @@ public:
         args.velocity      = velocity;
         args.noteNumber    = noteNumber;
         args.transport     = transport;
+        args.controllers   = controllerValues.data();
         args.controlIn     = controls.data();
         args.numControlIn  = static_cast<int>(controls.size());
         args.controlOut    = ctrlOut.data();
@@ -207,6 +212,7 @@ public:
     float velocity   = 1.0f;
     int   noteNumber = 69;
     double rate      = 48000.0;
+    std::array<float, 128> controllerValues = [] { std::array<float, 128> a{}; a.fill(-1.0f); return a; }();
 
 private:
     static const Ontology& getOntology()

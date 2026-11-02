@@ -384,6 +384,14 @@ void ValisEngine::noteOn(int noteNumber, float velocity) noexcept
     }
 }
 
+void ValisEngine::setController(int controller, float value) noexcept
+{
+    if (controller < 0 || controller > 127)
+        return;
+
+    controllerValues[static_cast<std::size_t>(controller)] = std::clamp(value, 0.0f, 1.0f);
+}
+
 void ValisEngine::noteOff(int noteNumber) noexcept
 {
     releaseVoice(noteNumber);
@@ -735,6 +743,7 @@ void ValisEngine::processSlice(Graph& graph,
         }
 
         args.noteVelocities = graph.currentNoteVelocities.data();
+        args.controllers    = controllerValues.data();
         args.transport      = sliceTransport;
         args.silence        = graph.buffer(circuit.silenceBuffer);
         args.audioIn        = graph.audioInPtrs.data();

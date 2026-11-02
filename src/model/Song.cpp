@@ -236,8 +236,17 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
             stem.isReturn = isReturn;
             const std::string kind = isReturn ? "return " : "part ";
             stem.circuit = r.text(p, vocab::song::circuit);
-            if (stem.circuit.empty())
-                r.fail(kind + stem.name + " has no val:circuit", stem.id);
+            if (const auto recorded = store.object(p, vocab::song::recorded))
+            {
+                const std::string v(recorded.string());
+                if (v != "true" && v != "false" && v != "1" && v != "0")
+                    r.fail(kind + stem.name + " has val:recorded '" + v + "'; it must be true or false", stem.id);
+                stem.recorded = (v == "true" || v == "1");
+                if (isReturn && stem.recorded)
+                    r.fail("return " + stem.name + " cannot be val:recorded; a return is rendered from its source", stem.id);
+            }
+            if (stem.circuit.empty() && ! stem.recorded)
+                r.fail(kind + stem.name + " has no val:circuit (or val:recorded true, for a part made elsewhere)", stem.id);
             if (isReturn)
             {
                 const auto source = store.object(p, vocab::song::source);
@@ -249,7 +258,7 @@ bool Song::read(const rdf::TurtleStore& store, Song& out, std::vector<Diagnostic
             else
             {
                 stem.midi = r.text(p, vocab::song::midi);
-                if (stem.midi.empty()) stem.midi = "midi/" + stem.name + ".mid";
+                if (stem.midi.empty() && ! stem.recorded) stem.midi = "midi/" + stem.name + ".mid";
             }
             if (isReturn)
                 stem.midi = r.text(p, vocab::song::midi);       // only if it names one

@@ -188,7 +188,7 @@ ReaperResult writeReaperProject(const Song& song, const std::string& wavDirector
         result.missing.clear();     // here a part is missing when its MIDI file is, not its wav
         for (const auto& s : song.stems)
         {
-            if (s.isReturn)
+            if (s.isReturn || s.recorded)
                 continue;
             const auto path = s.midi.empty() ? std::string() : (s.midi.front() == '/' ? s.midi : songDirectory + "/" + s.midi);
             if (path.empty() || ! juce::File(juce::String(path)).existsAsFile())
