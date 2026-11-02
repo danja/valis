@@ -200,7 +200,7 @@ E5); and a set of instruments modelled on the machines of a 1983 electronic
 record (a Source-style bass, a six-string bass, a Prophet-style poly synth, a
 sampler choir, string machine, and a speaker-and-room effect) with an original
 instrumental played by them. See [the 1983-style track](docs/new-order-track.md)
-the [examples](docs/examples.md) and the [circuit catalogue](https://danja.github.io/valis/catalogue.html).
+the [examples](docs/examples.md) and the [circuit catalogue](https://danja.github.io/valis/catalogue.html) and [element catalogue](https://danja.github.io/valis/element-catalogue.html).
 
 ## Development
 

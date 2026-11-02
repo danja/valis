@@ -14,7 +14,7 @@
 namespace valis {
 
 void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const std::vector<TimedNote>& score,
-                  const BlockRun& run, StereoAudio& out)
+                  const BlockRun& run, StereoAudio& out, std::vector<TimedNote>* eventsOut)
 {
     out.sampleRate = run.sampleRate;
     out.left.assign(input.size(), 0.0f);
@@ -43,6 +43,19 @@ void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const st
         engine.setTransport(transport);
 
         engine.process(input.data() + at, out.left.data() + at, out.right.data() + at, n);
+
+        if (eventsOut != nullptr)
+            for (int i = 0; i < engine.outputEventCount(); ++i)
+            {
+                const auto& e = engine.outputEvent(i);
+                TimedNote note;
+                note.sample   = sample + std::clamp(e.sampleOffset, 0, n - 1);
+                note.on       = e.noteOn;
+                note.note     = e.note;
+                note.velocity = e.velocity;
+                note.channel  = e.channel;
+                eventsOut->push_back(note);
+            }
     }
 }
 
@@ -115,7 +128,14 @@ OfflineRenderResult renderCircuitFile(const Ontology& ontology, const ElementReg
     run.tempo = tempo;
     run.rolling = request.rolling;
     run.blockSize = block;
-    renderBlocks(engine, input, score, run, result.audio);
+    std::vector<TimedNote> sent;
+    renderBlocks(engine, input, score, run, result.audio, request.midiOutPath.empty() ? nullptr : &sent);
+    if (! request.midiOutPath.empty())
+    {
+        if (! writeMidiScore(request.midiOutPath, sent, tempo, rate, error))
+            return fail(error);
+        result.midiEventsOut = sent.size();
+    }
 
     double sum = 0.0;
     for (std::size_t i = 0; i < input.size(); ++i)

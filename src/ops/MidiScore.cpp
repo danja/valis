@@ -65,4 +65,47 @@ bool readMidiScore(const std::string& path, double tempoBpm, double sampleRate,
     return true;
 }
 
+bool writeMidiScore(const std::string& path, const std::vector<TimedNote>& notes, double tempoBpm, double sampleRate,
+                    std::string& error)
+{
+    if (tempoBpm <= 0.0 || sampleRate <= 0.0)
+    {
+        error = "tempo and sample rate must be above zero";
+        return false;
+    }
+
+    constexpr int division = 960;
+    juce::MidiMessageSequence track;
+    track.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / tempoBpm)), 0.0);
+
+    for (const auto& n : notes)
+    {
+        const double ticks = static_cast<double>(n.sample) / sampleRate * tempoBpm / 60.0 * division;
+        const int channel = std::clamp(n.channel, 1, 16);
+        if (n.controller >= 0)
+            track.addEvent(juce::MidiMessage::controllerEvent(channel, std::clamp(n.controller, 0, 127),
+                                                              static_cast<int>(std::lround(std::clamp(n.velocity, 0.0f, 1.0f) * 127.0f))),
+                           ticks);
+        else if (n.on)
+            track.addEvent(juce::MidiMessage::noteOn(channel, std::clamp(n.note, 0, 127), n.velocity), ticks);
+        else
+            track.addEvent(juce::MidiMessage::noteOff(channel, std::clamp(n.note, 0, 127)), ticks);
+    }
+    track.updateMatchedPairs();
+
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(division);
+    file.addTrack(track);
+
+    const auto target = juce::File::getCurrentWorkingDirectory().getChildFile(juce::String(path));
+    target.deleteFile();
+    juce::FileOutputStream out(target);
+    if (! out.openedOk() || ! file.writeTo(out))
+    {
+        error = "cannot write MIDI file " + path;
+        return false;
+    }
+    return true;
+}
+
 }  // namespace valis

@@ -68,6 +68,19 @@ to confirm a running instance before using MCP tools that require a host.
 - do not use em dashes or novel jargon
 - any references to concepts that aren't common knowledge should contain links to further information
 
+## Catalogues
+
+- `scripts/catalogue.py` builds the two searchable pages published with the docs: the circuit catalogue
+  (`catalogue.html`, one card per file in `circuits/`) and the element catalogue (`element-catalogue.html`, one card
+  per element in `vocabs/valis.ttl`, with its ports and the circuits that use it). Both are generated, never edited.
+  `docs.yml` runs it with rdflib; run `python3 scripts/catalogue.py /tmp/site` to check a change.
+- A circuit is found by its header comment (the first paragraph, after the line that names the file), its
+  `rdfs:label`, and its `trn:genre`, `trn:role` and `trn:accepts`. Write the header as a description someone can choose by,
+  and give a new circuit a `trn:PluginProfile` with a genre; without one it is classed by a guess.
+- A new element must be added to `GROUPS` in `scripts/catalogue_elements.py`. The script stops, and so does the docs build,
+  if an element is missing from it or listed there and gone from the ontology.
+- An element that no circuit uses is shown as such. Ship a circuit that demonstrates a new element.
+
 ## Controls view
 
 - A control port is drawn by its shape, not by default. A port that declares

@@ -44,6 +44,7 @@ struct Options
     double tempo      = 120.0; ///< the transport tempo reported to the circuit
     bool   rolling    = false; ///< whether the transport is running
     std::string midiPath;      ///< a standard MIDI file played into the circuit
+    std::string midiOutPath;   ///< where the notes a val:NoteOut sends are written as a standard MIDI file
     std::vector<std::pair<int, float>> controllers;   ///< --cc N=V: controller N set to V (0 to 1) before the first sample
 };
 
@@ -122,6 +123,7 @@ void usage()
         "  --gate-on <s>    time in seconds when the note fires (default 0.0)\n"
         "  --gate-off <s>   time in seconds when the note is released (default 80% of --seconds)\n"
         "  --midi <file>    play every note and controller change of a standard MIDI file at --tempo, in place of --note\n"
+        "  --midi-out <file>  write the notes a val:NoteOut sends out as a standard MIDI file, at --tempo\n"
         "  --cc <n>=<v>     set MIDI controller n (0-127) to v (0.0-1.0) before the first sample; repeat for more\n"
         "\n"
         "Transport (for circuits that take their timing from the host):\n"
@@ -152,6 +154,7 @@ bool parse(int argc, char** argv, Options& options)
         else if (arg == "--tempo")               options.tempo      = std::stod(next());
         else if (arg == "--rolling")             options.rolling    = true;
         else if (arg == "--midi")                options.midiPath   = next();
+        else if (arg == "--midi-out")            options.midiOutPath = next();
         else if (arg == "--cc")
         {
             const std::string spec = next();
@@ -332,7 +335,18 @@ int main(int argc, char** argv)
     run.rolling = options.rolling;
     run.blockSize = options.blockSize;
     valis::StereoAudio audio;
-    valis::renderBlocks(engine, input, score, run, audio);
+    std::vector<valis::TimedNote> sent;
+    valis::renderBlocks(engine, input, score, run, audio, options.midiOutPath.empty() ? nullptr : &sent);
+    if (! options.midiOutPath.empty())
+    {
+        std::string midiError;
+        if (! valis::writeMidiScore(options.midiOutPath, sent, options.tempo, options.sampleRate, midiError))
+        {
+            std::fprintf(stderr, "%s\n", midiError.c_str());
+            return 1;
+        }
+        std::printf("%s: %zu note events\n", options.midiOutPath.c_str(), sent.size());
+    }
     auto& outputL = audio.left;
     auto& outputR = audio.right;
 

@@ -32,8 +32,10 @@ struct BlockRun
     int    blockSize = 512;
 };
 
+/// With `eventsOut`, the note events the circuit sends out (val:NoteOut) are appended to it, each at its position in the
+/// stream: the block's first sample plus its offset inside the block. They arrive in order.
 void renderBlocks(ValisEngine& engine, const std::vector<float>& input, const std::vector<TimedNote>& score,
-                  const BlockRun& run, StereoAudio& out);
+                  const BlockRun& run, StereoAudio& out, std::vector<TimedNote>* eventsOut = nullptr);
 
 struct OfflineRenderRequest
 {
@@ -45,6 +47,7 @@ struct OfflineRenderRequest
     double tempo = 120.0;
     bool   rolling = false;     ///< report the transport as playing from zero
     int    blockSize = 512;
+    std::string midiOutPath;    ///< the notes a val:NoteOut sends are written here as a MIDI file; empty for none
 };
 
 struct OfflineRenderResult
@@ -55,6 +58,7 @@ struct OfflineRenderResult
     StereoAudio audio;
     std::size_t nodes = 0;
     double peak = 0.0, rms = 0.0;       ///< of the mono sum of the two sides
+    std::size_t midiEventsOut = 0;      ///< note events written to the request's midiOutPath
     std::size_t nonFinite = 0;          ///< samples that were NaN or infinite; the stem is unusable if any
 };
 

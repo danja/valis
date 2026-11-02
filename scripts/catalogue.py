@@ -8,6 +8,8 @@ import json, re, sys
 from pathlib import Path
 from rdflib import Graph, Namespace, RDF, RDFS
 
+import catalogue_elements
+
 VAL = Namespace("http://purl.org/stuff/valis/")
 TRN = Namespace("http://purl.org/stuff/transmissions/")
 REPO = "https://github.com/danja/valis/blob/main/circuits/"
@@ -88,11 +90,11 @@ body{max-width:62rem}
 .tag{display:inline-block;margin:.1rem .25rem .1rem 0;padding:0 .5rem;border-radius:4px;background:#8882;font-size:.78rem;cursor:pointer}
 mark{background:#f5d76e;color:#000}
 </style></head><body>
-<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a> · <a href="catalogue.html">Catalogue</a>
- · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a> · <a href="https://github.com/danja/valis">GitHub</a></nav>
+<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a> · <a href="catalogue.html">Circuit catalogue</a>
+ · <a href="element-catalogue.html">Element catalogue</a> · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a> · <a href="https://github.com/danja/valis">GitHub</a></nav>
 <h1>Circuit catalogue</h1>
 <p>Every circuit in <code>circuits/</code>. Type to search names, descriptions, genres and the elements a circuit uses
-(try <code>Glottal</code> or <code>Ladder</code>). Choose a kind, genre or element to narrow the list. Each element links to its entry in the
+(try <code>Glottal</code> or <code>Ladder</code>). The <a href="element-catalogue.html">element catalogue</a> is the same idea for the parts themselves. Choose a kind, genre or element to narrow the list. Each element links to its entry in the
 <a href="elements.html">element reference</a>.</p>
 <input id="q" type="search" placeholder="Search circuits, for example: bell, drums, val:Ladder, dub" autofocus>
 <div id="kinds" class="facets"></div><div id="genres" class="facets"></div>
@@ -148,6 +150,7 @@ def main():
     (out / "catalogue.json").write_text(json.dumps(data, indent=1), encoding="utf-8")
     page = PAGE.replace("__DATA__", json.dumps(data).replace("</", "<\\/"))
     (out / "catalogue.html").write_text(page, encoding="utf-8")
+    catalogue_elements.write(out, data)
     print(f"catalogue: {len(data)} circuits, {sum(1 for d in data if not d['genres'])} without genres")
 
 

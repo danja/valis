@@ -61,6 +61,7 @@ set(VALIS_TESTS
   dsp/StateVariableDriveTest.cpp
   dsp/CompressorTest.cpp
   engine/ValisEngineTest.cpp
+  engine/MidiOutTest.cpp
   engine/Tr909VelocityTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp

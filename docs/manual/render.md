@@ -45,6 +45,7 @@ An instrument given none of these renders silence, and so does an effect given n
 | `--gate-on S` | when the note starts, in seconds | 0 |
 | `--gate-off S` | when it is released | 80% of `--seconds` |
 | `--midi FILE` | play every note of a standard MIDI file, in place of `--note` | none |
+| `--midi-out FILE` | write the notes a `val:NoteOut` sends as a standard MIDI file, timed at `--tempo` | none |
 
 Release comes before the end so the tail of the note is part of the render. A plucked or struck sound keeps ringing
 after release, so allow enough `--seconds`.
