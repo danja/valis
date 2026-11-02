@@ -3,6 +3,19 @@
 Short entries: what happened, why, and what prevents it. Rules that came out of
 an entry live in `CLAUDE.md`, which is where they get read.
 
+## A follower set to a target level
+
+**What happened.** In "All Fall Down" the snare and hat were set to `val:follows :kick` with levels of -19 and -27, read as
+target levels (or as the difference between two levels, which is what `docs/songs.md` said). The first mix had them 25 and
+45 dB under the kick and nearly inaudible. The numbers were in the mix report; the balance was only checked after a
+per-stem measurement of each part's level in the drop.
+
+**Root cause.** `songmix` sets a follower's gain to its leader's gain plus the follower's own `val:level`, so the level is
+an offset in dB and cannot be above 0. The documentation described something else.
+
+**Prevention.** The sentence in `docs/songs.md` now says what the code does. After a mix, print each stem's rms in a drop
+with its gain applied, as was done here, before trusting the balance.
+
 ## A part that played once
 
 **What happened.** The bass-guitar stem of "Tenement Lights" rendered with a normal peak and an rms that looked

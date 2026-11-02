@@ -1,0 +1,268 @@
+# examples/nursery-rock-a-bye-pad.ttl
+#
+# A pad for "Rock-a-bye Baby". Each key sounds a root, a fifth and an octave together (two saws and two triangles, one
+# saw 10 cents sharp). The filter is opened and closed by a slow low-frequency oscillator at 1.1667 Hz, one swing
+# every two beats at 140 bpm, like a cradle rocking in time with the track. A phaser, a shimmer an octave up, and a
+# six-second reverb follow.
+#
+# Hold one key per chord (the fifth and octave are built in). Play it from C2 to C4. Monophonic.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryrockabyepad#> .
+
+:nurseryrockabyepad a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Pad", "Lullaby", "Dance" ;
+    rdfs:label "Rock-a-bye Pad" ;
+    val:element :pitch , :fifthR , :octR , :detR , :o1 , :o2 , :o3 , :o4 , :g1 , :g2 , :g3 , :g4 , :mix , :rock , :rockDepth , :cutoff , :vcf , :ampEnv , :vca , :swirl , :up , :room , :dc , :trim , :limit , :out ;
+    val:arc :a_pitch_out__o1_frequency ,
+        :a_pitch_out__detR_a ,
+        :a_detR_out__o2_frequency ,
+        :a_pitch_out__fifthR_a ,
+        :a_fifthR_out__o3_frequency ,
+        :a_pitch_out__octR_a ,
+        :a_octR_out__o4_frequency ,
+        :a_o1_out__g1_in ,
+        :a_o2_out__g2_in ,
+        :a_o3_out__g3_in ,
+        :a_o4_out__g4_in ,
+        :a_g1_out__mix_in ,
+        :a_g2_out__mix_in ,
+        :a_g3_out__mix_in ,
+        :a_g4_out__mix_in ,
+        :a_rock_out__rockDepth_a ,
+        :a_rockDepth_out__cutoff_a ,
+        :a_cutoff_out__vcf_cutoff ,
+        :a_mix_out__vcf_in ,
+        :a_vcf_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__swirl_in ,
+        :a_swirl_out__up_in ,
+        :a_up_out__room_in ,
+        :a_room_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:fifthR a val:ControlMultiply ;
+    val:b 1.4983 .
+
+:octR a val:ControlMultiply ;
+    val:b 2.0012 .
+
+:detR a val:ControlMultiply ;
+    val:b 1.0058 .
+
+:o1 a val:Oscillator ;
+    val:shape 1 .
+
+:o2 a val:Oscillator ;
+    val:shape 1 .
+
+:o3 a val:Oscillator ;
+    val:shape 3 .
+
+:o4 a val:Oscillator ;
+    val:shape 3 .
+
+:g1 a val:Gain ;
+    val:gain -8.0 .
+
+:g2 a val:Gain ;
+    val:gain -8.0 .
+
+:g3 a val:Gain ;
+    val:gain -7.0 .
+
+:g4 a val:Gain ;
+    val:gain -9.0 .
+
+:mix a val:Mixer .
+
+:rock a val:LFO ;
+    val:rate 1.1667 .
+
+:rockDepth a val:ControlMultiply ;
+    val:b 650.0 .
+
+:cutoff a val:ControlAdd ;
+    val:b 1250.0 .
+
+:vcf a val:Ladder ;
+    val:resonance 0.12 ;
+    val:drive 1.1 .
+
+:ampEnv a val:Envelope ;
+    val:attack 450.0 ;
+    val:decay 700.0 ;
+    val:sustain 0.85 ;
+    val:release 1500.0 .
+
+:vca a val:VCA .
+
+:swirl a val:Phaser ;
+    val:rate 0.18 ;
+    val:depth 0.8 ;
+    val:feedback 0.35 ;
+    val:mix 0.4 .
+
+:up a val:PitchShift ;
+    val:pitch 12.0 ;
+    val:mix 0.28 .
+
+:room a val:Reverb ;
+    val:size 1.4 ;
+    val:decay 6.0 ;
+    val:damping 0.45 ;
+    val:mix 0.42 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 70.0 .
+
+:trim a val:Gain ;
+    val:gain 3.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__o1_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :o1 ; val:port "frequency" ] .
+:a_pitch_out__detR_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detR ; val:port "a" ] .
+:a_detR_out__o2_frequency a val:Arc ;
+    val:from [ val:node :detR ; val:port "out" ] ;
+    val:to   [ val:node :o2 ; val:port "frequency" ] .
+:a_pitch_out__fifthR_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :fifthR ; val:port "a" ] .
+:a_fifthR_out__o3_frequency a val:Arc ;
+    val:from [ val:node :fifthR ; val:port "out" ] ;
+    val:to   [ val:node :o3 ; val:port "frequency" ] .
+:a_pitch_out__octR_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :octR ; val:port "a" ] .
+:a_octR_out__o4_frequency a val:Arc ;
+    val:from [ val:node :octR ; val:port "out" ] ;
+    val:to   [ val:node :o4 ; val:port "frequency" ] .
+:a_o1_out__g1_in a val:Arc ;
+    val:from [ val:node :o1 ; val:port "out" ] ;
+    val:to   [ val:node :g1 ; val:port "in" ] .
+:a_o2_out__g2_in a val:Arc ;
+    val:from [ val:node :o2 ; val:port "out" ] ;
+    val:to   [ val:node :g2 ; val:port "in" ] .
+:a_o3_out__g3_in a val:Arc ;
+    val:from [ val:node :o3 ; val:port "out" ] ;
+    val:to   [ val:node :g3 ; val:port "in" ] .
+:a_o4_out__g4_in a val:Arc ;
+    val:from [ val:node :o4 ; val:port "out" ] ;
+    val:to   [ val:node :g4 ; val:port "in" ] .
+:a_g1_out__mix_in a val:Arc ;
+    val:from [ val:node :g1 ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_g2_out__mix_in a val:Arc ;
+    val:from [ val:node :g2 ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_g3_out__mix_in a val:Arc ;
+    val:from [ val:node :g3 ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_g4_out__mix_in a val:Arc ;
+    val:from [ val:node :g4 ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_rock_out__rockDepth_a a val:Arc ;
+    val:from [ val:node :rock ; val:port "out" ] ;
+    val:to   [ val:node :rockDepth ; val:port "a" ] .
+:a_rockDepth_out__cutoff_a a val:Arc ;
+    val:from [ val:node :rockDepth ; val:port "out" ] ;
+    val:to   [ val:node :cutoff ; val:port "a" ] .
+:a_cutoff_out__vcf_cutoff a val:Arc ;
+    val:from [ val:node :cutoff ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "cutoff" ] .
+:a_mix_out__vcf_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__swirl_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :swirl ; val:port "in" ] .
+:a_swirl_out__up_in a val:Arc ;
+    val:from [ val:node :swirl ; val:port "out" ] ;
+    val:to   [ val:node :up ; val:port "in" ] .
+:a_up_out__room_in a val:Arc ;
+    val:from [ val:node :up ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__dc_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :cutoff ; val:property val:b ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 200 ; lv2:maximum 5000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :rockDepth ; val:property val:b ;
+    lv2:name "Rock depth" ; lv2:symbol "rock_depth" ;
+    lv2:minimum 0 ; lv2:maximum 2500 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :rock ; val:property val:rate ;
+    lv2:name "Rock rate" ; lv2:symbol "rock_rate" ;
+    lv2:minimum 0.05 ; lv2:maximum 6 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :vcf ; val:property val:resonance ;
+    lv2:name "Emphasis" ; lv2:symbol "emphasis" ;
+    lv2:minimum 0 ; lv2:maximum 0.8 ;
+    val:section "Filter" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :up ; val:property val:mix ;
+    lv2:name "Shimmer" ; lv2:symbol "shimmer" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :ampEnv ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 5 ; lv2:maximum 3000 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :ampEnv ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 50 ; lv2:maximum 6000 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .

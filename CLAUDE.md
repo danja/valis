@@ -216,6 +216,13 @@ to confirm a running instance before using MCP tools that require a host.
    compiled form prints identically in both, the binaries differ, not the code.
 6. Update milestone status in `docs/plan.md` when a milestone completes.
 
+## Making a track
+
+The whole route from circuits to a track open in Reaper (plan, circuits, one generator script for the score and song,
+`valis-song score`, `render`, `stems`, `mix`, a FLAC and README, then `valis-song reaper --midi` and loading it) is in
+`docs/making-a-track.md`. Read it before making or changing a track. It lists what went wrong before: a `val:follows` level is an
+offset not a target, a mix balance must be printed per stem, and a project saved from Reaper writes the instruments' state back.
+
 ## Valis artifacts
 
 Finished creations made with Valis (tracks, stems, MIDI, sleeves, lyrics) go in a separate

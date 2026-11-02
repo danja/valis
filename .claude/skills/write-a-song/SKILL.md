@@ -5,6 +5,8 @@ description: Write, render and mix a song from Valis circuits. Use when asked to
 
 # Write a song from Valis circuits
 
+The full route, including the Reaper project, is `docs/making-a-track.md`; read it first.
+
 A song is a `song.ttl` (see `docs/songs.md`) plus a score script that writes the MIDI. Copy
 `scripts/dub-metal/track.py` and its `song.ttl` in the artifacts repo. The first two songs, `scripts/archive/halloween/`
 ("Dead at Midnight", `docs/halloween-process.md`) and `scripts/archive/electro83/` ("Tenement Lights",

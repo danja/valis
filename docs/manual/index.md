@@ -40,6 +40,7 @@ can read, edit and hand to a language model.
 - [Granular synthesiser](granular.md) : grains from a sound file or live audio, timed by the host transport
 - [A 1983-style track](../new-order-track.md) : researching a record's machines, modelling them as circuits, and writing an original piece with them
 - [Making a song with Valis](../halloween-process.md) : MIDI, offline stems, a mix, and Reaper
+- [Making a track, from circuits to Reaper](../making-a-track.md) : the current route, step by step, with the faults met on the way
 
 ### See Also
 

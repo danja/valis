@@ -1,0 +1,263 @@
+# examples/nursery-twinkle-lead.ttl
+#
+# A monophonic lead for "Twinkle, Twinkle, Little Star". Two slightly detuned wavetable voices (saw and triangle
+# region) pass through a frequency shifter with feedback (val:FreqShifter): it adds a few hertz to every partial and
+# returns the result to its own input, so each repeat sits a little higher and the tone climbs and shimmers, as the
+# barberpole effect does. Every note also strikes a marimba-bar resonator (val:ModalBank, mode 0) two octaves above, a
+# short glint like a star. Chorus and a small room finish it.
+#
+# Play it from C4 to C6. Monophonic.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurserytwinklelead#> .
+
+:nurserytwinklelead a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Lead", "Shimmer", "Dance" ;
+    rdfs:label "Twinkle Lead" ;
+    val:element :pitch , :tone , :toneScale , :a , :b , :bRatio , :aLvl , :bLvl , :mix , :shimmer , :glintPitch , :glintNoise , :glintEnv , :glintVca , :glint , :glintLvl , :sum , :chorus , :ampEnv , :vca , :room , :dc , :trim , :limit , :out ;
+    val:arc :a_pitch_out__a_frequency ,
+        :a_pitch_out__bRatio_a ,
+        :a_bRatio_out__b_frequency ,
+        :a_tone_out__toneScale_in ,
+        :a_toneScale_out__a_position ,
+        :a_a_out__aLvl_in ,
+        :a_b_out__bLvl_in ,
+        :a_aLvl_out__mix_in ,
+        :a_bLvl_out__mix_in ,
+        :a_mix_out__shimmer_in ,
+        :a_pitch_out__glintPitch_a ,
+        :a_glintPitch_out__glint_frequency ,
+        :a_glintNoise_out__glintVca_in ,
+        :a_glintEnv_out__glintVca_cv ,
+        :a_glintVca_out__glint_in ,
+        :a_glint_out__glintLvl_in ,
+        :a_shimmer_out__sum_in ,
+        :a_glintLvl_out__sum_in ,
+        :a_sum_out__chorus_in ,
+        :a_chorus_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__room_in ,
+        :a_room_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:tone a val:Envelope ;
+    val:attack 4.0 ;
+    val:decay 420.0 ;
+    val:sustain 0.35 ;
+    val:release 300.0 .
+
+:toneScale a val:Scale ;
+    val:min 0.2 ;
+    val:max 0.62 .
+
+:a a val:Wavetable ;
+    val:set 0 .
+
+:b a val:Wavetable ;
+    val:set 0 ;
+    val:position 0.1 .
+
+:bRatio a val:ControlMultiply ;
+    val:b 1.0036 .
+
+:aLvl a val:Gain ;
+    val:gain -3.0 .
+
+:bLvl a val:Gain ;
+    val:gain -6.0 .
+
+:mix a val:Mixer .
+
+:shimmer a val:FreqShifter ;
+    val:shift 4.0 ;
+    val:feedback 0.6 ;
+    val:mix 0.45 .
+
+:glintPitch a val:ControlMultiply ;
+    val:b 4.0 .
+
+:glintNoise a val:Noise ;
+    val:colour 0.7 .
+
+:glintEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 4.0 ;
+    val:sustain 0.0 ;
+    val:release 3.0 .
+
+:glintVca a val:VCA .
+
+:glint a val:ModalBank ;
+    val:mode 0 ;
+    val:decay 0.7 ;
+    val:brightness 1.0 .
+
+:glintLvl a val:Gain ;
+    val:gain -8.0 .
+
+:sum a val:Mixer .
+
+:chorus a val:Chorus ;
+    val:rate 0.7 ;
+    val:depth 1.6 ;
+    val:mix 0.4 .
+
+:ampEnv a val:Envelope ;
+    val:attack 3.0 ;
+    val:decay 260.0 ;
+    val:sustain 0.7 ;
+    val:release 280.0 .
+
+:vca a val:VCA .
+
+:room a val:Reverb ;
+    val:size 0.9 ;
+    val:decay 2.4 ;
+    val:damping 0.5 ;
+    val:mix 0.25 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 60.0 .
+
+:trim a val:Gain ;
+    val:gain -3.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__a_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :a ; val:port "frequency" ] .
+:a_pitch_out__bRatio_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :bRatio ; val:port "a" ] .
+:a_bRatio_out__b_frequency a val:Arc ;
+    val:from [ val:node :bRatio ; val:port "out" ] ;
+    val:to   [ val:node :b ; val:port "frequency" ] .
+:a_tone_out__toneScale_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :toneScale ; val:port "in" ] .
+:a_toneScale_out__a_position a val:Arc ;
+    val:from [ val:node :toneScale ; val:port "out" ] ;
+    val:to   [ val:node :a ; val:port "position" ] .
+:a_a_out__aLvl_in a val:Arc ;
+    val:from [ val:node :a ; val:port "out" ] ;
+    val:to   [ val:node :aLvl ; val:port "in" ] .
+:a_b_out__bLvl_in a val:Arc ;
+    val:from [ val:node :b ; val:port "out" ] ;
+    val:to   [ val:node :bLvl ; val:port "in" ] .
+:a_aLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :aLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_bLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :bLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__shimmer_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :shimmer ; val:port "in" ] .
+:a_pitch_out__glintPitch_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :glintPitch ; val:port "a" ] .
+:a_glintPitch_out__glint_frequency a val:Arc ;
+    val:from [ val:node :glintPitch ; val:port "out" ] ;
+    val:to   [ val:node :glint ; val:port "frequency" ] .
+:a_glintNoise_out__glintVca_in a val:Arc ;
+    val:from [ val:node :glintNoise ; val:port "out" ] ;
+    val:to   [ val:node :glintVca ; val:port "in" ] .
+:a_glintEnv_out__glintVca_cv a val:Arc ;
+    val:from [ val:node :glintEnv ; val:port "out" ] ;
+    val:to   [ val:node :glintVca ; val:port "cv" ] .
+:a_glintVca_out__glint_in a val:Arc ;
+    val:from [ val:node :glintVca ; val:port "out" ] ;
+    val:to   [ val:node :glint ; val:port "in" ] .
+:a_glint_out__glintLvl_in a val:Arc ;
+    val:from [ val:node :glint ; val:port "out" ] ;
+    val:to   [ val:node :glintLvl ; val:port "in" ] .
+:a_shimmer_out__sum_in a val:Arc ;
+    val:from [ val:node :shimmer ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_glintLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :glintLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__chorus_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :chorus ; val:port "in" ] .
+:a_chorus_out__vca_in a val:Arc ;
+    val:from [ val:node :chorus ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__room_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__dc_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :toneScale ; val:property val:min ;
+    lv2:name "Brightness" ; lv2:symbol "brightness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :toneScale ; val:property val:max ;
+    lv2:name "Attack brightness" ; lv2:symbol "attack_brightness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :shimmer ; val:property val:shift ;
+    lv2:name "Shimmer shift" ; lv2:symbol "shimmer_shift" ;
+    lv2:minimum -40 ; lv2:maximum 80 ;
+    val:section "Shimmer" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :shimmer ; val:property val:feedback ;
+    lv2:name "Shimmer feedback" ; lv2:symbol "shimmer_feedback" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Shimmer" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :shimmer ; val:property val:mix ;
+    lv2:name "Shimmer mix" ; lv2:symbol "shimmer_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Shimmer" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :glintLvl ; val:property val:gain ;
+    lv2:name "Glint level" ; lv2:symbol "glint_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Glint" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :ampEnv ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 20 ; lv2:maximum 3000 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Room" .

@@ -1,0 +1,263 @@
+# examples/nursery-wind-up-riser.ttl
+#
+# A riser for a build, modelled on a clockwork toy being wound. One envelope, the winding, drives four things. A guiro
+# (val:Shaker with regularity 1, a regular scrape) speeds up from 3 to 180 ticks a second, so a slow tick becomes a
+# buzz, the ratchet. Noise through a ladder filter whose cutoff climbs from 250 Hz to 9 kHz goes through a frequency
+# shifter with feedback whose shift also rises, so the noise seems to climb forever. A saw rises from A2 to A6. The level swells with it.
+#
+# Hold one note (any note) for the length of the build. The Wind time control is the length of the climb, up to 5 seconds;
+# at 140 bpm that is 2.9 bars, and 3.43 seconds is two bars. After that it holds at the top until the key is released.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurserywindupriser#> .
+
+:nurserywindupriser a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Riser", "FX", "Dance" ;
+    rdfs:label "Wind-up Riser" ;
+    val:element :wind , :tickRate , :ratchet , :ratchetLvl , :air , :airCut , :airFilter , :airShift , :climb , :climbLvl , :pitch , :tone , :toneCut , :toneLvl , :mix , :grit , :swell , :vca , :room , :dc , :trim , :limit , :out ;
+    val:arc :a_wind_out__tickRate_in ,
+        :a_tickRate_out__ratchet_scrape ,
+        :a_ratchet_out__ratchetLvl_in ,
+        :a_wind_out__airCut_in ,
+        :a_airCut_out__airFilter_cutoff ,
+        :a_air_out__airFilter_in ,
+        :a_wind_out__airShift_in ,
+        :a_airShift_out__climb_shift ,
+        :a_airFilter_out__climb_in ,
+        :a_climb_out__climbLvl_in ,
+        :a_wind_out__pitch_in ,
+        :a_pitch_out__tone_frequency ,
+        :a_tone_out__toneCut_in ,
+        :a_toneCut_out__toneLvl_in ,
+        :a_ratchetLvl_out__mix_in ,
+        :a_climbLvl_out__mix_in ,
+        :a_toneLvl_out__mix_in ,
+        :a_mix_out__grit_in ,
+        :a_wind_out__swell_in ,
+        :a_grit_out__vca_in ,
+        :a_swell_out__vca_cv ,
+        :a_vca_out__room_in ,
+        :a_room_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:wind a val:Envelope ;
+    val:attack 5000.0 ;
+    val:decay 100.0 ;
+    val:sustain 1.0 ;
+    val:release 150.0 .
+
+:tickRate a val:Scale ;
+    val:min 3.0 ;
+    val:max 180.0 .
+
+:ratchet a val:Shaker ;
+    val:particles 60.0 ;
+    val:shake 4000.0 ;
+    val:sound 1.2 ;
+    val:frequency 6500.0 ;
+    val:resonance 4.0 ;
+    val:regularity 1.0 .
+
+:ratchetLvl a val:Gain ;
+    val:gain -4.0 .
+
+:air a val:Noise ;
+    val:colour 0.2 .
+
+:airCut a val:Scale ;
+    val:min 250.0 ;
+    val:max 9000.0 .
+
+:airFilter a val:Ladder ;
+    val:resonance 0.55 ;
+    val:drive 1.3 .
+
+:airShift a val:Scale ;
+    val:min 10.0 ;
+    val:max 420.0 .
+
+:climb a val:FreqShifter ;
+    val:feedback 0.82 ;
+    val:mix 0.7 .
+
+:climbLvl a val:Gain ;
+    val:gain -9.0 .
+
+:pitch a val:Scale ;
+    val:min 110.0 ;
+    val:max 1760.0 .
+
+:tone a val:Oscillator ;
+    val:shape 1 .
+
+:toneCut a val:Ladder ;
+    val:cutoff 2600.0 ;
+    val:resonance 0.2 .
+
+:toneLvl a val:Gain ;
+    val:gain -12.0 .
+
+:mix a val:Mixer .
+
+:grit a val:Tanh ;
+    val:gain 1.6 .
+
+:swell a val:Scale ;
+    val:min 0.0 ;
+    val:max 1.0 .
+
+:vca a val:VCA .
+
+:room a val:Reverb ;
+    val:size 0.9 ;
+    val:decay 1.8 ;
+    val:damping 0.5 ;
+    val:mix 0.18 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 120.0 .
+
+:trim a val:Gain ;
+    val:gain 1.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_wind_out__tickRate_in a val:Arc ;
+    val:from [ val:node :wind ; val:port "out" ] ;
+    val:to   [ val:node :tickRate ; val:port "in" ] .
+:a_tickRate_out__ratchet_scrape a val:Arc ;
+    val:from [ val:node :tickRate ; val:port "out" ] ;
+    val:to   [ val:node :ratchet ; val:port "scrape" ] .
+:a_ratchet_out__ratchetLvl_in a val:Arc ;
+    val:from [ val:node :ratchet ; val:port "out" ] ;
+    val:to   [ val:node :ratchetLvl ; val:port "in" ] .
+:a_wind_out__airCut_in a val:Arc ;
+    val:from [ val:node :wind ; val:port "out" ] ;
+    val:to   [ val:node :airCut ; val:port "in" ] .
+:a_airCut_out__airFilter_cutoff a val:Arc ;
+    val:from [ val:node :airCut ; val:port "out" ] ;
+    val:to   [ val:node :airFilter ; val:port "cutoff" ] .
+:a_air_out__airFilter_in a val:Arc ;
+    val:from [ val:node :air ; val:port "out" ] ;
+    val:to   [ val:node :airFilter ; val:port "in" ] .
+:a_wind_out__airShift_in a val:Arc ;
+    val:from [ val:node :wind ; val:port "out" ] ;
+    val:to   [ val:node :airShift ; val:port "in" ] .
+:a_airShift_out__climb_shift a val:Arc ;
+    val:from [ val:node :airShift ; val:port "out" ] ;
+    val:to   [ val:node :climb ; val:port "shift" ] .
+:a_airFilter_out__climb_in a val:Arc ;
+    val:from [ val:node :airFilter ; val:port "out" ] ;
+    val:to   [ val:node :climb ; val:port "in" ] .
+:a_climb_out__climbLvl_in a val:Arc ;
+    val:from [ val:node :climb ; val:port "out" ] ;
+    val:to   [ val:node :climbLvl ; val:port "in" ] .
+:a_wind_out__pitch_in a val:Arc ;
+    val:from [ val:node :wind ; val:port "out" ] ;
+    val:to   [ val:node :pitch ; val:port "in" ] .
+:a_pitch_out__tone_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :tone ; val:port "frequency" ] .
+:a_tone_out__toneCut_in a val:Arc ;
+    val:from [ val:node :tone ; val:port "out" ] ;
+    val:to   [ val:node :toneCut ; val:port "in" ] .
+:a_toneCut_out__toneLvl_in a val:Arc ;
+    val:from [ val:node :toneCut ; val:port "out" ] ;
+    val:to   [ val:node :toneLvl ; val:port "in" ] .
+:a_ratchetLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :ratchetLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_climbLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :climbLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_toneLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :toneLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__grit_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :grit ; val:port "in" ] .
+:a_wind_out__swell_in a val:Arc ;
+    val:from [ val:node :wind ; val:port "out" ] ;
+    val:to   [ val:node :swell ; val:port "in" ] .
+:a_grit_out__vca_in a val:Arc ;
+    val:from [ val:node :grit ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_swell_out__vca_cv a val:Arc ;
+    val:from [ val:node :swell ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__room_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__dc_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :wind ; val:property val:attack ;
+    lv2:name "Wind time" ; lv2:symbol "wind_time" ;
+    lv2:minimum 500 ; lv2:maximum 5000 ;
+    val:section "Build" ;
+    units:unit units:ms .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :tickRate ; val:property val:max ;
+    lv2:name "Top tick rate" ; lv2:symbol "top_tick_rate" ;
+    lv2:minimum 20 ; lv2:maximum 400 ;
+    val:section "Ratchet" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :ratchetLvl ; val:property val:gain ;
+    lv2:name "Ratchet level" ; lv2:symbol "ratchet_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Ratchet" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :airCut ; val:property val:max ;
+    lv2:name "Top cutoff" ; lv2:symbol "top_cutoff" ;
+    lv2:minimum 1000 ; lv2:maximum 16000 ;
+    val:section "Air" ;
+    units:unit units:hertz .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :airShift ; val:property val:max ;
+    lv2:name "Top shift" ; lv2:symbol "top_shift" ;
+    lv2:minimum 0 ; lv2:maximum 1000 ;
+    val:section "Air" ;
+    units:unit units:hertz .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :pitch ; val:property val:max ;
+    lv2:name "Top pitch" ; lv2:symbol "top_pitch" ;
+    lv2:minimum 220 ; lv2:maximum 4000 ;
+    val:section "Tone" ;
+    units:unit units:hertz .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :toneLvl ; val:property val:gain ;
+    lv2:name "Tone level" ; lv2:symbol "tone_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Tone" ;
+    units:unit units:db .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :swell ; val:property val:min ;
+    lv2:name "Start level" ; lv2:symbol "start_level" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Build" .

@@ -50,7 +50,7 @@ the command line tool `valis-song` all use. A score script reads it from Python 
 | `val:midi` | Part | MIDI file, relative to the song file | `midi/<name>.mid` |
 | `val:midi` | Return | MIDI file played into the return's circuit as well as the source stem (for a Leslie speed switch, say) | none |
 | `val:silent` | Part | `true` renders the part but leaves it out of the mix | false |
-| `val:follows` | Part | Another part. This part takes that part's gain plus the difference between the two `val:level` values, instead of being levelled by its own rms. For sparse percussion that should keep its balance with the kit | none |
+| `val:follows` | Part | Another part. This part takes that part's gain plus its own `val:level`, which is therefore a number of dB under the leader's gain (0 or below, since a level above 0 is refused), instead of being levelled by its own rms. For sparse percussion that should keep its balance with the kit | none |
 | `val:source` | Return | The part whose stem is the return's input | required |
 | `val:pan` | Part, Return | -1 left, 0 centre, 1 right. A stereo stem keeps its image and takes the pan as a balance | 0 |
 | `val:highpass` | Part, Return | Second-order high-pass corner in Hz, 0 for none | 0 |
@@ -154,7 +154,7 @@ a reference to judge the arrangement by. It is measured, not heard, and vocals a
 
 **Followers and played returns.** A sparse part such as percussion is levelled by its own playing RMS, which would make a
 few hits as loud as a full kit. Give it `val:follows` and the name of another part: it then takes that part's gain, adjusted by
-the difference between the two `val:level` values, so it keeps the balance it was played at. Only a part that is not itself a
+its own `val:level` as an offset in dB, so it keeps the balance it was played at. Only a part that is not itself a
 follower can be followed, and a return cannot follow. A return may also name a `val:midi` file, which is played into its
 circuit as well as the source stem; a rotating speaker whose speed is a MIDI note is the example.
 A part that exists only to feed a return takes `val:silent true`: it is rendered, so the return can read its stem, but it is

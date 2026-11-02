@@ -1,0 +1,217 @@
+# examples/nursery-black-sheep-bass.ttl
+#
+# A monophonic bass that says "baa". The oscillator is val:Wavetable on its Vowels set, whose position runs a, e, i,
+# o, u. Each note starts near 'o' and an envelope sweeps the position to 'a' over about 190 ms, the vowel
+# change of a sheep's "waaa". A sine at the played pitch keeps the fundamental the vowel formants would bury, an octave divider
+# (val:OctaveDivider) makes a square an octave below, and a
+# tanh stage adds wool (harmonics) before a ladder filter. A 35 ms glide slides between notes.
+#
+# Play it from E1 to E3 (the vowel peaks are fixed harmonic numbers, so they move with the note).
+# Monophonic.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryblacksheepbass#> .
+
+:nurseryblacksheepbass a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Bass", "Vowel", "Dance" ;
+    rdfs:label "Black Sheep Bass" ;
+    val:element :pitch , :glide , :vowelEnv , :vowelPos , :voice , :sub , :subLvl , :fund , :fundLvl , :mix , :wool , :vcf , :ampEnv , :vca , :dc , :trim , :limit , :out ;
+    val:arc :a_pitch_out__glide_in ,
+        :a_glide_out__voice_frequency ,
+        :a_vowelEnv_out__vowelPos_in ,
+        :a_vowelPos_out__voice_position ,
+        :a_voice_out__sub_in ,
+        :a_sub_out__subLvl_in ,
+        :a_voice_out__mix_in ,
+        :a_subLvl_out__mix_in ,
+        :a_glide_out__fund_frequency ,
+        :a_fund_out__fundLvl_in ,
+        :a_fundLvl_out__mix_in ,
+        :a_mix_out__wool_in ,
+        :a_wool_out__vcf_in ,
+        :a_vcf_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:glide a val:Slew ;
+    val:rise 35.0 ;
+    val:fall 35.0 .
+
+:vowelEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 190.0 ;
+    val:sustain 0.0 ;
+    val:release 120.0 .
+
+:vowelPos a val:Scale ;
+    val:min 0.04 ;
+    val:max 0.78 .
+
+:voice a val:Wavetable ;
+    val:set 2 .
+
+:sub a val:OctaveDivider ;
+    val:division 0.0 ;
+    val:dry 0.0 ;
+    val:wet 1.0 .
+
+:subLvl a val:Gain ;
+    val:gain -9.0 .
+
+:fund a val:Oscillator ;
+    val:shape 0 .
+
+:fundLvl a val:Gain ;
+    val:gain -3.0 .
+
+:mix a val:Mixer .
+
+:wool a val:Tanh ;
+    val:gain 3.0 .
+
+:vcf a val:Ladder ;
+    val:cutoff 1400.0 ;
+    val:resonance 0.18 ;
+    val:drive 1.4 .
+
+:ampEnv a val:Envelope ;
+    val:attack 2.0 ;
+    val:decay 300.0 ;
+    val:sustain 0.85 ;
+    val:release 90.0 .
+
+:vca a val:VCA .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 26.0 .
+
+:trim a val:Gain ;
+    val:gain -3.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__glide_in a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :glide ; val:port "in" ] .
+:a_glide_out__voice_frequency a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :voice ; val:port "frequency" ] .
+:a_vowelEnv_out__vowelPos_in a val:Arc ;
+    val:from [ val:node :vowelEnv ; val:port "out" ] ;
+    val:to   [ val:node :vowelPos ; val:port "in" ] .
+:a_vowelPos_out__voice_position a val:Arc ;
+    val:from [ val:node :vowelPos ; val:port "out" ] ;
+    val:to   [ val:node :voice ; val:port "position" ] .
+:a_voice_out__sub_in a val:Arc ;
+    val:from [ val:node :voice ; val:port "out" ] ;
+    val:to   [ val:node :sub ; val:port "in" ] .
+:a_sub_out__subLvl_in a val:Arc ;
+    val:from [ val:node :sub ; val:port "out" ] ;
+    val:to   [ val:node :subLvl ; val:port "in" ] .
+:a_voice_out__mix_in a val:Arc ;
+    val:from [ val:node :voice ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_subLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :subLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_glide_out__fund_frequency a val:Arc ;
+    val:from [ val:node :glide ; val:port "out" ] ;
+    val:to   [ val:node :fund ; val:port "frequency" ] .
+:a_fund_out__fundLvl_in a val:Arc ;
+    val:from [ val:node :fund ; val:port "out" ] ;
+    val:to   [ val:node :fundLvl ; val:port "in" ] .
+:a_fundLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :fundLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__wool_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :wool ; val:port "in" ] .
+:a_wool_out__vcf_in a val:Arc ;
+    val:from [ val:node :wool ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__dc_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :vowelPos ; val:property val:min ;
+    lv2:name "Resting vowel" ; lv2:symbol "rest_vowel" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :vowelPos ; val:property val:max ;
+    lv2:name "Start vowel" ; lv2:symbol "start_vowel" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Voice" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :vowelEnv ; val:property val:decay ;
+    lv2:name "Baa length" ; lv2:symbol "baa_length" ;
+    lv2:minimum 30 ; lv2:maximum 800 ;
+    val:section "Voice" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :glide ; val:property val:rise ;
+    lv2:name "Glide up" ; lv2:symbol "glide_up" ;
+    lv2:minimum 0 ; lv2:maximum 300 ;
+    val:section "Voice" ;
+    units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :subLvl ; val:property val:gain ;
+    lv2:name "Sub level" ; lv2:symbol "sub_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Mix" ;
+    units:unit units:db .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :fundLvl ; val:property val:gain ;
+    lv2:name "Fundamental" ; lv2:symbol "fundamental" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Mix" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :wool ; val:property val:gain ;
+    lv2:name "Wool" ; lv2:symbol "wool" ;
+    lv2:minimum 0.5 ; lv2:maximum 12 ;
+    val:section "Mix" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :vcf ; val:property val:cutoff ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 120 ; lv2:maximum 6000 ;
+    val:section "Filter" ;
+    units:unit units:hertz .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Amp decay" ; lv2:symbol "amp_decay" ;
+    lv2:minimum 40 ; lv2:maximum 1500 ;
+    val:section "Amplifier" ;
+    units:unit units:ms .

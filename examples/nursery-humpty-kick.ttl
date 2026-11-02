@@ -1,0 +1,196 @@
+# examples/nursery-humpty-kick.ttl
+#
+# A kick drum named for Humpty Dumpty's fall. Two things fall together from a high pitch to a low one: a sine
+# (the thump) and a six-mode drumhead resonator (val:ModalBank, circular membrane) struck by a 7 ms noise burst.
+# The membrane's modes sit at 1, 1.59, 2.14, 2.30, 2.65 and 2.92 times its pitch, so as they fall they give the
+# low thump a tuned, wooden wobble, like a toy drum knocked off a shelf. A tanh stage joins them.
+#
+# Any note plays it. It is not pitched, so use one note (the Fall controls set the pitch it lands on).
+# For a 140 bpm track the thump is about a sixteenth long (107 ms); lengthen Body decay for a rounder four on the floor.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryhumptykick#> .
+
+:nurseryhumptykick a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Kick", "Drum", "Dance" ;
+    rdfs:label "Humpty Kick" ;
+    val:element :fall , :sinePitch , :headPitch , :body , :bodyEnv , :bodyVca , :hit , :hitEnv , :hitVca , :head , :headLvl , :mix , :drive , :dc , :trim , :limit , :out ;
+    val:arc :a_fall_out__sinePitch_in ,
+        :a_fall_out__headPitch_in ,
+        :a_sinePitch_out__body_frequency ,
+        :a_body_out__bodyVca_in ,
+        :a_bodyEnv_out__bodyVca_cv ,
+        :a_hit_out__hitVca_in ,
+        :a_hitEnv_out__hitVca_cv ,
+        :a_hitVca_out__head_in ,
+        :a_headPitch_out__head_frequency ,
+        :a_head_out__headLvl_in ,
+        :a_bodyVca_out__mix_in ,
+        :a_headLvl_out__mix_in ,
+        :a_mix_out__drive_in ,
+        :a_drive_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:fall a val:Envelope ;
+    val:attack 0.2 ;
+    val:decay 95.0 ;
+    val:sustain 0.0 ;
+    val:release 40.0 .
+
+:sinePitch a val:Scale ;
+    val:min 46.0 ;
+    val:max 250.0 .
+
+:headPitch a val:Scale ;
+    val:min 92.0 ;
+    val:max 520.0 .
+
+:body a val:Oscillator ;
+    val:shape 0 .
+
+:bodyEnv a val:Envelope ;
+    val:attack 0.3 ;
+    val:decay 260.0 ;
+    val:sustain 0.0 ;
+    val:release 60.0 .
+
+:bodyVca a val:VCA .
+
+:hit a val:Noise ;
+    val:colour 0.3 .
+
+:hitEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 7.0 ;
+    val:sustain 0.0 ;
+    val:release 5.0 .
+
+:hitVca a val:VCA .
+
+:head a val:ModalBank ;
+    val:mode 1 ;
+    val:decay 0.28 ;
+    val:brightness 0.55 .
+
+:headLvl a val:Gain ;
+    val:gain -5.0 .
+
+:mix a val:Mixer .
+
+:drive a val:Tanh ;
+    val:gain 2.2 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 22.0 .
+
+:trim a val:Gain ;
+    val:gain -4.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_fall_out__sinePitch_in a val:Arc ;
+    val:from [ val:node :fall ; val:port "out" ] ;
+    val:to   [ val:node :sinePitch ; val:port "in" ] .
+:a_fall_out__headPitch_in a val:Arc ;
+    val:from [ val:node :fall ; val:port "out" ] ;
+    val:to   [ val:node :headPitch ; val:port "in" ] .
+:a_sinePitch_out__body_frequency a val:Arc ;
+    val:from [ val:node :sinePitch ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "frequency" ] .
+:a_body_out__bodyVca_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :bodyVca ; val:port "in" ] .
+:a_bodyEnv_out__bodyVca_cv a val:Arc ;
+    val:from [ val:node :bodyEnv ; val:port "out" ] ;
+    val:to   [ val:node :bodyVca ; val:port "cv" ] .
+:a_hit_out__hitVca_in a val:Arc ;
+    val:from [ val:node :hit ; val:port "out" ] ;
+    val:to   [ val:node :hitVca ; val:port "in" ] .
+:a_hitEnv_out__hitVca_cv a val:Arc ;
+    val:from [ val:node :hitEnv ; val:port "out" ] ;
+    val:to   [ val:node :hitVca ; val:port "cv" ] .
+:a_hitVca_out__head_in a val:Arc ;
+    val:from [ val:node :hitVca ; val:port "out" ] ;
+    val:to   [ val:node :head ; val:port "in" ] .
+:a_headPitch_out__head_frequency a val:Arc ;
+    val:from [ val:node :headPitch ; val:port "out" ] ;
+    val:to   [ val:node :head ; val:port "frequency" ] .
+:a_head_out__headLvl_in a val:Arc ;
+    val:from [ val:node :head ; val:port "out" ] ;
+    val:to   [ val:node :headLvl ; val:port "in" ] .
+:a_bodyVca_out__mix_in a val:Arc ;
+    val:from [ val:node :bodyVca ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_headLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :headLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__drive_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :drive ; val:port "in" ] .
+:a_drive_out__dc_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :sinePitch ; val:property val:min ;
+    lv2:name "Low pitch" ; lv2:symbol "low_pitch" ;
+    lv2:minimum 30 ; lv2:maximum 90 ;
+    val:section "Fall" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :sinePitch ; val:property val:max ;
+    lv2:name "Start pitch" ; lv2:symbol "start_pitch" ;
+    lv2:minimum 90 ; lv2:maximum 500 ;
+    val:section "Fall" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :fall ; val:property val:decay ;
+    lv2:name "Fall time" ; lv2:symbol "fall_time" ;
+    lv2:minimum 20 ; lv2:maximum 400 ;
+    val:section "Fall" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :bodyEnv ; val:property val:decay ;
+    lv2:name "Body decay" ; lv2:symbol "body_decay" ;
+    lv2:minimum 60 ; lv2:maximum 900 ;
+    val:section "Body" ;
+    units:unit units:ms .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :head ; val:property val:decay ;
+    lv2:name "Head ring" ; lv2:symbol "head_ring" ;
+    lv2:minimum 0.05 ; lv2:maximum 1.5 ;
+    val:section "Head" ;
+    units:unit units:s .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :headLvl ; val:property val:gain ;
+    lv2:name "Head level" ; lv2:symbol "head_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Head" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :drive ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ;
+    lv2:minimum 1 ; lv2:maximum 8 ;
+    val:section "Body" .

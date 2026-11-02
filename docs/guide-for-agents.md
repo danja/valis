@@ -485,7 +485,8 @@ A song is a Turtle file of type `val:Song` beside its MIDI files: tempo, section
 part through an effect, and the mix (level, pan and high-pass per stem, the room, the fade, a target loudness). `read_song`
 checks it, `render_song` writes a stem per part and `mix_song` writes a versioned reference mix, all measured, not heard.
 The notes can be data as well: `val:score` names a file of patterns, chords and a plan, and `score_song` writes the MIDI;
-generated parts stay in a script. See [songs.md](songs.md) for the vocabulary and the `write-a-song` skill for the
+generated parts stay in a script. See [songs.md](songs.md) for the vocabulary, [making-a-track.md](making-a-track.md) for the
+whole route to a Reaper project, and the `write-a-song` skill for the
 method.
 
 ### Sectioned knob panel

@@ -1,0 +1,212 @@
+# examples/nursery-rattle-snare.ttl
+#
+# A snare for a baby-rattle backbeat. Three layers: a short noise burst strikes a rectangular-membrane resonator
+# (val:ModalBank, mode 2, tuned near 196 Hz) for the crack; a filtered noise tail gives the snap; and a bank of 140 beads
+# (val:Shaker, which models colliding particles and not filtered noise) gives a rattle that thins to single grains as it
+# dies. The sum goes through 11-bit, half-rate bit reduction for the cheap-toy grit.
+#
+# Any note plays it. A harder note shakes the beads harder.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryrattlesnare#> .
+
+:nurseryrattlesnare a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Snare", "Drum", "Dance" ;
+    rdfs:label "Rattle Snare" ;
+    val:element :crack , :crackEnv , :crackVca , :skin , :skinLvl , :snap , :snapEnv , :snapVca , :snapHp , :snapLvl , :beads , :beadsLvl , :mix , :toy , :drive , :dc , :trim , :limit , :out ;
+    val:arc :a_crack_out__crackVca_in ,
+        :a_crackEnv_out__crackVca_cv ,
+        :a_crackVca_out__skin_in ,
+        :a_skin_out__skinLvl_in ,
+        :a_snap_out__snapVca_in ,
+        :a_snapEnv_out__snapVca_cv ,
+        :a_snapVca_out__snapHp_in ,
+        :a_snapHp_out__snapLvl_in ,
+        :a_beads_out__beadsLvl_in ,
+        :a_skinLvl_out__mix_in ,
+        :a_snapLvl_out__mix_in ,
+        :a_beadsLvl_out__mix_in ,
+        :a_mix_out__toy_in ,
+        :a_toy_out__drive_in ,
+        :a_drive_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:crack a val:Noise ;
+    val:colour 0.1 .
+
+:crackEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 5.0 ;
+    val:sustain 0.0 ;
+    val:release 4.0 .
+
+:crackVca a val:VCA .
+
+:skin a val:ModalBank ;
+    val:mode 2 ;
+    val:frequency 196.0 ;
+    val:decay 0.17 ;
+    val:brightness 0.75 .
+
+:skinLvl a val:Gain ;
+    val:gain -2.0 .
+
+:snap a val:Noise ;
+    val:colour 0.55 .
+
+:snapEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 115.0 ;
+    val:sustain 0.0 ;
+    val:release 60.0 .
+
+:snapVca a val:VCA .
+
+:snapHp a val:Biquad ;
+    val:mode 4 ;
+    val:frequency 1700.0 ;
+    val:q 0.8 .
+
+:snapLvl a val:Gain ;
+    val:gain -7.0 .
+
+:beads a val:Shaker ;
+    val:particles 140.0 ;
+    val:shake 150.0 ;
+    val:sound 2.5 ;
+    val:frequency 5200.0 ;
+    val:resonance 2.2 .
+
+:beadsLvl a val:Gain ;
+    val:gain -5.0 .
+
+:mix a val:Mixer .
+
+:toy a val:Redux ;
+    val:bits 11.0 ;
+    val:downsample 2.0 .
+
+:drive a val:Tanh ;
+    val:gain 1.8 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 100.0 .
+
+:trim a val:Gain ;
+    val:gain -4.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_crack_out__crackVca_in a val:Arc ;
+    val:from [ val:node :crack ; val:port "out" ] ;
+    val:to   [ val:node :crackVca ; val:port "in" ] .
+:a_crackEnv_out__crackVca_cv a val:Arc ;
+    val:from [ val:node :crackEnv ; val:port "out" ] ;
+    val:to   [ val:node :crackVca ; val:port "cv" ] .
+:a_crackVca_out__skin_in a val:Arc ;
+    val:from [ val:node :crackVca ; val:port "out" ] ;
+    val:to   [ val:node :skin ; val:port "in" ] .
+:a_skin_out__skinLvl_in a val:Arc ;
+    val:from [ val:node :skin ; val:port "out" ] ;
+    val:to   [ val:node :skinLvl ; val:port "in" ] .
+:a_snap_out__snapVca_in a val:Arc ;
+    val:from [ val:node :snap ; val:port "out" ] ;
+    val:to   [ val:node :snapVca ; val:port "in" ] .
+:a_snapEnv_out__snapVca_cv a val:Arc ;
+    val:from [ val:node :snapEnv ; val:port "out" ] ;
+    val:to   [ val:node :snapVca ; val:port "cv" ] .
+:a_snapVca_out__snapHp_in a val:Arc ;
+    val:from [ val:node :snapVca ; val:port "out" ] ;
+    val:to   [ val:node :snapHp ; val:port "in" ] .
+:a_snapHp_out__snapLvl_in a val:Arc ;
+    val:from [ val:node :snapHp ; val:port "out" ] ;
+    val:to   [ val:node :snapLvl ; val:port "in" ] .
+:a_beads_out__beadsLvl_in a val:Arc ;
+    val:from [ val:node :beads ; val:port "out" ] ;
+    val:to   [ val:node :beadsLvl ; val:port "in" ] .
+:a_skinLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :skinLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_snapLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :snapLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_beadsLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :beadsLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_mix_out__toy_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :toy ; val:port "in" ] .
+:a_toy_out__drive_in a val:Arc ;
+    val:from [ val:node :toy ; val:port "out" ] ;
+    val:to   [ val:node :drive ; val:port "in" ] .
+:a_drive_out__dc_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :skin ; val:property val:frequency ;
+    lv2:name "Tune" ; lv2:symbol "tune" ;
+    lv2:minimum 120 ; lv2:maximum 400 ;
+    val:section "Skin" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :skin ; val:property val:decay ;
+    lv2:name "Skin ring" ; lv2:symbol "skin_ring" ;
+    lv2:minimum 0.03 ; lv2:maximum 0.8 ;
+    val:section "Skin" ;
+    units:unit units:s .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :snapEnv ; val:property val:decay ;
+    lv2:name "Snap length" ; lv2:symbol "snap_length" ;
+    lv2:minimum 20 ; lv2:maximum 400 ;
+    val:section "Snap" ;
+    units:unit units:ms .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :beads ; val:property val:particles ;
+    lv2:name "Beads" ; lv2:symbol "beads" ;
+    lv2:minimum 5 ; lv2:maximum 400 ;
+    val:section "Rattle" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :beads ; val:property val:shake ;
+    lv2:name "Rattle length" ; lv2:symbol "rattle_length" ;
+    lv2:minimum 20 ; lv2:maximum 800 ;
+    val:section "Rattle" ;
+    units:unit units:ms .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :beadsLvl ; val:property val:gain ;
+    lv2:name "Rattle level" ; lv2:symbol "rattle_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Rattle" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :toy ; val:property val:bits ;
+    lv2:name "Bits" ; lv2:symbol "bits" ;
+    lv2:minimum 4 ; lv2:maximum 16 ;
+    val:section "Toy" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :drive ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ;
+    lv2:minimum 1 ; lv2:maximum 8 ;
+    val:section "Toy" .

@@ -149,6 +149,20 @@ instruments that read as played, not synthesised, so each is a physical model ra
   by a noise burst. The pattern for a measured object: run `fit_modes` on a recording and paste the string it returns.
 - `vocal-guide.ttl`: a plain "ah" voice for a guide track. Deliberately synthetic; keep it out of the final mix.
 
+## Nursery instruments for a 140 bpm dance track
+
+Eight instruments, one for each job in a dance track, each built from a toy or a nursery object and not from the usual
+oscillator and filter. They are written by `scripts/nursery/nursery.py` and tested by `tests/engine/NurseryInstrumentsTest.cpp`.
+
+- `nursery-humpty-kick.ttl`: a kick. A sine and a six-mode drumhead resonator (`val:ModalBank`, mode 1) fall in pitch together, so the thump has a tuned, wooden wobble.
+- `nursery-black-sheep-bass.ttl`: a mono bass that says "baa". `val:Wavetable` on its Vowels set is swept from an 'o' to an 'a' on every note; a sine keeps the fundamental and `val:OctaveDivider` adds a square sub.
+- `nursery-twinkle-lead.ttl`: a mono lead. Two detuned wavetables go through `val:FreqShifter` with feedback, so the tone climbs and shimmers, and each note strikes a marimba-bar glint two octaves up.
+- `nursery-incy-wincy-arp.ttl`: an arpeggio voice. A plucked, dispersed string, a sympathetic comb a fifth above, and a 321 ms echo (a dotted eighth at 140 bpm) whose repeats are shifted up an octave.
+- `nursery-rock-a-bye-pad.ttl`: a pad. A root, fifth and octave sound together, and a filter rocks open and shut at 1.1667 Hz (one swing every two beats at 140 bpm), with a phaser, an octave shimmer and a six-second reverb.
+- `nursery-rattle-snare.ttl`: a snare. A noise-struck membrane, a snap, and 140 colliding beads from `val:Shaker` for a rattle, bit-reduced.
+- `nursery-ding-dong-hat.ttl`: a hi-hat made of two plate resonators pushed apart by a frequency shifter. Note velocity sets how long it rings, so a soft note is closed and a hard one open.
+- `nursery-wind-up-riser.ttl`: a riser. One envelope speeds a guiro's scrape from 3 to 180 ticks a second, opens a noise filter with a rising frequency shifter, and lifts a saw four octaves.
+
 ## Not examples
 
 - `temp.ttl` is a variant of `subsynth.ttl` with the same title.

@@ -11,6 +11,11 @@
   (a real one is mostly 1 to 3 kHz); not looked at. Every drum now holds its hit's velocity with `val:SampleHold` and scales its level
   by it (`tests/engine/Tr909VelocityTest.cpp`). At full velocity the bass drum (gain +11) peaks at 0.63 and the snare at 0.61; the clap
   (gain -2) at 0.19. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) were checked; only the 909 had the fault.
+* **Nursery instruments and "All Fall Down"** (`scripts/nursery/`, `examples/nursery-*.ttl`; the track is in `valis-artifacts/artifacts/all-fall-down/`,
+  2 November 2026): eight circuits and a 3:00 track at 140 bpm built from them, mix v3 at -11.0 LUFS. All measured, not heard. Needs a listener:
+  whether the star tune is the earworm, the intro arp's octave echoes against the tune, the hat (centroid 12.7 kHz), the break into the second
+  build. The bass above A2 reports its sub octave as its pitch. Not done: the Reaper project `all-fall-down-midi.rpp` has not been opened (the
+  Street Hammer one is open and holds ports 7677 to 7682), and the lead stem sits at its limiter on the loudest notes.
 * **An unreleased New Order track: "Tenement Lights".** Built and rendered (`docs/new-order-track.md`,
   `scripts/archive/electro83/`, output in `~/Music/tenement-lights/`). A three-minute arrangement with lyrics
   (`docs/short-circuit-lyrics.md`) and a sleeve (`docs/short-circuit-sleeve.md`) exist; it needs a singer. Still to

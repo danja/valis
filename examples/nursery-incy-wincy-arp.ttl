@@ -1,0 +1,214 @@
+# examples/nursery-incy-wincy-arp.ttl
+#
+# An arpeggio voice for "Incy Wincy Spider". A plucked string (val:Pluck into val:StiffString with dispersion, so the
+# upper partials are stretched like a toy piano's) rings beside a sympathetic comb tuned a fifth above, the web. The sum
+# goes through an echo of 321 ms, a dotted eighth at 140 bpm, and each echo is shifted up an octave (val:PitchShift,
+# +12), so the echoes climb the spout while the note itself stays put.
+#
+# Play it from C3 to C6, as short sixteenths. Monophonic: a string and a comb tuned to the last note played.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryincywincyarp#> .
+
+:nurseryincywincyarp a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Arp", "Pluck", "Dance" ;
+    rdfs:label "Incy Wincy Arp" ;
+    val:element :pitch , :pluck , :string , :fifth , :web , :webLvl , :ampEnv , :vca , :dry , :echo , :climb , :climbLvl , :sum , :room , :dc , :trim , :limit , :out ;
+    val:arc :a_pitch_out__pluck_frequency ,
+        :a_pitch_out__string_frequency ,
+        :a_pluck_out__string_in ,
+        :a_pitch_out__fifth_a ,
+        :a_fifth_out__web_frequency ,
+        :a_string_out__web_in ,
+        :a_web_out__webLvl_in ,
+        :a_string_out__dry_in ,
+        :a_webLvl_out__dry_in ,
+        :a_dry_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__echo_in ,
+        :a_echo_out__climb_in ,
+        :a_climb_out__climbLvl_in ,
+        :a_vca_out__sum_in ,
+        :a_climbLvl_out__sum_in ,
+        :a_sum_out__room_in ,
+        :a_room_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:pluck a val:Pluck ;
+    val:position 0.18 ;
+    val:hardness 0.65 .
+
+:string a val:StiffString ;
+    val:feedback 0.988 ;
+    val:damping 0.38 ;
+    val:dispersion 0.2 .
+
+:fifth a val:ControlMultiply ;
+    val:b 1.5 .
+
+:web a val:CombFilter ;
+    val:feedback 0.82 ;
+    val:damping 0.3 .
+
+:webLvl a val:Gain ;
+    val:gain -9.0 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 900.0 ;
+    val:sustain 0.0 ;
+    val:release 450.0 .
+
+:vca a val:VCA .
+
+:dry a val:Mixer .
+
+:echo a val:Delay ;
+    val:time 321.4 ;
+    val:feedback 0.42 .
+
+:climb a val:PitchShift ;
+    val:pitch 12.0 ;
+    val:mix 1.0 .
+
+:climbLvl a val:Gain ;
+    val:gain -7.0 .
+
+:sum a val:Mixer .
+
+:room a val:Reverb ;
+    val:size 0.7 ;
+    val:decay 1.4 ;
+    val:damping 0.6 ;
+    val:mix 0.16 .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 80.0 .
+
+:trim a val:Gain ;
+    val:gain -3.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_pitch_out__pluck_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :pluck ; val:port "frequency" ] .
+:a_pitch_out__string_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:a_pluck_out__string_in a val:Arc ;
+    val:from [ val:node :pluck ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:a_pitch_out__fifth_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :fifth ; val:port "a" ] .
+:a_fifth_out__web_frequency a val:Arc ;
+    val:from [ val:node :fifth ; val:port "out" ] ;
+    val:to   [ val:node :web ; val:port "frequency" ] .
+:a_string_out__web_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :web ; val:port "in" ] .
+:a_web_out__webLvl_in a val:Arc ;
+    val:from [ val:node :web ; val:port "out" ] ;
+    val:to   [ val:node :webLvl ; val:port "in" ] .
+:a_string_out__dry_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :dry ; val:port "in" ] .
+:a_webLvl_out__dry_in a val:Arc ;
+    val:from [ val:node :webLvl ; val:port "out" ] ;
+    val:to   [ val:node :dry ; val:port "in" ] .
+:a_dry_out__vca_in a val:Arc ;
+    val:from [ val:node :dry ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__echo_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :echo ; val:port "in" ] .
+:a_echo_out__climb_in a val:Arc ;
+    val:from [ val:node :echo ; val:port "out" ] ;
+    val:to   [ val:node :climb ; val:port "in" ] .
+:a_climb_out__climbLvl_in a val:Arc ;
+    val:from [ val:node :climb ; val:port "out" ] ;
+    val:to   [ val:node :climbLvl ; val:port "in" ] .
+:a_vca_out__sum_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_climbLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :climbLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__room_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__dc_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :pluck ; val:property val:hardness ;
+    lv2:name "Hardness" ; lv2:symbol "hardness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Pluck" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :pluck ; val:property val:position ;
+    lv2:name "Pluck position" ; lv2:symbol "position" ;
+    lv2:minimum 0.04 ; lv2:maximum 0.5 ;
+    val:section "Pluck" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :string ; val:property val:dispersion ;
+    lv2:name "Dispersion" ; lv2:symbol "dispersion" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :string ; val:property val:damping ;
+    lv2:name "Damping" ; lv2:symbol "damping" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :webLvl ; val:property val:gain ;
+    lv2:name "Web level" ; lv2:symbol "web_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Web" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :echo ; val:property val:time ;
+    lv2:name "Echo time" ; lv2:symbol "echo_time" ;
+    lv2:minimum 20 ; lv2:maximum 1000 ;
+    val:section "Echo" ;
+    units:unit units:ms .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :echo ; val:property val:feedback ;
+    lv2:name "Echo feedback" ; lv2:symbol "echo_feedback" ;
+    lv2:minimum 0 ; lv2:maximum 0.9 ;
+    val:section "Echo" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :climbLvl ; val:property val:gain ;
+    lv2:name "Climb level" ; lv2:symbol "climb_level" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Echo" ;
+    units:unit units:db .

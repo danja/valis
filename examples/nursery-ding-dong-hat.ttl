@@ -1,0 +1,235 @@
+# examples/nursery-ding-dong-hat.ttl
+#
+# A hi-hat built from a bell. A 1.5 ms noise tick strikes two plate-mode resonators (val:ModalBank, mode 3, at 3.9 kHz
+# and 6.3 kHz), a frequency shifter (val:FreqShifter, +230 Hz) moves their partials apart so they are metallic and
+# no longer in tune with each other, and a bank of 320 fine grains (val:Shaker) adds sizzle. The note's velocity sets
+# how long it rings, through val:MidiVelocity: a soft note is a closed hat (30 ms), a hard one is open (up to 380 ms).
+#
+# Any note plays it; play it with a range of velocities.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurserydingdonghat#> .
+
+:nurserydingdonghat a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Hat", "Drum", "Dance" ;
+    rdfs:label "Ding Dong Hat" ;
+    val:element :vel , :ring , :tail , :tick , :tickEnv , :tickVca , :plateA , :plateB , :bells , :metal , :sizzle , :sizzleLvl , :mix , :hp , :ampEnv , :vca , :dc , :trim , :limit , :out ;
+    val:arc :a_vel_out__ring_in ,
+        :a_vel_out__tail_in ,
+        :a_tick_out__tickVca_in ,
+        :a_tickEnv_out__tickVca_cv ,
+        :a_tickVca_out__plateA_in ,
+        :a_tickVca_out__plateB_in ,
+        :a_ring_out__plateA_decay ,
+        :a_ring_out__plateB_decay ,
+        :a_plateA_out__bells_in ,
+        :a_plateB_out__bells_in ,
+        :a_bells_out__metal_in ,
+        :a_metal_out__mix_in ,
+        :a_sizzle_out__sizzleLvl_in ,
+        :a_sizzleLvl_out__mix_in ,
+        :a_tail_out__ampEnv_decay ,
+        :a_mix_out__hp_in ,
+        :a_hp_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__dc_in ,
+        :a_dc_out__trim_in ,
+        :a_trim_out__limit_in ,
+        :a_limit_out__out_in .
+
+:vel a val:MidiVelocity .
+
+:ring a val:Scale ;
+    val:min 0.03 ;
+    val:max 0.5 .
+
+:tail a val:Scale ;
+    val:min 22.0 ;
+    val:max 380.0 .
+
+:tick a val:Noise ;
+    val:colour 0.9 .
+
+:tickEnv a val:Envelope ;
+    val:attack 0.1 ;
+    val:decay 1.5 ;
+    val:sustain 0.0 ;
+    val:release 1.0 .
+
+:tickVca a val:VCA .
+
+:plateA a val:ModalBank ;
+    val:mode 3 ;
+    val:frequency 3900.0 ;
+    val:brightness 1.0 .
+
+:plateB a val:ModalBank ;
+    val:mode 3 ;
+    val:frequency 6300.0 ;
+    val:brightness 1.0 .
+
+:bells a val:Mixer .
+
+:metal a val:FreqShifter ;
+    val:shift 230.0 ;
+    val:feedback 0.0 ;
+    val:mix 0.6 .
+
+:sizzle a val:Shaker ;
+    val:particles 320.0 ;
+    val:shake 40.0 ;
+    val:sound 0.6 ;
+    val:frequency 9500.0 ;
+    val:resonance 1.0 .
+
+:sizzleLvl a val:Gain ;
+    val:gain -9.0 .
+
+:mix a val:Mixer .
+
+:hp a val:Biquad ;
+    val:mode 4 ;
+    val:frequency 4800.0 ;
+    val:q 0.9 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.2 ;
+    val:sustain 0.0 ;
+    val:release 20.0 .
+
+:vca a val:VCA .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 300.0 .
+
+:trim a val:Gain ;
+    val:gain -2.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_vel_out__ring_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :ring ; val:port "in" ] .
+:a_vel_out__tail_in a val:Arc ;
+    val:from [ val:node :vel ; val:port "out" ] ;
+    val:to   [ val:node :tail ; val:port "in" ] .
+:a_tick_out__tickVca_in a val:Arc ;
+    val:from [ val:node :tick ; val:port "out" ] ;
+    val:to   [ val:node :tickVca ; val:port "in" ] .
+:a_tickEnv_out__tickVca_cv a val:Arc ;
+    val:from [ val:node :tickEnv ; val:port "out" ] ;
+    val:to   [ val:node :tickVca ; val:port "cv" ] .
+:a_tickVca_out__plateA_in a val:Arc ;
+    val:from [ val:node :tickVca ; val:port "out" ] ;
+    val:to   [ val:node :plateA ; val:port "in" ] .
+:a_tickVca_out__plateB_in a val:Arc ;
+    val:from [ val:node :tickVca ; val:port "out" ] ;
+    val:to   [ val:node :plateB ; val:port "in" ] .
+:a_ring_out__plateA_decay a val:Arc ;
+    val:from [ val:node :ring ; val:port "out" ] ;
+    val:to   [ val:node :plateA ; val:port "decay" ] .
+:a_ring_out__plateB_decay a val:Arc ;
+    val:from [ val:node :ring ; val:port "out" ] ;
+    val:to   [ val:node :plateB ; val:port "decay" ] .
+:a_plateA_out__bells_in a val:Arc ;
+    val:from [ val:node :plateA ; val:port "out" ] ;
+    val:to   [ val:node :bells ; val:port "in" ] .
+:a_plateB_out__bells_in a val:Arc ;
+    val:from [ val:node :plateB ; val:port "out" ] ;
+    val:to   [ val:node :bells ; val:port "in" ] .
+:a_bells_out__metal_in a val:Arc ;
+    val:from [ val:node :bells ; val:port "out" ] ;
+    val:to   [ val:node :metal ; val:port "in" ] .
+:a_metal_out__mix_in a val:Arc ;
+    val:from [ val:node :metal ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_sizzle_out__sizzleLvl_in a val:Arc ;
+    val:from [ val:node :sizzle ; val:port "out" ] ;
+    val:to   [ val:node :sizzleLvl ; val:port "in" ] .
+:a_sizzleLvl_out__mix_in a val:Arc ;
+    val:from [ val:node :sizzleLvl ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "in" ] .
+:a_tail_out__ampEnv_decay a val:Arc ;
+    val:from [ val:node :tail ; val:port "out" ] ;
+    val:to   [ val:node :ampEnv ; val:port "decay" ] .
+:a_mix_out__hp_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :hp ; val:port "in" ] .
+:a_hp_out__vca_in a val:Arc ;
+    val:from [ val:node :hp ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__dc_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__trim_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :trim ; val:port "in" ] .
+:a_trim_out__limit_in a val:Arc ;
+    val:from [ val:node :trim ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :plateA ; val:property val:frequency ;
+    lv2:name "Bell A" ; lv2:symbol "bell_a" ;
+    lv2:minimum 800 ; lv2:maximum 9000 ;
+    val:section "Bells" ;
+    units:unit units:hertz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :plateB ; val:property val:frequency ;
+    lv2:name "Bell B" ; lv2:symbol "bell_b" ;
+    lv2:minimum 800 ; lv2:maximum 12000 ;
+    val:section "Bells" ;
+    units:unit units:hertz .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :metal ; val:property val:shift ;
+    lv2:name "Metal" ; lv2:symbol "metal" ;
+    lv2:minimum -800 ; lv2:maximum 800 ;
+    val:section "Bells" ;
+    units:unit units:hertz .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :ring ; val:property val:min ;
+    lv2:name "Closed ring" ; lv2:symbol "closed_ring" ;
+    lv2:minimum 0.01 ; lv2:maximum 0.3 ;
+    val:section "Length" ;
+    units:unit units:s .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :ring ; val:property val:max ;
+    lv2:name "Open ring" ; lv2:symbol "open_ring" ;
+    lv2:minimum 0.05 ; lv2:maximum 1.5 ;
+    val:section "Length" ;
+    units:unit units:s .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :tail ; val:property val:max ;
+    lv2:name "Open length" ; lv2:symbol "open_length" ;
+    lv2:minimum 60 ; lv2:maximum 1000 ;
+    val:section "Length" ;
+    units:unit units:ms .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :sizzleLvl ; val:property val:gain ;
+    lv2:name "Sizzle" ; lv2:symbol "sizzle" ;
+    lv2:minimum -40 ; lv2:maximum 6 ;
+    val:section "Sizzle" ;
+    units:unit units:db .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :hp ; val:property val:frequency ;
+    lv2:name "Low cut" ; lv2:symbol "low_cut" ;
+    lv2:minimum 1000 ; lv2:maximum 10000 ;
+    val:section "Tone" ;
+    units:unit units:hertz .

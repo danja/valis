@@ -64,6 +64,7 @@ set(VALIS_TESTS
   engine/FmExamplesTest.cpp
   engine/SampledStringsTest.cpp
   engine/ElectroInstrumentsTest.cpp
+  engine/NurseryInstrumentsTest.cpp
   engine/GristExampleTest.cpp
   engine/DemoEffectsTest.cpp
   engine/MetalBashTest.cpp
