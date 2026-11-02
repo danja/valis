@@ -84,7 +84,7 @@ keytracking, because an effect cannot know the pitch of its input.
                 val:depth 1.0 .
 ```
 
-The full circuit is [`examples/skream.ttl`](../examples/skream.ttl).
+The full circuit is [`circuits/skream.ttl`](../circuits/skream.ttl).
 
 ## Why this beats a bespoke plugin
 
@@ -132,7 +132,7 @@ Gaps between this circuit and the ontology as it stands:
 
 ## Acceptance
 
-Load `examples/skream.ttl` in the standalone, feed it a bass line, and hear the growl.
+Load `circuits/skream.ttl` in the standalone, feed it a bass line, and hear the growl.
 Change `val:antialiasing` from `val:ADAA2` to `val:None` in the Code tab and hear the
 aliasing appear. Open the graph view and see the feedback loop. Raise the feedback gain
 over MCP and hear it approach self-oscillation, with the gate holding it silent between

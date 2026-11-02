@@ -1,4 +1,4 @@
-# examples/moog-source.ttl
+# circuits/moog-source.ttl
 #
 # A monophonic analogue synthesiser voice in the manner of the Moog Source
 # (https://en.wikipedia.org/wiki/Moog_Source), which played the bass line of New Order's 1983

@@ -114,7 +114,7 @@ std::string classNameOf(const std::string& text)
 }
 
 /// Splits a document into statements. A statement ends at a line whose last
-/// non-space character is a full stop, which is how every circuit in examples/
+/// non-space character is a full stop, which is how every circuit in circuits/
 /// and everything the compiler writes is laid out.
 std::vector<Chunk> splitStatements(const std::string& turtle)
 {

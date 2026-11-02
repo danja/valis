@@ -62,4 +62,4 @@ burst of noise through a closing ladder filter. Everything passes through tape
 saturation and a limiter.
 
 MIDI notes: 36 kick, 39 slam, 41 low tom, 45 mid tom.""",
-["Dubstep","Gothic","Percussion"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-drums-low.ttl")
+["Dubstep","Gothic","Percussion"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-drums-low.ttl")

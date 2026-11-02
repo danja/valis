@@ -1,4 +1,4 @@
-# examples/inferno-choir.ttl
+# circuits/inferno-choir.ttl
 #
 # A synthesised human scream and wail, the sound of the inferno. It is a source-filter voice: three val:Glottal
 # oscillators (a detuned pair and one an octave below) stand in for the vocal folds, with a pulse shape you choose (Rosenberg by

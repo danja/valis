@@ -38,4 +38,4 @@ is not quite a pitch. A feedback echo set to a plain 233 ms gives it a stutterin
 
 The dive and the warble are ratios applied to the keyboard pitch by ControlMultiply stages.
 Keep the notes short and let the echo carry them.""",
-["Horror","Sci-fi","Effects"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-ornaments2.ttl")
+["Horror","Sci-fi","Effects"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-ornaments2.ttl")

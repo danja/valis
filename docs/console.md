@@ -81,7 +81,7 @@ DAW state, so a saved project cannot leak one.
 
 A free tier's limit is not a queue that is reached eventually. It is a ceiling
 on a single request: a prompt larger than the whole per-minute token budget can
-never be sent to that provider, however long the console waits. `examples/909.ttl`
+never be sent to that provider, however long the console waits. `circuits/909.ttl`
 is roughly 17,000 tokens of Turtle against Groq's measured 8,000 per minute, so
 it is unsendable there whatever else happens. The measurements behind this are in
 [docs/rate-limit-advice.md](rate-limit-advice.md).

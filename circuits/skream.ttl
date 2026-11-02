@@ -1,4 +1,4 @@
-# examples/skream.ttl
+# circuits/skream.ttl
 #
 # The Massive "scream" filter as a Valis circuit. See docs/skream.md for what
 # this is and why it is the project's proof of concept.

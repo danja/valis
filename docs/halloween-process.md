@@ -1,6 +1,6 @@
 # How "Dead at Midnight" was made
 
-This records how the Halloween set in `examples/halloween-*.ttl` became a three minute
+This records how the Halloween set in `circuits/halloween-*.ttl` became a three minute
 track, so the work can be repeated, changed or done differently. The brief was in
 `docs/halloween-examples.md`: build a set of instruments with MCP tools, then use them
 to make a Halloween song in Reaper.
@@ -12,7 +12,7 @@ The result is in `~/Music/dead-at-midnight/`. The sleeve is
 
 1. Each instrument was designed and checked through the Valis MCP server (`describe_element`,
    `load_file`, `lint`, `render`, `analyze`, `check_stability`) and saved as a Turtle file in
-   `examples/`.
+   `circuits/`.
 2. The song was written as a Python script that writes one [MIDI](https://en.wikipedia.org/wiki/MIDI)
    file per instrument.
 3. Each circuit was rendered offline against its MIDI file with `valis-render`, giving one audio
@@ -36,7 +36,7 @@ Reaper does not run the instruments. It holds and mixes recordings of them. The 
 | `halloween-ornaments2.ttl` | a falling-saucer dive, wavefolded, bit-crushed and smeared by a feedback frequency shifter, with a stuttering echo | short notes |
 
 Each header comment says how to play it. All of them lint clean, pass `check_stability`, and are
-covered by the existing tests that run over every file in `examples/`.
+covered by the existing tests that run over every file in `circuits/`.
 
 ### Design notes worth keeping
 
@@ -51,7 +51,7 @@ covered by the existing tests that run over every file in `examples/`.
 - **The guitar string is in tune.** It ran flat by an amount that grew with pitch (25 cents at E3, 104 at E5)
   until `val:StiffString` subtracted the delay of its own loop filters. The circuit no longer corrects it.
 - **Polyphony is a `val:Subcircuit` with `val:voices`.** The organ is written once as a voice and
-  stamped out eight times. See `docs/manual/circuits.md` and `examples/polysynth.ttl`.
+  stamped out eight times. See `docs/manual/circuits.md` and `circuits/polysynth.ttl`.
 - **Levels.** Several instruments came out too hot or too quiet on the first render. Fix levels
   with a `val:Gain` before the limiter, then confirm with `render` and `analyze`.
 - **DC offset.** The first renders of the slam, bass, guitar and ornaments2 had a DC offset that
@@ -86,7 +86,7 @@ this in `CLAUDE.md`). Only note events and one fixed tempo are read.
 ```sh
 cmake --build build                       # build everything first; see below
 D=~/Music/dead-at-midnight
-build/valis_render_artefacts/Debug/valis_render examples/halloween-bass.ttl \
+build/valis_render_artefacts/Debug/valis_render circuits/halloween-bass.ttl \
     --midi $D/midi/bass.mid --tempo 140 --rolling --seconds 186 -o $D/stems/bass.wav
 ```
 
@@ -140,7 +140,7 @@ table were applied with `set_track_volume` and `set_track_pan`. Those settings a
 `mkrpp.py`, so running it again gives a project at unity gain and centre pan.
 
 The tracks make no sound on their own. To hear them, add a Valis plug-in to each track and load the
-matching `examples/halloween-*.ttl`. See the next section for why that step is still manual.
+matching `circuits/halloween-*.ttl`. See the next section for why that step is still manual.
 
 ## Why the stems are not live plug-ins
 
@@ -197,14 +197,14 @@ All are in `TODO.md` in this repository or in `reaper-mcp`'s `TODO.md`. The ones
 
 In this repository:
 
-- `examples/halloween-*.ttl`: the eight instruments.
+- `circuits/halloween-*.ttl`: the eight instruments.
 - `docs/examples.md`: a short description of each, under "Halloween set".
 - `docs/halloween-examples.md`: the original brief.
 - `docs/dead-at-midnight-sleeve.svg` and `.png`: the sleeve, in the style of a medieval woodcut.
 - `docs/dead-at-midnight-lyrics.md`: the lyrics, laid out against the bars above.
 - `src/tools/RenderMain.cpp`: the `--midi` option.
 - `scripts/archive/halloween/song.py` and `scripts/song/midiw.py`: the Python that wrote the notes and generated the circuit
-  Turtle files (`circuits/`). See its `README.md`. The files in `examples/` are the product and can be
+  Turtle files (`circuits/`). See its `README.md`. The files in `circuits/` are the product and can be
   edited directly; the scripts are kept for reference and are not needed to build or test anything.
 
 In `~/Music/dead-at-midnight/`:
@@ -221,7 +221,7 @@ In `~/Music/dead-at-midnight/`:
 
 - **A different part or pattern:** edit `score/song.py`, run it, then re-render only the stems that
   changed and re-import them. Reaper does not notice a changed file until the item is reloaded.
-- **A different sound:** edit the circuit in `examples/`, then run `lint`, `render` and
+- **A different sound:** edit the circuit in `circuits/`, then run `lint`, `render` and
   `check_stability` on it through the MCP server (or `ctest`), and re-render its stem.
 - **A different tempo:** change `BPM` in `score/song.py`, and the `--tempo` value in every render.
   The song is written in beats, so the arrangement scales.

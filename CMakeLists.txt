@@ -131,7 +131,7 @@ target_compile_definitions(valis_core PUBLIC
   # it off; if it is ever needed, drop our serd and use JUCE's.
   JUCE_PLUGINHOST_LV2=0
   VALIS_VOCABS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/vocabs"
-  VALIS_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples"
+  VALIS_CIRCUITS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/circuits"
   VALIS_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(VALIS_WITH_FREESOUND)

@@ -1,6 +1,6 @@
 # Nursery instruments
 
-`nursery.py` writes eight circuits to `examples/nursery-*.ttl`: a kick, a bass, a lead, an arpeggio voice, a pad, a snare, a hi-hat and a riser. They are meant for a 140 bpm dance track whose tunes come from nursery rhymes. Run it from anywhere:
+`nursery.py` writes eight circuits to `circuits/nursery-*.ttl`: a kick, a bass, a lead, an arpeggio voice, a pad, a snare, a hi-hat and a riser. They are meant for a 140 bpm dance track whose tunes come from nursery rhymes. Run it from anywhere:
 
     python3 scripts/nursery/nursery.py
 

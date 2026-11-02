@@ -1,4 +1,4 @@
-# examples/rings-beam.ttl
+# circuits/rings-beam.ttl
 #
 # Stiff string / beam resonator (Euler-Bernoulli beam model).
 #

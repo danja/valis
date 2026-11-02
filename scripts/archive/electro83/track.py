@@ -1,7 +1,7 @@
 # scripts/electro83/track.py
 #
 # "Tenement Lights": an original instrumental in the manner of New Order's 1983 work, played
-# by the circuits in examples/ (dmx.ttl, moog-source.ttl, six-string-bass.ttl, prophet-5.ttl,
+# by the circuits in circuits/ (dmx.ttl, moog-source.ttl, six-string-bass.ttl, prophet-5.ttl,
 # emulator-choir.ttl, quadra-strings.ttl, speaker-room.ttl). Nothing in it is taken from
 # the record: the notes, patterns and form are new. See docs/new-order-track.md.
 #
@@ -198,11 +198,11 @@ def score():
 
 
 JOBS = [  # part, circuit
-    ("kick", "examples/dmx.ttl"), ("drums", "examples/dmx.ttl"),
-    ("perc", "examples/dmx.ttl"), ("wood", "examples/dmx.ttl"),
-    ("source", "examples/moog-source.ttl"), ("hook", "examples/six-string-bass.ttl"),
-    ("prophet", "examples/prophet-5.ttl"), ("choir", "examples/emulator-choir.ttl"),
-    ("strings", "examples/quadra-strings.ttl")]
+    ("kick", "circuits/dmx.ttl"), ("drums", "circuits/dmx.ttl"),
+    ("perc", "circuits/dmx.ttl"), ("wood", "circuits/dmx.ttl"),
+    ("source", "circuits/moog-source.ttl"), ("hook", "circuits/six-string-bass.ttl"),
+    ("prophet", "circuits/prophet-5.ttl"), ("choir", "circuits/emulator-choir.ttl"),
+    ("strings", "circuits/quadra-strings.ttl")]
 
 
 def run_render(job):
@@ -221,7 +221,7 @@ def render(only=None):
     from scipy.io import wavfile
     rate, kick = wavfile.read(OUT + "/kick.wav")
     wavfile.write(OUT + "/kick-in.wav", rate, kick)
-    cmd = [RENDER, "examples/speaker-room.ttl", "-i", OUT + "/kick-in.wav", "--seconds", "%.1f" % SECONDS,
+    cmd = [RENDER, "circuits/speaker-room.ttl", "-i", OUT + "/kick-in.wav", "--seconds", "%.1f" % SECONDS,
            "-o", OUT + "/kick-room.wav"]
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     print("kick-room", r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr[-300:])
@@ -231,7 +231,7 @@ def render(only=None):
     _, perc = wavfile.read(OUT + "/perc.wav")
     send = 0.5 * (wood.astype(np.float64) + 0.5 * perc.astype(np.float64))   # half, so the sum cannot clip
     wavfile.write(OUT + "/high-perc-in.wav", rate, send.astype(np.int32))
-    cmd = [RENDER, "examples/reverb-return.ttl", "-i", OUT + "/high-perc-in.wav", "--seconds", "%.1f" % SECONDS,
+    cmd = [RENDER, "circuits/reverb-return.ttl", "-i", OUT + "/high-perc-in.wav", "--seconds", "%.1f" % SECONDS,
            "-o", OUT + "/high-perc-room.wav"]
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     print("high-perc-room", r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr[-300:])

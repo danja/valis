@@ -13,7 +13,7 @@ what is there.
 
 ## 1. The number that decides everything
 
-Measured with peasant's estimator against `examples/`:
+Measured with peasant's estimator against `circuits/`:
 
 | Circuit | chars | tokens |
 |---|---|---|

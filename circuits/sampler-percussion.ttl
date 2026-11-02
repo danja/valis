@@ -1,4 +1,4 @@
-# examples/sampler-percussion.ttl
+# circuits/sampler-percussion.ttl
 #
 # A sampler played from MIDI, made of the recordings in audio/ (CC0 from freesound.org; their sources are in
 # audio/README.md). One val:Sampler holds all of them and answers by key:

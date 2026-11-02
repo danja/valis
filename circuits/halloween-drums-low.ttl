@@ -1,4 +1,4 @@
-# examples/halloween-drums-low.ttl
+# circuits/halloween-drums-low.ttl
 #
 # Kick, two tom drums and a noise slam for a slow, heavy dubstep half-time groove in the
 # manner of Bauhaus's "Bela Lugosi's Dead": the kick is a bridged-T body with a long sub

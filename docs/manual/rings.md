@@ -4,7 +4,7 @@ Mutable Instruments Rings is a physical modelling resonator. Its most
 recognisable mode is **Karplus-Strong string synthesis**: seed a delay line with
 a brief noise burst, then feed the output back through a low-pass filter. The
 delay length determines pitch; the low-pass filter determines how quickly high
-harmonics decay. The full Turtle is at `examples/rings.ttl`.
+harmonics decay. The full Turtle is at `circuits/rings.ttl`.
 
 This case study also documents the creation of the `val:CombFilter` element that
 made it possible.
@@ -181,7 +181,7 @@ characteristic of a real guitar string.
 
 ---
 
-## Part II - Modal synthesis (`examples/rings-modal.ttl`)
+## Part II - Modal synthesis (`circuits/rings-modal.ttl`)
 
 `val:ModalBank` runs six parallel 2-pole resonators tuned to the natural
 frequency ratios of a physical object. Unlike a comb filter (which has
@@ -230,7 +230,7 @@ impact.
 
 ---
 
-## Part III - Reed exciter (`examples/rings-reed.ttl`)
+## Part III - Reed exciter (`circuits/rings-reed.ttl`)
 
 `val:Reed` implements a digital waveguide single-reed instrument. A cylindrical
 bore with negative reflection at the open end produces an odd-harmonic spectrum
@@ -287,9 +287,9 @@ Three circuit files cover the Rings range:
 
 | File | Sound | Exciter | Resonator |
 |------|-------|---------|-----------|
-| `examples/rings.ttl` | Plucked string | noise burst | CombFilter (KS) |
-| `examples/rings-modal.ttl` | Bar / drum / plate | mallet noise burst | ModalBank |
-| `examples/rings-reed.ttl` | Clarinet / oboe | self-oscillating | Reed waveguide |
+| `circuits/rings.ttl` | Plucked string | noise burst | CombFilter (KS) |
+| `circuits/rings-modal.ttl` | Bar / drum / plate | mallet noise burst | ModalBank |
+| `circuits/rings-reed.ttl` | Clarinet / oboe | self-oscillating | Reed waveguide |
 
 Load any of them via the Turtle editor. For `rings-modal.ttl`, set the **Mode**
 parameter (0–3) to switch between marimba, drumhead, membrane, and plate sounds

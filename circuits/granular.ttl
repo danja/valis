@@ -1,4 +1,4 @@
-# examples/granular.ttl
+# circuits/granular.ttl
 #
 # A granular synthesiser. It granulates a sound file, which can be changed from
 # the Controls view, blends the result against the plugin's own audio input,
@@ -25,7 +25,7 @@
 #   mixScale (Scale) ───────────────────────► DryWet L.mix, DryWet R.mix
 #
 # The buffer. :sample is a val:SampleLoad playing samples/bell.wav on a loop,
-# itself rendered from examples/rings-modal.ttl by valis-render. It appears in
+# itself rendered from circuits/rings-modal.ttl by valis-render. It appears in
 # the Controls view as a file slot with a Load button, so the sample can be
 # changed while the circuit runs. Its audio goes to the granulator's input, and
 # the granulator records what arrives there, so the buffer holds the sample.

@@ -2,12 +2,12 @@
 #
 # Eight instruments for a 140 bpm dance track whose tunes come from nursery rhymes. Each takes the
 # job a dance track gives to an instrument (kick, bass, lead, arp, pad, snare, hat, riser) and builds
-# the sound from a toy, a game or a nursery object. Run it to write examples/nursery-*.ttl.
+# the sound from a toy, a game or a nursery object. Run it to write circuits/nursery-*.ttl.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 from gen import build
 
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 OUT = lambda n: os.path.join(EX, n + ".ttl")
 
 def tail(src, trim=-3.0, ceiling=-1.0, hp=24.0):

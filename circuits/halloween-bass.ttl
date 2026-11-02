@@ -1,4 +1,4 @@
-# examples/halloween-bass.ttl
+# circuits/halloween-bass.ttl
 #
 # Three bass layers on one keyboard voice, for the half-time drop of a dubstep take on
 # "Bela Lugosi's Dead": a sine sub an octave below the note, a pair of detuned saws through

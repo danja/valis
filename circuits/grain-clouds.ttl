@@ -1,4 +1,4 @@
-# examples/grain-clouds.ttl
+# circuits/grain-clouds.ttl
 #
 # One buffer, three clouds. A val:GrainBuffer holds a sound file (the bell, here; send audio
 # to its input and set freeze to Record to granulate live input instead), and three

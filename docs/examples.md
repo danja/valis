@@ -1,6 +1,6 @@
 # Examples
 
-Every circuit in `examples/`, grouped by what it is. Each file starts with a
+Every circuit in `circuits/`, grouped by what it is. Each file starts with a
 comment explaining its design, so this page says what is there and where to look.
 The [manual](manual/index.md) has case studies for some of them.
 
@@ -12,7 +12,7 @@ The [manual](manual/index.md) has case studies for some of them.
   oscillator and noise into a ladder filter and amplifier, with an LFO.
   See [the case study](manual/sh101.md).
 - `subsynth.ttl`: a smaller subtractive synthesiser with a switchable oscillator shape.
-- `tuning.ttl`: a keyboard played in a [Scala](https://www.huygens-fokker.org/scala/scl_format.html) tuning, 31 tone equal temperament by default. The scale files are in `examples/tunings/`.
+- `tuning.ttl`: a keyboard played in a [Scala](https://www.huygens-fokker.org/scala/scl_format.html) tuning, 31 tone equal temperament by default. The scale files are in `circuits/tunings/`.
 - `polysynth.ttl`: a voice written once and stamped out eight times with
   `val:voices`, so the engine allocates and steals notes. Shows polyphony.
 

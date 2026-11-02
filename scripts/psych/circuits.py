@@ -1,9 +1,9 @@
 # scripts/psych/circuits.py: the instruments for "Autumn Leaves" (acid rock): a fuzz bass, a tonewheel organ,
-# a rotating-speaker cabinet, a horn section and a fuzz lead. Writes into examples/.
+# a rotating-speaker cabinet, a horn section and a fuzz lead. Writes into circuits/.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 import gen
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 def out(n): return os.path.join(EX, n)
 TEMPO = 112.0
 DOTTED_EIGHTH_MS = 0.75 * 60000.0 / TEMPO

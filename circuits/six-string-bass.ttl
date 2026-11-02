@@ -1,4 +1,4 @@
-# examples/six-string-bass.ttl
+# circuits/six-string-bass.ttl
 #
 # A six-string bass guitar of the kind Peter Hook played in Joy Division and New Order: strung
 # and tuned like a guitar but an octave lower (E A D G B E), and played high on the neck, so a

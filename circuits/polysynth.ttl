@@ -1,4 +1,4 @@
-# examples/polysynth.ttl
+# circuits/polysynth.ttl
 #
 # A polyphonic subtractive synthesiser: one voice written once, instantiated
 # eight times as a pool.

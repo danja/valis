@@ -14,8 +14,8 @@ namespace {
 namespace fs = std::filesystem;
 
 constexpr const char* kGuideUri = "valis://guide";
-constexpr const char* kIndexUri = "valis://examples";
-constexpr const char* kExamplePrefix = "valis://examples/";
+constexpr const char* kIndexUri = "valis://circuits";
+constexpr const char* kExamplePrefix = "valis://circuits/";
 
 std::optional<std::string> slurp(const fs::path& path)
 {
@@ -53,7 +53,7 @@ std::string summaryOf(const std::string& turtle)
         // The first line often names the file; an empty one ends a paragraph.
         if (! started)
         {
-            if (text.empty() || text.rfind("examples/", 0) == 0)
+            if (text.empty() || text.rfind("circuits/", 0) == 0)
                 continue;
             started = true;
         }
@@ -109,8 +109,8 @@ std::vector<AgentResource> listAgentResources(const std::string& rootDirectory, 
         return list;
 
     list.push_back({kIndexUri, "Examples",
-                    "Every circuit in examples/ with what it is, to choose a starting point from. Read one with "
-                    "valis://examples/<name>.",
+                    "Every circuit in circuits/ with what it is, to choose a starting point from. Read one with "
+                    "valis://circuits/<name>.",
                     "text/plain"});
 
     for (const auto& name : names)
@@ -123,14 +123,21 @@ std::vector<AgentResource> listAgentResources(const std::string& rootDirectory, 
 }
 
 std::optional<std::string> readAgentResource(const std::string& rootDirectory, const std::string& examplesDirectory,
-                                             const std::string& uri)
+                                             const std::string& requested)
 {
+    // The directory was called examples/ and its resources valis://examples until it was renamed; a client that
+    // still asks for the old address is answered.
+    constexpr const char* kOldPrefix = "valis://examples";
+    const std::string uri = requested.rfind(kOldPrefix, 0) == 0
+        ? std::string("valis://circuits") + requested.substr(std::char_traits<char>::length(kOldPrefix))
+        : requested;
+
     if (uri == kGuideUri)
         return slurp(fs::path(rootDirectory) / "docs" / "guide-for-agents.md");
 
     if (uri == kIndexUri)
     {
-        std::string index = "Circuits in examples/. Read one with valis://examples/<name>, or load it with load_file.\n";
+        std::string index = "Circuits in circuits/. Read one with valis://circuits/<name>, or load it with load_file.\n";
         for (const auto& name : exampleNames(examplesDirectory))
         {
             const auto text = slurp(fs::path(examplesDirectory) / (name + ".ttl"));

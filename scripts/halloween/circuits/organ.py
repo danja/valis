@@ -24,4 +24,4 @@ drawbars at the Hammond footages (16', 5 1/3', 8', 4', 2 2/3', 2') with a short 
 click. Shared after the voices: a little overdrive, a chorus standing in for the rotating
 speaker's scanner vibrato, a tone control and a large dark room.
 https://en.wikipedia.org/wiki/Hammond_organ""",
-["Organ","Gothic","Keys"],VN,VA,VP,("vca","out"),8,N,A,P,"/chalet/github/valis/examples/halloween-organ.ttl")
+["Organ","Gothic","Keys"],VN,VA,VP,("vca","out"),8,N,A,P,"/chalet/github/valis/circuits/halloween-organ.ttl")

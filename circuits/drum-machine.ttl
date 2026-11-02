@@ -1,4 +1,4 @@
-# examples/drum-machine.ttl
+# circuits/drum-machine.ttl
 #
 # An acoustic drum kit played from MIDI with the General MIDI drum map, built from CC0 recordings fetched from
 # freesound.org over MCP (freesound_search, freesound_download). Sources, authors and licences are in

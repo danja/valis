@@ -41,7 +41,7 @@ struct Rig
         const bool loadedOntology = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(loadedOntology);
 
-        std::ifstream file(std::string(VALIS_EXAMPLES_DIR) + "/" + name);
+        std::ifstream file(std::string(VALIS_CIRCUITS_DIR) + "/" + name);
         std::ostringstream text;
         text << file.rdbuf();
         assert(! text.str().empty());

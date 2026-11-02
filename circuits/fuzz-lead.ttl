@@ -1,4 +1,4 @@
-# examples/fuzz-lead.ttl
+# circuits/fuzz-lead.ttl
 #
 # A monophonic lead for call lines. A saw and a slightly sharp square go through a resonant ladder filter
 # with an envelope, then a light vibrato, then a heavy fuzz (a tanh stage into an asymmetric diode clipper and a tone

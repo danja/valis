@@ -29,7 +29,7 @@ inline juce::File resolveFile(std::string_view path)
     if (relative.existsAsFile())
         return relative;
 
-    const auto shipped = juce::File(VALIS_EXAMPLES_DIR).getChildFile(text);
+    const auto shipped = juce::File(VALIS_CIRCUITS_DIR).getChildFile(text);
     if (shipped.existsAsFile())
         return shipped;
 

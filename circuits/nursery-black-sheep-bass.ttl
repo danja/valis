@@ -1,4 +1,4 @@
-# examples/nursery-black-sheep-bass.ttl
+# circuits/nursery-black-sheep-bass.ttl
 #
 # A monophonic bass that says "baa". The oscillator is val:Wavetable on its Vowels set, whose position runs a, e, i,
 # o, u. Each note starts near 'o' and an envelope sweeps the position to 'a' over about 190 ms, the vowel

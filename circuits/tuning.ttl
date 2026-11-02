@@ -1,4 +1,4 @@
-# examples/tuning.ttl
+# circuits/tuning.ttl
 #
 # A keyboard played in a Scala tuning. val:tuning names the scale file; here it is
 # 31 tone equal temperament, so thirty-one keys make an octave, counted up from

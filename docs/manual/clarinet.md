@@ -4,7 +4,7 @@
 at the other, driven by a pressure-controlled valve. It is the same machinery as
 [the flute](flute.md) with the opposite boundary condition, and almost
 everything that distinguishes the two instruments follows from that one
-difference. The full Turtle is at `examples/clarinet.ttl`.
+difference. The full Turtle is at `circuits/clarinet.ttl`.
 
 ## What a stopped bore does
 

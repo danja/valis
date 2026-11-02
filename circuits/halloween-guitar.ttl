@@ -1,4 +1,4 @@
-# examples/halloween-guitar.ttl
+# circuits/halloween-guitar.ttl
 #
 # A plucked electric guitar for the song's high, echoing figure: a short noise burst
 # through a state-variable low-pass excites a stiff string (a comb filter with allpass

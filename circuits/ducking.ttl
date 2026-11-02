@@ -1,4 +1,4 @@
-# examples/ducking.ttl
+# circuits/ducking.ttl
 #
 # Sidechain ducking. The left input channel is the trigger (a kick, say) and the
 # right is what gets ducked (a pad or bass). An envelope follower on the left channel

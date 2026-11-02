@@ -1,4 +1,4 @@
-# examples/halloween-drums-high.ttl
+# circuits/halloween-drums-high.ttl
 #
 # Hi-hats and small percussion with a different treatment on each voice, for the top of
 # a slow dubstep groove: a dry closed hat, an open hat run through a frequency shifter

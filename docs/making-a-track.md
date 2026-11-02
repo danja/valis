@@ -30,7 +30,7 @@ mistake, so check each instrument's stated range.
 
 ## 2. Make the instrument circuits
 
-A circuit is a Turtle file in `examples/` of the Valis repository. Hand-written Turtle needs one block for each connection and runs to hundreds
+A circuit is a Turtle file in `circuits/` of the Valis repository. Hand-written Turtle needs one block for each connection and runs to hundreds
 of lines, so circuits are written by a short Python script that expands a list of nodes and arcs. Copy
 `scripts/nursery/nursery.py` (eight circuits) or `scripts/electro83/moog-source.py` (one), which use `scripts/halloween/circuits/gen.py`.
 The `generate-circuit` and `new-element` skills cover the details. The points that have caught real mistakes:
@@ -48,7 +48,7 @@ Then run the script, build everything and check each circuit:
 ```sh
 python3 scripts/nursery/nursery.py
 cmake --build build                      # the whole build, not one target
-build/valis_render_artefacts/Debug/valis_render examples/nursery-humpty-kick.ttl --note 36 --seconds 1 -o /tmp/kick.wav
+build/valis_render_artefacts/Debug/valis_render circuits/nursery-humpty-kick.ttl --note 36 --seconds 1 -o /tmp/kick.wav
 build-release/valis_shot_artefacts/Release/valis_shot measure /tmp/kick.wav
 ```
 

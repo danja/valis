@@ -69,11 +69,11 @@ Each circuit models one machine and should be usable on its own. The order is th
 
 | Circuit | Models | Builds on | Missing in Valis |
 |---|---|---|---|
-| DMX kit | The drum machine | `examples/dmx.ttl`, which plays captures of a real DMX | A kick sent through a "monitor" (a resonant low end plus a short room); a per-card tuning; shuffle or swing on the sequencers |
+| DMX kit | The drum machine | `circuits/dmx.ttl`, which plays captures of a real DMX | A kick sent through a "monitor" (a resonant low end plus a short room); a per-card tuning; shuffle or swing on the sequencers |
 | Source bass | The Moog Source | `val:Oscillator`, a ladder filter, `val:Envelope` | Two oscillators with three waveforms and three octave settings each; a patch matched to what the Source can do |
 | Sequencer | The home-built sequencer | `val:StepSequencer` | A pattern that is a different length from the bar, so a line drifts across it |
 | Bass guitar | Hook's six-string | `val:StiffString` (now in tune), `val:Chorus` | A plucked-string voice and a pickup, played high on the neck |
-| Prophet line | The Prophet-5 | `examples/polysynth.ttl` | A patch with two oscillators, a sub and a four-pole filter |
+| Prophet line | The Prophet-5 | `circuits/polysynth.ttl` | A patch with two oscillators, a sub and a four-pole filter |
 | Choir | The Emulator I | `val:Redux`, `val:SampleLoad` | A choir to sample. No recording is in the repository, and the record's sample is not ours to use, so one is made by filtering a sawtooth and noise through vowel formants, then bit-reduced, cut to two seconds and looped |
 | Strings | The Quadra | `val:Chorus`, `val:Phaser` | An ensemble effect on a bright sawtooth |
 | Vocoder | The vocoder on Sumner's backing | A filter bank | `val:Vocoder` does not exist |
@@ -94,13 +94,13 @@ Built: the track "Tenement Lights" (A minor, 130 beats per minute, 224 bars, abo
 
 | Circuit | File | Notes |
 |---|---|---|
-| DMX kit | `examples/dmx.ttl` | The existing captures of a real DMX. The kick is also played through `speaker-room.ttl` and mixed under itself. The score has the machine's shuffle: the second sixteenth of each pair sits at 54%. The high percussion goes to `reverb-return.ttl`. |
-| Source bass | `examples/moog-source.ttl` | Saw and octave-down square, 24 dB ladder, cutoff from an envelope plus keyboard tracking. |
-| Bass guitar | `examples/six-string-bass.ttl` | `val:StiffString` with chorus; tuned within a cent from E2 to E5. |
-| Prophet line | `examples/prophet-5.ttl` | Eight voices, with a soft-clip distortion. |
-| Choir | `examples/emulator-choir.ttl` | Synthesised vowel, bit-reduced; not a recording. |
-| Strings | `examples/quadra-strings.ttl` | Eight voices with two choruses and a phaser. |
-| Speaker and room | `examples/speaker-room.ttl` | An effect. |
+| DMX kit | `circuits/dmx.ttl` | The existing captures of a real DMX. The kick is also played through `speaker-room.ttl` and mixed under itself. The score has the machine's shuffle: the second sixteenth of each pair sits at 54%. The high percussion goes to `reverb-return.ttl`. |
+| Source bass | `circuits/moog-source.ttl` | Saw and octave-down square, 24 dB ladder, cutoff from an envelope plus keyboard tracking. |
+| Bass guitar | `circuits/six-string-bass.ttl` | `val:StiffString` with chorus; tuned within a cent from E2 to E5. |
+| Prophet line | `circuits/prophet-5.ttl` | Eight voices, with a soft-clip distortion. |
+| Choir | `circuits/emulator-choir.ttl` | Synthesised vowel, bit-reduced; not a recording. |
+| Strings | `circuits/quadra-strings.ttl` | Eight voices with two choruses and a phaser. |
+| Speaker and room | `circuits/speaker-room.ttl` | An effect. |
 
 The score and mix are `scripts/archive/electro83/track.py`. The Prophet arpeggio is deliberately a sixteenth late
 from the start of the peak section, which is the extra rest in this track. `tests/engine/ElectroInstrumentsTest.cpp`

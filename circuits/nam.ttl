@@ -1,4 +1,4 @@
-# examples/nam.ttl
+# circuits/nam.ttl
 #
 # A Neural Amp Modeler capture between input and output. Needs a build with
 # -DVALIS_WITH_NAM=ON. The model path is the example that ships with

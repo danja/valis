@@ -55,4 +55,4 @@ with feedback so it rings inharmonically, a swelling bandpassed shaker and a woo
 into a darkening tape-style echo, and a clap into a hall.
 
 MIDI notes: 39 clap, 42 closed hat, 46 open hat, 70 shaker, 75 wood block.""",
-["Dubstep","Gothic","Percussion"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-drums-high.ttl")
+["Dubstep","Gothic","Percussion"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-drums-high.ttl")

@@ -1,4 +1,4 @@
-# examples/halloween-organ.ttl
+# circuits/halloween-organ.ttl
 #
 # A polyphonic drawbar organ for the song's gothic chords: eight voices, each six sine
 # drawbars at the Hammond footages (16', 5 1/3', 8', 4', 2 2/3', 2') with a short filtered key

@@ -140,7 +140,7 @@ set_tests_properties(ops_OpDispatcherTest PROPERTIES LABELS slow)
 # valis-render --midi, run as the real program. It needs the tool built first.
 add_executable(console_RenderMidiTest console/RenderMidiTest.cpp)
 target_compile_definitions(console_RenderMidiTest PRIVATE VALIS_RENDER_EXE="$<TARGET_FILE:valis_render>"
-                                                           VALIS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples")
+                                                           VALIS_CIRCUITS_DIR="${CMAKE_SOURCE_DIR}/circuits")
 add_dependencies(console_RenderMidiTest valis_render)
 add_test(NAME console_RenderMidiTest COMMAND console_RenderMidiTest)
 

@@ -1,6 +1,6 @@
 // tests/engine/ExampleRig.h
 //
-// Loads a circuit from examples/ into an engine the way the plugin does, so a
+// Loads a circuit from circuits/ into an engine the way the plugin does, so a
 // test can play it. Header only; every failure asserts with the diagnostics.
 
 #pragma once
@@ -38,7 +38,7 @@ struct ExampleRig
         const bool loadedOntology = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(loadedOntology);
 
-        std::ifstream stream(std::string(VALIS_EXAMPLES_DIR) + "/" + file);
+        std::ifstream stream(std::string(VALIS_CIRCUITS_DIR) + "/" + file);
         std::ostringstream text;
         text << stream.rdbuf();
         assert(! text.str().empty());

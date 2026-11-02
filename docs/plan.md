@@ -102,7 +102,7 @@ vocabs/
   valis.ttl                 THE vocabulary - loaded at runtime, not just docs
   lv2/                      vendored copies of the LV2 vocabularies we reuse
   w3c/                      rdf, rdfs, owl schemas
-examples/
+circuits/
   *.ttl                     example circuits, doubling as test fixtures
 include/valis/              public headers for valis_core
 src/
@@ -159,7 +159,7 @@ val:Ladder a rdfs:Class ; rdfs:subClassOf val:Filter ;
              [ a lv2:InputPort,  lv2:ControlPort ; lv2:symbol "resonance" ;
                lv2:default 0.0 ; lv2:minimum 0.0 ; lv2:maximum 1.0 ] .
 
-# ---- examples/basic.ttl (a circuit instance) ----
+# ---- circuits/basic.ttl (a circuit instance) ----
 @prefix : <urn:valis:circuit#> .
 
 :main a val:Circuit ; val:element :osc , :vcf , :drive , :out ;
@@ -214,7 +214,7 @@ Root `CMakeLists.txt` with `option(VALIS_BUILD_TESTS ON)`, `option(VALIS_WITH_MC
 ### M1 - RDF layer *(complete)*
 `Vocabulary.h` as frozen IRI string constants (the `transmission/src/rdf/Vocabulary.js` approach - plain constants, no namespace-builder machinery). `TurtleStore` wraps `SordWorld`/`SordModel` with RAII, parses via `serd_reader`, and - critically - **captures serd's line/column on error** so the editor can put a marker in the gutter. `TurtleWriter` serialises back via `serd_writer` with a stable prefix table.
 
-*Acceptance:* round-trip tests on `examples/*.ttl`; malformed Turtle yields a diagnostic with correct line and column.
+*Acceptance:* round-trip tests on `circuits/*.ttl`; malformed Turtle yields a diagnostic with correct line and column.
 
 *Done:* `TurtleStore` wraps sord with RAII and move semantics; `parse`/`parseFile`/`serialise` round-trip; queries are `object`/`objects`/`subjects`/`subjectsOfType`/`contains`/`forEachProperty`, with `add`/`remove` for graph edits. Terms compare with `sord_node_equals`. Errors carry serd's line/col (`4:0: missing ';' or '.'`). `vocab::valTerm("cutoff")` builds a `val:` IRI from a local name - the dynamic-property path uses it constantly. The test parses every file in `vocabs/`, so a bad ontology edit fails the build.
 
@@ -228,7 +228,7 @@ An arc may end on an `lv2:ControlPort`, carrying one value per block, with modul
 
 *Done:* `Ontology` loads 24 implementable classes from `vocabs/valis.ttl`, resolving `owl:equivalentClass` aliases and rejecting a class that declares `val:implementation` with no ports or duplicate port symbols. `CircuitModel` resolves elements, arcs and parameter bindings against it, with control values falling back to `lv2:default`. `CircuitCompiler` validates and topologically orders, reporting *every* problem rather than the first, each named against the offending element or arc: unknown/abstract class, unknown port, wrong direction, audio↔control rate mismatch, duplicate arc, dangling endpoint, an arc declared but not listed in `val:arc`, silent fan-in onto a non-Mixer input, wrong `val:Output` count, and a feedback loop with no `val:UnitDelay` - the last printed as the path round the loop. A unit delay's outgoing edge is cut before cycle detection, since it reads the previous block. The topological frontier is sorted by id so the order is reproducible for golden-output tests.
 
-The registry direction of the set-equality test lands with `ElementRegistry` in M3. `examples/skream.ttl` compiles clean: 13 nodes, 1 control link, both filter taps in use, 7 parameter bindings resolving to real control inputs.
+The registry direction of the set-equality test lands with `ElementRegistry` in M3. `circuits/skream.ttl` compiles clean: 13 nodes, 1 control link, both filter taps in use, 7 parameter bindings resolving to real control inputs.
 
 ### M3 - DSP elements and registry *(complete)*
 `DspElement` abstract base, deliberately modelled on `transmission/native/include/transmission/AudioProcessor.h` - virtual methods with **default implementations that degrade gracefully** rather than abort. `ElementRegistry` maps class IRI → factory.
@@ -262,9 +262,9 @@ The diode models are physical rather than decorative: a `val:Diode` shunting thr
 
 `valis-render` CLI (`src/tools/RenderMain.cpp`) renders a `.ttl` to a `.wav` headlessly - the fastest possible verification loop, and it needs no GUI, no host, and no audio device.
 
-*Acceptance:* `valis-render examples/basic.ttl out.wav` produces the expected signal; a hot-swap-under-load test asserts no allocation on the audio thread (run the render loop under a debug allocator hook).
+*Acceptance:* `valis-render circuits/basic.ttl out.wav` produces the expected signal; a hot-swap-under-load test asserts no allocation on the audio thread (run the render loop under a debug allocator hook).
 
-*Done:* the compiler now assigns buffers - one per audio output port, a scratch buffer per summed input, and a single shared silence block every unconnected input reads. A single-source input reads its producer's buffer directly, so there is no copy. `ValisEngine` installs a graph with one atomic exchange and frees the retired one from the message thread once the audio thread has demonstrably moved past it. `valis-render` renders a circuit to a wav headlessly and warns when the result clips or diverges. The plugin is wired to the engine and loads `examples/basic.ttl` at construction, so it makes sound from the moment it opens; a circuit that will not compile leaves the previous one playing, so a typo never silences the plugin.
+*Done:* the compiler now assigns buffers - one per audio output port, a scratch buffer per summed input, and a single shared silence block every unconnected input reads. A single-source input reads its producer's buffer directly, so there is no copy. `ValisEngine` installs a graph with one atomic exchange and frees the retired one from the message thread once the audio thread has demonstrably moved past it. `valis-render` renders a circuit to a wav headlessly and warns when the result clips or diverges. The plugin is wired to the engine and loads `circuits/basic.ttl` at construction, so it makes sound from the moment it opens; a circuit that will not compile leaves the previous one playing, so a typo never silences the plugin.
 
 Two bugs the tests caught rather than review:
 
@@ -287,7 +287,7 @@ Also fixed: some serd diagnostics - a CURIE that will not expand, for one - are 
 
 ### M6 - Parameters and host automation *(complete)*
 
-*Done:* `ValisParameter` is a fixed slot whose name, range and unit come from the circuit's `val:Param` bindings. The host's list cannot change, so loading a circuit repoints the slots and calls `updateHostDisplay(... withParameterInfoChanged)`. Verified end to end: with `examples/basic.ttl` loaded, the generated LV2 manifest carries `rdfs:label "Cutoff"` on `plug:p00`. Automation arrives on the host's thread, which only sets a flag; the timer does the work, since pushing a value walks the graph.
+*Done:* `ValisParameter` is a fixed slot whose name, range and unit come from the circuit's `val:Param` bindings. The host's list cannot change, so loading a circuit repoints the slots and calls `updateHostDisplay(... withParameterInfoChanged)`. Verified end to end: with `circuits/basic.ttl` loaded, the generated LV2 manifest carries `rdfs:label "Cutoff"` on `plug:p00`. Automation arrives on the host's thread, which only sets a flag; the timer does the work, since pushing a value walks the graph.
 
 ### M7 - Turtle editor view *(complete)*
 `TurtleCodeTokeniser : public juce::CodeTokeniser` - only two virtuals to implement (`readNextToken`, `getDefaultColourScheme`). JUCE ships only C++, Lua and XML tokenisers, so this is new code; model it on `juce_XMLCodeTokeniser.cpp` (the smallest complete example) and crib the scanning helpers from `juce_CPlusPlusCodeTokeniserFunctions.h`. Token types: prefix directive, IRI, prefixed name, blank node, string, number, `a`/keyword, punctuation, comment. Wire into `CodeEditorComponent` per `examples/GUI/CodeEditorDemo.h`. Debounced recompile on edit, errors surfaced in a gutter using M1's line/column.
@@ -368,7 +368,7 @@ Carried into `AGENTS.md`:
 - Every file starts with a one-line path comment (`hyperdata/transmissions/CLAUDE.md`); comments explain purpose, not effect, and only where intent isn't obvious.
 - `tests/` mirrors `src/`; one bare-`main()` + `<cassert>` executable per file registered with CTest - no GoogleTest, matching `transmission/native/tests/`.
 - `build.sh` echoes a human-readable heading before each build stage; one out-of-tree build dir per feature combination.
-- An `examples/` circuit doubles as a test fixture - cheap end-to-end coverage for a declarative system, the same trick as the `apps.json` + `TEST_PASSED` harness in `hyperdata/transmissions`.
+- An `circuits/` circuit doubles as a test fixture - cheap end-to-end coverage for a declarative system, the same trick as the `apps.json` + `TEST_PASSED` harness in `hyperdata/transmissions`.
 
 ---
 
@@ -378,7 +378,7 @@ Carried into `AGENTS.md`:
 ```bash
 ./build.sh                                    # JS-free: configure, build, ctest, all stages
 ctest --test-dir build --output-on-failure    # unit tests
-./build/valis-render examples/basic.ttl /tmp/out.wav
+./build/valis-render circuits/basic.ttl /tmp/out.wav
 ```
 
 **End-to-end, manual, once the plugin is real:**
@@ -399,11 +399,11 @@ curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
 
 ### The proof of concept
 
-[`docs/skream.md`](skream.md) specifies the MVP's acceptance demo: the Massive "scream" filter, expressed as `examples/skream.ttl` rather than as ported DSP. It was chosen because it is small - thirteen elements, ~150 lines of Turtle - and because it exercises precisely what is easy to get wrong: a nonlinearity inside a feedback loop, a filter tapped at two outputs at once, antiderivative anti-aliasing, and a gate driven by a control arc from elsewhere in the circuit. The reference implementation is `/home/danny/github/Scream`, itself built on Zavalishin ch. 6, the Cytomic TPT SVF, Chowdhury's ADAA and the Giannoulis compressor - published technique, not code to copy.
+[`docs/skream.md`](skream.md) specifies the MVP's acceptance demo: the Massive "scream" filter, expressed as `circuits/skream.ttl` rather than as ported DSP. It was chosen because it is small - thirteen elements, ~150 lines of Turtle - and because it exercises precisely what is easy to get wrong: a nonlinearity inside a feedback loop, a filter tapped at two outputs at once, antiderivative anti-aliasing, and a gate driven by a control arc from elsewhere in the circuit. The reference implementation is `/home/danny/github/Scream`, itself built on Zavalishin ch. 6, the Cytomic TPT SVF, Chowdhury's ADAA and the Giannoulis compressor - published technique, not code to copy.
 
 It also makes the project's argument concretely: Scream carries five abandoned saturators commented out in its inner loop, and choosing between them means editing C and rebuilding. In Valis that is one word in a Turtle file with the audio running, and a preset can differ in topology rather than only in values.
 
-**Acceptance for the MVP as a whole:** load `examples/basic.ttl` in the standalone app, hear it; edit the cutoff in the Code tab and hear it change; see the same circuit rendered in the Circuit view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure - bad Turtle, unknown element, cycle - surface a located, recoverable error instead of silence or a crash.
+**Acceptance for the MVP as a whole:** load `circuits/basic.ttl` in the standalone app, hear it; edit the cutoff in the Code tab and hear it change; see the same circuit rendered in the Circuit view and drag a node without interrupting audio; turn the bound Cutoff knob and see the Turtle value follow; automate that parameter from AudioPluginHost via VST3; drive the same edit over HTTP MCP; and have every failure - bad Turtle, unknown element, cycle - surface a located, recoverable error instead of silence or a crash.
 
 
 ---
@@ -466,7 +466,7 @@ either free-run at the density rate or follow a control arc into `trigger`.
 from a root note, which is what a granulator needs where an oscillator needs a
 frequency.
 
-`examples/granular.ttl` wires all of that into a playable instrument, covered
+`circuits/granular.ttl` wires all of that into a playable instrument, covered
 end to end in `tests/engine/ValisEngineTest.cpp`: it compiles, loads the sample
 it names, plays in stereo under a MIDI note, and allocates nothing in
 `process()`.

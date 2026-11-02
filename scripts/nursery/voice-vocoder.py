@@ -1,12 +1,12 @@
 # scripts/nursery/voice-vocoder.py
 #
-# examples/nursery-voice-vocoder.ttl: an effect that makes a speech synthesiser sing the track's chord. The
+# circuits/nursery-voice-vocoder.ttl: an effect that makes a speech synthesiser sing the track's chord. The
 # voice is the modulator of a channel vocoder; the carrier is made inside the circuit, so no MIDI is needed.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 from gen import build
 
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 
 N = [("in", "Input", {}),
      # consonants carry little energy; a lift above 2.5 kHz keeps the bands there awake

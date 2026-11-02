@@ -213,7 +213,7 @@ juce::var resourceManifest()
                                "application/json"));
 
     // The guide and the examples: files, not state, so they need no thread of their own.
-    for (const auto& item : listAgentResources(VALIS_ROOT_DIR, VALIS_EXAMPLES_DIR))
+    for (const auto& item : listAgentResources(VALIS_ROOT_DIR, VALIS_CIRCUITS_DIR))
     {
         auto* resource = new juce::DynamicObject();
         resource->setProperty("uri", juce::String(item.uri));
@@ -254,16 +254,16 @@ juce::var readResource(std::function<OpDispatcher()> makeDispatcher,
                        const juce::String& uri, juce::String& error)
 {
     // The guide and the examples are plain files and are answered here.
-    if (uri.startsWith("valis://guide") || uri.startsWith("valis://examples"))
+    if (uri.startsWith("valis://guide") || uri.startsWith("valis://circuits") || uri.startsWith("valis://examples"))
     {
-        const auto text = readAgentResource(VALIS_ROOT_DIR, VALIS_EXAMPLES_DIR, uri.toStdString());
+        const auto text = readAgentResource(VALIS_ROOT_DIR, VALIS_CIRCUITS_DIR, uri.toStdString());
         if (! text)
         {
             error = "no such resource: " + uri;
             return {};
         }
 
-        const bool turtle = uri.startsWith("valis://examples/");
+        const bool turtle = uri.startsWith("valis://circuits/") || uri.startsWith("valis://examples/");
         auto* contents = new juce::DynamicObject();
         contents->setProperty("uri", uri);
         contents->setProperty("mimeType", turtle ? "text/turtle" : (uri == "valis://guide" ? "text/markdown" : "text/plain"));
@@ -482,7 +482,7 @@ const ToolSpec kTools[] = {
      R"({"type":"object","properties":{"node":{"type":"string"}},"required":["node"]})"},
 
     {"set_sample", "Load a different file into a val:SampleLoad, val:TimeStretch or val:Convolver (sound) or val:NamModel (.nam model) node. The previous file stays in use if the new one will not load. For a val:Sampler, path is the whole sample table text, which replaces the kit for the session and shows in the Controls panel.",
-     R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or examples/; for a val:Sampler, the table text"}},"required":["node","path"]})"},
+     R"({"type":"object","properties":{"node":{"type":"string"},"path":{"type":"string","description":"absolute, or relative to the working directory or circuits/; for a val:Sampler, the table text"}},"required":["node","path"]})"},
 
     {"get_diagnostics", "The circuit's current state: whether it loaded, its size, its latency, and any problems an element recovered from (a missing sound file, say) as `problems`.",
      R"({"type":"object","properties":{}})"},

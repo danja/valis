@@ -1,4 +1,4 @@
-# examples/horn-section.ttl
+# circuits/horn-section.ttl
 #
 # A brass section for short stabs: six voices, each two slightly apart saws and a square an octave
 # below into a ladder filter that a fast envelope opens on the attack, which is where a trumpet or a

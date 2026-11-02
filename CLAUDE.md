@@ -135,7 +135,7 @@ to confirm a running instance before using MCP tools that require a host.
 
 - Read the log of every render before using its output: `nan`, `exceeds full scale` and `arc joins` there
   mean a failed stem. A number that does not move when the inputs move means the wrong binary is running.
-- After editing anything under `examples/`, run the whole suite (or `grep -rl <name> tests/`): tests pin
+- After editing anything under `circuits/`, run the whole suite (or `grep -rl <name> tests/`): tests pin
   counts and lint results of shipped files that have nothing to do with the element changed.
 - Before adding a port or mode to an existing element, grep `tests/` for its name. A test that says why a
   port is absent is a design decision: add a new element instead.

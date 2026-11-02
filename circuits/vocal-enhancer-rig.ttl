@@ -1,6 +1,6 @@
-# examples/vocal-enhancer-rig.ttl
+# circuits/vocal-enhancer-rig.ttl
 #
-# Test rig for the vocal enhancer device under test (examples/vocal-enhancer.ttl).
+# Test rig for the vocal enhancer device under test (circuits/vocal-enhancer.ttl).
 # A signal generator feeds the DUT chain through an input oscilloscope, and an
 # output oscilloscope watches the result before the audio output:
 #
@@ -10,7 +10,7 @@
 # control outputs drive the meters in the Controls view, so the input and
 # output levels can be compared while the circuit runs. The spectrum analyzer
 # likewise passes audio through and draws the output spectrum. Render offline with:
-#   valis_render examples/vocal-enhancer-rig.ttl -o /tmp/rig.wav
+#   valis_render circuits/vocal-enhancer-rig.ttl -o /tmp/rig.wav
 
 @prefix val:   <http://purl.org/stuff/valis/> .
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
@@ -34,7 +34,7 @@
 :scopeIn a val:Oscilloscope ;
     rdfs:label "Input Scope" .
 
-# Device under test: the vocal enhancer chain from examples/vocal-enhancer.ttl.
+# Device under test: the vocal enhancer chain from circuits/vocal-enhancer.ttl.
 :vcf a val:Ladder ; val:cutoff 2000.0 ; val:resonance 0.5 .
 :tanh a val:Tanh ; val:gain 3.0 .
 :comp a val:Compressor ; val:threshold -20.0 ; val:ratio 3.0 .

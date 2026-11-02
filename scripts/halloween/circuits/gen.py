@@ -6,7 +6,7 @@ def fmt(v):
 def build(name, label, header, genre, role, accepts, nodes, arcs, params, path):
     """nodes: [(id, cls, {prop: val}, comment)], arcs: [(a,port,b,port)],
     params: [(slot,id,prop,name,sym,min,max,section,unit)]"""
-    o = ["# examples/%s.ttl" % name, "#"] + ["# " + l if l else "#" for l in header.split("\n")]
+    o = ["# circuits/%s.ttl" % name, "#"] + ["# " + l if l else "#" for l in header.split("\n")]
     o += ["", "@prefix val:   <http://purl.org/stuff/valis/> .",
           "@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .",
           "@prefix units: <http://lv2plug.in/ns/extensions/units#> .",
@@ -43,7 +43,7 @@ def build_poly(name, label, header, genre, vnodes, varcs, vports, vout, voices, 
     followed by the shared nodes/arcs. vports: [(sym, label, default, min, max, node, port, unit, log)].
     params target :poly by port symbol: (slot, sym, name, symbol, section, unit)."""
     cid = name.replace('-', '')
-    o = ["# examples/%s.ttl" % name, "#"] + ["# " + l if l else "#" for l in header.split("\n")]
+    o = ["# circuits/%s.ttl" % name, "#"] + ["# " + l if l else "#" for l in header.split("\n")]
     o += ["", "@prefix val:   <http://purl.org/stuff/valis/> .",
           "@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .",
           "@prefix units: <http://lv2plug.in/ns/extensions/units#> .",

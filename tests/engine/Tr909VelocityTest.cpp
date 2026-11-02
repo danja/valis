@@ -1,6 +1,6 @@
 // tests/engine/Tr909VelocityTest.cpp
 //
-// examples/909.ttl played softly. Every drum in the kit has to sound at any velocity: a drum that is
+// circuits/909.ttl played softly. Every drum in the kit has to sound at any velocity: a drum that is
 // silent below half velocity makes a quiet hi-hat part vanish with no message (MISTAKES.md). The toms
 // also take their level from the velocity of their own note.
 
@@ -55,7 +55,7 @@ bool compileFile(const char* path, CompiledCircuit& out)
 float hit(int note, float velocity)
 {
     CompiledCircuit circuit;
-    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit);
+    const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit);
     assert(compiled);
 
     const auto registry = makeDefaultRegistry();
@@ -122,7 +122,7 @@ int main()
         const auto ringing = [](float velocity)
         {
             CompiledCircuit circuit;
-            const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit);
+            const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit);
             assert(compiled);
             const auto registry = makeDefaultRegistry();
             ValisEngine engine;
@@ -158,7 +158,7 @@ int main()
         const auto tail = [](bool chokeIt)
         {
             CompiledCircuit circuit;
-            const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit);
+            const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit);
             assert(compiled);
             const auto registry = makeDefaultRegistry();
             ValisEngine engine;
@@ -193,7 +193,7 @@ int main()
     // And with no note, the kit is silent.
     {
         CompiledCircuit circuit;
-        const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit);
+        const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit);
         assert(compiled);
         const auto registry = makeDefaultRegistry();
         ValisEngine engine;

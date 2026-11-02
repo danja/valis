@@ -1,4 +1,4 @@
-# examples/trumpets.ttl
+# circuits/trumpets.ttl
 #
 # Four voices of trumpet, played as a pair in thirds in a mariachi band. Each voice is a lip-reed waveguide
 # (val:Brass): the lips, the air column and the bell are modelled, so the tone gets brighter when the player blows

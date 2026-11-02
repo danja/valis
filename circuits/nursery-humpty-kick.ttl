@@ -1,4 +1,4 @@
-# examples/nursery-humpty-kick.ttl
+# circuits/nursery-humpty-kick.ttl
 #
 # A kick drum named for Humpty Dumpty's fall. Two things fall together from a high pitch to a low one: a sine
 # (the thump) and a six-mode drumhead resonator (val:ModalBank, circular membrane) struck by a 7 ms noise burst.

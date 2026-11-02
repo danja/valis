@@ -1,4 +1,4 @@
-# examples/latin-perc.ttl
+# circuits/latin-perc.ttl
 #
 # Hand percussion for a Latin band and a small punk kit, played by note number from one MIDI file or several.
 # Notes: 36 bass drum, 38 snare, 39 snare body, 41 floor tom, 49 crash, 56 cowbell, 60 high bongo, 61 low bongo,

@@ -6,7 +6,7 @@ tool on the [MCP surface](mcp.md). To render every part of a song and mix the st
 [songs as data](../songs.md).
 
 ```sh
-valis_render examples/nylon-guitar.ttl --note 52 --seconds 3 -o guitar.wav
+valis_render circuits/nylon-guitar.ttl --note 52 --seconds 3 -o guitar.wav
 ```
 
 The tool is built with `cmake --build build` and sits at `build/valis_render_artefacts/Debug/valis_render`. A Release

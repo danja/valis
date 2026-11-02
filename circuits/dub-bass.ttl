@@ -1,7 +1,7 @@
-# examples/dub-bass.ttl
+# circuits/dub-bass.ttl
 #
 # A heavy electric bass guitar for dub: a flat-wound string plucked with the thumb, so the pick is dark and soft, through a
-# pickup that sits low and an amplifier driven into soft clipping. It is examples/six-string-bass.ttl with the brightness
+# pickup that sits low and an amplifier driven into soft clipping. It is circuits/six-string-bass.ttl with the brightness
 # taken out, the chorus removed (a dub bass is mono and dry) and the drive raised, and it is meant to be played from C1
 # (24) to C3 (48), where six-string-bass.ttl lives two octaves higher. It plays one note at a time.
 # https://en.wikipedia.org/wiki/Dub_music

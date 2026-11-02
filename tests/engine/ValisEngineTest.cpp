@@ -176,7 +176,7 @@ void testNoCircuitIsSilenceNotGarbage()
 void testProcessDoesNotAllocate()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/skream.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/skream.ttl", circuit));
 
     const auto registry = makeDefaultRegistry();
     ValisEngine engine;
@@ -210,7 +210,7 @@ void testHotSwapWhileRunning()
 {
     CompiledCircuit gain, skream;
     assert(compileTurtle(kGain, gain));
-    assert(compileFile(VALIS_EXAMPLES_DIR "/skream.ttl", skream));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/skream.ttl", skream));
 
     const auto registry = makeDefaultRegistry();
     ValisEngine engine;
@@ -241,7 +241,7 @@ void testHotSwapWhileRunning()
 void testDeterminism()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/skream.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/skream.ttl", circuit));
     const auto registry = makeDefaultRegistry();
 
     const auto input = tone(110.0, 48000.0, 4096);
@@ -280,7 +280,7 @@ void testDeterminism()
 void testSkreamMakesTheRightKindOfNoise()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/skream.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/skream.ttl", circuit));
     const auto registry = makeDefaultRegistry();
 
     ValisEngine engine;
@@ -580,7 +580,7 @@ void testMoreNotesThanVoicesSteals()
 void testPolysynthExampleRuns()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/polysynth.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/polysynth.ttl", circuit));
 
     // Eight voices of five elements, plus the mixer, the saturator and output.
     assert(circuit.numVoices == 8);
@@ -609,13 +609,13 @@ void testPolysynthExampleRuns()
     assert(peakOf(out) > 0.05f);
 }
 
-/// examples/chimera.ttl is built on feedback between two nonlinear elements, so
+/// circuits/chimera.ttl is built on feedback between two nonlinear elements, so
 /// the things worth pinning are that it stays bounded and that its controls
 /// actually do what the document claims.
 void testChimeraIsStableAndItsRegimesDiffer()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/chimera.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/chimera.ttl", circuit));
 
     // Eight voices of nine elements, plus the mixer summing the pool, and
     // level, body, air, ceiling and output.
@@ -689,7 +689,7 @@ void testChimeraIsStableAndItsRegimesDiffer()
 void testDmxNotesSelectTheirOwnDrum()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/dmx.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/dmx.ttl", circuit));
 
     const auto registry = makeDefaultRegistry();
 
@@ -759,7 +759,7 @@ void testDmxNotesSelectTheirOwnDrum()
 void testDmxClosedHatChokesOpenHat()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/dmx.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/dmx.ttl", circuit));
     const auto registry = makeDefaultRegistry();
 
     // Energy after the second note, with and without it.
@@ -1295,7 +1295,7 @@ void testEnvelopeRespondsToNotes()
 void testRingsModalProducesSound()
 {
     CompiledCircuit circuit;
-    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/rings-modal.ttl", circuit);
+    const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/rings-modal.ttl", circuit);
     if (! compiled)
     {
         std::puts("  rings-modal.ttl failed to compile — skipping sound test");
@@ -1332,7 +1332,7 @@ void testRingsModalProducesSound()
 void testSimultaneousPolyphonicNoteGates()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit));
 
     const auto registry = makeDefaultRegistry();
     ValisEngine engine;
@@ -1359,7 +1359,7 @@ void testSimultaneousPolyphonicNoteGates()
 void testBassDrumOnly()
 {
     CompiledCircuit circuit;
-    assert(compileFile(VALIS_EXAMPLES_DIR "/909.ttl", circuit));
+    assert(compileFile(VALIS_CIRCUITS_DIR "/909.ttl", circuit));
 
     const auto registry = makeDefaultRegistry();
     ValisEngine engine;
@@ -1393,7 +1393,7 @@ void testBassDrumOnly()
 void testModulationCompileAndPassesAudio()
 {
     CompiledCircuit circuit;
-    if (! compileFile(VALIS_EXAMPLES_DIR "/modulation.ttl", circuit))
+    if (! compileFile(VALIS_CIRCUITS_DIR "/modulation.ttl", circuit))
     {
         std::puts("  modulation.ttl failed to compile — check diagnostics above");
         assert(false);
@@ -1418,7 +1418,7 @@ void testModulationCompileAndPassesAudio()
 void testClarinetCompileAndProducesSound()
 {
     CompiledCircuit circuit;
-    if (! compileFile(VALIS_EXAMPLES_DIR "/clarinet.ttl", circuit))
+    if (! compileFile(VALIS_CIRCUITS_DIR "/clarinet.ttl", circuit))
     {
         std::puts("  clarinet.ttl failed to compile — check diagnostics above");
         assert(false);
@@ -1446,7 +1446,7 @@ void testClarinetCompileAndProducesSound()
 void testSh101CompileAndProducesSound()
 {
     CompiledCircuit circuit;
-    if (! compileFile(VALIS_EXAMPLES_DIR "/sh101.ttl", circuit))
+    if (! compileFile(VALIS_CIRCUITS_DIR "/sh101.ttl", circuit))
     {
         std::puts("  sh101.ttl failed to compile — check diagnostics above");
         assert(false);
@@ -1490,7 +1490,7 @@ void testSh101CompileAndProducesSound()
 void testClarinetUiLoadPathProducesSound()
 {
     // Read the file as a string the way JUCE's f.loadFileAsString() would.
-    const std::string path = std::string(VALIS_EXAMPLES_DIR) + "/clarinet.ttl";
+    const std::string path = std::string(VALIS_CIRCUITS_DIR) + "/clarinet.ttl";
     std::FILE* f = std::fopen(path.c_str(), "rb");
     assert(f != nullptr);
     std::string content;
@@ -1542,7 +1542,7 @@ void testClarinetUiLoadPathProducesSound()
 void testClarinetPitchTracking()
 {
     // Load clarinet via string-parse (same path as the UI).
-    const std::string path = std::string(VALIS_EXAMPLES_DIR) + "/clarinet.ttl";
+    const std::string path = std::string(VALIS_CIRCUITS_DIR) + "/clarinet.ttl";
     std::FILE* f = std::fopen(path.c_str(), "rb");
     assert(f != nullptr);
     std::string content;
@@ -1647,7 +1647,7 @@ const char* kScopeTap = R"(
 void testGranularCircuitProducesSound()
 {
     CompiledCircuit circuit;
-    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/granular.ttl", circuit);
+    const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/granular.ttl", circuit);
     assert(compiled);
 
     const auto registry = makeDefaultRegistry();
@@ -1836,7 +1836,7 @@ void testTransportDrivesGrainOnsets()
 void testFluteCircuitProducesSound()
 {
     CompiledCircuit circuit;
-    const bool compiled = compileFile(VALIS_EXAMPLES_DIR "/flute.ttl", circuit);
+    const bool compiled = compileFile(VALIS_CIRCUITS_DIR "/flute.ttl", circuit);
     assert(compiled);
 
     const auto registry = makeDefaultRegistry();

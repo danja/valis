@@ -1,4 +1,4 @@
-# examples/nursery-rock-a-bye-pad.ttl
+# circuits/nursery-rock-a-bye-pad.ttl
 #
 # A pad for "Rock-a-bye Baby". Each key sounds a root, a fifth and an octave together (two saws and two triangles, one
 # saw 10 cents sharp). The filter is opened and closed by a slow low-frequency oscillator at 1.1667 Hz, one swing

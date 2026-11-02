@@ -1,4 +1,4 @@
-# examples/nursery-wind-up-riser.ttl
+# circuits/nursery-wind-up-riser.ttl
 #
 # A riser for a build, modelled on a clockwork toy being wound. One envelope, the winding, drives four things. A guiro
 # (val:Shaker with regularity 1, a regular scrape) speeds up from 3 to 180 ticks a second, so a slow tick becomes a

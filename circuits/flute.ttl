@@ -1,4 +1,4 @@
-# examples/flute.ttl
+# circuits/flute.ttl
 #
 # A flute, played from MIDI. val:Flute is a jet-drive waveguide: an air column
 # open at both ends, blown by a ribbon of air aimed at a sharp edge, with the

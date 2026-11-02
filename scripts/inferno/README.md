@@ -1,6 +1,6 @@
 # Inferno Choir
 
-`inferno.py` writes `examples/inferno-choir.ttl`, a synthesised human scream and wail. Run it from anywhere:
+`inferno.py` writes `circuits/inferno-choir.ttl`, a synthesised human scream and wail. Run it from anywhere:
 
     python3 scripts/inferno/inferno.py
 

@@ -1,4 +1,4 @@
-# examples/rings-reed.ttl
+# circuits/rings-reed.ttl
 #
 # Reed exciter — digital waveguide clarinet.
 #

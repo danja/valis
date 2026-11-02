@@ -1,4 +1,4 @@
-# examples/harp.ttl
+# circuits/harp.ttl
 #
 # An eight-voice harp, as played in the Veracruz folk music that mariachi grew from. A bright pluck (val:Pluck) strikes
 # a lightly damped stiff string that rings for several seconds, with one low soundboard resonance and a room.

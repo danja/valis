@@ -1,12 +1,12 @@
 # scripts/inferno/inferno.py
 #
-# examples/inferno-choir.ttl: a synthesised human scream and wail, "the sound of the inferno".
+# circuits/inferno-choir.ttl: a synthesised human scream and wail, "the sound of the inferno".
 # Run it to write the circuit. See scripts/inferno/README.md.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 from gen import build
 
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 
 # ---- the player: notes and four controllers -----------------------------------------------------
 N = [

@@ -1,4 +1,4 @@
-# examples/multiband.ttl
+# circuits/multiband.ttl
 #
 # A three-band compressor that also lifts what is quiet: the squashed, dense sound of
 # multiband "OTT" processing.

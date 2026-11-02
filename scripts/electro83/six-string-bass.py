@@ -2,7 +2,7 @@
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 from gen import build
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 
 N=[("pitch","MidiPitch",{}),("dc","OnePole",{"mode":1,"cutoff":30.0}),
  ("pluckEnv","Envelope",{"attack":0.1,"decay":7.0,"sustain":0.0,"release":2.0}),

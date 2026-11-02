@@ -3,7 +3,7 @@
 A flute is a tube open at both ends, blown by a ribbon of air aimed at a sharp
 edge across the mouth hole. `val:Flute` models exactly that, and everything
 about the tone comes out of the physics rather than from filtering an
-oscillator. The full Turtle is at `examples/flute.ttl`.
+oscillator. The full Turtle is at `circuits/flute.ttl`.
 
 ## What the model is
 
@@ -44,7 +44,7 @@ louder and brighter, because a faster jet drives the nonlinearity further.
 Measured between the softest and loudest settings, the level rises by a factor
 of a hundred and the third harmonic by a factor of four.
 
-This is why `examples/flute.ttl` sends the envelope to blowing pressure as well
+This is why `circuits/flute.ttl` sends the envelope to blowing pressure as well
 as to the amplifier. A flute's loudness is not a volume control.
 
 ## The offset is the timbre
@@ -84,7 +84,7 @@ The same element, four controls apart:
 The bamboo setting is a shakuhachi or a bansuri: soft walls that lose the upper
 partials, a great deal of air in the sound, and a jet nearer the centre of the
 edge, which leaves the tone hollower. Both are in the header of
-`examples/flute.ttl`, and every one of those controls is a host parameter.
+`circuits/flute.ttl`, and every one of those controls is a host parameter.
 
 ## Tuning
 

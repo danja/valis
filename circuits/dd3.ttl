@@ -1,4 +1,4 @@
-# examples/dd3.ttl
+# circuits/dd3.ttl
 #
 # A bucket-brigade delay pedal in the manner of the Boss DD-3: the dry signal always
 # passes at full level, and the delayed signal is added to it at the effect level.

@@ -52,7 +52,7 @@ void SampleBox::chooseFile()
     auto start = dsp::resolveFile(processor.sampleFor(nodeId)).getParentDirectory();
     if (! start.isDirectory())
         start = model ? juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-                      : juce::File(VALIS_EXAMPLES_DIR).getChildFile("samples");
+                      : juce::File(VALIS_CIRCUITS_DIR).getChildFile("samples");
 
     chooser = std::make_unique<juce::FileChooser>(
         (model ? "Choose a NAM model for " : "Choose a sound file for ") + title, start,

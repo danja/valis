@@ -1,4 +1,4 @@
-# examples/sh101.ttl
+# circuits/sh101.ttl
 #
 # Monophonic subtractive synthesiser modelled after the Roland SH-101.
 #

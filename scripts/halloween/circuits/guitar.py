@@ -35,4 +35,4 @@ it repeats. The tape stage adds a slow wobble.
 
 The string is tuned across its range (see tests/dsp/StiffStringTest.cpp). It plays single notes only,
 as the riff does. The echo time is in milliseconds; 375 ms is a dotted eighth at 120 BPM.""",
-["Guitar","Surf","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-guitar.ttl")
+["Guitar","Surf","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-guitar.ttl")

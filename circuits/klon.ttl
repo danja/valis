@@ -1,4 +1,4 @@
-# examples/klon.ttl
+# circuits/klon.ttl
 #
 # Klon Centaur guitar overdrive, simplified circuit model.
 #

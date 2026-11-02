@@ -39,7 +39,7 @@ input device, or load a circuit that makes its own sound.
 ## Working in it
 
 - **Load Circuit** and **Save Circuit** in the File menu read and write a Turtle file. Everything
-  in `examples/` loads this way.
+  in `circuits/` loads this way.
 - The **Code** view is the circuit's source. Edit it and the circuit is rebuilt when the text
   compiles; if it does not, the last working circuit keeps playing and the error is shown with its
   line.
@@ -78,7 +78,7 @@ free at 120 BPM, the tempo Valis assumes when a host gives none.
 tests and rendering a part from a MIDI file:
 
 ```sh
-valis_render examples/halloween-bass.ttl --midi bass.mid --tempo 140 --rolling \
+valis_render circuits/halloween-bass.ttl --midi bass.mid --tempo 140 --rolling \
     --seconds 186 -o bass.wav
 ```
 

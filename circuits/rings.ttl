@@ -1,4 +1,4 @@
-# examples/rings.ttl
+# circuits/rings.ttl
 #
 # Mutable Instruments Rings — Karplus-Strong plucked string mode.
 #

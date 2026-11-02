@@ -157,10 +157,10 @@ void testVocabulariesParse()
 {
     const char* files[] = {
         VALIS_VOCABS_DIR "/valis.ttl",
-        VALIS_EXAMPLES_DIR "/skream.ttl",
-        VALIS_EXAMPLES_DIR "/basic.ttl",
-        VALIS_EXAMPLES_DIR "/granular.ttl",
-        VALIS_EXAMPLES_DIR "/flute.ttl",
+        VALIS_CIRCUITS_DIR "/skream.ttl",
+        VALIS_CIRCUITS_DIR "/basic.ttl",
+        VALIS_CIRCUITS_DIR "/granular.ttl",
+        VALIS_CIRCUITS_DIR "/flute.ttl",
         VALIS_ROOT_DIR "/profile.ttl",
         VALIS_VOCABS_DIR "/lv2/lv2core.ttl",
         VALIS_VOCABS_DIR "/lv2/units.ttl",
@@ -237,7 +237,7 @@ void testOntologyShape()
                           store.uri(vocab::val::Transfer)));
 }
 
-/// examples/skream.ttl is the project's proof of concept (docs/skream.md). Its
+/// circuits/skream.ttl is the project's proof of concept (docs/skream.md). Its
 /// shape is asserted here so a careless edit to the circuit or the ontology is
 /// caught before it reaches the engine.
 /// A lookup is not read-only to sord: it builds a query node in the world and frees it. Several threads reading one
@@ -300,7 +300,7 @@ void testSkreamCircuit()
 {
     TurtleStore store;
     std::vector<ParseError> errors;
-    const bool parsedSkream = store.parseFile(VALIS_EXAMPLES_DIR "/skream.ttl", errors);
+    const bool parsedSkream = store.parseFile(VALIS_CIRCUITS_DIR "/skream.ttl", errors);
     assert(parsedSkream);
     assert(errors.empty());
 

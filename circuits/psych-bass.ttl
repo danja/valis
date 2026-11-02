@@ -1,4 +1,4 @@
-# examples/psych-bass.ttl
+# circuits/psych-bass.ttl
 #
 # A monophonic bass for acid rock: a saw at the played pitch and a square an octave below, a
 # 24 dB per octave ladder filter opened by an envelope, and then a fuzz (a hard tanh stage and a tone

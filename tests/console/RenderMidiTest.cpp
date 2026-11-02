@@ -126,7 +126,7 @@ int firstAbove(const std::vector<float>& x, int from, float level)
 
 int run(const std::string& midi, const std::string& wav, const std::string& extra = {}, double tempo = 120.0, double seconds = 2.5)
 {
-    const std::string command = std::string("\"") + VALIS_RENDER_EXE + "\" \"" + VALIS_EXAMPLES_DIR + "/sh101.ttl\" --midi \"" + midi
+    const std::string command = std::string("\"") + VALIS_RENDER_EXE + "\" \"" + VALIS_CIRCUITS_DIR + "/sh101.ttl\" --midi \"" + midi
                               + "\" --tempo " + std::to_string(tempo) + " --seconds " + std::to_string(seconds) + " " + extra
                               + " -o \"" + wav + "\" > /dev/null 2>&1";
     return std::system(command.c_str());

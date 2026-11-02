@@ -1,6 +1,6 @@
-# examples/metal-clang.ttl
+# circuits/metal-clang.ttl
 #
-# Metal bashing for an industrial track: examples/metal-bash.ttl with the sheet damped. In metal-bash.ttl the sheet rings
+# Metal bashing for an industrial track: circuits/metal-bash.ttl with the sheet damped. In metal-bash.ttl the sheet rings
 # for two or three seconds on a tuned note, which reads as a bell. Here the body rings for about a third of a second and the
 # shimmer for a tenth, the hammer is bigger and bounces slower, the sheet is brighter and the distortion is driven harder, so what is
 # left is the strike, and the hammer's noise burst is also sent to the output dry, so the strike is heard as well as the ring: a clang with a short ring, not a pitch. The note still sets the pitch of the sheet, but play it low

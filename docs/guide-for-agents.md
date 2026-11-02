@@ -4,8 +4,8 @@ This document tells an AI agent how to build and modify instruments and effects
 processors in Valis using the MCP interface. Read it before calling any tools.
 
 The server also offers this guide and every example as resources, so you can read them
-without access to the repository: `valis://guide`, `valis://examples` (an index saying
-what each one is) and `valis://examples/NAME`, such as `valis://examples/basic`.
+without access to the repository: `valis://guide`, `valis://circuits` (an index saying
+what each one is) and `valis://circuits/NAME`, such as `valis://circuits/basic`.
 
 Three other files are worth knowing about, and none of them is a substitute for
 asking the running program:
@@ -13,7 +13,7 @@ asking the running program:
 - [`manual/elements.md`](manual/elements.md) is the element reference. It is
   generated from the ontology, so every port symbol, range, unit and description
   in it is exact. `list_element_types` returns the same ports from the live program.
-- [`examples.md`](examples.md) describes every circuit in `examples/`. Start from
+- [`examples.md`](examples.md) describes every circuit in `circuits/`. Start from
   the closest one rather than from nothing: `load_file` loads it, and `get_turtle`
   shows you how it is written.
 - [`manual/mcp.md`](manual/mcp.md) covers running the server, its port and its
@@ -37,7 +37,7 @@ asking the running program:
    ```
    resources/read  valis://turtle
    resources/read  valis://element-types
-   resources/read  valis://examples        (to choose a starting point)
+   resources/read  valis://circuits        (to choose a starting point)
    ```
 
 3. Inspect the graph before making changes:
@@ -147,7 +147,7 @@ cannot be applied, such as a file that does not exist, fails the load with a
 message naming the element and the option. `list_element_types` shows ports only;
 `describe_element` lists the options an element takes, with what each means.
 
-A relative file path is looked up in the working directory, then in `examples/`,
+A relative file path is looked up in the working directory, then in `circuits/`,
 then in the repository root.
 
 ### Parameters
@@ -181,14 +181,14 @@ the host is stopped they run on their own at the last tempo it reported.
 `val:Input` has `out` (the channels summed), `left` and `right`. `val:Output` has
 `in` (both channels) and `left` and `right`. Elements are mono, so a stereo
 circuit is two chains. A `val:Subcircuit` written once and instantiated per
-channel is the tidy way; see `examples/subcircuit.ttl`.
+channel is the tidy way; see `circuits/subcircuit.ttl`.
 
 ## Workflow
 
 ### Build from scratch
 
 1. Start from the closest example if there is one: `load_file` with a path under
-   `examples/`, then change it.
+   `circuits/`, then change it.
 
 2. Otherwise call `set_turtle` with a complete, valid Turtle document. This is the
    fastest path when you have a clear design in mind. Use `validate` first to check
@@ -405,7 +405,7 @@ Input.out ──Arc──► [effect chain] ──Arc──► Output.in
 
 Use `val:Input` for the plugin's audio input and `val:Output` for its output.
 To keep the dry signal at full level and add an effect to it, send both to a
-`val:Mixer`; `examples/dd3.ttl` does this.
+`val:Mixer`; `circuits/dd3.ttl` does this.
 
 ### LFO modulation
 
@@ -429,7 +429,7 @@ envelope and its `pitch` (in hertz) to an oscillator:
     val:division 0.25 .                        # a sixteenth a step
 ```
 
-`examples/blue-monday-sketch.ttl` has a bass and four drum parts this way.
+`circuits/blue-monday-sketch.ttl` has a bass and four drum parts this way.
 
 ### Per-note drum voices
 
@@ -449,13 +449,13 @@ closes the VCA before the resonator finishes its decay.
 
 To make sounds on one voice cut each other off (a closed hi-hat stopping an open
 one), send the other sounds' gates through a `val:ControlMax` into the player's
-`choke`; `examples/dmx.ttl` shows it.
+`choke`; `circuits/dmx.ttl` shows it.
 
 ### Sample players, stretching and granulation
 
 - `val:Sampler` plays sounds from MIDI notes: one `val:file` pitched across the keys, or a `val:samples` table
   of zones with key and velocity ranges, loops, choke groups and round robin, sixteen voices of its own.
-  `examples/sampler-percussion.ttl` plays the recordings in `audio/`; `examples/drum-machine.ttl` is a General MIDI
+  `circuits/sampler-percussion.ttl` plays the recordings in `audio/`; `circuits/drum-machine.ttl` is a General MIDI
   kit built entirely over MCP from `freesound_search` and `freesound_download`. A `;` or newline separates zones and
   a line starting with `#` is a comment. Each zone can have `pan` (-1 to 1) and `name` (what the panel shows); the
   element's `left` and `right` outputs carry the panned kit and `out` is the mono sum. The Controls view shows a
@@ -467,7 +467,7 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
   take turns, which is round robin or layering. With `loop` on, a zone with loop points loops between them while the key is
   held, crossfading over `fade`; with `oneshot` on a hit plays out whatever the key does; with `keytrack` off every key plays
   at the recorded pitch, for a kit. A key no zone answers plays the nearest zone.
-- `examples/sampled-strings.ttl` is a multisample: violins, violas and cellos (VSCO 2, CC0) as three samplers chosen by one
+- `circuits/sampled-strings.ttl` is a multisample: violins, violas and cellos (VSCO 2, CC0) as three samplers chosen by one
   Voice control through `val:AudioSelect`, each recording looped so a note can be held past the length of the file.
   Its tuning, loudness and sustain are pinned by `tests/engine/SampledStringsTest.cpp`.
 - `val:Convolver` takes an impulse response from `val:file` and puts the input in that room or through that device; no
@@ -476,7 +476,7 @@ one), send the other sounds' gates through a `val:ControlMax` into the player's
   or pitch; `val:GrainBuffer` holds one for grains. The file is an option
   (`val:file`), and `set_sample` swaps it in a session without editing the document.
 - One `val:GrainBuffer` can feed several `val:GrainCloud` elements through buffer
-  arcs. `examples/grain-clouds.ttl` has three.
+  arcs. `circuits/grain-clouds.ttl` has three.
 - A relative path is resolved as described under Options.
 
 ### Songs
@@ -504,7 +504,7 @@ The Controls view draws a thin separator and label between sections.
 
 Every shipped circuit declares a `trn:PluginProfile`: its role, what it accepts and
 produces, and any caution. `get_profile` reads it. Add one to a circuit you build,
-so a catalogue can list it; see any file in `examples/` for the properties.
+so a catalogue can list it; see any file in `circuits/` for the properties.
 
 ## Choosing an element
 

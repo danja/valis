@@ -1,4 +1,4 @@
-# examples/chimera.ttl
+# circuits/chimera.ttl
 #
 # Chimera: eight voices, each a pair of bowed strings playing each other.
 #
@@ -17,7 +17,7 @@
 # instrument into a different sound entirely.
 #
 # The behaviour is not an effect applied to the strings. It is what the strings
-# do. It turned up as a defect while calibrating val:Bow for examples/cello.ttl,
+# do. It turned up as a defect while calibrating val:Bow for circuits/cello.ttl,
 # where a string would jump to a neighbouring mode at particular bow positions;
 # here it is the point.
 #

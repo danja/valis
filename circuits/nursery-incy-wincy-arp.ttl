@@ -1,4 +1,4 @@
-# examples/nursery-incy-wincy-arp.ttl
+# circuits/nursery-incy-wincy-arp.ttl
 #
 # An arpeggio voice for "Incy Wincy Spider". A plucked string (val:Pluck into val:StiffString with dispersion, so the
 # upper partials are stretched like a toy piano's) rings beside a sympathetic comb tuned a fifth above, the web. The sum

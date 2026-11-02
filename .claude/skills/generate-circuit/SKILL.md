@@ -1,12 +1,12 @@
 ---
 name: generate-circuit
-description: Write an instrument or effect circuit (a Turtle file in examples/) from a short Python description, the way the Halloween and 1983-style sets were made. Use when adding an example circuit, a polyphonic synth, or a send effect.
+description: Write an instrument or effect circuit (a Turtle file in circuits/) from a short Python description, the way the Halloween and 1983-style sets were made. Use when adding an example circuit, a polyphonic synth, or a send effect.
 ---
 
 # Generate a circuit
 
 Hand-written Turtle with one `val:Arc` block per connection runs to hundreds of lines. The circuits in
-`examples/halloween-*.ttl` and `examples/moog-source.ttl` and its neighbours are written by short Python
+`circuits/halloween-*.ttl` and `circuits/moog-source.ttl` and its neighbours are written by short Python
 scripts using `scripts/halloween/circuits/gen.py`:
 
 - `build(name, label, header, genre, role, accepts, nodes, arcs, params, path)` for a monophonic circuit or an effect.
@@ -29,7 +29,7 @@ Examples to copy: `scripts/electro83/moog-source.py` (mono voice), `poly-synths.
   circuit that sits at the limiter on every note.
 - **Silence.** An instrument must be silent until played. Render with no notes, or run the engine test.
 - **Header comment.** Say what it models, how to play it, the range, and that it is monophonic if it is.
-- Scripts write over `examples/`. Edit the script or the file, not both. Keep scripts in `scripts/<set>/` with a
+- Scripts write over `circuits/`. Edit the script or the file, not both. Keep scripts in `scripts/<set>/` with a
   README.
 
 ## After writing

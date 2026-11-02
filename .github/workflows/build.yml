@@ -37,5 +37,5 @@ jobs:
 
       - name: Render the proof of concept
         run: |
-          ./build/valis_render_artefacts/Debug/valis_render examples/skream.ttl \
+          ./build/valis_render_artefacts/Debug/valis_render circuits/skream.ttl \
             -o /tmp/skream.wav --tone 100 --seconds 1

@@ -1,6 +1,6 @@
 // tests/engine/GristExampleTest.cpp
 //
-// examples/grist.ttl through the engine: a grain delay whose output is fed back
+// circuits/grist.ttl through the engine: a grain delay whose output is fed back
 // into the history it records, closed through a val:UnitDelay. The properties
 // that matter are that it sounds, that the loop can be turned right up without
 // running away, and that the feedback is what makes a tail.
@@ -41,7 +41,7 @@ struct Rig
         const bool loaded = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(loaded);
 
-        std::ifstream file(VALIS_EXAMPLES_DIR "/grist.ttl");
+        std::ifstream file(VALIS_CIRCUITS_DIR "/grist.ttl");
         std::ostringstream text;
         text << file.rdbuf();
 

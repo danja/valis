@@ -1,6 +1,6 @@
 // tests/engine/MetalBashTest.cpp
 //
-// examples/metal-bash.ttl: a hammer (noise through a granulator) striking two
+// circuits/metal-bash.ttl: a hammer (noise through a granulator) striking two
 // parallel modal banks, then distortion. The properties that make it a struck
 // sheet and not just a sound: it is silent until hit, its lowest partial is the
 // MIDI note, the plate's inharmonic partials are there, a harder hit is louder

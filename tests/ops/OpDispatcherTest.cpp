@@ -147,7 +147,7 @@ struct Host
 
 void testTurtleRoundTrip()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto got = ops.getTurtle();
@@ -160,12 +160,12 @@ void testTurtleRoundTrip()
 
 void testValidateReportsWithoutInstalling()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto before = ops.getTurtle().value;
 
-    const auto good = ops.validate(readFile(VALIS_EXAMPLES_DIR "/skream.ttl"));
+    const auto good = ops.validate(readFile(VALIS_CIRCUITS_DIR "/skream.ttl"));
     assert(good.ok);
     assert(good.value.find("14 nodes") != std::string::npos);
 
@@ -181,7 +181,7 @@ void testValidateReportsWithoutInstalling()
 /// typo in the editor silences the plugin mid-performance.
 void testBadTurtleLeavesTheCircuitRunning()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto elementsBefore = host.model.elements().size();
@@ -197,7 +197,7 @@ void testBadTurtleLeavesTheCircuitRunning()
 
 void testListElementTypes()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     // Every instantiable class the ontology declares, which is the same set the
@@ -222,7 +222,7 @@ void testListElementTypes()
 
 void testGetGraph()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/skream.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/skream.ttl"));
     auto ops = host.ops();
 
     const auto graph = ops.getGraph();
@@ -236,7 +236,7 @@ void testGetGraph()
 
 void testGraphEditing()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto nodesBefore = host.model.elements().size();
@@ -292,7 +292,7 @@ void testGraphEditing()
 
 void testParameters()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/skream.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/skream.ttl"));
     auto ops = host.ops();
 
     const auto params = ops.listParams();
@@ -332,7 +332,7 @@ void testParameters()
 
 void testDiagnostics()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/skream.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/skream.ttl"));
     auto ops = host.ops();
 
     const auto result = ops.getDiagnostics();
@@ -353,7 +353,7 @@ std::string message(const OpResult& result)
 
 void testDescribeElement()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto result = ops.describeElement("val:StepSequencer");
@@ -627,7 +627,7 @@ void testABindingsOwnRangeIsTheRangeTheOpsReport()
     assert(high.ok && high.diagnostics.empty());
 
     // A binding with no range of its own still reports the port's.
-    Host plain(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host plain(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     bool sawPortRange = false;
     for (const auto& p : plain.ops().listParams())
         sawPortRange = sawPortRange || (p.minimum == 20.0 && p.maximum == 20000.0);   // Cutoff, as the Ladder declares it
@@ -652,7 +652,7 @@ void testStabilityCheckLeavesTheLiveCircuitAlone()
 
 void testStabilityCheckOnAStableCircuit()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto result = ops.checkStability(5, 0.5, -1);
@@ -700,19 +700,19 @@ void testStabilityCheckFindsASilentSetting()
 
 void testStabilityCheckPlaysTheNoteForAnInstrument()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
     const auto withNote = ops.checkStability(2, 0.5, 60);
     assert(withNote.ok && withNote.value.find("\"verdict\":\"silent\"") == std::string::npos);
     assert(ops.checkStability(0, 100.0, 999).ok);                              // arguments are brought into range
 }
 
-/// The circuits shipped in examples/ are what an agent starts from, so each should stay finite and
+/// The circuits shipped in circuits/ are what an agent starts from, so each should stay finite and
 /// bounded whatever its knobs are set to, all of them moving at once.
 void testEveryShippedExampleSurvivesItsKnobs()
 {
     int checked = 0;
-    for (const auto& entry : std::filesystem::directory_iterator(VALIS_EXAMPLES_DIR))
+    for (const auto& entry : std::filesystem::directory_iterator(VALIS_CIRCUITS_DIR))
     {
         if (entry.path().extension() != ".ttl")
             continue;
@@ -890,7 +890,7 @@ void testNoHistoryNoUndo()
 
 void testAnUnknownPortOffersTheRealOnes()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     // The end of an arc: an input is wanted, so the inputs are what is offered.
@@ -921,7 +921,7 @@ void testAnUnknownPortOffersTheRealOnes()
 
 void testLintThroughTheOp()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     const auto clean = host.ops().lint();
     assert(clean.ok);
     assert(clean.value.find("\"errors\":0") != std::string::npos);
@@ -967,7 +967,7 @@ void testDiagnosticsReportARecoveredProblem()
 /// Load 909.ttl and verify that triggering MIDI note 36 produces audio output.
 void test909BassdrumProducesOutput()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/909.ttl"));
     if (! host.loaded)
     {
         std::puts("  909.ttl failed to load — circuit compilation errors above");
@@ -989,7 +989,7 @@ void test909BassdrumProducesOutput()
 /// or the text view and the graph view would drift apart.
 void testEditsSurviveAReparse()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     assert(ops.addNode("urn:valis:basic#g2", "val:Gain").ok);
@@ -1007,7 +1007,7 @@ void testEditsSurviveAReparse()
 
 void testSampleOps()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/granular.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/granular.ttl"));
     auto ops = host.ops();
 
     const std::string node = "urn:valis:granular#sample";
@@ -1027,15 +1027,15 @@ void testSampleOps()
     assert(! bad.diagnostics.empty());
     assert(ops.getSample(node).value == "samples/bell.wav");
 
-    const auto good = ops.setSample(node, VALIS_EXAMPLES_DIR "/samples/bell.wav");
+    const auto good = ops.setSample(node, VALIS_CIRCUITS_DIR "/samples/bell.wav");
     assert(good.ok);
-    assert(ops.getSample(node).value == VALIS_EXAMPLES_DIR "/samples/bell.wav");
+    assert(ops.getSample(node).value == VALIS_CIRCUITS_DIR "/samples/bell.wav");
 }
 
 /// The editor has a Save; a caller driving Valis from outside needs one too.
 void testSaveFile()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-save-test.ttl";
@@ -1056,7 +1056,7 @@ void testSaveFile()
 /// instrument over MCP and never hear it.
 void testPlayingNotes()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
 
     assert(! ops.noteOn(-1, 1.0).ok);
@@ -1137,7 +1137,7 @@ void testReadOutputs()
 /// opening to 1500 Hz; the circuit under test opens to 8000 Hz and has to find its way back by the Filter Peak knob.
 void testFitParams()
 {
-    const auto source = readFile(VALIS_EXAMPLES_DIR "/sh101.ttl");
+    const auto source = readFile(VALIS_CIRCUITS_DIR "/sh101.ttl");
     const auto target = std::string(VALIS_ROOT_DIR) + "/build/op-fit-target.wav";
     const std::string peak = "val:max 8000.0";
 
@@ -1190,7 +1190,7 @@ void testFitParams()
 /// its declared settings; the live circuit is then moved far from them.
 void testFitParamsReleaseAndEscape()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/dub-bass.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/dub-bass.ttl"));
     auto ops = host.ops();
     const auto target = std::string(VALIS_ROOT_DIR) + "/build/op-fit-bass.wav";
     assert(ops.render(target, 2.0, 48000.0, 40, 1.0).ok);   // released at 1.6 s
@@ -1239,7 +1239,7 @@ void testFitParamsReleaseAndEscape()
 
 void testFitModes()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/free-bell.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/free-bell.ttl"));
     auto ops = host.ops();
     const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-fitmodes-test.wav";
 
@@ -1289,7 +1289,7 @@ void testFitModes()
 /// are render: the same circuit and note give the same sound whichever way it is asked for.
 void testRenderInTwoHalves()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
     const auto whole = std::string(VALIS_ROOT_DIR) + "/build/op-render-whole.wav";
     const auto halves = std::string(VALIS_ROOT_DIR) + "/build/op-render-halves.wav";
@@ -1330,7 +1330,7 @@ void testRenderInTwoHalves()
 /// the searches that take one run on any thread. Without a circuit there is nothing to snapshot.
 void testSnapshotSearchesRunElsewhere()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
 
     const auto snap = ops.snapshot();
@@ -1338,7 +1338,7 @@ void testSnapshotSearchesRunElsewhere()
     assert(! snap.turtle.empty());
 
     // Replace the live circuit with a different one; the snapshot must still describe the first.
-    const auto other = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    const auto other = readFile(VALIS_CIRCUITS_DIR "/basic.ttl");
     assert(ops.setTurtle(other).ok);
     assert(ops.snapshot().turtle != snap.turtle);
 
@@ -1355,7 +1355,7 @@ void testSnapshotSearchesRunElsewhere()
 
 void testRender()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
 
     const auto path = std::string(VALIS_ROOT_DIR) + "/build/op-render-test.wav";
@@ -1421,7 +1421,7 @@ void testRender()
 
 void testShotOps()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/sh101.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/sh101.ttl"));
     auto ops = host.ops();
 
     // The valis-shot measurements are ops, so MCP and the UI call the code the command line tool runs.
@@ -1456,7 +1456,7 @@ void testShotOps()
 /// generated, and how many voices there are.
 void testGraphReportsSubcircuitExpansion()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/polysynth.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/polysynth.ttl"));
     assert(host.loaded);
     auto ops = host.ops();
 
@@ -1478,7 +1478,7 @@ void testGraphReportsSubcircuitExpansion()
 /// type listing has to say which ports those are.
 void testElementTypesReportEventPorts()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     auto ops = host.ops();
 
     const auto types = ops.listElementTypes();
@@ -1504,7 +1504,7 @@ void testElementTypesReportEventPorts()
 /// already uses rather than in terms invented here.
 void testCircuitProfile()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/dmx.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/dmx.ttl"));
     assert(host.loaded);
     auto ops = host.ops();
 
@@ -1526,7 +1526,7 @@ void testCircuitProfile()
 /// profile describes it for a listing; it is not part of what it does.
 void testACircuitNeedsNoProfile()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     assert(host.loaded);
 
     const auto result = host.ops().getProfile();
@@ -1571,7 +1571,7 @@ void testMorph()
 {
     // basic.ttl with the cutoff and resonance bound to two ends each, and the
     // drive left alone.
-    auto source = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    auto source = readFile(VALIS_CIRCUITS_DIR "/basic.ttl");
     const auto bind = [&](const char* symbol, const char* a, const char* b)
     {
         const std::string anchor = std::string("lv2:symbol \"") + symbol + "\"";
@@ -1608,13 +1608,13 @@ void testMorph()
     assert(std::stod(ops.getParam(2).value) == drive);
 
     // A circuit that declares no morph says so instead of doing nothing.
-    Host plain(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host plain(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     assert(! plain.ops().morph(0.5).ok);
 }
 
 void testRandomize()
 {
-    const auto source = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    const auto source = readFile(VALIS_CIRCUITS_DIR "/basic.ttl");
 
     const auto values = [](OpDispatcher& ops)
     {

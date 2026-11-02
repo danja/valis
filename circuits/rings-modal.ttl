@@ -1,4 +1,4 @@
-# examples/rings-modal.ttl
+# circuits/rings-modal.ttl
 #
 # Mutable Instruments Rings — modal synthesis modes.
 #

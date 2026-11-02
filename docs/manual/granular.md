@@ -12,8 +12,8 @@ The technique is set out in Curtis Roads,
 [Microsound](https://mitpress.mit.edu/9780262681544/microsound/) (MIT Press,
 2001).
 
-The full Turtle is at `examples/granular.ttl`, and the sample it loads is
-`examples/samples/bell.wav`, itself rendered from `examples/rings-modal.ttl`.
+The full Turtle is at `circuits/granular.ttl`, and the sample it loads is
+`circuits/samples/bell.wav`, itself rendered from `circuits/rings-modal.ttl`.
 
 ## Signal path
 
@@ -65,7 +65,7 @@ project reopens with the sample it was using. Over MCP the same thing is
 
 **A sound file.** `val:file` names one, loaded on the message thread when the
 circuit is installed, summed to mono and resampled to the engine's rate. A
-relative path resolves against the working directory first, then `examples/`,
+relative path resolves against the working directory first, then `circuits/`,
 then the repository root. A path that does not resolve fails the load with a
 located error rather than leaving the element silent.
 
@@ -165,7 +165,7 @@ code is shared (`src/dsp/Scale.h`).
 
 `val:Transport` also reports `period`, the length of a pulse in milliseconds,
 which is the unit grain `size` and `val:Delay` time are measured in. Connecting it
-there ties a window or an echo to the host tempo. `examples/grist.ttl` does this
+there ties a window or an echo to the host tempo. `circuits/grist.ttl` does this
 through a `val:Select`, so a switch chooses between the knob's time and the
 tempo's.
 
@@ -270,7 +270,7 @@ in the `val:Scale` elements and in MidiInterval's root.
 it plays:
 
 ```sh
-./build/valis_render_artefacts/Debug/valis_render examples/granular.ttl \
+./build/valis_render_artefacts/Debug/valis_render circuits/granular.ttl \
   -o granular.wav --seconds 4 --note 60 --gate-off 3.0 --tempo 120 --rolling
 ```
 

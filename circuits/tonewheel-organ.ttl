@@ -1,4 +1,4 @@
-# examples/tonewheel-organ.ttl
+# circuits/tonewheel-organ.ttl
 #
 # A polyphonic drawbar organ in the manner of the Hammond B-3 (https://en.wikipedia.org/wiki/Hammond_organ):
 # eight voices, each nine sine drawbars at the footages 16', 5 1/3', 8', 4', 2 2/3', 2', 1 3/5', 1 1/3' and 1',

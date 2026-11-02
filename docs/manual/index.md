@@ -17,7 +17,7 @@ can read, edit and hand to a language model.
 
 - [Features](features.md) : what Valis can do, and a note on how it does each
 - [Writing circuits](circuits.md) : the Turtle format, elements and arcs
-- [Examples](../examples.md) : every circuit in `examples/`, grouped by kind
+- [Examples](../examples.md) : every circuit in `circuits/`, grouped by kind
 - [Element reference](elements.md) : every class the ontology declares
 - [Console](console.md) : the REPL tab and the AI circuit designer, with the command list
 - [The MCP surface](mcp.md) : driving the plugin over HTTP

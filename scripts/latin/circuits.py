@@ -1,9 +1,9 @@
 # scripts/latin/circuits.py: the instruments for "Lights On, Nobody Home": a nylon-string guitar, a guitarron,
-# a harp, trumpets, violins and Latin percussion with a small kit. Writes into examples/.
+# a harp, trumpets, violins and Latin percussion with a small kit. Writes into circuits/.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "halloween", "circuits"))
 import gen
-EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "examples")
+EX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "circuits")
 def out(n): return os.path.join(EX, n)
 
 def plucked(hardness, position, string, ring):

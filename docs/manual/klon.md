@@ -2,7 +2,7 @@
 
 The Klon Centaur (1994) is a guitar overdrive pedal whose sound is dominated
 by three things: **asymmetric clipping**, a **clean-signal blend**, and a
-**treble-cut tone control**. The full Turtle is at `examples/klon.ttl`.
+**treble-cut tone control**. The full Turtle is at `circuits/klon.ttl`.
 
 ## Signal path
 
@@ -82,6 +82,6 @@ elements each carry one mono bus in the current engine.
 
 ## Loading the circuit
 
-Paste `examples/klon.ttl` into the Turtle editor tab or use **File → Load
+Paste `circuits/klon.ttl` into the Turtle editor tab or use **File → Load
 Circuit…**. Six parameters are exposed: Drive, Positive Vf, Negative Vf, Blend,
 Tone and Volume.

@@ -92,9 +92,9 @@ std::string songText(const std::string& leadMidi = "midi/lead.mid")
     val:hasSection :a , :b ; val:hasPart :lead , :pad ; val:hasReturn :lead-verb .
 :a a val:Section ; val:index 1 ; val:bars 2 .
 :b a val:Section ; val:index 2 ; val:bars 1 ; val:level -3 .
-:lead a val:Part ; val:index 1 ; val:circuit ")" + std::string(VALIS_EXAMPLES_DIR) + R"(/subsynth.ttl" ; val:midi ")" + leadMidi + R"(" ; val:level -18 ; val:pan -0.3 ; val:highpass 80 .
-:pad  a val:Part ; val:index 2 ; val:circuit ")" + std::string(VALIS_EXAMPLES_DIR) + R"(/subsynth.ttl" ; val:midi "midi/pad.mid" ; val:level -24 ; val:pan 0.3 .
-:lead-verb a val:Return ; val:source :lead ; val:circuit ")" + std::string(VALIS_EXAMPLES_DIR) + R"(/reverb-return.ttl" ; val:level -30 .
+:lead a val:Part ; val:index 1 ; val:circuit ")" + std::string(VALIS_CIRCUITS_DIR) + R"(/subsynth.ttl" ; val:midi ")" + leadMidi + R"(" ; val:level -18 ; val:pan -0.3 ; val:highpass 80 .
+:pad  a val:Part ; val:index 2 ; val:circuit ")" + std::string(VALIS_CIRCUITS_DIR) + R"(/subsynth.ttl" ; val:midi "midi/pad.mid" ; val:level -24 ; val:pan 0.3 .
+:lead-verb a val:Return ; val:source :lead ; val:circuit ")" + std::string(VALIS_CIRCUITS_DIR) + R"(/reverb-return.ttl" ; val:level -30 .
 )";
 }
 
@@ -249,8 +249,8 @@ void testAStemThatCannotBeRenderedIsNamedAndTheOthersStillAre()
     // A circuit that is not there is also a located failure, not a crash.
     writeText(rig.directory.getChildFile("bad.ttl"), "this is not turtle");
     auto text = songText();
-    const auto at = text.find(std::string(VALIS_EXAMPLES_DIR) + "/subsynth.ttl");
-    text.replace(at, std::string(VALIS_EXAMPLES_DIR).size() + 13, rig.directory.getChildFile("bad.ttl").getFullPathName().toStdString());
+    const auto at = text.find(std::string(VALIS_CIRCUITS_DIR) + "/subsynth.ttl");
+    text.replace(at, std::string(VALIS_CIRCUITS_DIR).size() + 13, rig.directory.getChildFile("bad.ttl").getFullPathName().toStdString());
     writeText(rig.directory.getChildFile("song.ttl"), text);
     const auto broken = rig.ops().renderSong(rig.song(), {}, 3);
     assert(! broken.ok && broken.diagnostics.front().message.find("bad.ttl") != std::string::npos);

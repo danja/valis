@@ -70,7 +70,7 @@ it proposes matches what the compiler accepts.
 
 Every request carries the loaded circuit, so the circuit's size decides what
 can be asked. A free tier's limit is a ceiling on one request rather than a
-queue that is reached eventually: `examples/909.ttl` is about 17,000 tokens
+queue that is reached eventually: `circuits/909.ttl` is about 17,000 tokens
 of Turtle against Groq's 8,000 per minute, so on Groq that circuit cannot be
 sent whole however long you wait. Mistral's budget is far larger and takes it
 without complaint.

@@ -19,7 +19,7 @@ Examples: `docs/dead-at-midnight-lyrics.md` and `-sleeve.svg`/`.png`; `docs/shor
 ## Guide melody
 
 `vocal-guide.py` writes one note per syllable on the eighth-note grid, from the scale of the key, near one pitch,
-leaning up at the end of a line. Render it with `examples/emulator-choir.ttl`. It is not in the mix.
+leaning up at the end of a line. Render it with `circuits/emulator-choir.ttl`. It is not in the mix.
 
 ## Sleeve
 

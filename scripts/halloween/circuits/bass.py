@@ -41,4 +41,4 @@ and a harmonic wavetable growl whose position drifts and is then clipped.
 
 The wobble LFO is bipolar, so the Scale maps it around its centre: the cutoff sweeps from
 (2 x centre - top) up to top. Play it low; the sub is an octave below the played note.""",
-["Dubstep","Bass","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-bass.ttl")
+["Dubstep","Bass","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-bass.ttl")

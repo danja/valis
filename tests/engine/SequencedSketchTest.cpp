@@ -1,6 +1,6 @@
 // tests/engine/SequencedSketchTest.cpp
 //
-// examples/blue-monday-sketch.ttl through the engine with the host rolling: four
+// circuits/blue-monday-sketch.ttl through the engine with the host rolling: four
 // step sequencers fire drum samples and a fifth plays a bass. The elements have
 // their own tests; this checks the circuit puts the hits where its patterns say,
 // that a bar repeats exactly, and that it holds its level.
@@ -36,7 +36,7 @@ std::vector<float> render(double seconds)
     const bool loadedOntology = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
     assert(loadedOntology);
 
-    std::ifstream stream(std::string(VALIS_EXAMPLES_DIR) + "/blue-monday-sketch.ttl");
+    std::ifstream stream(std::string(VALIS_CIRCUITS_DIR) + "/blue-monday-sketch.ttl");
     assert(stream.good());
     std::ostringstream text;
     text << stream.rdbuf();

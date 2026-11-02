@@ -1,4 +1,4 @@
-# examples/dx7-bells.ttl
+# circuits/dx7-bells.ttl
 #
 # Tubular bells in the manner of the DX7's.
 #

@@ -1,4 +1,4 @@
-# examples/909.ttl
+# circuits/909.ttl
 #
 # TR-909 drum synthesiser — functional circuit model.
 #

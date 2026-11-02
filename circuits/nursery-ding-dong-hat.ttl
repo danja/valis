@@ -1,4 +1,4 @@
-# examples/nursery-ding-dong-hat.ttl
+# circuits/nursery-ding-dong-hat.ttl
 #
 # A hi-hat built from a bell. A 1.5 ms noise tick strikes two plate-mode resonators (val:ModalBank, mode 3, at 3.9 kHz
 # and 6.3 kHz), a frequency shifter (val:FreqShifter, +230 Hz) moves their partials apart so they are metallic and

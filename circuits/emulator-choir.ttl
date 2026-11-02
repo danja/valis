@@ -1,4 +1,4 @@
-# examples/emulator-choir.ttl
+# circuits/emulator-choir.ttl
 #
 # A choir pad in the manner of a voice sampled into an early sampler, the E-mu Emulator
 # (https://en.wikipedia.org/wiki/E-mu_Emulator), which held a couple of seconds of 8-bit sound and

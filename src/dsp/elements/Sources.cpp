@@ -790,7 +790,7 @@ private:
 ///
 /// The body is not modelled here. A string on its own is very quiet and very
 /// thin, which is what a bridge and a body are for: feed this into a
-/// val:ModalBank to get an instrument. examples/cello.ttl does that.
+/// val:ModalBank to get an instrument. circuits/cello.ttl does that.
 class Bow final : public DspElement
 {
 public:

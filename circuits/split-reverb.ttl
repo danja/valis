@@ -1,4 +1,4 @@
-# examples/split-reverb.ttl
+# circuits/split-reverb.ttl
 #
 # A reverb that leaves the low end alone.
 #

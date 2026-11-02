@@ -1,4 +1,4 @@
-# examples/metal-bash.ttl
+# circuits/metal-bash.ttl
 #
 # A hammer hitting a sheet of metal, played from MIDI.
 #

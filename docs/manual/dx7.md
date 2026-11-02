@@ -2,8 +2,8 @@
 
 The Yamaha DX7 made its sounds by wiring six sine oscillators into each other.
 Valis has the two parts that needs, and the wiring is written in the circuit like
-any other arc. Three examples show it: `examples/dx7-epiano.ttl`,
-`examples/dx7-bass.ttl` and `examples/dx7-bells.ttl`.
+any other arc. Three examples show it: `circuits/dx7-epiano.ttl`,
+`circuits/dx7-bass.ttl` and `circuits/dx7-bells.ttl`.
 
 Background: [frequency modulation synthesis](https://en.wikipedia.org/wiki/Frequency_modulation_synthesis)
 and the [DX7](https://en.wikipedia.org/wiki/Yamaha_DX7).
@@ -80,7 +80,7 @@ sample ago. So the usual wiring costs nothing, and a loop has one sample of dela
 the arc that runs against the order. An algorithm is a choice of matrix entries and
 carriers: algorithm 5 is `m12`, `m34` and `m56` at 1 with carriers 1, 3 and 5.
 
-`examples/dx7-brass.ttl` uses it for a loop between operators 4 and 6. The matrix
+`circuits/dx7-brass.ttl` uses it for a loop between operators 4 and 6. The matrix
 keeps the whole voice in one element, so it is also cheaper than six separate ones,
 and an operator whose level has fallen to nothing is skipped.
 

@@ -2,7 +2,7 @@
 //
 // The session's choice of file sits on top of the one the document declares: the
 // processor replaces the file option on the compiled circuit before the engine loads it.
-// This does the same to examples/timestretch.ttl and checks that the file played is the
+// This does the same to circuits/timestretch.ttl and checks that the file played is the
 // chosen one, which is what the Controls view's file slot relies on for val:TimeStretch.
 
 #include "valis/CircuitCompiler.h"
@@ -57,7 +57,7 @@ double crossingsPerSecond(const std::string& chosenFile)
     const bool loadedOntology = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
     assert(loadedOntology);
 
-    std::ifstream stream(std::string(VALIS_EXAMPLES_DIR) + "/timestretch.ttl");
+    std::ifstream stream(std::string(VALIS_CIRCUITS_DIR) + "/timestretch.ttl");
     std::ostringstream text;
     text << stream.rdbuf();
 

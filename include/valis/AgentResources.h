@@ -1,14 +1,14 @@
 // include/valis/AgentResources.h
 //
 // The files an agent reads to learn Valis, offered as MCP resources so it does not need
-// access to the repository: the guide, and every circuit in examples/ to start from.
+// access to the repository: the guide, and every circuit in circuits/ to start from.
 //
 //   valis://guide                  docs/guide-for-agents.md
-//   valis://examples               an index: each example's name and what it is
-//   valis://examples/<name>        one example's Turtle, such as valis://examples/basic
+//   valis://circuits               an index: each example's name and what it is
+//   valis://circuits/<name>        one example's Turtle, such as valis://circuits/basic
 //
 // Plain files, read on request. The name in a URI is checked before it touches the file
-// system, so a URI cannot name a path outside examples/.
+// system, so a URI cannot name a path outside circuits/.
 
 #pragma once
 

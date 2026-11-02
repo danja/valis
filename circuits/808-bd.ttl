@@ -1,4 +1,4 @@
-# examples/808-bd.ttl
+# circuits/808-bd.ttl
 #
 # TR-808 Bass Drum — standalone instrument circuit.
 #

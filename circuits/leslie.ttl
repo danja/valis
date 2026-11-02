@@ -1,4 +1,4 @@
-# examples/leslie.ttl
+# circuits/leslie.ttl
 #
 # A rotating speaker cabinet for an organ, after the Leslie 122 (https://en.wikipedia.org/wiki/Leslie_speaker).
 # A crossover at 800 Hz splits the sound between the horn, which turns quickly, and the drum, which is

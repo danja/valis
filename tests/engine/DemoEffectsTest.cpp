@@ -1,6 +1,6 @@
 // tests/engine/DemoEffectsTest.cpp
 //
-// examples/split-reverb.ttl and examples/lofi.ttl through the engine. The
+// circuits/split-reverb.ttl and circuits/lofi.ttl through the engine. The
 // elements have their own tests; these check that the circuits built from them
 // do what their headers say: the split reverb leaves the low band dry and
 // rings on in the high one, the lo-fi chain degrades and still holds its
@@ -45,7 +45,7 @@ struct Rig
         const bool loaded = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(loaded);
 
-        std::ifstream stream(std::string(VALIS_EXAMPLES_DIR) + "/" + file);
+        std::ifstream stream(std::string(VALIS_CIRCUITS_DIR) + "/" + file);
         assert(stream.good());
         std::ostringstream text;
         text << stream.rdbuf();

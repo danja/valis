@@ -75,8 +75,8 @@ a tool first.
 | `valis://element-types` | every declared element class with ports, ranges, units, and which ports carry events rather than signal |
 | `valis://params` | the circuit's current parameter bindings |
 | `valis://guide` | the [guide for agents](../guide-for-agents.md) |
-| `valis://examples` | an index of every circuit in `examples/` and what each is |
-| `valis://examples/NAME` | one example's Turtle, such as `valis://examples/basic` |
+| `valis://circuits` | an index of every circuit in `circuits/` and what each is |
+| `valis://circuits/NAME` | one example's Turtle, such as `valis://circuits/basic` |
 
 ## Tools
 

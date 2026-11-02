@@ -641,7 +641,7 @@ brighter and harder to start.
 
 The body is not modelled here. A string on its own is quiet and thin, which is
 what a bridge and a body are for: feed this into a val:ModalBank to get an
-instrument. See examples/cello.ttl.
+instrument. See circuits/cello.ttl.
 
 https://ccrma.stanford.edu/~jos/pasp/Bowed_Strings.html""" ;
     val:implementation "Bow" ;
@@ -2885,7 +2885,7 @@ channels separately.
 Elements are mono, so a stereo circuit is two mono chains taken from "left" and
 "right" and returned to val:Output's "left" and "right". A subcircuit written
 once and instantiated per channel is the tidy way to write that; see
-examples/subcircuit.ttl.""" ;
+circuits/subcircuit.ttl.""" ;
     val:implementation "Input" ;
     val:linear true ;
     lv2:port
@@ -3086,7 +3086,7 @@ the level is under it is pushed down by val:ratio minus 1 more decibels; at a ra
 effectively a gate. Above the threshold the signal passes unchanged.
 
 The sidechain is explicit so that it can come from anywhere: follow the signal itself to gate it,
-or follow another signal to gate this one by it. examples/noise-gate.ttl shows it. The gain changes
+or follow another signal to gate this one by it. circuits/noise-gate.ttl shows it. The gain changes
 once per control block, so the follower's attack and release set how smooth the opening and
 closing are.""" ;
     val:implementation "Expander" ;
@@ -3386,7 +3386,7 @@ val:file a rdf:Property ;
     rdfs:label "file" ;
     rdfs:range xsd:string ;
     rdfs:comment """Path to a sound file an element loads on the message thread.
-Relative paths resolve against the working directory, then examples/, then the
+Relative paths resolve against the working directory, then circuits/, then the
 repository root. A path that does not resolve fails the load with an error
 rather than leaving the element silent.""" .
 

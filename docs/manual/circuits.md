@@ -1,5 +1,7 @@
 # Writing circuits
 
+To find a circuit to start from, use the [circuit catalogue](catalogue.html): every file in `circuits/`, searchable by name, description, genre and the elements it uses.
+
 A circuit is a `val:Circuit` that names its elements and its arcs. Everything
 else follows from the ontology.
 
@@ -183,7 +185,7 @@ ports arcs actually cross it on; right-click a node to close or open the
 instance it belongs to. Closing is a view preference and changes nothing the
 compiler reads.
 
-`examples/subcircuit.ttl` is a worked example.
+`circuits/subcircuit.ttl` is a worked example.
 
 ### Options
 
@@ -220,7 +222,7 @@ an element's ports but says nothing about which option keys it accepts, and
 to tell which inner element would recognise a key, so forwarding on that basis
 would be a guess.
 
-`examples/dmx.ttl` is seventeen drum voices from one definition, each instance
+`circuits/dmx.ttl` is seventeen drum voices from one definition, each instance
 setting its own sample this way.
 
 ### Voices
@@ -253,7 +255,7 @@ between them, so it is reported rather than silently taking the first.
 A `val:Param` bound to a port of a polyphonic instance drives every voice
 together, or turning the knob would let them drift apart.
 
-`examples/polysynth.ttl` is a worked example: one voice definition, eight
+`circuits/polysynth.ttl` is a worked example: one voice definition, eight
 copies, summed into a saturator.
 
 ## Stereo
@@ -360,7 +362,7 @@ the host.
 ### Sound files
 
 `val:file` names a sound file for `val:SampleLoad` or `val:Granulator`. Relative
-paths resolve against the working directory, then `examples/`, then the
+paths resolve against the working directory, then `circuits/`, then the
 repository root.
 
 A file is a resource with an identity, not just a path, so a circuit may state

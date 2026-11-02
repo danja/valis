@@ -1,6 +1,6 @@
 // tests/engine/InfernoChoirTest.cpp
 //
-// examples/inferno-choir.ttl (scripts/inferno/inferno.py), played through the engine as the plugin would play it:
+// circuits/inferno-choir.ttl (scripts/inferno/inferno.py), played through the engine as the plugin would play it:
 // silent until a note, in range, in tune once the expression is taken out, quiet after release, and each of the four
 // MIDI controllers doing what the header says (CC1 wails, CC2 screams, CC3 opens the vowel, CC4 lights the fire).
 

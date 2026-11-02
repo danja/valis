@@ -1,4 +1,4 @@
-# examples/cello.ttl
+# circuits/cello.ttl
 #
 # A bowed cello: a string, a body, and an arm.
 #

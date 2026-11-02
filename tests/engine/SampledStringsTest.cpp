@@ -1,6 +1,6 @@
 // tests/engine/SampledStringsTest.cpp
 //
-// examples/sampled-strings.ttl, loaded and played through the engine as the plugin would: three voices of recorded
+// circuits/sampled-strings.ttl, loaded and played through the engine as the plugin would: three voices of recorded
 // string sections chosen by one control. Checks that it is silent until played, that every voice is in tune across the
 // keyboard (the recordings are stretched over the keys between them), that the voices are about as loud as each other,
 // that a note outlasts its recording (the recordings are 9 to 15 seconds and loop), and that changing voice mid-note
@@ -42,7 +42,7 @@ struct Rig
         const bool loadedOntology = ontology.loadFile(VALIS_VOCABS_DIR "/valis.ttl", errors);
         assert(loadedOntology);
 
-        std::ifstream file(std::string(VALIS_EXAMPLES_DIR) + "/" + name);
+        std::ifstream file(std::string(VALIS_CIRCUITS_DIR) + "/" + name);
         std::ostringstream text;
         text << file.rdbuf();
         assert(! text.str().empty());

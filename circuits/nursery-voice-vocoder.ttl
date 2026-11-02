@@ -1,4 +1,4 @@
-# examples/nursery-voice-vocoder.ttl
+# circuits/nursery-voice-vocoder.ttl
 #
 # An effect that makes a speech synthesiser sing the track's chord. Put it after the voice on the same track. The voice is the
 # modulator of a 24-band channel vocoder (val:Vocoder, https://en.wikipedia.org/wiki/Vocoder); the carrier is inside the circuit and

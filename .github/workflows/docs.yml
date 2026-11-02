@@ -103,7 +103,7 @@ jobs:
               echo '<meta name="viewport" content="width=device-width,initial-scale=1">'
               echo "<title>$title — Valis</title>"
               echo '<link rel="stylesheet" href="style.css"></head><body>'
-              echo '<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a>'
+              echo '<nav><a href="index.html">Valis</a> · <a href="circuits.html">Circuits</a> · <a href="catalogue.html">Catalogue</a>'
               echo ' · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a>'
               echo ' · <a href="standalone.html">Standalone</a>'
               echo ' · <a href="building.html">Building</a> · <a href="skream.html">Skream</a>'
@@ -112,6 +112,11 @@ jobs:
               echo '</body></html>'
             } > "$out"
           done
+
+      - name: Build the circuit catalogue
+        run: |
+          pip install rdflib
+          python3 scripts/catalogue.py _site
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

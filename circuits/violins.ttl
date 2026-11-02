@@ -1,4 +1,4 @@
-# examples/violins.ttl
+# circuits/violins.ttl
 #
 # A section of violins: four voices, each a bowed string (val:Bow, tuned to within about 9 cents up to
 # 880 Hz) with bow speed from an envelope, a vibrato, and a level that rises with pitch to make up for how quickly a bowed

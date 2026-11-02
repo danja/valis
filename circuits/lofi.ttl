@@ -1,4 +1,4 @@
-# examples/lofi.ttl
+# circuits/lofi.ttl
 #
 # A worn-sampler sound: reduced word length and sample rate, a dark tone, and a tone
 # control that never quite holds still.

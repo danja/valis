@@ -2,7 +2,7 @@
 #
 # A guide melody for the lyrics of "Tenement Lights (Short Circuit)": one MIDI note per syllable, so a
 # singer can hear where each line sits. The lyrics are in docs/short-circuit-lyrics.md; the bars here
-# are those of track.py --short. The guide is rendered by examples/emulator-choir.ttl to
+# are those of track.py --short. The guide is rendered by circuits/emulator-choir.ttl to
 # short-circuit/vocal-guide.wav and is not in the mix.
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "halloween"))

@@ -1,4 +1,4 @@
-# examples/nursery-rattle-snare.ttl
+# circuits/nursery-rattle-snare.ttl
 #
 # A snare for a baby-rattle backbeat. Three layers: a short noise burst strikes a rectangular-membrane resonator
 # (val:ModalBank, mode 2, tuned near 196 Hz) for the crack; a filtered noise tail gives the snap; and a bank of 140 beads

@@ -1,4 +1,4 @@
-# examples/nursery-twinkle-lead.ttl
+# circuits/nursery-twinkle-lead.ttl
 #
 # A monophonic lead for "Twinkle, Twinkle, Little Star". Two slightly detuned wavetable voices (saw and triangle
 # region) pass through a frequency shifter with feedback (val:FreqShifter): it adds a few hertz to every partial and

@@ -1,4 +1,4 @@
-# examples/subsynth.ttl
+# circuits/subsynth.ttl
 #
 # A subtractive synthesiser played from MIDI: an oscillator through a resonant ladder filter and
 # two amplifiers. Separate amplitude and filter envelopes shape the note, and velocity scales its

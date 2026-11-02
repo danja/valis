@@ -15,7 +15,7 @@ using namespace valis;
 namespace {
 
 const std::string kRoot = VALIS_ROOT_DIR;
-const std::string kExamples = VALIS_EXAMPLES_DIR;
+const std::string kExamples = VALIS_CIRCUITS_DIR;
 
 const AgentResource* find(const std::vector<AgentResource>& list, const std::string& uri)
 {
@@ -29,12 +29,12 @@ void testTheListNamesTheGuideTheIndexAndEveryExample()
 
     const auto* guide = find(list, "valis://guide");
     assert(guide != nullptr && guide->mimeType == "text/markdown");
-    assert(find(list, "valis://examples") != nullptr);
+    assert(find(list, "valis://circuits") != nullptr);
 
-    const auto* basic = find(list, "valis://examples/basic");
+    const auto* basic = find(list, "valis://circuits/basic");
     assert(basic != nullptr && basic->mimeType == "text/turtle");
     assert(basic->description.find("smallest circuit") != std::string::npos);   // from its header comment
-    assert(basic->description.find("examples/basic.ttl") == std::string::npos); // not the line that names the file
+    assert(basic->description.find("circuits/basic.ttl") == std::string::npos); // not the line that names the file
 
     // One for each .ttl file, and the descriptions are short enough to scan.
     assert(list.size() > 40);
@@ -52,10 +52,10 @@ void testReadingThem()
     const auto guide = readAgentResource(kRoot, kExamples, "valis://guide");
     assert(guide && guide->find("Guide for Agents") != std::string::npos);
 
-    const auto basic = readAgentResource(kRoot, kExamples, "valis://examples/basic");
+    const auto basic = readAgentResource(kRoot, kExamples, "valis://circuits/basic");
     assert(basic && basic->find("val:Circuit") != std::string::npos);
 
-    const auto index = readAgentResource(kRoot, kExamples, "valis://examples");
+    const auto index = readAgentResource(kRoot, kExamples, "valis://circuits");
     assert(index && index->find("dd3") != std::string::npos && index->find("grain-clouds") != std::string::npos);
     assert(index->find("bucket-brigade") != std::string::npos || index->find("BBD") != std::string::npos || index->find("delay") != std::string::npos);
 }
@@ -68,11 +68,20 @@ void testNamesThatReachOutsideAreRefused()
     for (const char* name : {"basic", "dd3", "grain-clouds", "rings_modal", "v1.2"})
         assert(isExampleName(name));
 
-    for (const char* uri : {"valis://examples/../CLAUDE", "valis://examples/../../etc/passwd", "valis://examples//etc/passwd",
-                            "valis://examples/%2e%2e/CLAUDE", "valis://examples/nonexistent", "valis://guide/extra", "valis://other"})
+    for (const char* uri : {"valis://circuits/../CLAUDE", "valis://circuits/../../etc/passwd", "valis://circuits//etc/passwd",
+                            "valis://circuits/%2e%2e/CLAUDE", "valis://circuits/nonexistent", "valis://guide/extra", "valis://other"})
         assert(! readAgentResource(kRoot, kExamples, uri));
 
     // A folder that is not there lists nothing rather than failing.
+    // the old address, from before the directory was renamed, still answers
+    {
+        const auto old = readAgentResource(kRoot, kExamples, "valis://examples/basic");
+        const auto now = readAgentResource(kRoot, kExamples, "valis://circuits/basic");
+        assert(old && now && *old == *now);
+        const auto oldIndex = readAgentResource(kRoot, kExamples, "valis://examples");
+        assert(oldIndex && *oldIndex == *readAgentResource(kRoot, kExamples, "valis://circuits"));
+    }
+
     assert(listAgentResources("/no/such/root", "/no/such/examples").empty());
     assert(! readAgentResource("/no/such/root", "/no/such/examples", "valis://guide"));
 }

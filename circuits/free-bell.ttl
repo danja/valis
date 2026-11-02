@@ -1,4 +1,4 @@
-# examples/free-bell.ttl
+# circuits/free-bell.ttl
 #
 # A small bell, as a val:FreeModalBank: eight resonances written one by one, each with its own frequency, ring time
 # and level, in place of the six fixed ratios of val:ModalBank. A short noise burst strikes it on every note-on.

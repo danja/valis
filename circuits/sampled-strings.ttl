@@ -1,4 +1,4 @@
-# examples/sampled-strings.ttl
+# circuits/sampled-strings.ttl
 #
 # A string section played from recordings, with a choice of three voices: violins, violas or cellos. Each voice is a
 # val:Sampler holding a multisample of the Versilian Community Sample Library (VSCO 2), a section of players playing a

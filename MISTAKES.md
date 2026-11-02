@@ -107,7 +107,7 @@ check adds two samples before dividing. A test of anything placed by bar uses a 
 
 ## A drum that fires on velocity, and is silent below half
 
-**What happened.** The first render of a new track had no closed hi-hats: `examples/909.ttl` closed hat, and the rest of the kit, are
+**What happened.** The first render of a new track had no closed hi-hats: `circuits/909.ttl` closed hat, and the rest of the kit, are
 gated by the note's `velocity` output, and an envelope fires only when its gate passes 0.5, so any note under velocity 64 makes no sound.
 Hats written at velocity 52 and 60 were silent, with no message.
 

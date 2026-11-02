@@ -1,4 +1,4 @@
-# examples/subcircuit.ttl
+# circuits/subcircuit.ttl
 #
 # One val:Subcircuit instantiated twice. The definition is written once and
 # stamped out per channel, which is how stereo is built in Valis: elements stay

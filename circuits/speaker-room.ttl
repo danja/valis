@@ -1,4 +1,4 @@
-# examples/speaker-room.ttl
+# circuits/speaker-room.ttl
 #
 # A sound played through a loudspeaker and picked up again by a microphone in the room,
 # which is how the kick on a 1983 electronic record was often made fuller: the drum machine

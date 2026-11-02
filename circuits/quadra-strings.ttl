@@ -1,4 +1,4 @@
-# examples/quadra-strings.ttl
+# circuits/quadra-strings.ttl
 #
 # A string-machine pad in the manner of the ARP Quadra
 # (https://en.wikipedia.org/wiki/ARP_Quadra), whose string section the engineer remembers on

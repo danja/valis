@@ -366,7 +366,7 @@ void testArcDeclaredButNotClaimed()
 // with the input, mixer and output makes seven nodes.
 void testSubcircuitExampleCompiles()
 {
-    auto r = runFile(VALIS_EXAMPLES_DIR "/subcircuit.ttl");
+    auto r = runFile(VALIS_CIRCUITS_DIR "/subcircuit.ttl");
 
     if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
     assert(r.built);
@@ -378,7 +378,7 @@ void testSubcircuitExampleCompiles()
 /// The shipped cello, compiled the way a user opens it.
 void testCelloExampleCompiles()
 {
-    auto r = runFile(VALIS_EXAMPLES_DIR "/cello.ttl");
+    auto r = runFile(VALIS_CIRCUITS_DIR "/cello.ttl");
 
     if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
     assert(r.built);
@@ -389,7 +389,7 @@ void testCelloExampleCompiles()
 /// The shipped chimera, compiled the way a user opens it.
 void testChimeraExampleCompiles()
 {
-    auto r = runFile(VALIS_EXAMPLES_DIR "/chimera.ttl");
+    auto r = runFile(VALIS_CIRCUITS_DIR "/chimera.ttl");
 
     if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
     assert(r.built);
@@ -400,7 +400,7 @@ void testChimeraExampleCompiles()
 /// The shipped DMX kit: seventeen sample voices, each on its own note.
 void testDmxExampleCompiles()
 {
-    auto r = runFile(VALIS_EXAMPLES_DIR "/dmx.ttl");
+    auto r = runFile(VALIS_CIRCUITS_DIR "/dmx.ttl");
 
     if (! r.compiled_ || ! r.diagnostics.empty()) r.dump();
     assert(r.built);
@@ -418,7 +418,7 @@ void testDmxExampleCompiles()
 
 void testSkreamCompiles()
 {
-    auto r = runFile(VALIS_EXAMPLES_DIR "/skream.ttl");
+    auto r = runFile(VALIS_CIRCUITS_DIR "/skream.ttl");
 
     if (! r.compiled_) r.dump();
     assert(r.built);

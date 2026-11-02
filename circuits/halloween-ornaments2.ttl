@@ -1,4 +1,4 @@
-# examples/halloween-ornaments2.ttl
+# circuits/halloween-ornaments2.ttl
 #
 # A disturbing ornament for the track's breakdowns: each note dives from four times its pitch
 # down to the note, with a fast warble, then is wavefolded, bit-crushed with jitter and run

@@ -1,4 +1,4 @@
-# examples/dub-delay.ttl
+# circuits/dub-delay.ttl
 #
 # A dub echo return: only the repeats come out, for a send. A bucket-brigade delay (val:BucketBrigade) set to a dotted
 # eighth note at 85 bpm (529 ms), with enough feedback that an echo is still audible after four trips round, and a

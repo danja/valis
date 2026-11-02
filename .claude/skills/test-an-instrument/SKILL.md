@@ -1,6 +1,6 @@
 ---
 name: test-an-instrument
-description: Check a pitched instrument circuit for pitch, silence, release and re-triggering, by measurement and by an engine test. Use after adding or changing an instrument in examples/, a waveguide or string element, or any circuit played from a sequence.
+description: Check a pitched instrument circuit for pitch, silence, release and re-triggering, by measurement and by an engine test. Use after adding or changing an instrument in circuits/, a waveguide or string element, or any circuit played from a sequence.
 ---
 
 # Test an instrument

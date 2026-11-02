@@ -1,4 +1,4 @@
-# examples/timestretch.ttl
+# circuits/timestretch.ttl
 #
 # A sound file played at a different speed from its pitch. Speed stretches or squeezes
 # time and leaves the pitch alone; Pitch moves the pitch and leaves the length alone. Turn

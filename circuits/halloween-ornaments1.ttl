@@ -1,4 +1,4 @@
-# examples/halloween-ornaments1.ttl
+# circuits/halloween-ornaments1.ttl
 #
 # An eerie ornament voice: two vowel-wavetable choirs a few cents apart, with the vowel
 # wandering at random, swell in over more than a second and fade over several, run through a

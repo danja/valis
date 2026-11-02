@@ -1,4 +1,4 @@
-# examples/nylon-guitar.ttl
+# circuits/nylon-guitar.ttl
 #
 # A six-voice nylon-string guitar. In each voice a val:Pluck, a fingertip or nail a sixth of the way
 # along the string, strikes a stiff string (val:StiffString, tuned by its loop delay). After the voices two resonances stand in for the body: the air in

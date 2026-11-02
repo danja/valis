@@ -1,4 +1,4 @@
-# examples/basic.ttl
+# circuits/basic.ttl
 #
 # The smallest circuit that does something: input, a resonant filter, a
 # saturator, output. A starting point to edit rather than a demonstration.

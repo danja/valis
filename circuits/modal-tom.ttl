@@ -1,4 +1,4 @@
-# examples/modal-tom.ttl
+# circuits/modal-tom.ttl
 #
 # A tom. A short burst of noise, softened by a low-pass, strikes six resonators
 # tuned to the modes of a circular membrane: 1, 1.59, 2.14, 2.30, 2.65 and 2.92

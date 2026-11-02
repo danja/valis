@@ -1,4 +1,4 @@
-# examples/blue-monday-sketch.ttl
+# circuits/blue-monday-sketch.ttl
 #
 # A sketch in the manner of 1983 synth-pop at 130 bpm: a sequenced analogue bass over
 # a drum machine. It is NOT a transcription of any record. The pattern is a placeholder
@@ -11,7 +11,7 @@
 # which are captures of the Oberheim DMX in audio/oberheim-dmx, as in dmx.ttl.
 #
 # Play it with the host rolling. In valis-render:
-#   valis-render examples/blue-monday-sketch.ttl --tempo 130 --rolling --seconds 16
+#   valis-render circuits/blue-monday-sketch.ttl --tempo 130 --rolling --seconds 16
 #
 # Sixteen steps of a sixteenth are one bar of four-four. Edit val:pattern on any
 # sequencer, or val:transpose to change key.

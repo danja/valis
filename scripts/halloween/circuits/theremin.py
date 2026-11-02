@@ -40,4 +40,4 @@ through three ControlMultiply stages (scoop, vibrato, drift), each a ratio close
 
 The tone is a sine pushed slightly into a soft clipper and low-passed, then a slow phaser, a
 long echo and a cavernous hall. Play long notes with legato touch for the best effect.""",
-["Theremin","Lead","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-theremin.ttl")
+["Theremin","Lead","Gothic"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-theremin.ttl")

@@ -184,7 +184,7 @@ pair of values a circuit needs.
 filled from a sound file or from live audio, and up to 64 overlapping windowed
 grains read from it, with position, size, density, transposition, scatter,
 window shape, stereo spread and reverse all separate control ports. Grain onsets
-either free-run or follow the transport. `examples/granular.ttl` is the playable
+either free-run or follow the transport. `circuits/granular.ttl` is the playable
 instrument built from it: a sample slot, a MIDI In switch that decides whether
 notes play it or it drones as an effect, and a Mix knob from the plugin's own
 input to the granulated signal. See [the case study](docs/manual/granular.md).
@@ -200,7 +200,7 @@ E5); and a set of instruments modelled on the machines of a 1983 electronic
 record (a Source-style bass, a six-string bass, a Prophet-style poly synth, a
 sampler choir, string machine, and a speaker-and-room effect) with an original
 instrumental played by them. See [the 1983-style track](docs/new-order-track.md)
-and the [examples](docs/examples.md).
+the [examples](docs/examples.md) and the [circuit catalogue](https://danja.github.io/valis/catalogue.html).
 
 ## Development
 

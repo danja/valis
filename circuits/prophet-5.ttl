@@ -1,4 +1,4 @@
-# examples/prophet-5.ttl
+# circuits/prophet-5.ttl
 #
 # An eight-voice analogue polyphonic synthesiser in the manner of the Sequential Circuits Prophet-5
 # (https://en.wikipedia.org/wiki/Prophet-5), the instrument behind the synthesiser line on New Order's

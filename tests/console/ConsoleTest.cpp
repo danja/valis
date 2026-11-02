@@ -110,7 +110,7 @@ bool contains(const std::string& haystack, const std::string& needle)
 
 void testHelpAndUnknown()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     ConsoleSession console(host.ops());
 
     assert(contains(console.execute("help").text, "stats"));
@@ -125,7 +125,7 @@ void testHelpAndUnknown()
 
 void testStatsParamsAndValidate()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     ConsoleSession console(host.ops());
 
     const auto stats = console.execute("stats").text;
@@ -186,7 +186,7 @@ void testExtractTurtleBlocks()
 
 void testSystemPrompt()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     const auto prompt = ConsoleSession::buildSystemPrompt(host.ops().listElementTypes());
 
     assert(contains(prompt, "val:Ladder"));
@@ -199,7 +199,7 @@ void testSystemPrompt()
 
 void testUserPromptIncludesCircuit()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     const auto turtle = host.ops().getTurtle().value;
 
     const auto withCircuit = ConsoleSession::buildUserPrompt(turtle, "make it brighter");
@@ -216,7 +216,7 @@ void testPromptFitsABudget()
     // 909.ttl is the case the whole exercise is about: roughly 17,000 tokens of
     // Turtle, against Groq's measured 8,000 per minute. No amount of waiting
     // sends it, so the prompt has to get smaller instead.
-    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/909.ttl"));
     const auto types = host.ops().listElementTypes();
     const auto turtle = host.ops().getTurtle().value;
 
@@ -239,7 +239,7 @@ void testPromptFitsABudget()
     assert(contains(tight.user, "make the snare shorter"));
 
     // A small circuit is never cut, whatever the budget.
-    Host small(readFile(VALIS_EXAMPLES_DIR "/basic.ttl"));
+    Host small(readFile(VALIS_CIRCUITS_DIR "/basic.ttl"));
     const auto plain = ConsoleSession::buildPrompt(
         small.ops().listElementTypes(), small.ops().getTurtle().value, "brighter", 6000);
     assert(! plain.circuitExcerpted);
@@ -247,7 +247,7 @@ void testPromptFitsABudget()
 
 void testExcerptKeepsTheFrameAndNamesWhatIsMissing()
 {
-    Host host(readFile(VALIS_EXAMPLES_DIR "/909.ttl"));
+    Host host(readFile(VALIS_CIRCUITS_DIR "/909.ttl"));
     const auto turtle = host.ops().getTurtle().value;
 
     std::string summary;
@@ -273,7 +273,7 @@ void testExcerptKeepsTheFrameAndNamesWhatIsMissing()
 
 void testAiReplyFlow()
 {
-    const std::string basic = readFile(VALIS_EXAMPLES_DIR "/basic.ttl");
+    const std::string basic = readFile(VALIS_CIRCUITS_DIR "/basic.ttl");
     Host host(basic);
     ConsoleSession console(host.ops());
 

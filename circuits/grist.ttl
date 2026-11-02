@@ -1,4 +1,4 @@
-# examples/grist.ttl
+# circuits/grist.ttl
 #
 # A grain delay after the Grist plugin in downspout: the input is recorded into
 # a short history and replayed by windowed grains, each with its own start,

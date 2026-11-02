@@ -1,4 +1,4 @@
-# examples/dx7-brass.ttl
+# circuits/dx7-brass.ttl
 #
 # A brass pad with feedback that spans operators.
 #

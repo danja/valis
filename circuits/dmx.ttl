@@ -1,4 +1,4 @@
-# examples/dmx.ttl
+# circuits/dmx.ttl
 #
 # The Oberheim DMX.
 #

@@ -1,4 +1,4 @@
-# examples/pitch-follower.ttl
+# circuits/pitch-follower.ttl
 #
 # A synth that plays what it hears. A val:PitchTracker reads the pitch of a monophonic input (a
 # voice, a bass, a whistle) and a saw oscillator is held to that pitch, an octave down. The

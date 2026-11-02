@@ -195,7 +195,7 @@ ValisProcessor::ValisProcessor()
         }
     }
     if (! restored)
-        setTurtle(juce::File(VALIS_EXAMPLES_DIR "/basic.ttl").loadFileAsString());
+        setTurtle(juce::File(VALIS_CIRCUITS_DIR "/basic.ttl").loadFileAsString());
 
     for (int i = 0; i < kNumParamSlots; ++i)
         if (auto* parameter = apvts.getParameter(slotId(i)))

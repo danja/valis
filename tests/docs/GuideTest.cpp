@@ -139,10 +139,10 @@ void testEveryFileItPointsAtExists(const std::string& guide)
 {
     const std::filesystem::path root(VALIS_ROOT_DIR);
 
-    static const std::regex example("examples/([A-Za-z0-9_.-]+\\.ttl)");
+    static const std::regex example("circuits/([A-Za-z0-9_.-]+\\.ttl)");
     for (std::sregex_iterator it(guide.begin(), guide.end(), example), end; it != end; ++it)
     {
-        const auto path = root / "examples" / std::string((*it)[1]);
+        const auto path = root / "circuits" / std::string((*it)[1]);
         if (! std::filesystem::exists(path))
             std::printf("  the guide points at %s, which is not there\n", path.string().c_str());
         assert(std::filesystem::exists(path));

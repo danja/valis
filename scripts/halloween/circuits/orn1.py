@@ -40,4 +40,4 @@ a modal resonator an octave above the note. A chorus, a spectral delay and a lon
 finish it.
 
 Best played as a few held notes or a slow, wide chord.""",
-["Ambient","Horror","Choir"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/examples/halloween-ornaments1.ttl")
+["Ambient","Horror","Choir"],"AudioInstrument","Midi",N,A,P,"/chalet/github/valis/circuits/halloween-ornaments1.ttl")

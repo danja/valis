@@ -1,7 +1,7 @@
 // tests/ops/LintTest.cpp
 //
 // valis::lintCircuit. Each rule is shown a circuit that breaks it and one that does not,
-// and every circuit shipped in examples/ has to come through without an error or a warning,
+// and every circuit shipped in circuits/ has to come through without an error or a warning,
 // since they are what an agent copies from.
 
 #include "valis/CircuitModel.h"
@@ -297,7 +297,7 @@ void testTheJson()
 void testEveryShippedExampleIsClean()
 {
     int checked = 0, dirty = 0;
-    for (const auto& entry : std::filesystem::directory_iterator(VALIS_EXAMPLES_DIR))
+    for (const auto& entry : std::filesystem::directory_iterator(VALIS_CIRCUITS_DIR))
     {
         if (entry.path().extension() != ".ttl")
             continue;

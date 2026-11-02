@@ -1,7 +1,7 @@
-# examples/convolver-room.ttl
+# circuits/convolver-room.ttl
 #
 # A convolution reverb. The impulse response, audio/ir/room-synthetic.flac, is the output of
-# examples/reverb-return.ttl given a single click, so what the Convolver does here is the same room
+# circuits/reverb-return.ttl given a single click, so what the Convolver does here is the same room
 # the Reverb element makes, but as a recording that can be swapped for another. In the Controls view
 # the file slot's Load button replaces it with any room, cabinet or spring you have recorded.
 #

@@ -1,4 +1,4 @@
-# examples/vocal-guide.ttl
+# circuits/vocal-guide.ttl
 #
 # A plain "ah" voice for a guide track: two slightly apart saws through three formant filters at the frequencies of
 # an "ah" (about 750, 1250 and 2700 Hz), a quick attack so short syllables are heard, and a light vibrato. It is

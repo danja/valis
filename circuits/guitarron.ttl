@@ -1,4 +1,4 @@
-# examples/guitarron.ttl
+# circuits/guitarron.ttl
 #
 # The guitarron, the large six-string bass of a mariachi band, which plays the root and the fifth under the
 # chords. A soft thumb pluck (val:Pluck) strikes a heavily damped stiff string; a low resonance stands in for its deep, round

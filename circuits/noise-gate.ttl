@@ -1,4 +1,4 @@
-# examples/noise-gate.ttl
+# circuits/noise-gate.ttl
 #
 # A noise gate: an envelope follower watches the input and an expander pulls the
 # signal down while the follower reads below the threshold. The follower's release

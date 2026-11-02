@@ -306,7 +306,7 @@ std::vector<LintFinding> lintCircuit(const CircuitModel& model)
     if (! model.profile().declared)
         add(Severity::info, "no-profile", model.id(), "",
             "The circuit does not declare a trn:PluginProfile (a role, what it accepts and produces), so a catalogue "
-            "cannot list it. Every circuit in examples/ declares one.");
+            "cannot list it. Every circuit in circuits/ declares one.");
 
     std::stable_sort(findings.begin(), findings.end(),
                      [](const LintFinding& a, const LintFinding& b) { return a.severity < b.severity; });

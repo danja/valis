@@ -1,4 +1,4 @@
-# examples/halloween-theremin.ttl
+# circuits/halloween-theremin.ttl
 #
 # A theremin for the song's unearthly lead. The pitch travels between notes through a
 # val:Slew, and every note also scoops up from about a semitone below. A wide vibrato rides on

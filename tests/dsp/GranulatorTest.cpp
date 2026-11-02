@@ -290,7 +290,7 @@ void testAConnectedTriggerOwnsPlayback()
 {
     ElementTestFixture rig("SampleLoad", kRate);
     std::string error;
-    assert(rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+    assert(rig.element->setOption("file", VALIS_CIRCUITS_DIR "/samples/bell.wav", error));
     rig.set("loop", 0.0f);
 
     const std::vector<float> silence(4096, 0.0f);
@@ -307,7 +307,7 @@ void testAConnectedTriggerOwnsPlayback()
     // With no trigger wired at all the element still free-runs, which is what
     // the Controls view's file slot relies on.
     ElementTestFixture loose("SampleLoad", kRate);
-    assert(loose.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+    assert(loose.element->setOption("file", VALIS_CIRCUITS_DIR "/samples/bell.wav", error));
     assert(ElementTestFixture::measurePeak(loose.run(silence)) > 0.01f);
 }
 
@@ -316,7 +316,7 @@ void testAConnectedTriggerOwnsPlayback()
 /// load with a message rather than playing something else.
 void testDeclaredResourceIdentityIsChecked()
 {
-    const char* kBell = VALIS_EXAMPLES_DIR "/samples/bell.wav";
+    const char* kBell = VALIS_CIRCUITS_DIR "/samples/bell.wav";
     const char* kHash = "694a657853b352b611868fa31227a3ded425efc094542c9f76ee77275dccf507";
 
     // The real hash and dimensions load, whichever order they arrive in: RDF
@@ -523,7 +523,7 @@ void testSampleLoadPlaysAFile()
     ElementTestFixture rig("SampleLoad", kRate);
 
     std::string error;
-    const bool loaded = rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error);
+    const bool loaded = rig.element->setOption("file", VALIS_CIRCUITS_DIR "/samples/bell.wav", error);
     if (! loaded)
         std::printf("  SampleLoad: %s\n", error.c_str());
     assert(loaded);
@@ -558,7 +558,7 @@ void testSampleLoadLoopAndOneShot()
     {
         ElementTestFixture rig("SampleLoad", kRate);
         std::string error;
-        assert(rig.element->setOption("file", VALIS_EXAMPLES_DIR "/samples/bell.wav", error));
+        assert(rig.element->setOption("file", VALIS_CIRCUITS_DIR "/samples/bell.wav", error));
         rig.set("loop", loop);
 
         const std::vector<float> silence(static_cast<std::size_t>(blockSize), 0.0f);
