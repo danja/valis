@@ -181,6 +181,10 @@ struct TanhShape
 
 struct HardClipShape
 {
+    /// The element's control is a threshold, not a gain: the input is divided by it and the result multiplied back,
+    /// so the signal is cut flat at plus and minus the threshold and keeps its level below it.
+    static constexpr bool kControlIsThreshold = true;
+
     static double evaluate(double x) noexcept { return x < -1.0 ? -1.0 : (x > 1.0 ? 1.0 : x); }
 
     static double antiderivative1(double x) noexcept

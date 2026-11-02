@@ -1,0 +1,263 @@
+# circuits/arp-quantiser.ttl
+#
+# A sequence of notes from outside any key, forced into one, and sent out of the plugin as MIDI as well as played.
+# A step sequencer (val:StepSequencer) plays sixteen notes that use all twelve pitch classes. A copy of it is read by a
+# quantiser (val:Quantise), which snaps each note to the nearest note of the chosen scale and root; the difference moves
+# a second copy of the sequencer, so what sounds is the sequence in the key. The same notes leave the plugin as MIDI
+# (val:NoteOut), so a second instrument on another track can play along. The Root selector and the Scale selector (Free passes
+# the notes as written, then Semitones, Octaves, Fifths, Major, Minor, Pentatonic) change the key while it plays.
+#
+# Step length, Gate length and Transpose belong to the sequence; Wave, Cutoff, Envelope amount, Resonance and Decay to the voice.
+# MIDI velocity and MIDI channel set what is sent out. The sequencer follows the host's musical position, and runs on its own
+# at the last tempo when the host is stopped, so this circuit plays whenever the plugin is running and does not need a key held.
+# In a host, send the plugin's MIDI output to another track; offline, valis-render --midi-out writes it to a file.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:arpquantiser#> .
+
+:arpquantiser a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Sequencer", "Generative", "Demonstration" ;
+    rdfs:label "Arp quantiser" ;
+    val:element :seqRef , :quant , :neg , :delta , :seqPlay , :osc , :filtEnv , :filtScale , :vcf , :ampEnv , :vca , :dc , :level , :limit , :out , :midi ;
+    val:arc :a_seqRef_note__quant_in ,
+        :a_seqRef_note__neg_a ,
+        :a_quant_out__delta_a ,
+        :a_neg_out__delta_b ,
+        :a_delta_out__seqPlay_transpose ,
+        :a_seqPlay_pitch__osc_frequency ,
+        :a_seqPlay_gate__filtEnv_gate ,
+        :a_seqPlay_gate__ampEnv_gate ,
+        :a_filtEnv_out__filtScale_in ,
+        :a_filtScale_out__vcf_cutoff ,
+        :a_osc_out__vcf_in ,
+        :a_vcf_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__dc_in ,
+        :a_dc_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__out_in ,
+        :a_seqPlay_gate__midi_gate ,
+        :a_seqPlay_pitch__midi_pitch .
+
+:seqRef a val:StepSequencer ;
+    val:pattern "C3 C#3 F#3 G3 D3 A3 Eb3 B3 F3 G#3 E3 Bb3 C4 D4 F#4 A4" ;
+    val:gatelength 0.6 ;
+    val:division 0.25 .
+
+:quant a val:Quantise ;
+    val:root 0.0 ;
+    val:scale 4.0 .
+
+:neg a val:ControlMultiply ;
+    val:b -1.0 .
+
+:delta a val:ControlAdd .
+
+:seqPlay a val:StepSequencer ;
+    val:pattern "C3 C#3 F#3 G3 D3 A3 Eb3 B3 F3 G#3 E3 Bb3 C4 D4 F#4 A4" ;
+    val:gatelength 0.6 ;
+    val:division 0.25 .
+
+:osc a val:Oscillator ;
+    val:shape 1 .
+
+:filtEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 180.0 ;
+    val:sustain 0.0 ;
+    val:release 60.0 .
+
+:filtScale a val:Scale ;
+    val:min 500.0 ;
+    val:max 3500.0 .
+
+:vcf a val:Ladder ;
+    val:resonance 0.3 ;
+    val:drive 1.5 .
+
+:ampEnv a val:Envelope ;
+    val:attack 1.0 ;
+    val:decay 250.0 ;
+    val:sustain 0.5 ;
+    val:release 90.0 .
+
+:vca a val:VCA .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:level a val:Gain ;
+    val:gain -6.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:midi a val:NoteOut ;
+    val:velocity 0.8 ;
+    val:channel 1.0 .
+
+:a_seqRef_note__quant_in a val:Arc ;
+    val:from [ val:node :seqRef ; val:port "note" ] ;
+    val:to   [ val:node :quant ; val:port "in" ] .
+:a_seqRef_note__neg_a a val:Arc ;
+    val:from [ val:node :seqRef ; val:port "note" ] ;
+    val:to   [ val:node :neg ; val:port "a" ] .
+:a_quant_out__delta_a a val:Arc ;
+    val:from [ val:node :quant ; val:port "out" ] ;
+    val:to   [ val:node :delta ; val:port "a" ] .
+:a_neg_out__delta_b a val:Arc ;
+    val:from [ val:node :neg ; val:port "out" ] ;
+    val:to   [ val:node :delta ; val:port "b" ] .
+:a_delta_out__seqPlay_transpose a val:Arc ;
+    val:from [ val:node :delta ; val:port "out" ] ;
+    val:to   [ val:node :seqPlay ; val:port "transpose" ] .
+:a_seqPlay_pitch__osc_frequency a val:Arc ;
+    val:from [ val:node :seqPlay ; val:port "pitch" ] ;
+    val:to   [ val:node :osc ; val:port "frequency" ] .
+:a_seqPlay_gate__filtEnv_gate a val:Arc ;
+    val:from [ val:node :seqPlay ; val:port "gate" ] ;
+    val:to   [ val:node :filtEnv ; val:port "gate" ] .
+:a_seqPlay_gate__ampEnv_gate a val:Arc ;
+    val:from [ val:node :seqPlay ; val:port "gate" ] ;
+    val:to   [ val:node :ampEnv ; val:port "gate" ] .
+:a_filtEnv_out__filtScale_in a val:Arc ;
+    val:from [ val:node :filtEnv ; val:port "out" ] ;
+    val:to   [ val:node :filtScale ; val:port "in" ] .
+:a_filtScale_out__vcf_cutoff a val:Arc ;
+    val:from [ val:node :filtScale ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "cutoff" ] .
+:a_osc_out__vcf_in a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :vcf ; val:port "in" ] .
+:a_vcf_out__vca_in a val:Arc ;
+    val:from [ val:node :vcf ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__dc_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__level_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+:a_seqPlay_gate__midi_gate a val:Arc ;
+    val:from [ val:node :seqPlay ; val:port "gate" ] ;
+    val:to   [ val:node :midi ; val:port "gate" ] .
+:a_seqPlay_pitch__midi_pitch a val:Arc ;
+    val:from [ val:node :seqPlay ; val:port "pitch" ] ;
+    val:to   [ val:node :midi ; val:port "pitch" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :quant ; val:property val:root ;
+    lv2:name "Root" ; lv2:symbol "root" ;
+    lv2:minimum 0 ; lv2:maximum 11 ;
+    val:section "Scale" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "C" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "C#" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "D" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Eb" ; rdf:value 3 ] ;
+    lv2:scalePoint [ rdfs:label "E" ; rdf:value 4 ] ;
+    lv2:scalePoint [ rdfs:label "F" ; rdf:value 5 ] ;
+    lv2:scalePoint [ rdfs:label "F#" ; rdf:value 6 ] ;
+    lv2:scalePoint [ rdfs:label "G" ; rdf:value 7 ] ;
+    lv2:scalePoint [ rdfs:label "Ab" ; rdf:value 8 ] ;
+    lv2:scalePoint [ rdfs:label "A" ; rdf:value 9 ] ;
+    lv2:scalePoint [ rdfs:label "Bb" ; rdf:value 10 ] ;
+    lv2:scalePoint [ rdfs:label "B" ; rdf:value 11 ] .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :quant ; val:property val:scale ;
+    lv2:name "Scale" ; lv2:symbol "scale" ;
+    lv2:minimum 0 ; lv2:maximum 6 ;
+    val:section "Scale" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Free" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Semitones" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Octaves" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Fifths" ; rdf:value 3 ] ;
+    lv2:scalePoint [ rdfs:label "Major" ; rdf:value 4 ] ;
+    lv2:scalePoint [ rdfs:label "Minor" ; rdf:value 5 ] ;
+    lv2:scalePoint [ rdfs:label "Pentatonic" ; rdf:value 6 ] .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :seqRef , :seqPlay ; val:property val:division ;
+    lv2:name "Step length" ; lv2:symbol "step_length" ;
+    lv2:minimum 0.0625 ; lv2:maximum 1.0 ;
+    val:section "Sequence" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :seqRef , :seqPlay ; val:property val:gatelength ;
+    lv2:name "Gate length" ; lv2:symbol "gate_length" ;
+    lv2:minimum 0.05 ; lv2:maximum 1.0 ;
+    val:section "Sequence" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :delta ; val:property val:c ;
+    lv2:name "Transpose" ; lv2:symbol "transpose" ;
+    lv2:minimum -24 ; lv2:maximum 24 ;
+    val:section "Sequence" ;
+    units:unit units:semitone12TET .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :osc ; val:property val:shape ;
+    lv2:name "Wave" ; lv2:symbol "wave" ;
+    lv2:minimum 0 ; lv2:maximum 3 ;
+    val:section "Voice" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Sine" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Saw" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Square" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Triangle" ; rdf:value 3 ] .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :filtScale ; val:property val:min ;
+    lv2:name "Cutoff" ; lv2:symbol "cutoff" ;
+    lv2:minimum 100 ; lv2:maximum 4000 ;
+    val:section "Voice" ;
+    units:unit units:hertz .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :filtScale ; val:property val:max ;
+    lv2:name "Envelope amount" ; lv2:symbol "env_amount" ;
+    lv2:minimum 200 ; lv2:maximum 9000 ;
+    val:section "Voice" ;
+    units:unit units:hertz .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :vcf ; val:property val:resonance ;
+    lv2:name "Resonance" ; lv2:symbol "resonance" ;
+    lv2:minimum 0 ; lv2:maximum 0.95 ;
+    val:section "Voice" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Decay" ; lv2:symbol "decay" ;
+    lv2:minimum 20 ; lv2:maximum 1500 ;
+    val:section "Voice" ;
+    units:unit units:ms .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :midi ; val:property val:velocity ;
+    lv2:name "MIDI velocity" ; lv2:symbol "midi_velocity" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "MIDI out" .
+:p11 a val:Param ; val:slot 11 ;
+    val:target :midi ; val:property val:channel ;
+    lv2:name "MIDI channel" ; lv2:symbol "midi_channel" ;
+    lv2:minimum 1 ; lv2:maximum 16 ;
+    val:section "MIDI out" .
+:p12 a val:Param ; val:slot 12 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -30 ; lv2:maximum 6 ;
+    val:section "Output" ;
+    units:unit units:db .

@@ -10,6 +10,16 @@
 
 namespace valis::elements {
 
+/// True for a shape whose control is a threshold (see HardClipShape) rather than a gain in front of it.
+template <typename Shape>
+constexpr bool requiresThreshold()
+{
+    if constexpr (requires { Shape::kControlIsThreshold; })
+        return Shape::kControlIsThreshold;
+    else
+        return false;
+}
+
 /// Wraps a shape with the anti-aliasing strategy its ontology entry asks for.
 /// A strategy the shape cannot support degrades to one it can, and says so
 /// through effectiveStrategy() rather than pretending.
@@ -70,22 +80,25 @@ protected:
 
     void processMono(const float* in, float* out, int n, const ProcessArgs& args) noexcept override
     {
-        const float gain = std::max(controlAt(args, gainIndex, 1.0f), 1.0e-4f);
+        const float control = std::max(controlAt(args, gainIndex, 1.0f), 1.0e-4f);
+        constexpr bool thresholdControl = requiresThreshold<Shape>();
+        const float gain = thresholdControl ? 1.0f / control : control;
+        const float restore = thresholdControl ? control : 1.0f;
 
         if (strategy == Strategy::adaa2)
         {
             for (int i = 0; i < n; ++i)
-                out[i] = static_cast<float>(adaa2.process(static_cast<double>(in[i]) * gain));
+                out[i] = restore * static_cast<float>(adaa2.process(static_cast<double>(in[i]) * gain));
         }
         else if (strategy == Strategy::adaa1)
         {
             for (int i = 0; i < n; ++i)
-                out[i] = static_cast<float>(adaa1.process(static_cast<double>(in[i]) * gain));
+                out[i] = restore * static_cast<float>(adaa1.process(static_cast<double>(in[i]) * gain));
         }
         else
         {
             for (int i = 0; i < n; ++i)
-                out[i] = static_cast<float>(Shape::evaluate(static_cast<double>(in[i]) * gain));
+                out[i] = restore * static_cast<float>(Shape::evaluate(static_cast<double>(in[i]) * gain));
         }
     }
 

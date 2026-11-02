@@ -1,5 +1,14 @@
 ## Misc
 
+* **Cumbia Cuántica** (avant-garde cumbia; `valis-artifacts/artifacts/cumbia-cuantica/`, built by `scripts/cumbia-cuantica/make.py`): built, rendered and
+  mixed (v3, -11.2 LUFS, true peak -1 dBTP, loudness range 3.3 LU; measured, not heard). It uses all five circuits from `scripts/elements-demo/`. Needs a
+  listener: whether the surf guitar (`bassman-amp`) sounds like a guitar (`valis-shot is` reads it as a synthesizer preset, 0.63; an electric guitar scores
+  0.00), whether the talk box (`vocoder-speak`) says words, whether the triplet arpeggio slips against the bar as meant, whether the 8-bar fracture is too
+  long, and whether the cumbia pattern is right (written from the usual description, not checked with a player). Not done: a Reaper project
+  (`valis-song reaper --midi` skips the two `val:recorded` parts, so they would need adding by hand); a vocal; a second version with the guitar
+  played by hand. **A limit of the song format found here:** a part must be a circuit played by a MIDI file. A circuit driven by the transport
+  alone (`arp-quantiser`) or by audio input (`vocoder-speak`) has to be rendered by the track script and marked `val:recorded`, so its gating by section is
+  done in Python. A part option naming an input file, and one gating a part by section, would let `valis-song` do both.
 * **Songs as data, next steps** (`docs/songs.md`): fixed patterns and chords are now a `val:Score` (`valis-song score`); `dub-metal` is converted (its `metal` part is still generated in Python). Not tried: a score written first for a new song. Not done in the score: a pattern that depends on the bar's position in a cycle other than the chord progression, per-play velocity scaling, tuplets, and a vocal-guide format. The stem checks
   the `write-a-song` skill asks for (per-bar rms, `isnan`) are still by hand. `fit_params` and the analysis renders have their own
   block loops, not `renderBlocks`. The mix takes about 70 s for a 3-minute song in a Debug build; Release is several times faster.
@@ -173,38 +182,16 @@ The instruments that are done are described in `docs/examples.md`. What is open:
 
 ## Circuits for elements no circuit uses
 
-The element catalogue (`scripts/catalogue_elements.py`) lists 11 elements that no shipped circuit uses. Each wants a circuit
-that shows what the element does, with its own controls on the panel (dials, and a `val:Select` or an enumeration for a mode),
-a header comment saying what to listen for, a `trn:PluginProfile` with genres, and a test in `tests/engine/` that renders it and
-measures the effect (the spectrum, not only that it runs). Write them with `scripts/halloween/circuits/gen.py` (the
-`generate-circuit` skill). Check each port's unit and range in `vocabs/valis.ttl` first. Each circuit is a source played from
-MIDI through the element, so the element can be heard alone.
+Done 3 November 2026: the element catalogue (`scripts/catalogue_elements.py`) listed 11 elements that no shipped circuit used, and
+`scripts/elements-demo/` now has a circuit and a measured test for each (`distortion-bench`, `bassman-amp`, `lofi-codec`,
+`arp-quantiser`, `vocoder-speak`). A new element still needs one; the catalogue shows which have none. Not done:
 
-* **`distortion-bench.ttl`** for `val:HardClip`, `val:SoftSine`, `val:SinArcTan`, `val:Diode` and `val:Triode`. A saw or a
-  pluck into a five-way `val:AudioSelect`, so one knob picks the curve while drive, threshold, bias and mu are Params. A DC-blocked
-  output, and a dry/wet. The point is to hear and see how each curve adds harmonics: a `val:FreqAnalyzer` and a
-  `val:Oscilloscope` in the Controls view, and a test that measures the odd/even harmonic ratio per curve (Triode with bias should
-  add even harmonics, HardClip should be the harshest, SoftSine the gentlest).
-* **`bassman-amp.ttl`** for `val:ToneStack` and `val:Triode`. A guitar-like `val:Pluck` into a Triode preamp, the Bassman
-  stack (treble, middle, bass dials), then a `val:SoftSine` power stage. Show the stack's mid scoop: a test sweeps `middle` and
-  measures the dip at its centre. Pairs with the `nam` circuit for comparison.
-* **`vocoder-speak.ttl`** for `val:LPC`. A voice (`val:Input`, or the SAM speech render used in "All Fall Down") as the
-  modulator and a `val:Glottal` or saw chord as the carrier. Dials for `order` (the number of poles, which sets how much of the
-  vowel survives) and `mix`. Compare with `val:Vocoder` in the same circuit through an `val:AudioSelect`, so the two can be
-  heard one after the other. Test: intelligibility is not measurable here, so check the formant peaks follow the modulator.
-* **`lofi-codec.ttl`** for `val:Codec` and `val:SpectralGate`. A pad or loop through the codec's `bandwidth`, `step`, `floor`
-  and `mix`, with the spectral gate before it. The panel should show the spectrum so the missing bins are visible. Test:
-  with `floor` low, energy above `bandwidth` is gone, and raising `step` makes the spectrum sparser.
-* **`gate-garden.ttl`** for `val:SpectralGate`. A noisy tone, and a hiss with a low note under it. The `threshold` dial removes the
-  hiss bin by bin while the tone stays; show the same signal through a time-domain `val:Expander` on a `val:Select` to
+* **`gate-garden.ttl`** (optional: `val:SpectralGate` is already shown in `lofi-codec`). A noisy tone, and a hiss with a low note under it. The `threshold`
+  dial removes the hiss bin by bin while the tone stays; show the same signal through a time-domain `val:Expander` on a `val:Select` to
   hear the difference. Test: broadband noise level falls by a stated amount while a sine stays within 1 dB.
-* **`arp-quantiser.ttl`** for `val:Quantise` and `val:NoteOut`. A `val:StepSequencer` of arbitrary pitches snapped to a scale
-  chosen by two `val:Select`s (`root` and `scale`), played by the circuit's own voice, and sent out of the plugin as MIDI by
-  `val:NoteOut` so a second instrument can follow it. This is the one circuit that exercises MIDI output, which the host must
-  accept: Test it with `valis-render --midi-out` and read the file back (`tests/engine/MidiOutTest.cpp` shows the round trip), and in Reaper once. Test: every output pitch is in the scale,
-  for each scale.
-
-Done when the element catalogue shows no element as used by no circuit, and `ctest` passes.
+* **Heard, not measured.** Every one of these five is measured only. None has been listened to; the vocoder in particular needs a real
+  voice (the SAM render from "All Fall Down" is in `valis-artifacts`) to judge whether words are understood under LPC and under the
+  channel vocoder at several orders.
 
 ## Elements from the Oxide Studio survey
 

@@ -118,6 +118,21 @@ and a gate from one signal. It was never tried with a soft hit.
 `tests/engine/Tr909VelocityTest.cpp` plays each drum from velocity 0.05 to 1. `NoteGate.velocity` is a level that is 0 after the note-off,
 never a gate. All other examples were searched for a velocity arc into a gate, trigger or choke port; none had one.
 
+## val:HardClip's threshold was a gain
+
+**What happened.** Building `circuits/distortion-bench.ttl` (3 November 2026), a hard-clipped sine had rounded, sloping edges and
+peaked at about 1.2 times what the threshold said. Setting `threshold` to 0.05 made the output louder, not clipped lower. The ontology
+says the element "cuts the signal flat at plus and minus `val:threshold`".
+
+**Root cause.** `ShapedTransfer` takes its one control from `gain`, or from `threshold` if there is no `gain`, and always multiplies the
+input by it before a shape that clips at 1. For `val:HardClip` that made the threshold a drive: smaller meant more gain, and the top was
+always at 1. No circuit or test used the element, so nothing noticed.
+
+**Prevention.** Fixed: a shape that declares `kControlIsThreshold` divides the input by the control and multiplies the output by it.
+`tests/dsp/HardClipTest.cpp` checks the flat top and the unit level below it at four thresholds. An element no circuit uses has never
+been heard, which is why the element catalogue lists them and `TODO.md` asks for a circuit for each; measure the first circuit's
+waveform, not only that it makes sound.
+
 ## "Sits at its limiter" written from a peak value
 
 **What happened.** The All Fall Down README and TODO.md said the lead stem "sits at its limiter on the loudest notes", because its peak

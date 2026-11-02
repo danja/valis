@@ -1,0 +1,251 @@
+# circuits/bassman-amp.ttl
+#
+# A guitar through the amplifier that set the pattern for them all, the Fender '59 Bassman
+# (https://en.wikipedia.org/wiki/Fender_Bassman). A plucked string (val:Pluck into val:StiffString) feeds the amplifier's
+# passive treble, middle and bass network (val:ToneStack), a stage to make up the level the network loses, a valve preamp
+# (val:Triode, followed by a high-pass that removes the offset its bias adds), and a soft power stage (val:SoftSine) into a speaker rolloff.
+#
+# The three tone controls are not independent bands: the middle control also changes the treble, and the network always
+# costs level, about 12 dB at the middle notch with everything at half. Turn Middle down for the scooped sound the
+# amplifier is known for, and push Input to drive the valve; the lopsided valve curve adds even harmonics as it
+# clips, and the spectrum on the panel shows it. The stack comes before the valve, as it does in the amplifier, so the
+# tone controls change what the valve distorts as well as what is heard.
+# Play it from E2 to E5, a note at a time.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:bassmanamp#> .
+
+:bassmanamp a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Guitar", "Amplifier", "Demonstration" ;
+    rdfs:label "Bassman amp" ;
+    val:element :pitch , :pick , :string , :ampEnv , :ampVca , :dc , :input , :stack , :makeup , :preamp , :valveDc , :preTrim , :power , :cab , :hold , :gate , :level , :limit , :scope , :spectrum , :out ;
+    val:arc :a_pitch_out__pick_frequency ,
+        :a_pitch_out__string_frequency ,
+        :a_pick_out__string_in ,
+        :a_string_out__ampVca_in ,
+        :a_ampEnv_out__ampVca_cv ,
+        :a_ampVca_out__dc_in ,
+        :a_dc_out__input_in ,
+        :a_input_out__stack_in ,
+        :a_stack_out__makeup_in ,
+        :a_makeup_out__preamp_in ,
+        :a_preamp_out__valveDc_in ,
+        :a_valveDc_out__preTrim_in ,
+        :a_preTrim_out__power_in ,
+        :a_power_out__cab_in ,
+        :a_cab_out__gate_in ,
+        :a_hold_out__gate_cv ,
+        :a_gate_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__scope_in ,
+        :a_scope_out__spectrum_in ,
+        :a_spectrum_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:pick a val:Pluck ;
+    val:position 0.18 ;
+    val:hardness 0.6 .
+
+:string a val:StiffString ;
+    val:feedback 0.994 ;
+    val:damping 0.22 ;
+    val:dispersion 0.004 .
+
+:ampEnv a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 2500.0 ;
+    val:sustain 0.0 ;
+    val:release 400.0 .
+
+:ampVca a val:VCA .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 40.0 .
+
+:input a val:Gain ;
+    val:gain 6.0 .
+
+:stack a val:ToneStack ;
+    val:treble 0.5 ;
+    val:middle 0.5 ;
+    val:bass 0.5 .
+
+:makeup a val:Gain ;
+    val:gain 12.0 .
+
+:preamp a val:Triode ;
+    val:mu 100.0 ;
+    val:bias -1.5 .
+
+:valveDc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:preTrim a val:Gain ;
+    val:gain -6.0 .
+
+:power a val:SoftSine ;
+    val:gain 1.5 .
+
+:cab a val:OnePole ;
+    val:mode 0 ;
+    val:cutoff 5000.0 .
+
+:hold a val:Envelope ;
+    val:attack 0.5 ;
+    val:decay 10.0 ;
+    val:sustain 1.0 ;
+    val:release 5000.0 .
+
+:gate a val:VCA .
+
+:level a val:Gain ;
+    val:gain 6.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:scope a val:Oscilloscope .
+
+:spectrum a val:FreqAnalyzer .
+
+:out a val:Output .
+
+:a_pitch_out__pick_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :pick ; val:port "frequency" ] .
+:a_pitch_out__string_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "frequency" ] .
+:a_pick_out__string_in a val:Arc ;
+    val:from [ val:node :pick ; val:port "out" ] ;
+    val:to   [ val:node :string ; val:port "in" ] .
+:a_string_out__ampVca_in a val:Arc ;
+    val:from [ val:node :string ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "in" ] .
+:a_ampEnv_out__ampVca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :ampVca ; val:port "cv" ] .
+:a_ampVca_out__dc_in a val:Arc ;
+    val:from [ val:node :ampVca ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_dc_out__input_in a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :input ; val:port "in" ] .
+:a_input_out__stack_in a val:Arc ;
+    val:from [ val:node :input ; val:port "out" ] ;
+    val:to   [ val:node :stack ; val:port "in" ] .
+:a_stack_out__makeup_in a val:Arc ;
+    val:from [ val:node :stack ; val:port "out" ] ;
+    val:to   [ val:node :makeup ; val:port "in" ] .
+:a_makeup_out__preamp_in a val:Arc ;
+    val:from [ val:node :makeup ; val:port "out" ] ;
+    val:to   [ val:node :preamp ; val:port "in" ] .
+:a_preamp_out__valveDc_in a val:Arc ;
+    val:from [ val:node :preamp ; val:port "out" ] ;
+    val:to   [ val:node :valveDc ; val:port "in" ] .
+:a_valveDc_out__preTrim_in a val:Arc ;
+    val:from [ val:node :valveDc ; val:port "out" ] ;
+    val:to   [ val:node :preTrim ; val:port "in" ] .
+:a_preTrim_out__power_in a val:Arc ;
+    val:from [ val:node :preTrim ; val:port "out" ] ;
+    val:to   [ val:node :power ; val:port "in" ] .
+:a_power_out__cab_in a val:Arc ;
+    val:from [ val:node :power ; val:port "out" ] ;
+    val:to   [ val:node :cab ; val:port "in" ] .
+:a_cab_out__gate_in a val:Arc ;
+    val:from [ val:node :cab ; val:port "out" ] ;
+    val:to   [ val:node :gate ; val:port "in" ] .
+:a_hold_out__gate_cv a val:Arc ;
+    val:from [ val:node :hold ; val:port "out" ] ;
+    val:to   [ val:node :gate ; val:port "cv" ] .
+:a_gate_out__level_in a val:Arc ;
+    val:from [ val:node :gate ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__scope_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :scope ; val:port "in" ] .
+:a_scope_out__spectrum_in a val:Arc ;
+    val:from [ val:node :scope ; val:port "out" ] ;
+    val:to   [ val:node :spectrum ; val:port "in" ] .
+:a_spectrum_out__out_in a val:Arc ;
+    val:from [ val:node :spectrum ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :stack ; val:property val:treble ;
+    lv2:name "Treble" ; lv2:symbol "treble" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Tone stack" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :stack ; val:property val:middle ;
+    lv2:name "Middle" ; lv2:symbol "middle" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Tone stack" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :stack ; val:property val:bass ;
+    lv2:name "Bass" ; lv2:symbol "bass" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Tone stack" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :input ; val:property val:gain ;
+    lv2:name "Input" ; lv2:symbol "input" ;
+    lv2:minimum -12 ; lv2:maximum 24 ;
+    val:section "Preamp" ;
+    units:unit units:db .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :preamp ; val:property val:bias ;
+    lv2:name "Valve bias" ; lv2:symbol "bias" ;
+    lv2:minimum -10 ; lv2:maximum 0 ;
+    val:section "Preamp" ;
+    units:unit units:volt .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :preamp ; val:property val:mu ;
+    lv2:name "Valve mu" ; lv2:symbol "mu" ;
+    lv2:minimum 1 ; lv2:maximum 250 ;
+    val:section "Preamp" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :power ; val:property val:gain ;
+    lv2:name "Power stage drive" ; lv2:symbol "power_drive" ;
+    lv2:minimum 0.1 ; lv2:maximum 10 ;
+    val:section "Power" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :cab ; val:property val:cutoff ;
+    lv2:name "Speaker rolloff" ; lv2:symbol "speaker" ;
+    lv2:minimum 1500 ; lv2:maximum 12000 ;
+    val:section "Power" ;
+    units:unit units:hertz .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :pick ; val:property val:hardness ;
+    lv2:name "Pick hardness" ; lv2:symbol "pick_hardness" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "String" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :pick ; val:property val:position ;
+    lv2:name "Pick position" ; lv2:symbol "pick_position" ;
+    lv2:minimum 0.05 ; lv2:maximum 0.5 ;
+    val:section "String" .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :ampEnv ; val:property val:decay ;
+    lv2:name "Ring time" ; lv2:symbol "ring_time" ;
+    lv2:minimum 300 ; lv2:maximum 6000 ;
+    val:section "String" ;
+    units:unit units:ms .
+:p11 a val:Param ; val:slot 11 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -30 ; lv2:maximum 6 ;
+    val:section "Output" ;
+    units:unit units:db .

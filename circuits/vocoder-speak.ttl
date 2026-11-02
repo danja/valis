@@ -1,0 +1,269 @@
+# circuits/vocoder-speak.ttl
+#
+# A talk box: play a note, speak into the input, and the note speaks. The voice on the plugin's audio input
+# shapes a sawtooth carrier that is played from MIDI. It is the same idea done two ways, and the Method selector lets you hear
+# one after the other on the same voice and the same note:
+#
+#   LPC              val:LPC fits one smooth curve (an all-pole model, see https://en.wikipedia.org/wiki/Linear_predictive_coding)
+#                    to the voice's spectrum every 128 samples and puts that curve on the carrier. Its order sets how much
+#                    of the voice survives: 8 gives vowels, 16 about the clarity of speech, 32 follows every ripple.
+#   Channel vocoder  val:Vocoder splits both signals into bands and sets each carrier band to the voice's level in
+#                    that band (https://en.wikipedia.org/wiki/Vocoder). More bands, clearer words; fewer is the robot.
+#   Plain carrier    The note with no voice on it, for comparison.
+#
+# Hiss adds high-passed noise to the carrier so that s, t and k have something to shape. Presence lifts the voice above
+# 2.5 kHz before it is analysed, which helps consonants. Carrier wave and Detune set the buzz being shaped.
+# Silent unless a note is held and a voice is on the input. Play it from C2 to C5, a note at a time. Feed it a voice
+# recorded dry, with no reverb: the model follows the room as well as the speaker.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:vocoderspeak#> .
+
+:vocoderspeak a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Voice", "Vocoder", "Demonstration" ;
+    rdfs:label "Vocoder speak" ;
+    val:element :in , :lift , :pitch , :detune , :oscA , :oscB , :saws , :hiss , :hissHp , :hissLvl , :carrier , :ampEnv , :gate , :lpc , :voc , :vocLvl , :method , :level , :limit , :spectrum , :out ;
+    val:arc :a_in_out__lift_in ,
+        :a_lift_out__lpc_in ,
+        :a_lift_out__voc_in ,
+        :a_pitch_out__oscA_frequency ,
+        :a_pitch_out__detune_a ,
+        :a_detune_out__oscB_frequency ,
+        :a_oscA_out__saws_in ,
+        :a_oscB_out__saws_in ,
+        :a_saws_out__carrier_in ,
+        :a_hiss_out__hissHp_in ,
+        :a_hissHp_out__hissLvl_in ,
+        :a_hissLvl_out__carrier_in ,
+        :a_carrier_out__gate_in ,
+        :a_ampEnv_out__gate_cv ,
+        :a_gate_out__lpc_carrier ,
+        :a_gate_out__voc_carrier ,
+        :a_lpc_out__method_a ,
+        :a_voc_out__vocLvl_in ,
+        :a_vocLvl_out__method_b ,
+        :a_gate_out__method_c ,
+        :a_method_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__spectrum_in ,
+        :a_spectrum_out__out_in .
+
+:in a val:Input .
+
+:lift a val:Biquad ;
+    val:mode 2 ;
+    val:frequency 2500.0 ;
+    val:gain 6.0 ;
+    val:q 0.7 .
+
+:pitch a val:MidiPitch .
+
+:detune a val:ControlMultiply ;
+    val:b 1.004 .
+
+:oscA a val:Oscillator ;
+    val:shape 1 .
+
+:oscB a val:Oscillator ;
+    val:shape 1 .
+
+:saws a val:Mixer .
+
+:hiss a val:Noise ;
+    val:colour 0.0 .
+
+:hissHp a val:Biquad ;
+    val:mode 1 ;
+    val:frequency 4000.0 ;
+    val:q 0.7 .
+
+:hissLvl a val:Gain ;
+    val:gain -14.0 .
+
+:carrier a val:Mixer .
+
+:ampEnv a val:Envelope ;
+    val:attack 8.0 ;
+    val:decay 100.0 ;
+    val:sustain 1.0 ;
+    val:release 120.0 .
+
+:gate a val:VCA .
+
+:lpc a val:LPC ;
+    val:order 16.0 ;
+    val:mix 1.0 .
+
+:voc a val:Vocoder ;
+    val:bands 20.0 ;
+    val:low 100.0 ;
+    val:high 8000.0 ;
+    val:attack 4.0 ;
+    val:release 25.0 ;
+    val:mix 1.0 .
+
+:vocLvl a val:Gain ;
+    val:gain 17.0 .
+
+:method a val:AudioSelect ;
+    val:select 0.0 .
+
+:level a val:Gain ;
+    val:gain 0.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:spectrum a val:FreqAnalyzer .
+
+:out a val:Output .
+
+:a_in_out__lift_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :lift ; val:port "in" ] .
+:a_lift_out__lpc_in a val:Arc ;
+    val:from [ val:node :lift ; val:port "out" ] ;
+    val:to   [ val:node :lpc ; val:port "in" ] .
+:a_lift_out__voc_in a val:Arc ;
+    val:from [ val:node :lift ; val:port "out" ] ;
+    val:to   [ val:node :voc ; val:port "in" ] .
+:a_pitch_out__oscA_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "frequency" ] .
+:a_pitch_out__detune_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:a_detune_out__oscB_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "frequency" ] .
+:a_oscA_out__saws_in a val:Arc ;
+    val:from [ val:node :oscA ; val:port "out" ] ;
+    val:to   [ val:node :saws ; val:port "in" ] .
+:a_oscB_out__saws_in a val:Arc ;
+    val:from [ val:node :oscB ; val:port "out" ] ;
+    val:to   [ val:node :saws ; val:port "in" ] .
+:a_saws_out__carrier_in a val:Arc ;
+    val:from [ val:node :saws ; val:port "out" ] ;
+    val:to   [ val:node :carrier ; val:port "in" ] .
+:a_hiss_out__hissHp_in a val:Arc ;
+    val:from [ val:node :hiss ; val:port "out" ] ;
+    val:to   [ val:node :hissHp ; val:port "in" ] .
+:a_hissHp_out__hissLvl_in a val:Arc ;
+    val:from [ val:node :hissHp ; val:port "out" ] ;
+    val:to   [ val:node :hissLvl ; val:port "in" ] .
+:a_hissLvl_out__carrier_in a val:Arc ;
+    val:from [ val:node :hissLvl ; val:port "out" ] ;
+    val:to   [ val:node :carrier ; val:port "in" ] .
+:a_carrier_out__gate_in a val:Arc ;
+    val:from [ val:node :carrier ; val:port "out" ] ;
+    val:to   [ val:node :gate ; val:port "in" ] .
+:a_ampEnv_out__gate_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :gate ; val:port "cv" ] .
+:a_gate_out__lpc_carrier a val:Arc ;
+    val:from [ val:node :gate ; val:port "out" ] ;
+    val:to   [ val:node :lpc ; val:port "carrier" ] .
+:a_gate_out__voc_carrier a val:Arc ;
+    val:from [ val:node :gate ; val:port "out" ] ;
+    val:to   [ val:node :voc ; val:port "carrier" ] .
+:a_lpc_out__method_a a val:Arc ;
+    val:from [ val:node :lpc ; val:port "out" ] ;
+    val:to   [ val:node :method ; val:port "a" ] .
+:a_voc_out__vocLvl_in a val:Arc ;
+    val:from [ val:node :voc ; val:port "out" ] ;
+    val:to   [ val:node :vocLvl ; val:port "in" ] .
+:a_vocLvl_out__method_b a val:Arc ;
+    val:from [ val:node :vocLvl ; val:port "out" ] ;
+    val:to   [ val:node :method ; val:port "b" ] .
+:a_gate_out__method_c a val:Arc ;
+    val:from [ val:node :gate ; val:port "out" ] ;
+    val:to   [ val:node :method ; val:port "c" ] .
+:a_method_out__level_in a val:Arc ;
+    val:from [ val:node :method ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__spectrum_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :spectrum ; val:port "in" ] .
+:a_spectrum_out__out_in a val:Arc ;
+    val:from [ val:node :spectrum ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :method ; val:property val:select ;
+    lv2:name "Method" ; lv2:symbol "method" ;
+    lv2:minimum 0 ; lv2:maximum 2 ;
+    val:section "Method" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "LPC" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Channel vocoder" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Plain carrier" ; rdf:value 2 ] .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :lpc ; val:property val:order ;
+    lv2:name "LPC order" ; lv2:symbol "lpc_order" ;
+    lv2:minimum 2 ; lv2:maximum 32 ;
+    val:section "LPC" .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :lpc ; val:property val:mix ;
+    lv2:name "LPC mix" ; lv2:symbol "lpc_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "LPC" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :voc ; val:property val:bands ;
+    lv2:name "Vocoder bands" ; lv2:symbol "vocoder_bands" ;
+    lv2:minimum 2 ; lv2:maximum 32 ;
+    val:section "Channel vocoder" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :voc ; val:property val:release ;
+    lv2:name "Vocoder release" ; lv2:symbol "vocoder_release" ;
+    lv2:minimum 1 ; lv2:maximum 500 ;
+    val:section "Channel vocoder" ;
+    units:unit units:ms .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :voc ; val:property val:mix ;
+    lv2:name "Vocoder mix" ; lv2:symbol "vocoder_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Channel vocoder" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :oscA ; val:property val:shape ;
+    lv2:name "Carrier wave" ; lv2:symbol "carrier_wave" ;
+    lv2:minimum 0 ; lv2:maximum 3 ;
+    val:section "Carrier" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Sine" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Saw" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Square" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Triangle" ; rdf:value 3 ] .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :detune ; val:property val:b ;
+    lv2:name "Detune" ; lv2:symbol "detune" ;
+    lv2:minimum 0.98 ; lv2:maximum 1.02 ;
+    val:section "Carrier" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :hissLvl ; val:property val:gain ;
+    lv2:name "Hiss" ; lv2:symbol "hiss" ;
+    lv2:minimum -60 ; lv2:maximum 0 ;
+    val:section "Carrier" ;
+    units:unit units:db .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :lift ; val:property val:gain ;
+    lv2:name "Presence" ; lv2:symbol "presence" ;
+    lv2:minimum 0 ; lv2:maximum 18 ;
+    val:section "Voice" ;
+    units:unit units:db .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 18 ;
+    val:section "Output" ;
+    units:unit units:db .

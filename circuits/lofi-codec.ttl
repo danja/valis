@@ -1,0 +1,217 @@
+# circuits/lofi-codec.ttl
+#
+# A pad degraded the way a low-bitrate audio codec does it, with the missing frequencies visible on the panel.
+# Two slightly detuned saws and a little hiss go through a spectral gate (val:SpectralGate) and then a codec (val:Codec).
+#
+# The gate comes first and removes every frequency bin below its threshold, so it lifts the hiss out from underneath the
+# notes, which a filter cannot do. Raise Hiss to put it back, then raise the Gate threshold until it is gone and the
+# notes are left alone.
+#
+# The codec then works on what is left, in three ways that you can hear and see on the spectrum:
+#   Bandwidth  removes everything above it, the lowpass of a coarse encoder.
+#   Floor      drops every bin more than that many decibels below the loudest, so the quiet partials between the notes'
+#              harmonics go and what remains warbles as the bins that pass change from frame to frame.
+#   Step       rounds the bins that survive to steps of that many decibels, the grain of coarse quantisation.
+# With Floor and Step at 0 and Bandwidth at its top the codec passes the sound unchanged (delayed). Codec mix blends
+# the original back.
+# Play it from C2 to C5, a note at a time: it is monophonic, and the pitch follows the last note played.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:loficodec#> .
+
+:loficodec a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Sound design", "Lo-fi", "Demonstration" ;
+    rdfs:label "Lo-fi codec" ;
+    val:element :pitch , :detune , :oscA , :oscB , :oscSum , :oscLvl , :hiss , :hissLvl , :body , :ampEnv , :vca , :gate , :codec , :level , :limit , :spectrum , :scope , :out ;
+    val:arc :a_pitch_out__oscA_frequency ,
+        :a_pitch_out__detune_a ,
+        :a_detune_out__oscB_frequency ,
+        :a_oscA_out__oscSum_in ,
+        :a_oscB_out__oscSum_in ,
+        :a_oscSum_out__oscLvl_in ,
+        :a_oscLvl_out__body_in ,
+        :a_hiss_out__hissLvl_in ,
+        :a_hissLvl_out__body_in ,
+        :a_body_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__gate_in ,
+        :a_gate_out__codec_in ,
+        :a_codec_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__spectrum_in ,
+        :a_spectrum_out__scope_in ,
+        :a_scope_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:detune a val:ControlMultiply ;
+    val:b 1.006 .
+
+:oscA a val:Oscillator ;
+    val:shape 1 .
+
+:oscB a val:Oscillator ;
+    val:shape 1 .
+
+:oscSum a val:Mixer .
+
+:oscLvl a val:Gain ;
+    val:gain -9.0 .
+
+:hiss a val:Noise ;
+    val:colour 0.0 .
+
+:hissLvl a val:Gain ;
+    val:gain -30.0 .
+
+:body a val:Mixer .
+
+:ampEnv a val:Envelope ;
+    val:attack 120.0 ;
+    val:decay 400.0 ;
+    val:sustain 0.8 ;
+    val:release 500.0 .
+
+:vca a val:VCA .
+
+:gate a val:SpectralGate ;
+    val:threshold -120.0 .
+
+:codec a val:Codec ;
+    val:bandwidth 9000.0 ;
+    val:step 4.0 ;
+    val:floor 24.0 ;
+    val:mix 1.0 .
+
+:level a val:Gain ;
+    val:gain 0.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:spectrum a val:FreqAnalyzer .
+
+:scope a val:Oscilloscope .
+
+:out a val:Output .
+
+:a_pitch_out__oscA_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :oscA ; val:port "frequency" ] .
+:a_pitch_out__detune_a a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :detune ; val:port "a" ] .
+:a_detune_out__oscB_frequency a val:Arc ;
+    val:from [ val:node :detune ; val:port "out" ] ;
+    val:to   [ val:node :oscB ; val:port "frequency" ] .
+:a_oscA_out__oscSum_in a val:Arc ;
+    val:from [ val:node :oscA ; val:port "out" ] ;
+    val:to   [ val:node :oscSum ; val:port "in" ] .
+:a_oscB_out__oscSum_in a val:Arc ;
+    val:from [ val:node :oscB ; val:port "out" ] ;
+    val:to   [ val:node :oscSum ; val:port "in" ] .
+:a_oscSum_out__oscLvl_in a val:Arc ;
+    val:from [ val:node :oscSum ; val:port "out" ] ;
+    val:to   [ val:node :oscLvl ; val:port "in" ] .
+:a_oscLvl_out__body_in a val:Arc ;
+    val:from [ val:node :oscLvl ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_hiss_out__hissLvl_in a val:Arc ;
+    val:from [ val:node :hiss ; val:port "out" ] ;
+    val:to   [ val:node :hissLvl ; val:port "in" ] .
+:a_hissLvl_out__body_in a val:Arc ;
+    val:from [ val:node :hissLvl ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__vca_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__gate_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :gate ; val:port "in" ] .
+:a_gate_out__codec_in a val:Arc ;
+    val:from [ val:node :gate ; val:port "out" ] ;
+    val:to   [ val:node :codec ; val:port "in" ] .
+:a_codec_out__level_in a val:Arc ;
+    val:from [ val:node :codec ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__spectrum_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :spectrum ; val:port "in" ] .
+:a_spectrum_out__scope_in a val:Arc ;
+    val:from [ val:node :spectrum ; val:port "out" ] ;
+    val:to   [ val:node :scope ; val:port "in" ] .
+:a_scope_out__out_in a val:Arc ;
+    val:from [ val:node :scope ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :gate ; val:property val:threshold ;
+    lv2:name "Gate threshold" ; lv2:symbol "gate_threshold" ;
+    lv2:minimum -120 ; lv2:maximum 0 ;
+    val:section "Spectral gate" ;
+    units:unit units:db .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :hissLvl ; val:property val:gain ;
+    lv2:name "Hiss" ; lv2:symbol "hiss" ;
+    lv2:minimum -60 ; lv2:maximum -6 ;
+    val:section "Source" ;
+    units:unit units:db .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :detune ; val:property val:b ;
+    lv2:name "Detune" ; lv2:symbol "detune" ;
+    lv2:minimum 0.98 ; lv2:maximum 1.02 ;
+    val:section "Source" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :codec ; val:property val:bandwidth ;
+    lv2:name "Bandwidth" ; lv2:symbol "bandwidth" ;
+    lv2:minimum 500 ; lv2:maximum 24000 ;
+    val:section "Codec" ;
+    units:unit units:hertz .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :codec ; val:property val:floor ;
+    lv2:name "Floor" ; lv2:symbol "floor" ;
+    lv2:minimum 0 ; lv2:maximum 90 ;
+    val:section "Codec" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :codec ; val:property val:step ;
+    lv2:name "Step" ; lv2:symbol "step" ;
+    lv2:minimum 0 ; lv2:maximum 24 ;
+    val:section "Codec" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :codec ; val:property val:mix ;
+    lv2:name "Codec mix" ; lv2:symbol "codec_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Codec" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :ampEnv ; val:property val:attack ;
+    lv2:name "Attack" ; lv2:symbol "attack" ;
+    lv2:minimum 1 ; lv2:maximum 2000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :ampEnv ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 10 ; lv2:maximum 3000 ;
+    val:section "Envelope" ;
+    units:unit units:ms .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 12 ;
+    val:section "Output" ;
+    units:unit units:db .

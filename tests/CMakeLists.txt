@@ -21,6 +21,7 @@ set(VALIS_TESTS
   dsp/FluteTest.cpp
   dsp/StiffStringTest.cpp
   dsp/AdaaTest.cpp
+  dsp/HardClipTest.cpp
   dsp/FreeModalBankTest.cpp
   dsp/ControlMathTest.cpp
   dsp/ClarinetTest.cpp
@@ -62,6 +63,11 @@ set(VALIS_TESTS
   dsp/CompressorTest.cpp
   engine/ValisEngineTest.cpp
   engine/MidiOutTest.cpp
+  engine/DistortionBenchTest.cpp
+  engine/BassmanAmpTest.cpp
+  engine/LofiCodecTest.cpp
+  engine/ArpQuantiserTest.cpp
+  engine/VocoderSpeakTest.cpp
   engine/Tr909VelocityTest.cpp
   engine/UnitDelayLoopTest.cpp
   engine/FmExamplesTest.cpp

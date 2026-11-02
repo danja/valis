@@ -180,6 +180,48 @@ oscillator and filter. They are written by `scripts/nursery/nursery.py` and test
   Measured, not heard: the neural check reads the wail as "a human voice" (share 0.60, a yes; it was 0.28 with saw oscillators), and the scream
   as a distorted guitar or a synthesizer preset.
 
+## Demonstrations of one element
+
+Circuits whose job is to show an element, with its controls on the panel. Written by `scripts/elements-demo/`.
+
+- `distortion-bench.ttl`: the five shaping curves side by side on a note you play (a saw by default, or a sine, square or triangle).
+  A drive stage feeds `val:HardClip`, `val:SoftSine`, `val:SinArcTan`, `val:Diode` and `val:Triode`, and a Curve selector picks which
+  one is heard; each curve has its own controls (threshold, gain, ideality, bias and mu), a level trim so the loudness stays put, a
+  dry / wet blend, and a spectrum and waveform on the panel. Tested by `tests/engine/DistortionBenchTest.cpp`, on a sine: the symmetric
+  curves give odd harmonics only, the diode and triode give even ones, and the hard clip is close to a square wave
+  ([harmonics of a square wave](https://en.wikipedia.org/wiki/Square_wave)) and the brightest of the symmetric three.
+- `bassman-amp.ttl`: a plucked string through the Fender '59 Bassman signal path. `val:Pluck` into `val:StiffString`, then the
+  amplifier's passive treble / middle / bass network (`val:ToneStack`), a stage to make up what it loses, a valve preamp
+  (`val:Triode`, with bias and mu on the panel), a soft power stage (`val:SoftSine`) and a speaker rolloff. The stack comes before the
+  valve, as in the amplifier, so the tone controls change what is distorted. An envelope gates the output while idle, because a biased valve
+  stage makes a start-up transient. Tested by `tests/engine/BassmanAmpTest.cpp`: in tune at E2 and E4, rings after release, each
+  tone control moves its own band by 4 to 11 dB, the middle control also moves the treble (the network interacts), and driving the input
+  squeezes the peaks. Measured, not heard.
+- `lofi-codec.ttl`: a pad (two detuned saws and some hiss) through a spectral gate and then a codec, with the spectrum on the panel so
+  the missing frequencies can be seen. The gate (`val:SpectralGate`) lifts the hiss out from between the harmonics, which a filter cannot
+  do. The codec (`val:Codec`) has Bandwidth (everything above it goes), Floor (partials more than that far below the loudest go, so
+  what is left warbles) and Step (the level of each bin is rounded to steps of that many decibels). With Floor and Step at 0 and
+  Bandwidth at the top it passes the sound unchanged but delayed, and Codec mix puts the original back. The codec adds 44 ms of latency, which the
+  host compensates for. Tested by `tests/engine/LofiCodecTest.cpp`: each control does what is said above (bandwidth and floor each take the
+  energy above 4 kHz down by more than 15 dB; step puts an error of -26 dB at 2 dB steps and -10 dB at 12 dB steps against the clean sound; the gate takes
+  more than 10 dB of hiss from between the harmonics and leaves the fundamental). Measured, not heard.
+- `arp-quantiser.ttl`: a sixteen-step sequence that uses all twelve pitch classes, forced into a key and sent out of the plugin as MIDI
+  as well as played. Two copies of a `val:StepSequencer` run the same pattern; a `val:Quantise` reads the first, and the difference
+  between each note and its quantised self moves the second. A `val:NoteOut` sends the second's notes to the host. The Root and Scale
+  selectors (Free, Semitones, Octaves, Fifths, Major, Minor, Pentatonic) change the key while it plays, and Step length, Gate length
+  and Transpose belong to the sequence. Like any sequencer circuit it plays whenever the plugin runs, from the host's musical position or
+  free-running at the last tempo. Tested by `tests/engine/ArpQuantiserTest.cpp`: for five scales and three roots every note sent is in
+  the scale, each note-off ends its note-on, the channel and transpose are honoured, and `valis-render --midi-out` writes the same
+  thirty-two notes to a file, a step apart. Measured, not heard.
+- `vocoder-speak.ttl`: a talk box. A note played on MIDI is a sawtooth (two, slightly apart, with high-passed hiss for the consonants)
+  and the voice on the plugin's audio input shapes it, two ways that a Method selector switches between on the same voice and note:
+  `val:LPC`, which fits one smooth curve to the voice's spectrum (the LPC order says how much of the vowel survives), and `val:Vocoder`,
+  a bank of bands (how many, and how quickly each follows), and the plain carrier for comparison. Presence lifts the voice above
+  2.5 kHz first. Silent unless a note is held and a voice is present. Tested by `tests/engine/VocoderSpeakTest.cpp` with a synthetic
+  voice (a pulse train through the formants of "ah" and of "ee"): the balance between the bands near 2.3 kHz and 730 Hz moves by 12.5 dB
+  under LPC and 21 dB under the vocoder when the voice changes from "ah" to "ee", and by 0.0 dB with the plain carrier. Intelligibility
+  of real speech is not measured; whether it is understood is for a listener.
+
 ## Not examples
 
 - `temp.ttl` is a variant of `subsynth.ttl` with the same title.

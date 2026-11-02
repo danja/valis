@@ -1,0 +1,297 @@
+# circuits/distortion-bench.ttl
+#
+# A bench for the shaping curves, one at a time, on a note you play. A saw (or a sine, square or triangle) goes
+# through a drive stage and then through all five curves at once; the Curve selector picks which one you hear. The
+# spectrum and the waveform are on the panel, so a change of curve can be seen as well as heard.
+#
+#   Hard clip (val:HardClip)    Flat tops at plus and minus the threshold: strong odd harmonics, the harshest of the five.
+#   Soft sine (val:SoftSine)    x / (|x| + 1): the gentlest knee, few high harmonics until it is driven hard.
+#   Sin arc tan (val:SinArcTan) x / sqrt(x squared + 1): between soft sine and tanh.
+#   Diode (val:Diode)           A 1N4148 junction after a 1 kilohm resistor: lopsided, so even harmonics as well as odd.
+#   Triode (val:Triode)         A valve stage: negative bias and mu give even and odd harmonics, a richer sound than a symmetric clipper.
+#
+# Drive sets how hard every curve is hit. The other controls belong to one curve each and do nothing to the others.
+# Each curve has a level trim so that changing the curve changes the tone, not the loudness; the dry / wet knob blends
+# the undistorted note back in. A high-pass at 30 Hz removes the offset the lopsided curves add.
+# Play it from C2 to C5, a note at a time.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:distortionbench#> .
+
+:distortionbench a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Sound design", "Distortion", "Demonstration" ;
+    rdfs:label "Distortion bench" ;
+    val:element :pitch , :osc , :ampEnv , :vca , :drive , :hard , :soft , :arc , :diode , :tri , :hardTrim , :softTrim , :arcTrim , :diodeTrim , :triTrim , :curve , :curveHigh , :pick1 , :pick2 , :dc , :mix , :level , :limit , :scope , :spectrum , :out ;
+    val:arc :a_pitch_out__osc_frequency ,
+        :a_osc_out__vca_in ,
+        :a_ampEnv_out__vca_cv ,
+        :a_vca_out__drive_in ,
+        :a_drive_out__hard_in ,
+        :a_hard_out__hardTrim_in ,
+        :a_drive_out__soft_in ,
+        :a_soft_out__softTrim_in ,
+        :a_drive_out__arc_in ,
+        :a_arc_out__arcTrim_in ,
+        :a_drive_out__diode_in ,
+        :a_diode_out__diodeTrim_in ,
+        :a_drive_out__tri_in ,
+        :a_tri_out__triTrim_in ,
+        :a_hardTrim_out__pick1_a ,
+        :a_softTrim_out__pick1_b ,
+        :a_arcTrim_out__pick1_c ,
+        :a_pick1_out__pick2_a ,
+        :a_diodeTrim_out__pick2_b ,
+        :a_triTrim_out__pick2_c ,
+        :a_curve_out__pick1_select ,
+        :a_curve_out__curveHigh_a ,
+        :a_curveHigh_out__pick2_select ,
+        :a_pick2_out__dc_in ,
+        :a_vca_out__mix_dry ,
+        :a_dc_out__mix_wet ,
+        :a_mix_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__scope_in ,
+        :a_scope_out__spectrum_in ,
+        :a_spectrum_out__out_in .
+
+:pitch a val:MidiPitch .
+
+:osc a val:Oscillator ;
+    val:shape 1 .
+
+:ampEnv a val:Envelope ;
+    val:attack 4.0 ;
+    val:decay 300.0 ;
+    val:sustain 0.9 ;
+    val:release 160.0 .
+
+:vca a val:VCA .
+
+:drive a val:Gain ;
+    val:gain 12.0 .
+
+:hard a val:HardClip ;
+    val:threshold 0.5 .
+
+:soft a val:SoftSine ;
+    val:gain 1.0 .
+
+:arc a val:SinArcTan ;
+    val:gain 1.0 .
+
+:diode a val:Diode .
+
+:tri a val:Triode ;
+    val:mu 100.0 ;
+    val:bias -1.5 .
+
+:hardTrim a val:Gain ;
+    val:gain 1.7 .
+
+:softTrim a val:Gain ;
+    val:gain -0.4 .
+
+:arcTrim a val:Gain ;
+    val:gain -2.8 .
+
+:diodeTrim a val:Gain ;
+    val:gain -7.6 .
+
+:triTrim a val:Gain ;
+    val:gain 5.5 .
+
+:curve a val:ControlAdd ;
+    val:a 0.0 .
+
+:curveHigh a val:ControlAdd ;
+    val:b -2.0 .
+
+:pick1 a val:AudioSelect .
+
+:pick2 a val:AudioSelect .
+
+:dc a val:OnePole ;
+    val:mode 1 ;
+    val:cutoff 30.0 .
+
+:mix a val:DryWet ;
+    val:mix 1.0 .
+
+:level a val:Gain ;
+    val:gain -6.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:scope a val:Oscilloscope .
+
+:spectrum a val:FreqAnalyzer .
+
+:out a val:Output .
+
+:a_pitch_out__osc_frequency a val:Arc ;
+    val:from [ val:node :pitch ; val:port "out" ] ;
+    val:to   [ val:node :osc ; val:port "frequency" ] .
+:a_osc_out__vca_in a val:Arc ;
+    val:from [ val:node :osc ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "in" ] .
+:a_ampEnv_out__vca_cv a val:Arc ;
+    val:from [ val:node :ampEnv ; val:port "out" ] ;
+    val:to   [ val:node :vca ; val:port "cv" ] .
+:a_vca_out__drive_in a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :drive ; val:port "in" ] .
+:a_drive_out__hard_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :hard ; val:port "in" ] .
+:a_hard_out__hardTrim_in a val:Arc ;
+    val:from [ val:node :hard ; val:port "out" ] ;
+    val:to   [ val:node :hardTrim ; val:port "in" ] .
+:a_drive_out__soft_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :soft ; val:port "in" ] .
+:a_soft_out__softTrim_in a val:Arc ;
+    val:from [ val:node :soft ; val:port "out" ] ;
+    val:to   [ val:node :softTrim ; val:port "in" ] .
+:a_drive_out__arc_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :arc ; val:port "in" ] .
+:a_arc_out__arcTrim_in a val:Arc ;
+    val:from [ val:node :arc ; val:port "out" ] ;
+    val:to   [ val:node :arcTrim ; val:port "in" ] .
+:a_drive_out__diode_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :diode ; val:port "in" ] .
+:a_diode_out__diodeTrim_in a val:Arc ;
+    val:from [ val:node :diode ; val:port "out" ] ;
+    val:to   [ val:node :diodeTrim ; val:port "in" ] .
+:a_drive_out__tri_in a val:Arc ;
+    val:from [ val:node :drive ; val:port "out" ] ;
+    val:to   [ val:node :tri ; val:port "in" ] .
+:a_tri_out__triTrim_in a val:Arc ;
+    val:from [ val:node :tri ; val:port "out" ] ;
+    val:to   [ val:node :triTrim ; val:port "in" ] .
+:a_hardTrim_out__pick1_a a val:Arc ;
+    val:from [ val:node :hardTrim ; val:port "out" ] ;
+    val:to   [ val:node :pick1 ; val:port "a" ] .
+:a_softTrim_out__pick1_b a val:Arc ;
+    val:from [ val:node :softTrim ; val:port "out" ] ;
+    val:to   [ val:node :pick1 ; val:port "b" ] .
+:a_arcTrim_out__pick1_c a val:Arc ;
+    val:from [ val:node :arcTrim ; val:port "out" ] ;
+    val:to   [ val:node :pick1 ; val:port "c" ] .
+:a_pick1_out__pick2_a a val:Arc ;
+    val:from [ val:node :pick1 ; val:port "out" ] ;
+    val:to   [ val:node :pick2 ; val:port "a" ] .
+:a_diodeTrim_out__pick2_b a val:Arc ;
+    val:from [ val:node :diodeTrim ; val:port "out" ] ;
+    val:to   [ val:node :pick2 ; val:port "b" ] .
+:a_triTrim_out__pick2_c a val:Arc ;
+    val:from [ val:node :triTrim ; val:port "out" ] ;
+    val:to   [ val:node :pick2 ; val:port "c" ] .
+:a_curve_out__pick1_select a val:Arc ;
+    val:from [ val:node :curve ; val:port "out" ] ;
+    val:to   [ val:node :pick1 ; val:port "select" ] .
+:a_curve_out__curveHigh_a a val:Arc ;
+    val:from [ val:node :curve ; val:port "out" ] ;
+    val:to   [ val:node :curveHigh ; val:port "a" ] .
+:a_curveHigh_out__pick2_select a val:Arc ;
+    val:from [ val:node :curveHigh ; val:port "out" ] ;
+    val:to   [ val:node :pick2 ; val:port "select" ] .
+:a_pick2_out__dc_in a val:Arc ;
+    val:from [ val:node :pick2 ; val:port "out" ] ;
+    val:to   [ val:node :dc ; val:port "in" ] .
+:a_vca_out__mix_dry a val:Arc ;
+    val:from [ val:node :vca ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "dry" ] .
+:a_dc_out__mix_wet a val:Arc ;
+    val:from [ val:node :dc ; val:port "out" ] ;
+    val:to   [ val:node :mix ; val:port "wet" ] .
+:a_mix_out__level_in a val:Arc ;
+    val:from [ val:node :mix ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__scope_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :scope ; val:port "in" ] .
+:a_scope_out__spectrum_in a val:Arc ;
+    val:from [ val:node :scope ; val:port "out" ] ;
+    val:to   [ val:node :spectrum ; val:port "in" ] .
+:a_spectrum_out__out_in a val:Arc ;
+    val:from [ val:node :spectrum ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :curve ; val:property val:a ;
+    lv2:name "Curve" ; lv2:symbol "curve" ;
+    lv2:minimum 0 ; lv2:maximum 4 ;
+    val:section "Curve" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Hard clip" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Soft sine" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Sin arc tan" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Diode" ; rdf:value 3 ] ;
+    lv2:scalePoint [ rdfs:label "Triode" ; rdf:value 4 ] .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :osc ; val:property val:shape ;
+    lv2:name "Source wave" ; lv2:symbol "source_wave" ;
+    lv2:minimum 0 ; lv2:maximum 3 ;
+    val:section "Source" ;
+    lv2:portProperty lv2:integer , lv2:enumeration ;
+    lv2:scalePoint [ rdfs:label "Sine" ; rdf:value 0 ] ;
+    lv2:scalePoint [ rdfs:label "Saw" ; rdf:value 1 ] ;
+    lv2:scalePoint [ rdfs:label "Square" ; rdf:value 2 ] ;
+    lv2:scalePoint [ rdfs:label "Triangle" ; rdf:value 3 ] .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :drive ; val:property val:gain ;
+    lv2:name "Drive" ; lv2:symbol "drive" ;
+    lv2:minimum 0 ; lv2:maximum 36 ;
+    val:section "Curve" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :hard ; val:property val:threshold ;
+    lv2:name "Hard clip threshold" ; lv2:symbol "threshold" ;
+    lv2:minimum 0.05 ; lv2:maximum 1.0 ;
+    val:section "Hard clip" .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :soft , :arc ; val:property val:gain ;
+    lv2:name "Soft curves gain" ; lv2:symbol "soft_gain" ;
+    lv2:minimum 0.1 ; lv2:maximum 20 ;
+    val:section "Soft sine and arc tan" .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :diode ; val:property val:emissionCoefficient ;
+    lv2:name "Diode ideality" ; lv2:symbol "diode_n" ;
+    lv2:minimum 1.0 ; lv2:maximum 2.0 ;
+    val:section "Diode" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :tri ; val:property val:bias ;
+    lv2:name "Triode bias" ; lv2:symbol "triode_bias" ;
+    lv2:minimum -10 ; lv2:maximum 0 ;
+    val:section "Triode" ;
+    units:unit units:volt .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :tri ; val:property val:mu ;
+    lv2:name "Triode mu" ; lv2:symbol "triode_mu" ;
+    lv2:minimum 1 ; lv2:maximum 250 ;
+    val:section "Triode" .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :mix ; val:property val:mix ;
+    lv2:name "Dry / wet" ; lv2:symbol "dry_wet" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Output" .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 6 ;
+    val:section "Output" ;
+    units:unit units:db .
