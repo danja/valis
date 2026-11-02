@@ -162,6 +162,7 @@ oscillator and filter. They are written by `scripts/nursery/nursery.py` and test
 - `nursery-rattle-snare.ttl`: a snare. A noise-struck membrane, a snap, and 140 colliding beads from `val:Shaker` for a rattle, bit-reduced.
 - `nursery-ding-dong-hat.ttl`: a hi-hat made of two plate resonators pushed apart by a frequency shifter. Note velocity sets how long it rings, so a soft note is closed and a hard one open.
 - `nursery-wind-up-riser.ttl`: a riser. One envelope speeds a guiro's scrape from 3 to 180 ticks a second, opens a noise filter with a rising frequency shifter, and lifts a saw four octaves.
+- `nursery-voice-vocoder.ttl`: an effect, not an instrument. A 24-band `val:Vocoder` whose modulator is the input (a speech synthesiser) and whose carrier is built inside: five saws on A3, E4 and A4 with a veil of high noise for consonants, so the voice sings the track's chord. Written by `scripts/nursery/voice-vocoder.py`.
 
 ## Not examples
 

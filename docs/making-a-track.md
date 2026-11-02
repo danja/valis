@@ -170,6 +170,10 @@ Things that went wrong, and why:
   the `.rpp` with the command above, and ask the user to open it with File, Open and not to save over it.
 * `reaper-mcp` can drop its connection ("Broken pipe"). Retry once, then ask the user to open the file. Do not retry in a loop.
 * `render_stems` through `reaper-mcp` ran for ten minutes with no output. Render stems with `valis-song render` instead.
+* **A speech track** is added by hand in the live project. Put the words in the generator (a table of section, bar, beat, words), write
+  them as one word per step with `_` for rests, and load that into a speech synth such as SAM (`mcp__sam__set_text`, Transport mode).
+  Add a Valis instance after it with `mcp__reaper__add_fx`, ask the user to switch its MCP on (a new instance has it off), then load a
+  vocoder circuit over that port with `load_file`. The voice is not in the stems or the mix. See `scripts/nursery/voice-vocoder.py`.
 * The track's circuit is embedded as text at the time the project is written. Change a circuit, then regenerate the project.
 
 The writer is `src/ops/SongReaper.cpp`; the test, `tests/ops/SongReaperTest.cpp`, decodes a written instrument state and checks its sizes,

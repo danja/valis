@@ -1,0 +1,215 @@
+# examples/nursery-voice-vocoder.ttl
+#
+# An effect that makes a speech synthesiser sing the track's chord. Put it after the voice on the same track. The voice is the
+# modulator of a 24-band channel vocoder (val:Vocoder, https://en.wikipedia.org/wiki/Vocoder); the carrier is inside the circuit and
+# needs no MIDI: five sawtooth oscillators on A3, E4 and A4 (an open fifth, two of them a few cents sharp so they beat) with a
+# veil of high-passed noise for the consonants. The open fifth sits on every chord of A minor (Am, F, Dm, E, G) without
+# clashing. A shelf lifts the voice above 2.5 kHz first so that s, t and k still open their bands. A chorus and a room follow.
+#
+# Silent when the voice is silent. Play nothing: the input is the voice.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:nurseryvoicevocoder#> .
+
+:nurseryvoicevocoder a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio ;
+    trn:genre "Effect", "Vocoder", "Voice" ;
+    rdfs:label "Voice vocoder" ;
+    val:element :in , :lift , :saw1 , :saw2 , :saw3 , :saw4 , :saw5 , :sawMix , :sawLvl , :hiss , :hissHp , :hissLvl , :carrier , :voc , :choir , :room , :lvl , :limit , :out ;
+    val:arc :a_in_out__lift_in ,
+        :a_lift_out__voc_in ,
+        :a_saw1_out__sawMix_in ,
+        :a_saw2_out__sawMix_in ,
+        :a_saw3_out__sawMix_in ,
+        :a_saw4_out__sawMix_in ,
+        :a_saw5_out__sawMix_in ,
+        :a_sawMix_out__sawLvl_in ,
+        :a_sawLvl_out__carrier_in ,
+        :a_hiss_out__hissHp_in ,
+        :a_hissHp_out__hissLvl_in ,
+        :a_hissLvl_out__carrier_in ,
+        :a_carrier_out__voc_carrier ,
+        :a_voc_out__choir_in ,
+        :a_choir_out__room_in ,
+        :a_room_out__lvl_in ,
+        :a_lvl_out__limit_in ,
+        :a_limit_out__out_in .
+
+:in a val:Input .
+
+:lift a val:Biquad ;
+    val:mode 2 ;
+    val:frequency 2500.0 ;
+    val:gain 7.0 ;
+    val:q 0.7 .
+
+:saw1 a val:Oscillator ;
+    val:shape 1 ;
+    val:frequency 220.0 .
+
+:saw2 a val:Oscillator ;
+    val:shape 1 ;
+    val:frequency 220.9 .
+
+:saw3 a val:Oscillator ;
+    val:shape 1 ;
+    val:frequency 329.63 .
+
+:saw4 a val:Oscillator ;
+    val:shape 1 ;
+    val:frequency 440.0 .
+
+:saw5 a val:Oscillator ;
+    val:shape 1 ;
+    val:frequency 441.4 .
+
+:sawMix a val:Mixer .
+
+:sawLvl a val:Gain ;
+    val:gain -12.0 .
+
+:hiss a val:Noise ;
+    val:colour 0.0 .
+
+:hissHp a val:Biquad ;
+    val:mode 4 ;
+    val:frequency 4500.0 ;
+    val:q 0.7 .
+
+:hissLvl a val:Gain ;
+    val:gain -18.0 .
+
+:carrier a val:Mixer .
+
+:voc a val:Vocoder ;
+    val:bands 24.0 ;
+    val:low 110.0 ;
+    val:high 9000.0 ;
+    val:attack 2.0 ;
+    val:release 35.0 ;
+    val:mix 1.0 .
+
+:choir a val:Chorus ;
+    val:rate 0.4 ;
+    val:depth 2.2 ;
+    val:mix 0.35 .
+
+:room a val:Reverb ;
+    val:size 1.1 ;
+    val:decay 3.0 ;
+    val:damping 0.5 ;
+    val:mix 0.3 .
+
+:lvl a val:Gain ;
+    val:gain 14.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_in_out__lift_in a val:Arc ;
+    val:from [ val:node :in ; val:port "out" ] ;
+    val:to   [ val:node :lift ; val:port "in" ] .
+:a_lift_out__voc_in a val:Arc ;
+    val:from [ val:node :lift ; val:port "out" ] ;
+    val:to   [ val:node :voc ; val:port "in" ] .
+:a_saw1_out__sawMix_in a val:Arc ;
+    val:from [ val:node :saw1 ; val:port "out" ] ;
+    val:to   [ val:node :sawMix ; val:port "in" ] .
+:a_saw2_out__sawMix_in a val:Arc ;
+    val:from [ val:node :saw2 ; val:port "out" ] ;
+    val:to   [ val:node :sawMix ; val:port "in" ] .
+:a_saw3_out__sawMix_in a val:Arc ;
+    val:from [ val:node :saw3 ; val:port "out" ] ;
+    val:to   [ val:node :sawMix ; val:port "in" ] .
+:a_saw4_out__sawMix_in a val:Arc ;
+    val:from [ val:node :saw4 ; val:port "out" ] ;
+    val:to   [ val:node :sawMix ; val:port "in" ] .
+:a_saw5_out__sawMix_in a val:Arc ;
+    val:from [ val:node :saw5 ; val:port "out" ] ;
+    val:to   [ val:node :sawMix ; val:port "in" ] .
+:a_sawMix_out__sawLvl_in a val:Arc ;
+    val:from [ val:node :sawMix ; val:port "out" ] ;
+    val:to   [ val:node :sawLvl ; val:port "in" ] .
+:a_sawLvl_out__carrier_in a val:Arc ;
+    val:from [ val:node :sawLvl ; val:port "out" ] ;
+    val:to   [ val:node :carrier ; val:port "in" ] .
+:a_hiss_out__hissHp_in a val:Arc ;
+    val:from [ val:node :hiss ; val:port "out" ] ;
+    val:to   [ val:node :hissHp ; val:port "in" ] .
+:a_hissHp_out__hissLvl_in a val:Arc ;
+    val:from [ val:node :hissHp ; val:port "out" ] ;
+    val:to   [ val:node :hissLvl ; val:port "in" ] .
+:a_hissLvl_out__carrier_in a val:Arc ;
+    val:from [ val:node :hissLvl ; val:port "out" ] ;
+    val:to   [ val:node :carrier ; val:port "in" ] .
+:a_carrier_out__voc_carrier a val:Arc ;
+    val:from [ val:node :carrier ; val:port "out" ] ;
+    val:to   [ val:node :voc ; val:port "carrier" ] .
+:a_voc_out__choir_in a val:Arc ;
+    val:from [ val:node :voc ; val:port "out" ] ;
+    val:to   [ val:node :choir ; val:port "in" ] .
+:a_choir_out__room_in a val:Arc ;
+    val:from [ val:node :choir ; val:port "out" ] ;
+    val:to   [ val:node :room ; val:port "in" ] .
+:a_room_out__lvl_in a val:Arc ;
+    val:from [ val:node :room ; val:port "out" ] ;
+    val:to   [ val:node :lvl ; val:port "in" ] .
+:a_lvl_out__limit_in a val:Arc ;
+    val:from [ val:node :lvl ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :voc ; val:property val:bands ;
+    lv2:name "Bands" ; lv2:symbol "bands" ;
+    lv2:minimum 8 ; lv2:maximum 32 ;
+    val:section "Vocoder" .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :voc ; val:property val:release ;
+    lv2:name "Release" ; lv2:symbol "release" ;
+    lv2:minimum 5 ; lv2:maximum 200 ;
+    val:section "Vocoder" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :voc ; val:property val:mix ;
+    lv2:name "Vocoder mix" ; lv2:symbol "vocoder_mix" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Vocoder" .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :hissLvl ; val:property val:gain ;
+    lv2:name "Consonant hiss" ; lv2:symbol "hiss" ;
+    lv2:minimum -60 ; lv2:maximum 0 ;
+    val:section "Carrier" ;
+    units:unit units:db .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :sawLvl ; val:property val:gain ;
+    lv2:name "Chord level" ; lv2:symbol "chord_level" ;
+    lv2:minimum -40 ; lv2:maximum 0 ;
+    val:section "Carrier" ;
+    units:unit units:db .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :choir ; val:property val:mix ;
+    lv2:name "Chorus" ; lv2:symbol "chorus" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :room ; val:property val:mix ;
+    lv2:name "Room" ; lv2:symbol "room" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Space" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :lvl ; val:property val:gain ;
+    lv2:name "Output" ; lv2:symbol "output" ;
+    lv2:minimum -24 ; lv2:maximum 24 ;
+    val:section "Space" ;
+    units:unit units:db .
