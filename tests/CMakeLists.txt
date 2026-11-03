@@ -66,6 +66,7 @@ set(VALIS_TESTS
   engine/DistortionBenchTest.cpp
   engine/BassmanAmpTest.cpp
   engine/LofiCodecTest.cpp
+  engine/GuacharacaTest.cpp
   engine/ArpQuantiserTest.cpp
   engine/VocoderSpeakTest.cpp
   engine/Tr909VelocityTest.cpp

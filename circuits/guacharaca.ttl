@@ -1,0 +1,206 @@
+# circuits/guacharaca.ttl
+#
+# A guacharaca, the scraped wooden tube of Colombian cumbia and vallenato. A metal fork is drawn along a notched
+# tube: down on the beat, up between. Play note 73 for the down stroke and note 74 for the up stroke; velocity is the force.
+# Polyphonic in effect, since each stroke has its own shaker, but a repeat of the same note adds energy to the stroke
+# still sounding. https://en.wikipedia.org/wiki/Guacharaca
+#
+# Each stroke is a val:Shaker with regularity 1, so the teeth of the notches go past as evenly spaced ticks. The down
+# stroke is longer and has more energy than the up stroke. Tick length is how long one tooth rings (short is dry and
+# wooden), Rasp pitch and Ring tune the tube, and Regularity below 1 loosens the ticks towards a shaker.
+
+@prefix val:   <http://purl.org/stuff/valis/> .
+@prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix trn:   <http://purl.org/stuff/transmissions/> .
+@prefix :      <urn:valis:guacharaca#> .
+
+:guacharaca a val:Circuit , trn:PluginProfile ;
+    trn:role trn:AudioInstrument ;
+    trn:accepts trn:Midi ;
+    trn:produces trn:Audio ;
+    trn:genre "Percussion", "Acoustic", "Latin" ;
+    rdfs:label "Guacharaca" ;
+    val:element :dnGate , :dnShk , :dnLvl , :upGate , :upShk , :upLvl , :sum , :wood , :body , :level , :limit , :out ;
+    val:arc :a_dnGate_gate__dnShk_trigger ,
+        :a_dnGate_velocity__dnShk_velocity ,
+        :a_dnShk_out__dnLvl_in ,
+        :a_dnLvl_out__sum_in ,
+        :a_upGate_gate__upShk_trigger ,
+        :a_upGate_velocity__upShk_velocity ,
+        :a_upShk_out__upLvl_in ,
+        :a_upLvl_out__sum_in ,
+        :a_sum_out__wood_in ,
+        :a_wood_out__body_in ,
+        :a_body_out__level_in ,
+        :a_level_out__limit_in ,
+        :a_limit_out__out_in .
+
+:dnGate a val:NoteGate ;
+    val:note 73 .
+
+:dnShk a val:Shaker ;
+    val:particles 14.0 ;
+    val:shake 300.0 ;
+    val:sound 1.2 ;
+    val:frequency 4300.0 ;
+    val:resonance 5.0 ;
+    val:regularity 1.0 ;
+    val:scrape 40.0 .
+
+:dnLvl a val:Gain ;
+    val:gain 24.0 .
+
+:upGate a val:NoteGate ;
+    val:note 74 .
+
+:upShk a val:Shaker ;
+    val:particles 10.0 ;
+    val:shake 180.0 ;
+    val:sound 1.2 ;
+    val:frequency 4300.0 ;
+    val:resonance 5.0 ;
+    val:regularity 1.0 ;
+    val:scrape 48.0 .
+
+:upLvl a val:Gain ;
+    val:gain 23.0 .
+
+:sum a val:Mixer .
+
+:wood a val:Biquad ;
+    val:mode 5 ;
+    val:frequency 9000.0 ;
+    val:q 0.7 .
+
+:body a val:Biquad ;
+    val:mode 1 ;
+    val:frequency 900.0 ;
+    val:gain 0.0 ;
+    val:q 0.9 .
+
+:level a val:Gain ;
+    val:gain 0.0 .
+
+:limit a val:Limiter ;
+    val:ceiling -1.0 .
+
+:out a val:Output .
+
+:a_dnGate_gate__dnShk_trigger a val:Arc ;
+    val:from [ val:node :dnGate ; val:port "gate" ] ;
+    val:to   [ val:node :dnShk ; val:port "trigger" ] .
+:a_dnGate_velocity__dnShk_velocity a val:Arc ;
+    val:from [ val:node :dnGate ; val:port "velocity" ] ;
+    val:to   [ val:node :dnShk ; val:port "velocity" ] .
+:a_dnShk_out__dnLvl_in a val:Arc ;
+    val:from [ val:node :dnShk ; val:port "out" ] ;
+    val:to   [ val:node :dnLvl ; val:port "in" ] .
+:a_dnLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :dnLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_upGate_gate__upShk_trigger a val:Arc ;
+    val:from [ val:node :upGate ; val:port "gate" ] ;
+    val:to   [ val:node :upShk ; val:port "trigger" ] .
+:a_upGate_velocity__upShk_velocity a val:Arc ;
+    val:from [ val:node :upGate ; val:port "velocity" ] ;
+    val:to   [ val:node :upShk ; val:port "velocity" ] .
+:a_upShk_out__upLvl_in a val:Arc ;
+    val:from [ val:node :upShk ; val:port "out" ] ;
+    val:to   [ val:node :upLvl ; val:port "in" ] .
+:a_upLvl_out__sum_in a val:Arc ;
+    val:from [ val:node :upLvl ; val:port "out" ] ;
+    val:to   [ val:node :sum ; val:port "in" ] .
+:a_sum_out__wood_in a val:Arc ;
+    val:from [ val:node :sum ; val:port "out" ] ;
+    val:to   [ val:node :wood ; val:port "in" ] .
+:a_wood_out__body_in a val:Arc ;
+    val:from [ val:node :wood ; val:port "out" ] ;
+    val:to   [ val:node :body ; val:port "in" ] .
+:a_body_out__level_in a val:Arc ;
+    val:from [ val:node :body ; val:port "out" ] ;
+    val:to   [ val:node :level ; val:port "in" ] .
+:a_level_out__limit_in a val:Arc ;
+    val:from [ val:node :level ; val:port "out" ] ;
+    val:to   [ val:node :limit ; val:port "in" ] .
+:a_limit_out__out_in a val:Arc ;
+    val:from [ val:node :limit ; val:port "out" ] ;
+    val:to   [ val:node :out ; val:port "in" ] .
+
+:p0 a val:Param ; val:slot 0 ;
+    val:target :dnShk ; val:property val:scrape ;
+    lv2:name "Down teeth" ; lv2:symbol "down_teeth" ;
+    lv2:minimum 8 ; lv2:maximum 90 ;
+    val:section "Down stroke (note 73)" ;
+    units:unit units:hz .
+:p1 a val:Param ; val:slot 1 ;
+    val:target :dnShk ; val:property val:shake ;
+    lv2:name "Down length" ; lv2:symbol "down_length" ;
+    lv2:minimum 20 ; lv2:maximum 800 ;
+    val:section "Down stroke (note 73)" ;
+    units:unit units:ms .
+:p2 a val:Param ; val:slot 2 ;
+    val:target :dnLvl ; val:property val:gain ;
+    lv2:name "Down level" ; lv2:symbol "down_level" ;
+    lv2:minimum -12 ; lv2:maximum 40 ;
+    val:section "Down stroke (note 73)" ;
+    units:unit units:db .
+:p3 a val:Param ; val:slot 3 ;
+    val:target :upShk ; val:property val:scrape ;
+    lv2:name "Up teeth" ; lv2:symbol "up_teeth" ;
+    lv2:minimum 8 ; lv2:maximum 90 ;
+    val:section "Up stroke (note 74)" ;
+    units:unit units:hz .
+:p4 a val:Param ; val:slot 4 ;
+    val:target :upShk ; val:property val:shake ;
+    lv2:name "Up length" ; lv2:symbol "up_length" ;
+    lv2:minimum 20 ; lv2:maximum 800 ;
+    val:section "Up stroke (note 74)" ;
+    units:unit units:ms .
+:p5 a val:Param ; val:slot 5 ;
+    val:target :upLvl ; val:property val:gain ;
+    lv2:name "Up level" ; lv2:symbol "up_level" ;
+    lv2:minimum -12 ; lv2:maximum 40 ;
+    val:section "Up stroke (note 74)" ;
+    units:unit units:db .
+:p6 a val:Param ; val:slot 6 ;
+    val:target :dnShk , :upShk ; val:property val:regularity ;
+    lv2:name "Regularity" ; lv2:symbol "regularity" ;
+    lv2:minimum 0 ; lv2:maximum 1 ;
+    val:section "Rasp" .
+:p7 a val:Param ; val:slot 7 ;
+    val:target :dnShk , :upShk ; val:property val:sound ;
+    lv2:name "Tick length" ; lv2:symbol "tick_length" ;
+    lv2:minimum 0.2 ; lv2:maximum 12 ;
+    val:section "Rasp" ;
+    units:unit units:ms .
+:p8 a val:Param ; val:slot 8 ;
+    val:target :dnShk , :upShk ; val:property val:frequency ;
+    lv2:name "Rasp pitch" ; lv2:symbol "rasp_pitch" ;
+    lv2:minimum 1500 ; lv2:maximum 9000 ;
+    val:section "Rasp" ;
+    units:unit units:hz .
+:p9 a val:Param ; val:slot 9 ;
+    val:target :dnShk , :upShk ; val:property val:resonance ;
+    lv2:name "Ring" ; lv2:symbol "ring" ;
+    lv2:minimum 0.5 ; lv2:maximum 20 ;
+    val:section "Rasp" .
+:p10 a val:Param ; val:slot 10 ;
+    val:target :wood ; val:property val:frequency ;
+    lv2:name "Brightness" ; lv2:symbol "brightness" ;
+    lv2:minimum 3000 ; lv2:maximum 16000 ;
+    val:section "Tone" ;
+    units:unit units:hz .
+:p11 a val:Param ; val:slot 11 ;
+    val:target :body ; val:property val:gain ;
+    lv2:name "Tube body" ; lv2:symbol "tube_body" ;
+    lv2:minimum -6 ; lv2:maximum 12 ;
+    val:section "Tone" ;
+    units:unit units:db .
+:p12 a val:Param ; val:slot 12 ;
+    val:target :level ; val:property val:gain ;
+    lv2:name "Level" ; lv2:symbol "level" ;
+    lv2:minimum -24 ; lv2:maximum 18 ;
+    val:section "Output" ;
+    units:unit units:db .

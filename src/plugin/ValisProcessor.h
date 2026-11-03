@@ -118,6 +118,11 @@ public:
     /// is self-contained. Message thread only.
     juce::String getTurtle() const;
 
+    /// The file the circuit came from, as far as it is known: set when the editor loads or saves one and
+    /// kept in the host's saved state. Empty when only the text is known.
+    juce::String getCircuitFile() const;
+    void setCircuitFile(const juce::String& path);
+
     /// Parses, validates, compiles and installs. Returns false and fills
     /// `diagnostics` if the circuit will not run; the previous circuit keeps
     /// playing in that case, so a typo never silences the plugin.
@@ -290,6 +295,7 @@ private:
     /// The versions the circuit has had, for undo and diff. Message thread only.
     CircuitHistory history;
     juce::String turtleSource;
+    juce::String circuitFile;   // under turtleLock
     juce::String lastGoodTurtle;
 
     // Console AI settings. Message thread only; persisted to ApplicationProperties.

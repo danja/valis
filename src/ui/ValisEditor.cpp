@@ -307,9 +307,10 @@ void ValisEditor::updateStatusBar()
         keyboardButton.setButtonText(keyboardVisible ? "MIDI Kbd ON" : "MIDI Kbd");
 
         juce::String msg;
-        if (loadedFile != juce::File{})
+        const auto name = circuitDisplayName();
+        if (name.isNotEmpty())
         {
-            msg = loadedFile.getFileName();
+            msg = name;
             if (fileModified)
                 msg += "*";
             msg += "  \u2014  ";
@@ -396,6 +397,24 @@ void ValisEditor::promptForAiSetting(const juce::String& title, const juce::Stri
     }), true);
 }
 
+// The file's name if the editor loaded it, else the one the processor remembers from the host's
+// state, else the file a circuit's header comment names ("# circuits/foo.ttl ...").
+juce::String ValisEditor::circuitDisplayName() const
+{
+    if (loadedFile != juce::File{})
+        return loadedFile.getFileName();
+    if (const auto remembered = processor.getCircuitFile(); remembered.isNotEmpty())
+        return juce::File(remembered).getFileName();
+
+    const auto turtle = processor.getTurtle();
+    const auto firstLine = turtle.upToFirstOccurrenceOf("\n", false, false).trim();
+    if (firstLine.startsWith("#"))
+        for (auto word : juce::StringArray::fromTokens(firstLine.substring(1), " \t", ""))
+            if (word.endsWithIgnoreCase(".ttl"))
+                return word.fromLastOccurrenceOf("/", false, false);
+    return {};
+}
+
 void ValisEditor::loadCircuit()
 {
     fileChooser = std::make_unique<juce::FileChooser>("Load Circuit",
@@ -412,6 +431,7 @@ void ValisEditor::loadCircuit()
                 loadedFile       = f;
                 loadedFileTurtle = turtle;
                 fileModified     = false;
+                processor.setCircuitFile(f.getFullPathName());
                 processor.setLastCircuitDir(f.getParentDirectory().getFullPathName());
             }
         });
@@ -435,6 +455,7 @@ void ValisEditor::saveCircuit()
                 loadedFile       = f;
                 loadedFileTurtle = turtle;
                 fileModified     = false;
+                processor.setCircuitFile(f.getFullPathName());
                 processor.setLastCircuitDir(f.getParentDirectory().getFullPathName());
                 updateStatusBar();
             }

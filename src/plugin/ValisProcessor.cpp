@@ -779,11 +779,24 @@ void ValisProcessor::updateTrackProperties(const TrackProperties& properties)
     trackName = properties.name.has_value() ? *properties.name : juce::String();
 }
 
+juce::String ValisProcessor::getCircuitFile() const
+{
+    const juce::ScopedLock lock(turtleLock);
+    return circuitFile;
+}
+
+void ValisProcessor::setCircuitFile(const juce::String& path)
+{
+    const juce::ScopedLock lock(turtleLock);
+    circuitFile = path;
+}
+
 void ValisProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto tree = apvts.copyState();
     tree.setProperty("turtle", getTurtle(), nullptr);
     tree.setProperty("samples", samplesAsString(), nullptr);
+    tree.setProperty("circuitFile", getCircuitFile(), nullptr);
    #if VALIS_WITH_MCP
     tree.setProperty("mcpEnabled", isMcpRunning(), nullptr);
     tree.setProperty("mcpPort",    mcpPort(),       nullptr);
@@ -802,6 +815,7 @@ void ValisProcessor::setStateInformation(const void* data, int sizeInBytes)
     // Before the circuit is installed, so the chosen files are read with it.
     samplesFromString(tree.getProperty("samples", juce::String()).toString());
     setTurtle(tree.getProperty("turtle", juce::String()).toString());
+    setCircuitFile(tree.getProperty("circuitFile", juce::String()).toString());
     // A state with no parameter values (one written by a tool, such as valis-song reaper) keeps the
     // defaults setTurtle just took from the circuit; replacing the tree would reset every slot to zero.
     if (tree.getChildWithName("PARAM").isValid())

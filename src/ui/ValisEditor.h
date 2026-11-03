@@ -77,6 +77,7 @@ private:
 
     GraphView*   graphView = nullptr;
 
+    juce::String circuitDisplayName() const;
     juce::File   loadedFile;
     juce::String loadedFileTurtle;
     bool         fileModified = false;

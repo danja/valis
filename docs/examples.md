@@ -205,6 +205,12 @@ Circuits whose job is to show an element, with its controls on the panel. Writte
   host compensates for. Tested by `tests/engine/LofiCodecTest.cpp`: each control does what is said above (bandwidth and floor each take the
   energy above 4 kHz down by more than 15 dB; step puts an error of -26 dB at 2 dB steps and -10 dB at 12 dB steps against the clean sound; the gate takes
   more than 10 dB of hiss from between the harmonics and leaves the fundamental). Measured, not heard.
+- `guacharaca.ttl`: the scraped, notched wooden tube of cumbia and vallenato, as its own instrument. Note 73 is the down stroke and 74 the
+  up stroke; each is a `val:Shaker` with its teeth made regular, so a stroke is a run of evenly spaced ticks that thins as the energy dies.
+  The Controls view has the teeth per second, length and level of each stroke, the Rasp section (Regularity, Tick length, Rasp pitch, Ring) and
+  Tone (Brightness, Tube body, Level). Tested by `tests/engine/GuacharacaTest.cpp`: silent until played, the down stroke is stronger than the up,
+  50 teeth per second give more than 1.5 times the ticks of 20, regularity 1 spaces the ticks more evenly than 0. Measured, not heard. It replaces
+  the guiro notes in `latin-perc.ttl`, which have no controls of their own.
 - `arp-quantiser.ttl`: a sixteen-step sequence that uses all twelve pitch classes, forced into a key and sent out of the plugin as MIDI
   as well as played. Two copies of a `val:StepSequencer` run the same pattern; a `val:Quantise` reads the first, and the difference
   between each note and its quantised self moves the second. A `val:NoteOut` sends the second's notes to the host. The Root and Scale
