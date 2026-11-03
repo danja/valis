@@ -2,34 +2,45 @@
 
 [![Tenement Lights](docs/images/tenement-lights-thumb.jpeg)](https://www.youtube.com/watch?v=AeckJOo5350)
 
-*Tenement Lights: an original instrumental, created with Valis. [How it was made](docs/new-order-track.md).*
+*Tenement Lights: an original instrumental made with Valis. [How it was made](docs/new-order-track.md).*
 
-**Virtual Analog LLM Integrated System**
+**Virtual Analog LLM Integrated System** ([video demo](https://www.youtube.com/watch?v=iwrzSXKTRcY))
 
-[Video Demo](https://www.youtube.com/watch?v=iwrzSXKTRcY)
-
-Valis is a standalone app and a DAW plugin for building virtual analog circuits. It can be seen as a factory for instruments and effects processors.
+Valis is a standalone app and a DAW plugin for building virtual analog instruments and effects. You describe a circuit
+in [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax), and Valis plays it.
 
 | Controls | Circuit | Code | Console |
 |----------|---------|------|---------|
 | [![Controls view](docs/images/controls-thumb.jpeg)](docs/images/controls.jpeg) | [![Circuit view](docs/images/circuit-thumb.jpeg)](docs/images/circuit.jpeg) | [![Code view](docs/images/code-thumb.jpeg)](docs/images/code.jpeg) | [![Console tab](docs/images/console-thumb.jpeg)](docs/images/console.jpeg) |
 
-Circuits are built from [RDF](https://en.wikipedia.org/wiki/Resource_Description_Framework) (Turtle syntax) descriptions. The same circuit is presented through three views : a regular plugin view **Controls** with knobs etc, a node-and-arc network of components **Circuit** and a syntax-highlighted Turtle editor **Code**. A fourth tab, **Console**, is a terminal into the loaded circuit with an AI circuit designer. The Controls view is styled after Cold War test equipment, with Dark (default) and Light faceplates under Settings → Theme.
+The same circuit has four views:
 
-Functionality is also supported through MCP, so an LLM can drive every operation the UI can. You can ask AI to design and build circuits. See the [guide for agents](docs/guide-for-agents.md) for how to use the MCP interface to build instruments and processors from scratch.
+- **Controls**: knobs, switches and meters, styled after Cold War test equipment (Dark or Light under Settings, Theme).
+- **Circuit**: a graph of components and the arcs between them.
+- **Code**: a Turtle editor with syntax highlighting.
+- **Console**: a terminal into the loaded circuit, with an AI circuit designer.
 
-The core of this system is the Valis ontology : [valis.ttl](https://github.com/danja/valis/blob/main/vocabs/valis.ttl)
+Everything the UI can do is also available over MCP, so an LLM can design, build, render and measure circuits. The
+[guide for agents](docs/guide-for-agents.md) explains how. The element classes are declared in the Valis ontology,
+[`vocabs/valis.ttl`](vocabs/valis.ttl).
 
-## What is Virtual Analog Synthesis?
+To browse what's already here, see the [circuit catalogue](https://danja.github.io/valis/catalogue.html) and the
+[element catalogue](https://danja.github.io/valis/element-catalogue.html). Finished pieces made with Valis are in
+[valis-artifacts](https://github.com/danja/valis-artifacts).
 
-VA, also known as [Analog Modeling](https://en.wikipedia.org/wiki/Analog_modeling_synthesizer) is a technique where, rather than working with digital signal processing techniques directly, electronic circuits are simulated in code. [The Art of VA Filter Design](https://github.com/danja/valis/blob/main/reference/VAFilterDesign_1.0.3.pdf) by Vadim Zavalishin is a key reference, it covers a lot more than filters.
+## Virtual analog, briefly
 
-Circuits in Valis are represented as connected functional blocks rather than individual electronic components as in [SPICE](https://en.wikipedia.org/wiki/SPICE).
+[Virtual analog](https://en.wikipedia.org/wiki/Analog_modeling_synthesizer) means simulating electronic circuits in code
+instead of writing the DSP directly. Vadim Zavalishin's
+[The Art of VA Filter Design](reference/VAFilterDesign_1.0.3.pdf) is the key reference, and covers a lot more than
+filters. Valis models circuits as connected functional blocks, not as individual components the way
+[SPICE](https://en.wikipedia.org/wiki/SPICE) does. Where it earns its keep it goes finer: `val:Diode` is a Shockley-equation
+junction (a 1N4148 by default), `val:DiodePair` is an antiparallel soft clipper, and `val:Triode` is a Koren-style valve stage.
 
-## Circuits are Turtle
+## A circuit is a Turtle file
 
-A circuit is a set of elements and explicitly named arcs between their ports. Element
-classes, port symbols and control ranges reuse the [LV2](https://en.wikipedia.org/wiki/LV2) vocabulary.
+A circuit is a set of elements and explicitly named arcs between their ports. Element classes, port symbols and control
+ranges reuse the [LV2](https://en.wikipedia.org/wiki/LV2) vocabulary.
 
 ```turtle
 @prefix val:   <http://purl.org/stuff/valis/> .
@@ -45,36 +56,28 @@ classes, port symbols and control ranges reuse the [LV2](https://en.wikipedia.or
 :drive a val:DiodePair ; val:seriesResistance 2200.0 .
 :out   a val:Output .
 
-:a1 a val:Arc ; val:from [ val:node :osc ; val:port "out" ] ;
-                val:to   [ val:node :vcf ; val:port "in"  ] .
+:a1 a val:Arc ; val:from [ val:node :osc   ; val:port "out" ] ;
+                val:to   [ val:node :vcf   ; val:port "in"  ] .
+:a2 a val:Arc ; val:from [ val:node :vcf   ; val:port "out" ] ;
+                val:to   [ val:node :drive ; val:port "in"  ] .
+:a3 a val:Arc ; val:from [ val:node :drive ; val:port "out" ] ;
+                val:to   [ val:node :out   ; val:port "in"  ] .
 
 # Bind host parameter slot 0 to the filter's cutoff.
 :p0 a val:Param ; val:slot 0 ; val:target :vcf ; val:property val:cutoff ;
     lv2:name "Cutoff" ; lv2:symbol "cutoff" ; units:unit units:hz .
 ```
 
-[`vocabs/valis.ttl`](vocabs/valis.ttl) declares the element classes and is loaded at
-runtime, not merely documented: a test asserts that the ontology's class set and the DSP
-registry's factory set match in both directions. The vocabularies it is written against
-are vendored beside it - [`vocabs/lv2/`](vocabs/lv2) holds the LV2 1.18.10 ontologies
-(core, units, atom, patch, parameters, port-groups) and [`vocabs/w3c/`](vocabs/w3c) holds
-rdf, rdfs and owl.
+The ontology is loaded at runtime, not just documented. A test checks that its class set and the DSP registry's factory set
+match in both directions, so a class with no implementation (or the reverse) fails the build. The vocabularies it builds
+on are vendored beside it: [`vocabs/lv2/`](vocabs/lv2) (LV2 1.18.10) and [`vocabs/w3c/`](vocabs/w3c) (rdf, rdfs, owl).
 
-Element classes go finer-grained than "a saturation curve" where it earns its keep.
-`val:Diode` is a Shockley-equation junction - `i = Is·(exp(v/(n·Vt)) − 1)`, defaulting to
-a 1N4148, asymmetric because a diode conducts one way. `val:DiodePair` is the antiparallel
-soft clipper with a series resistance, and `val:Triode` a Koren-style valve stage. They
-carry real device parameters, so a circuit built from them behaves like the circuit it
-names. `val:Network` is declared as the seam for future component-level subcircuits.
+## How it fits together
 
-## Architecture
-
-Four layers with two hard boundaries. Every operation the plugin can perform is one
-`Op`; the three views and the MCP server are thin adapters over that single surface,
-never a second implementation. Below the model sits the real-time line: the audio
-callback never allocates, never does I/O and never parses RDF. `CompiledCircuit` is
-built and fully preallocated on the message thread, then handed to the engine by
-atomic pointer swap.
+Four layers, with two hard boundaries. Every operation is one `Op`, and the three views and the MCP server are thin adapters
+over that one surface, never a second implementation. Below the model is the real-time line: the audio callback never
+allocates, never does I/O and never parses RDF. A `CompiledCircuit` is built and fully preallocated on the message thread,
+then handed to the engine by an atomic pointer swap.
 
 ```
   ┌─ ui/ ──────────────────────┐   ┌─ mcp/ ───────┐
@@ -91,261 +94,114 @@ atomic pointer swap.
    ═══════════════════ │ ═══════════════ RT boundary ═════════════════
                   ┌────▼─────┐
                   │  Engine  │   engine/ · dsp/
-                  └──────────┘   Preallocated. 
+                  └──────────┘   Preallocated.
 ```
 
-`valis_core` links `juce_dsp` and serd/sord only - no GUI module - so the model,
-compiler and DSP layers stay testable as plain console executables.
+`valis_core` links `juce_dsp` and serd/sord only, with no GUI module, so the model, compiler and DSP layers are testable as
+plain console executables.
 
+## What works
 
-## Status
+All the milestones in [`docs/plan.md`](docs/plan.md) are done. Standalone, VST3 and LV2 build by default, and CLAP is opt-in.
 
-**All milestones are complete.** 66 tests pass, and all four plugin
-formats build: Standalone, VST3, LV2 and CLAP.
+- Errors name the element or arc at fault, and parse errors carry a line and column.
+- The engine allocates nothing on the audio thread. A test counts allocations through an overridden `operator new`. Output
+  doesn't depend on the host's buffer size: rendering at 128 and 512 samples is bit-identical.
+- The MCP server exposes the same operations as the UI. Inserting an element over MCP redraws the graph while the audio keeps
+  running.
+- `valis-render` renders a circuit headless, with no host, GUI or audio device. It synthesises a transport from `--tempo` and
+  `--rolling`, so a tempo-locked circuit renders offline as it plays.
+- The host transport reaches the circuit (tempo and position in quarter notes), and note events are sample-accurate.
+- The Controls view draws each control by the shape of its port: a two-position switch for a toggle or a two-way enumeration, a
+  selector strip for a longer enumeration, and a dial for everything else.
 
-What works:
+The element set is large (98 classes) and includes oscillators, filters, saturation, dynamics, modulation and reverb, plus physical
+models: plucked and bowed strings, a flute and clarinet built on a shared waveguide, modal bars and membranes, and a granulator.
+[`docs/examples.md`](docs/examples.md) lists the shipped circuits. The case studies for the
+[flute](docs/manual/flute.md), [clarinet](docs/manual/clarinet.md) and [granulator](docs/manual/granular.md) show measured results.
+There's also an [original instrumental](docs/new-order-track.md) played by instruments modelled on a 1983 electronic record, and
+[`docs/making-a-track.md`](docs/making-a-track.md) walks through making a track from circuits to Reaper.
 
-- A circuit is parsed from Turtle, validated against the ontology, compiled to
-  an execution order and run. Errors name the element or arc at fault, and
-  parse errors carry line and column.
-- All 82 elements, with the ontology and the DSP registry asserted equal as
-  sets in both directions - a class with no factory, or a factory with no class,
-  fails the build.
-- The engine allocates nothing on the audio thread, enforced by a test that
-  counts through an overridden `operator new`. Output is independent of the
-  host's buffer size: rendering at 128 and 512 samples is bit-identical.
-- All three views: a syntax-highlighted Turtle editor with diagnostics, a
-  node-and-arc graph with drag-to-connect and an ontology-driven palette, and
-  knobs generated from the circuit's parameter bindings.
-- An HTTP MCP server exposing 34 tools, all adapters over the same `Op` surface
-  the views use. Inserting an element over MCP redraws the graph view while the
-  audio keeps running.
-- `valis-render`, a headless renderer that needs no host, GUI or audio device.
+One rough edge: structural edits in the graph view re-serialise the document, so hand formatting and comments are lost. It warns
+you the first time.
 
-Since the milestones closed, the two gaps that were marked `TODO:` have been
-fixed. The oscillator is band-limited with PolyBLEP - measured, alias energy
-relative to the fundamental drops 17× for a saw and 29× for a square. And
-`val:Envelope` is a real ADSR driven by MIDI note events, which uncovered an
-ontology bug it had been hiding: its output was declared an audio port while the
-implementation wrote a control one. Every element is now checked against its own
-port declarations, so that class of mismatch fails the build.
-
-Recent additions since milestones closed: new elements including `val:Scale`,
-`val:Delay`, `val:VCA`, `val:MidiPitch`, `val:MidiVelocity`, `val:AsymClip`,
-`val:CombFilter`, `val:StiffString`, `val:ModalBank`, `val:Reed`, `val:TwinTBridge`,
-`val:NoteGate`, `val:Oscilloscope`, `val:FreqAnalyzer`, `val:Chorus`, `val:Flanger`,
-`val:Phaser`, `val:Reverb`, `val:Limiter`, `val:Biquad`, `val:Crossover`, `val:Redux`,
-`val:Drift`, `val:PitchShift` and `val:Wavetable`; worked examples (`sh101.ttl`, `klon.ttl`, `rings.ttl`, `909.ttl`,
-`modulation.ttl`, `clarinet.ttl`, `granular.ttl` with matching case-study docs); session state
-persisted to a platform settings file on a 3-second debounce; topological ordering
-includes control arcs so control sources such as `MidiPitch` and `Envelope` are always
-processed before their destinations; parameter slots support logarithmic taper and
-integer/enum ranges; the status bar shows the loaded filename and turns amber when
-there are unsaved edits; `val:Oscilloscope` elements appear in the Controls view with
-live peak, RMS and frequency readouts; the Circuit view now refreshes immediately when
-a new circuit is loaded (previously relied on element-count polling).
-
-The host transport now reaches the circuit. `ProcessArgs` carries the tempo and
-the position in quarter notes, advanced one control slice at a time so a musical
-phase stays continuous inside a buffer, and `val:Transport` exposes it as a
-phase ramp and a pulse at a division of the bar. `valis-render` synthesises a
-transport from `--tempo` and `--rolling`, so a tempo-locked circuit renders
-offline exactly as it plays.
-
-`val:Flute` is a jet-drive waveguide: an air column open at both ends, blown by
-a jet whose flow into the tube is `Uj · tanh((η − y0) / b)`. Jet speed follows
-Bernoulli's, so blowing harder is louder and brighter rather than louder alone,
-and the jet's offset from the edge is the timbre: centred it is symmetric and
-gives a stopped, hollow tone of odd harmonics, off centre the even harmonics
-come in and it becomes a flute. It is in tune within five cents over three
-octaves, calibrated against measurements and held there by tests. See
-[the case study](docs/manual/flute.md). The waveguide parts it is built from,
-in `src/dsp/elements/Waveguide.h`, are shared ground for the other wind
-instruments.
-
-`val:Reed` is the same waveguide stopped at the mouthpiece, which is most of
-what makes a clarinet a clarinet: one inversion per round trip, so the tube
-holds a quarter wavelength and the even harmonics are absent. Measured at D4 the
-third harmonic is 0.33 of the fundamental and the second 0.005, against the
-flute's 0.14 at the same pitch. Its reed is a valve with a band of blowing
-pressure it works over, so a soft reed speaks on very little air and chokes when
-overblown while a hard one does the opposite. In tune within four cents over
-three octaves; see [the case study](docs/manual/clarinet.md).
-
-The Controls view now draws a control by the shape of the port behind it. A
-port declared `lv2:toggled`, or an enumeration with two scale points, is a
-two-position switch; an enumeration with more is a strip with every option named
-on the panel; everything else stays a dial. A `val:SampleLoad` element draws a
-file slot with a Load button, so the sound file a circuit plays can be changed
-without editing the document, and `val:Select` turns one switch into whatever
-pair of values a circuit needs.
-
-`val:Granulator` is a granular synthesiser and processor: one circular buffer
-filled from a sound file or from live audio, and up to 64 overlapping windowed
-grains read from it, with position, size, density, transposition, scatter,
-window shape, stereo spread and reverse all separate control ports. Grain onsets
-either free-run or follow the transport. `circuits/granular.ttl` is the playable
-instrument built from it: a sample slot, a MIDI In switch that decides whether
-notes play it or it drones as an effect, and a Mix knob from the plugin's own
-input to the granulated signal. See [the case study](docs/manual/granular.md).
-
-Remaining rough edges: the graph view's structural edits re-serialise the
-document, so hand formatting and comments are lost (it warns on first use).
-Note events are sample-accurate: the engine cuts a control slice at each event.
-
-Since then: `val:ControlAdd` and `val:Slew` (a control-rate sum, and a glide
-with separate rise and fall times); `val:StiffString` is tuned across its range
-by subtracting the delay its own loop filters add (within a cent from E2 to
-E5); and a set of instruments modelled on the machines of a 1983 electronic
-record (a Source-style bass, a six-string bass, a Prophet-style poly synth, a
-sampler choir, string machine, and a speaker-and-room effect) with an original
-instrumental played by them. See [the 1983-style track](docs/new-order-track.md)
-the [examples](docs/examples.md) and the [circuit catalogue](https://danja.github.io/valis/catalogue.html) and [element catalogue](https://danja.github.io/valis/element-catalogue.html).
-
-## Development
-
-Build the release plugin and tools:
+## Building
 
 ```sh
 ./build.sh
 ```
 
-`build.sh` configures `build-release/` as Release without tests, with the neural ears of `valis-shot` on (the first configure
-downloads ONNX Runtime; the models are fetched separately, see [`docs/shot.md`](docs/shot.md)). Set `VALIS_WITH_ONNX=0` to
-leave them out, and `JOBS` to override the parallelism.
+That builds the Release plugin and tools in `build-release/`, with the neural ears of `valis-shot` included. The first configure
+downloads ONNX Runtime, and the models are fetched separately (see [`docs/shot.md`](docs/shot.md)). Set `VALIS_WITH_ONNX=0` to
+leave them out, and `JOBS` to change the parallelism.
 
-The tests are opt-in, because the full Debug suite takes about five minutes:
+Tests are opt-in, because the full Debug suite takes about five minutes:
 
 ```sh
-VALIS_TESTS=quick ./build.sh   # Debug build and tests without the slow one (about 90 s of tests), then Release
+VALIS_TESTS=quick ./build.sh   # Debug build and tests without the slow one, then Release
 VALIS_TESTS=1 ./build.sh       # every test, then Release
+ctest --test-dir build --output-on-failure   # run the tests alone
 ```
 
-Run the unit tests alone:
-
-```sh
-ctest --test-dir build --output-on-failure
-```
-
-Launch the standalone application - it prefers the Release build, falling back to
-Debug (see [`docs/manual/standalone.md`](docs/manual/standalone.md)):
+Then launch the standalone app. It prefers the Release build and falls back to Debug:
 
 ```sh
 ./valis
 ```
 
-Configure and build by hand, for example a tests-only core with no plugin targets:
+You need CMake 3.22 or newer, a C and C++20 compiler (JUCE won't configure without a C compiler) and
+[JUCE 9.0.1](https://github.com/juce-framework/JUCE), which `VALIS_JUCE_DIR` points at (default `~/github/JUCE`):
+
+```sh
+git clone --depth 1 --branch 9.0.1 https://github.com/juce-framework/JUCE ~/github/JUCE
+```
+
+serd and sord are fetched and built for you unless serd 0.32.0 or newer is installed. Older versions have a different `SerdError`
+layout that crashes in the error callback. The Debian and Ubuntu packages and the plugin format checks are in
+[`docs/manual/building.md`](docs/manual/building.md).
+
+To configure by hand, for example a tests-only core with no plugin targets:
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug \
-  -DVALIS_BUILD_TESTS=ON \
-  -DVALIS_BUILD_PLUGIN=OFF \
-  -DVALIS_WITH_MCP=ON \
-  -DVALIS_JUCE_DIR=/home/danny/github/JUCE
+  -DVALIS_BUILD_TESTS=ON -DVALIS_BUILD_PLUGIN=OFF -DVALIS_WITH_MCP=ON -DVALIS_JUCE_DIR=$HOME/github/JUCE
 cmake --build build --parallel "$(nproc)"
 ```
 
-The options are `VALIS_BUILD_TESTS` (ON), `VALIS_BUILD_PLUGIN` (ON), `VALIS_WITH_MCP`
-(ON), `VALIS_WITH_NAM` (ON; Neural Amp Modeler support, fetched from GitHub if `VALIS_NAM_DIR` does not hold a checkout), `VALIS_WITH_CLAP` (OFF), and `VALIS_JUCE_DIR` (path to the JUCE checkout).
+The CMake options are `VALIS_BUILD_TESTS` (ON), `VALIS_BUILD_PLUGIN` (ON), `VALIS_WITH_MCP` (ON), `VALIS_WITH_NAM` (ON, Neural Amp
+Modeler support, fetched if `VALIS_NAM_DIR` has no checkout), `VALIS_WITH_FREESOUND` (ON), `VALIS_WITH_ONNX` (OFF) and
+`VALIS_WITH_CLAP` (OFF; build it with `VALIS_WITH_CLAP=1 ./build.sh`).
 
-### CLAP
+## Using it from an agent
 
-`build.sh` adds a third configuration in `build-clap/` when asked:
-
-```sh
-VALIS_WITH_CLAP=1 ./build.sh
-```
-
-That is equivalent to configuring with `-DVALIS_WITH_CLAP=ON`, which pulls in
-`clap-juce-extensions` through `cmake/FindOrFetchClap.cmake`. That module is written
-in M11, so this permutation does not build yet.
-
-### LV2 verification
-
-The LV2 bundle is written into the plugin's artefacts directory, so point `LV2_PATH`
-at it rather than installing:
-
-```sh
-LV2_PATH="$PWD/build/valis_plugin_artefacts/Debug/LV2" lv2ls
-LV2_PATH="$PWD/build/valis_plugin_artefacts/Debug/LV2" lv2info urn:valis:valis
-```
-
-`lv2info` reports the plugin's ports, but not its parameters: JUCE 9 exposes plugin
-parameters through the LV2 patch extension rather than as control ports, and `lv2info`
-does not walk those. To see the 64 slots, read the generated manifest directly:
-
-```sh
-grep -A5 'plug:p00' build/valis_plugin_artefacts/Debug/LV2/Valis.lv2/dsp.ttl
-```
-
-Use `build-release/valis_plugin_artefacts/Release/LV2` for the release bundle.
-
-### The MCP server
-
-Enable it from **Settings → MCP Server** inside the plugin. The server binds to
-loopback only. Check it is up:
+Turn on the MCP server under **Settings, MCP Server** in the plugin. It binds to loopback only. To check it's up:
 
 ```sh
 curl -s localhost:7676/mcp -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-`VALIS_MCP_PORT` (default 7676) and `VALIS_MCP_TOKEN` (default none) configure
-the port and bearer token at startup. See [`docs/manual/mcp.md`](docs/manual/mcp.md).
+`VALIS_MCP_PORT` (default 7676) and `VALIS_MCP_TOKEN` (default none) set the port and bearer token at startup. Several instances in
+one host take the next free port. See [`docs/manual/mcp.md`](docs/manual/mcp.md).
 
-### Regenerating the docs
+`docs/manual/elements.md` is generated from the ontology, so it can't drift from what the plugin offers. Regenerate it with
+`./scripts/generate-docs.sh`. The two catalogue pages are generated too, by `scripts/catalogue.py`.
 
-`docs/manual/elements.md` is generated from `vocabs/valis.ttl`, so it cannot
-drift from what the plugin offers:
+## Checking a sound without ears
 
-```sh
-./scripts/generate-docs.sh
-```
+`valis-shot` measures a rendered sound for a caller that can't hear it. `measure` reports loudness (LUFS, loudness range, true peak),
+attack and decay times and the spectrum, and `compare` gives the distance in dB between two renders. `listen`, built with
+`-DVALIS_WITH_ONNX=ON`, runs two neural models locally through [ONNX Runtime](https://onnxruntime.ai) to label a sound and score how
+well sentences describe it. It's a work in progress: the interfaces and output will change, and nothing is calibrated against
+listening yet. See [`docs/shot.md`](docs/shot.md).
 
-### Listening tools: `valis-shot` (work in progress)
-
-`valis-shot` gives a caller that cannot hear measurements of a rendered sound in place of ears. `measure` reports
-loudness (LUFS, loudness range, true peak), attack and decay times and the spectrum; `compare` gives the distance in
-dB between two renders; and `listen`, built with `-DVALIS_WITH_ONNX=ON`, runs two neural models locally through
-[ONNX Runtime](https://onnxruntime.ai) to label a sound and to score how well sentences describe it. The code is in
-`src/shot/`. This is a work in progress: the interfaces and the output will change, and nothing here has been
-calibrated against listening. See [`docs/shot.md`](docs/shot.md) for what is done and what is not.
-
-The ideas come from [earshot](https://github.com/Leonxlnx/earshot) by Leon Lin (MIT licence), "ears for coding
-agents", which `src/shot/` ports to C++. The neural models are CLAP by [LAION](https://github.com/LAION-AI/CLAP) and
-the [Audio Spectrogram Transformer](https://arxiv.org/abs/2104.01778) by Gong, Chung and Glass. Their weights are
-not in this repository; `scripts/shot/fetch-models.sh` downloads them on request.
-
-## Requirements
-
-- CMake 3.22 or newer, and a C and C++20 compiler. JUCE refuses to configure unless
-  C is among the project languages, so a C compiler is not optional.
-- JUCE 9.0.1, added by `add_subdirectory`. `VALIS_JUCE_DIR` sets the path and defaults
-  to `~/github/JUCE`. Clone it once before building:
-
-  ```sh
-  git clone --depth 1 --branch 9.0.1 https://github.com/juce-framework/JUCE ~/github/JUCE
-  ```
-
-On Debian or Ubuntu, with `JUCE_WEB_BROWSER=0` and `JUCE_USE_CURL=0` set by the build
-(so neither WebKit nor libcurl is needed):
-
-```sh
-sudo apt install \
-  build-essential cmake ninja-build pkg-config \
-  libasound2-dev libjack-jackd2-dev \
-  libfreetype-dev libfontconfig1-dev \
-  libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
-  libxinerama-dev libxrandr-dev libxrender-dev libxi-dev
-```
-
-serd and sord are fetched and compiled from source by `cmake/FindOrFetchSerd.cmake`
-unless a system package of serd ≥ 0.32.0 is already present (the `SerdError` struct
-layout changed in 0.32.0; older system packages cause a SEGFAULT in the error
-callback). Either way the build works with no action.
-
-`lv2ls` and `lv2info` come from `lilv-utils` and are needed only for the LV2
-verification above.
+The ideas come from [earshot](https://github.com/Leonxlnx/earshot) by Leon Lin (MIT licence), which `src/shot/` ports to C++. The
+models are CLAP by [LAION](https://github.com/LAION-AI/CLAP) and the
+[Audio Spectrogram Transformer](https://arxiv.org/abs/2104.01778) by Gong, Chung and Glass. Their weights aren't in this
+repository. `scripts/shot/fetch-models.sh` downloads them when you ask.
 
 ## Licence
 
-Any parts of this repository involving JUCE are [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html) - see [`LICENSE`](LICENSE). Note that JUCE 9 is AGPLv3-or-commercial. A distributed binary that links JUCE under the AGPL obliges AGPL for the combined work. But the .ttl and other such descriptive files stand apart from this and are licensed as MIT. Derivative works that do not use the JUCE components may be considered under the latter license.
+Anything that involves JUCE is [AGPL](https://www.gnu.org/licenses/agpl-3.0.en.html), see [`LICENSE`](LICENSE). JUCE 9 is
+AGPLv3-or-commercial, so a distributed binary that links JUCE under the AGPL must be AGPL as a whole. The `.ttl` and other
+descriptive files stand apart from that and are MIT licensed. Derivative works that don't use the JUCE components may be considered
+under the MIT licence.
