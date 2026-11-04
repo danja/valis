@@ -16,6 +16,16 @@
   mixed (v1, -10.5 LUFS, 170 bpm measured, true peak -1 dBTP; measured, not heard). Needs a listener: the kick against the bass, the
   hoover against the marimba (the figure is G3 to G4, the tune G4 to F6), the risers and whether the three drops hit. Not done:
   a vocal or sample hook; the `valis-song reaper --midi` project for it; a second version at 175 to 180 bpm.
+* **Big Pickle** (driving techno, the year 2000's view of the future; `valis-artifacts/artifacts/big-pickle/`, built by
+  `scripts/big-pickle/make.py`): built, rendered and mixed (v5, -10.0 LUFS, loudness range 8.1 LU, true peak -1.6 dBTP, no
+  clipped samples; measured, not heard). Five circuits written for it (`y2k-kick`, `y2k-bass`, `y2k-lead`, `y2k-bleep`,
+  `y2k-riser`) and two adapted (`y2k-stab` from `prophet-5.ttl`, `y2k-pad` from `quadra-strings.ttl`). Needs a listener:
+  whether the riser (at -28 dB, about 14 dB under the kick across a build) builds or only hisses, whether the pad bed is far
+  enough forward at -28.5 dB, whether break 2 holds with no kick and no bass for eight bars, whether the hook at MIDI 96 is
+  piercing, and whether the kick at master drive 1.5 is hard enough. Not done: a Reaper project; a wide pad. Every instrument
+  stem is mono (correlation 1.000), so the mix's width comes only from pan and the returns (0.950 overall, against 0.982 for
+  "Street Hammer"). Splitting the pad into two detuned halves panned apart is the obvious next step, and needs a circuit that
+  lets one half take the sharp detune and the other the flat.
 * **909 rim shot, found while checking the kit (31 October 2026, measured, not heard).** The rim shot's spectral centroid is 12.5 kHz
   (a real one is mostly 1 to 3 kHz); not looked at. Every drum now holds its hit's velocity with `val:SampleHold` and scales its level
   by it (`tests/engine/Tr909VelocityTest.cpp`). At full velocity the bass drum (gain +11) peaks at 0.63 and the snare at 0.61; the clap

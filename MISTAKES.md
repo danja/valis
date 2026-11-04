@@ -142,3 +142,17 @@ sounding samples are above 0.5. The lead is not leaning on the limiter; the ceil
 **Root cause.** A peak equal to a ceiling was read as a limiter at work, without looking at how many samples were near it.
 
 **Prevention.** Say a stem is limited only after counting the samples above, say, 0.85 of full scale. Both notes were corrected.
+
+## A pattern declared longer than its notes
+
+**What happened.** The lead of "Big Pickle" (4 November 2026) was written as an eight-bar hook, but the notes only filled four bars.
+The pattern declared `val:bars 8`, so it restarted every eight bars and the last four bars of every phrase were rests: the lead played
+a four-bar tune, stopped for four bars, and played it again a fifth higher each time the progression turned. It was not silent, so
+nothing in the render failed.
+
+**Root cause.** The melodic table was written for a four-bar phrase and the pattern was still declared as eight. `valis-song stems`
+printed the per-bar rms, which showed bars 53 to 56 silent while the pattern was playing, and the MIDI ticks confirmed the gaps.
+
+**Prevention.** A pattern's `val:bars` must be the length of the material it holds, not the length of the section phrase it is played
+in; a long phrase is made by a longer table, or by `val:every` with a shorter pattern. After scoring, read the per-bar rms of every
+part across one cycle of its longest pattern: a bar with notes and no sound is a fault (`stems` reports it, and prints the bars).
