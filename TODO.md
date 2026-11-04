@@ -24,7 +24,13 @@
   build) builds or only hisses, whether the pad bed is far enough forward at -28.5 dB (about 3 dB louder in stereo than in
   v5), whether break 2 holds with no kick and no bass for eight bars, whether the hook at MIDI 96 is piercing, and whether
   the kick at master drive 1.5 is hard enough. Not done: a Reaper project; widening the stab or lead.
-* **909 rim shot, found while checking the kit (31 October 2026, measured, not heard).** The rim shot's spectral centroid is 12.5 kHz
+* **Asturias Industrial** (industrial dubstep on Albéniz's "Asturias (Leyenda)"; `valis-artifacts/artifacts/asturias-industrial/`, built by
+  `scripts/asturias-industrial/make.py`): built, rendered and mixed (v9, -10.0 LUFS, loudness range 9.1 LU, true peak -3.8 dBTP, no
+  clipped samples; measured, not heard). Ten circuits reused from the Valis examples. Needs a listener: whether the Asturias
+  arpeggio reads as the original or as a generic top-note line, whether the wobble bass is heavy enough, whether the break holds
+  with no kick and no bass for eight bars, whether the metal clang fights the kick, and whether the nylon guitar is audible.
+  Not done: a Reaper project. All instrument stems are mono (correlation 1.000), so the mix's width comes only from pan and the
+  returns (0.966 overall).
   (a real one is mostly 1 to 3 kHz); not looked at. Every drum now holds its hit's velocity with `val:SampleHold` and scales its level
   by it (`tests/engine/Tr909VelocityTest.cpp`). At full velocity the bass drum (gain +11) peaks at 0.63 and the snare at 0.61; the clap
   (gain -2) at 0.19. Other circuits driven by `NoteGate` (`latin-perc.ttl`, `halloween-drums-*.ttl`) were checked; only the 909 had the fault.
