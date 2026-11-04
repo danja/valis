@@ -601,6 +601,60 @@ void testVoicesStampOutTheDefinitionAndSumIt()
                         "urn:valis:t#poly/" + std::to_string(voice) + "/sg", "in"));
 }
 
+/// A voice may have two audio outputs, and each is summed on its own bus: this is how a polyphonic
+/// pad is made stereo. Summing both sides into one mixer would silently collapse it to mono.
+void testVoicesSumEachOutputSeparately()
+{
+    auto r = run(doc(R"(
+:Stereo a val:Subcircuit ;
+    rdfs:label "Stereo" ;
+    lv2:port [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "left" ;
+               val:node :lg ; val:port "out" ] ,
+             [ a lv2:OutputPort , lv2:AudioPort ; lv2:symbol "right" ;
+               val:node :rg ; val:port "out" ] ;
+    val:element :lg , :rg ;
+    val:arc :none .
+:lg a val:Gain ; val:gain -12.0 .
+:rg a val:Gain ; val:gain -18.0 .
+
+:c a val:Circuit ; val:element :poly , :mix , :out ; val:arc :a1 , :a2 , :a3 , :a4 .
+:poly a :Stereo ; val:voices 2 .
+:mix a val:Mixer .
+:out a val:Output .
+:a1 a val:Arc ; val:from [ val:node :poly ; val:port "left" ] ;
+                val:to   [ val:node :mix ; val:port "left" ] .
+:a2 a val:Arc ; val:from [ val:node :poly ; val:port "right" ] ;
+                val:to   [ val:node :mix ; val:port "right" ] .
+:a3 a val:Arc ; val:from [ val:node :mix ; val:port "left" ] ;
+                val:to   [ val:node :out ; val:port "left" ] .
+:a4 a val:Arc ; val:from [ val:node :mix ; val:port "right" ] ;
+                val:to   [ val:node :out ; val:port "right" ] .
+)"));
+
+    if (! r.compiledOk) r.dump();
+    assert(r.built && r.compiledOk);
+
+    // One summing mixer per output port, named after the port.
+    const auto* left  = r.element("urn:valis:t#poly/sum/left");
+    const auto* right = r.element("urn:valis:t#poly/sum/right");
+    assert(left != nullptr && right != nullptr);
+    assert(left->typeIri == vocab::valTerm("Mixer"));
+    assert(right->typeIri == vocab::valTerm("Mixer"));
+
+    // Each voice's side reaches the mixer for that side and not the other.
+    for (int voice = 0; voice < 2; ++voice)
+    {
+        const auto prefix = "urn:valis:t#poly/" + std::to_string(voice) + "/";
+        assert(r.hasArc(prefix + "lg", "out", "urn:valis:t#poly/sum/left", "in"));
+        assert(r.hasArc(prefix + "rg", "out", "urn:valis:t#poly/sum/right", "in"));
+        assert(! r.hasArc(prefix + "lg", "out", "urn:valis:t#poly/sum/right", "in"));
+        assert(! r.hasArc(prefix + "rg", "out", "urn:valis:t#poly/sum/left", "in"));
+    }
+
+    assert(r.hasArc("urn:valis:t#poly/sum/left", "out", "urn:valis:t#mix", "left"));
+    assert(r.hasArc("urn:valis:t#poly/sum/right", "out", "urn:valis:t#mix", "right"));
+}
+
 void testVoicesShareTheirDeclaredValues()
 {
     auto r = run(doc(std::string(kStage) + R"(
@@ -790,6 +844,7 @@ int main()
     testAnOptionOnAForeignElementIsReported();
 
     testVoicesStampOutTheDefinitionAndSumIt();
+    testVoicesSumEachOutputSeparately();
     testVoicesShareTheirDeclaredValues();
     testVoiceCountIsBounded();
     testPolyphonicControlOutputIsRejected();
