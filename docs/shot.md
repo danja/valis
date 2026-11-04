@@ -3,6 +3,9 @@
 `valis-shot` measures a sound file. Use it when you cannot listen, or want a number to compare. It is a port of ideas
 from [earshot](https://github.com/Leonxlnx/earshot), written in C++ under `src/shot/`. It is a work in progress.
 
+This page covers the command itself. [Measuring a sound](measuring.md) is the overview of every measurement Valis
+offers, and where `valis-shot` sits among the tools.
+
 Everything it reports is **measured, not heard**. A number or a model can say a sound is odd. It cannot say a sound is good.
 
 ## The four questions

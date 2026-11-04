@@ -24,7 +24,8 @@ can read, edit and hand to a language model.
 - [The standalone app](standalone.md) : running Valis without a DAW, and driving it from an agent
 - [valis-render](render.md) : rendering a circuit or a MIDI part to a wav, with every option
 - [Songs as data](../songs.md) : a `val:Song` file, and rendering and mixing it with `valis-song`
-- [Measuring a sound](../shot.md) : `valis-shot`, loudness, comparison and neural listening in place of listening
+- [Measuring a sound](../measuring.md) : what is measured, and the tools that measure it, including `valis-shot`
+- [valis-shot](../shot.md) : the command, its fields, its limits and its neural models
 - [Building](building.md) : prerequisites and the build
 - [Guide for agents](guide-for-agents.md) : how to build instruments and processors via MCP
 
@@ -41,6 +42,7 @@ can read, edit and hand to a language model.
 - [A 1983-style track](../new-order-track.md) : researching a record's machines, modelling them as circuits, and writing an original piece with them
 - [Making a song with Valis](../halloween-process.md) : MIDI, offline stems, a mix, and Reaper
 - [Making a track, from circuits to Reaper](../making-a-track.md) : the current route, step by step, with the faults met on the way
+- [From a prompt to a rendered mix](../song-workflow.md) : the working process, from the request to a mixed file
 
 ### See Also
 

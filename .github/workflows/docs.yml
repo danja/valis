@@ -90,7 +90,7 @@ jobs:
           }
           CSS
 
-          for src in docs/manual/*.md docs/skream.md docs/guide-for-agents.md docs/features.md docs/examples.md docs/new-order-track.md docs/halloween-process.md docs/songs.md docs/shot.md; do
+          for src in docs/manual/*.md docs/skream.md docs/guide-for-agents.md docs/features.md docs/examples.md docs/new-order-track.md docs/halloween-process.md docs/songs.md docs/shot.md docs/measuring.md docs/song-workflow.md; do
             name=$(basename "$src" .md)
             out="_site/$name.html"
             title=$(head -1 "$src" | sed 's/^#* *//')
@@ -107,6 +107,7 @@ jobs:
               echo ' · <a href="element-catalogue.html">Element catalogue</a>'
               echo ' · <a href="elements.html">Elements</a> · <a href="mcp.html">MCP</a>'
               echo ' · <a href="standalone.html">Standalone</a>'
+              echo ' · <a href="measuring.html">Measuring</a> · <a href="song-workflow.html">Song workflow</a>'
               echo ' · <a href="building.html">Building</a> · <a href="skream.html">Skream</a>'
               echo ' · <a href="https://github.com/danja/valis">GitHub</a></nav>'
               cat /tmp/body.html

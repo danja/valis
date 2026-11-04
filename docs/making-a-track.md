@@ -5,6 +5,9 @@ This is the whole route from an idea to a track open in [Reaper](https://www.rea
 check before moving on. The vocabulary of the song and score files is in [songs.md](songs.md), and the `write-a-song` skill
 is the short version of this page. Everything here is measured and not heard, and any report should say so.
 
+[From a prompt to a rendered mix](song-workflow.md) is the same work seen as a process, from reading the request to
+delivering the mix. Read that first when the job starts with a prompt rather than with a set of circuits.
+
 The route is:
 
 1. Plan the track as numbers.
