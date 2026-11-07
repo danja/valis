@@ -70,6 +70,11 @@ struct CompiledCircuit
     /// engine keeps note state for exactly this many.
     int numVoices = 0;
 
+    /// True when the circuit contains a val:NoteOut, i.e. it actively drives
+    /// MIDI output. When false, the plugin passes incoming MIDI through
+    /// unchanged instead of replacing it with generated events.
+    bool hasMidiOutput = false;
+
     /// Sized by the compiler; the engine allocates exactly this much.
     int numBuffers      = 0;
     int numControlSlots = 0;

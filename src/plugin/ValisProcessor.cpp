@@ -279,6 +279,10 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (const int note = pendingNoteOff.exchange(-1, std::memory_order_acquire); note >= 0)
         engine.noteOff(note);
 
+    // Keep a copy of what the host sent, so a circuit that does not drive MIDI
+    // output can pass it through unchanged at the end of the block.
+    const juce::MidiBuffer incomingMidi = midi;
+
     // Each event carries its position within the block, so the engine can cut
     // a slice there and start the note on the sample the host sent it on.
     for (const auto metadata : midi)
@@ -360,21 +364,29 @@ void ValisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     for (int c = 2; c < numOut; ++c)
         juce::FloatVectorOperations::copy(buffer.getWritePointer(c), left, numSamples);
 
-    // Whatever is in the buffer on return is what the host sends on, so the
-    // events the circuit produced replace the ones it was given rather than
-    // being added to them. A circuit with no val:NoteOut emits nothing and the
-    // buffer simply comes back empty.
+    // Whatever is in the buffer on return is what the host sends on. A circuit
+    // with a val:NoteOut replaces the input with the events it generates; any
+    // other circuit passes the incoming MIDI through unchanged, so a plain audio
+    // circuit does not swallow the host's MIDI.
     midi.clear();
 
-    for (int i = 0; i < engine.outputEventCount(); ++i)
+    if (engine.hasMidiOutput())
     {
-        const auto& event = engine.outputEvent(i);
-        const int at = juce::jlimit(0, numSamples - 1, event.sampleOffset);
+        for (int i = 0; i < engine.outputEventCount(); ++i)
+        {
+            const auto& event = engine.outputEvent(i);
+            const int at = juce::jlimit(0, numSamples - 1, event.sampleOffset);
 
-        midi.addEvent(event.noteOn
-                          ? juce::MidiMessage::noteOn(event.channel, event.note, event.velocity)
-                          : juce::MidiMessage::noteOff(event.channel, event.note),
-                      at);
+            midi.addEvent(event.noteOn
+                              ? juce::MidiMessage::noteOn(event.channel, event.note, event.velocity)
+                              : juce::MidiMessage::noteOff(event.channel, event.note),
+                          at);
+        }
+    }
+    else
+    {
+        for (const auto metadata : incomingMidi)
+            midi.addEvent(metadata.getMessage(), metadata.samplePosition);
     }
 }
 

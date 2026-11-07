@@ -95,7 +95,10 @@ public:
 
     const juce::String getName() const override { return "Valis"; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    // The plugin always forwards MIDI: a circuit with a val:NoteOut replaces the
+    // input with the events it generates, and any other circuit passes the input
+    // through unchanged, so the host can treat it as a MIDI producer.
+    bool producesMidi() const override { return true; }
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 

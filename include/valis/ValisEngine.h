@@ -102,6 +102,15 @@ public:
     /// Message thread. True once a circuit is installed.
     bool hasCircuit() const { return active.load(std::memory_order_acquire) != nullptr; }
 
+    /// True when the installed circuit contains a val:NoteOut, i.e. it actively
+    /// drives MIDI output. Safe to call on the audio thread too: the compiled
+    /// circuit is immutable once installed.
+    bool hasMidiOutput() const
+    {
+        const Graph* g = active.load(std::memory_order_acquire);
+        return g != nullptr && g->circuit.hasMidiOutput;
+    }
+
     /// Message thread. What an element of the installed circuit reported through
     /// DspElement::status() when it loaded, or empty. A circuit with such a
     /// note has still loaded.

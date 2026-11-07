@@ -367,6 +367,10 @@ bool CircuitCompiler::compile(const CircuitModel& model,
         if (elements[i].type != nullptr && elements[i].type->implementation == "Input")
             out.inputNodes.push_back(positionOf[i]);
 
+    for (const auto& n : out.nodes)
+        if (n.implementation == "NoteOut")
+            out.hasMidiOutput = true;
+
     // -- buffers ------------------------------------------------------------
     //
     // One buffer per audio output port, plus one scratch buffer per summed
